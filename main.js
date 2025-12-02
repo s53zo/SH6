@@ -246,9 +246,9 @@
         sum += d;
         if (min == null || d < min) min = d;
         if (max == null || d > max) max = d;
-        const bucket = Math.floor(d / 1000) * 1000;
-        histogram.set(bucket, (histogram.get(bucket) || 0) + 1);
-      },
+      const bucket = Math.floor(d / 1000) * 1000;
+      histogram.set(bucket, (histogram.get(bucket) || 0) + 1);
+    },
       export() {
         const buckets = Array.from(histogram.entries()).sort((a, b) => a[0] - b[0]).map(([start, c]) => ({
           range: `${start}-${start + 999}`,
@@ -331,13 +331,17 @@
 
   function parseCbf(text) {
     // Basic CBF parser: expects columns separated by semicolons or commas or tabs.
-    // Typical fields: DATE, TIME, CALL, BAND, MODE, FREQ, RST_SENT, RST_RCVD, EXCH_SENT, EXCH_RCVD, OPERATOR, GRIDSQUARE, CQZ, ITUZ
+    // Typical fields (up to): DATE, TIME, CALL, BAND/FREQ, MODE, RST_SENT, RST_RCVD, EXCH_SENT, EXCH_RCVD, OPERATOR, GRIDSQUARE, CQZ, ITUZ
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0 && !l.startsWith(';'));
     const qsos = [];
     for (const line of lines) {
-      const parts = line.split(/[\t;,]+/).map((p) => p.trim());
+      // Handle comma decimal separators by replacing ',' in numbers before splitting; keep delimiter splitting on semicolon/tab.
+      const cleaned = line.replace(/(\d),(?=\d)/g, '$1.');
+      const parts = cleaned.split(/[\t;]+/).map((p) => p.trim());
       if (parts.length < 5) continue;
-      const [date, time, call, bandOrFreq, mode, rstSent, rstRcvd, exchSent, exchRcvd, operator, grid, cqz, ituz] = parts;
+      // If still too many tokens, try comma as delimiter fallback
+      const fields = parts.length >= 5 ? parts : line.split(',').map((p) => p.trim());
+      const [date, time, call, bandOrFreq, mode, rstSent, rstRcvd, exchSent, exchRcvd, operator, grid, cqz, ituz] = fields;
       let band = bandOrFreq;
       let freq = parseFloat(bandOrFreq);
       if (!Number.isFinite(freq)) freq = null;
@@ -575,6 +579,7 @@
     const cqZones = new Map();
     const hours = new Map(); // hour bucket (UTC) -> stats
     const minutes = new Map(); // minute bucket (UTC) -> stats
+    const tenMinutes = new Map(); // 10-minute buckets
     const prefixes = new Map();
     const callsignLengths = new Map();
     const notInMasterCalls = new Map(); // call -> {qsos, firstTs, lastTs}
@@ -681,6 +686,10 @@
         }
         minutes.get(minuteBucket).qsos += 1;
 
+        const tenBucket = Math.floor(q.ts / (60000 * 10));
+        if (!tenMinutes.has(tenBucket)) tenMinutes.set(tenBucket, { qsos: 0 });
+        tenMinutes.get(tenBucket).qsos += 1;
+
         // Countries by time (overall + per band)
         if (q.country) {
           if (!hoursCountries.has(hourBucket)) hoursCountries.set(hourBucket, new Map());
@@ -772,6 +781,9 @@
       if (!prefix) {
         possibleErrors.push({ reason: 'Prefix not found in cty.dat', q });
       }
+      if (q.ts == null) {
+        possibleErrors.push({ reason: 'Invalid/missing time', q });
+      }
     });
 
     const bandSummary = [];
@@ -841,6 +853,11 @@
       qsos: v.qsos
     }));
 
+    const tenMinuteSeries = Array.from(tenMinutes.entries()).sort((a, b) => a[0] - b[0]).map(([bucket, v]) => ({
+      bucket,
+      qsos: v.qsos
+    }));
+
     // Prefix summary
     const prefixSummary = [];
     prefixes.forEach((v, k) => {
@@ -901,6 +918,7 @@
       ituZoneSummary,
       hourSeries,
       minuteSeries,
+      tenMinuteSeries,
       prefixSummary,
       callsignLengthSummary,
       notInMasterList,
@@ -1157,8 +1175,21 @@
       }
     });
     const peakLabel = peakHour != null ? new Date(peakHour * 3600000).toISOString().slice(0, 13).replace('T', ' ') : 'N/A';
+    // 10-minute peak
+    let peak10 = 0;
+    let peak10Bucket = null;
+    if (state.derived.tenMinuteSeries) {
+      state.derived.tenMinuteSeries.forEach((b) => {
+        if (b.qsos > peak10) {
+          peak10 = b.qsos;
+          peak10Bucket = b.bucket;
+        }
+      });
+    }
+    const peak10Label = peak10Bucket != null ? new Date(peak10Bucket * 600000).toISOString().slice(0, 16).replace('T', ' ') : 'N/A';
     return `
       <p>Highest hourly rate: <strong>${peak}</strong> QSOs at ${peakLabel} UTC.</p>
+      <p>Highest 10-minute rate: <strong>${peak10}</strong> QSOs at ${peak10Label} UTC.</p>
       ${renderQsByHourSheet()}
     `;
   }
@@ -1381,6 +1412,7 @@
     const coverage = `${state.derived.fieldsSummary.length} fields`;
     return `
       <p>Fields coverage: ${coverage}</p>
+      ${renderBars(state.derived.fieldsSummary, 'field', 'count')}
       <table>
         <tr><th>Field</th><th>QSOs</th></tr>
         ${rows}

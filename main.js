@@ -594,6 +594,7 @@
   function parseCtyDat(text) {
     // Parses cty.dat into array of prefix objects for quick lookups.
     // cty.dat format: country:...:tz, prefix1,prefix2,...;aliases with entries spanning multiple lines ending in ';'
+    if (!text || /<html|<body/i.test(text)) return [];
     const lines = text.split(/\r?\n/);
     const entries = [];
     const parseToken = (tok, base) => {
@@ -618,33 +619,34 @@
       const line = rawLine.trim();
       if (!line || line.startsWith('#')) continue;
       buffer += (buffer ? ' ' : '') + line;
-      if (!line.endsWith(';')) continue; // entry continues
-
-      // Process accumulated entry (strip trailing semicolon)
-      const entryLine = buffer.replace(/;+\s*$/, '');
-      buffer = '';
-      const parts = entryLine.split(',');
-      if (parts.length < 2) continue;
-      const countryPart = parts[0];
-      const remainder = parts.slice(1).join(',');
-      const countryFields = countryPart.split(':');
-      if (countryFields.length < 7) continue;
-      const [name, cqZone, ituZone, continent, lat, lon, tz] = countryFields;
-      // Only take the prefix list before any semicolon (which starts the country modifier section)
-      const prefixBlock = remainder.split(';')[0];
-      const prefixes = prefixBlock.split(/[\s,]+/).filter(Boolean);
-      const base = {
-        country: name,
-        cqZone: parseInt(cqZone, 10) || null,
-        ituZone: parseInt(ituZone, 10) || null,
-        continent: continent || null,
-        lat: parseFloat(lat) || null,
-        lon: parseFloat(lon) || null,
-        tz: parseFloat(tz) || null
-      };
-      for (const p of prefixes) {
-        const parsed = parseToken(p.trim(), base);
-        if (parsed) entries.push(parsed);
+      while (buffer.includes(';')) {
+        const [entryChunk, rest] = buffer.split(/;\s*/, 2);
+        buffer = rest || '';
+        const entryLine = entryChunk.trim();
+        if (!entryLine) continue;
+        const parts = entryLine.split(',');
+        if (parts.length < 2) continue;
+        const countryPart = parts[0];
+        const remainder = parts.slice(1).join(',');
+        const countryFields = countryPart.split(':');
+        if (countryFields.length < 7) continue;
+        const [name, cqZone, ituZone, continent, lat, lon, tz] = countryFields;
+        // Only take the prefix list before any semicolon (which starts the country modifier section)
+        const prefixBlock = remainder.split(';')[0];
+        const prefixes = prefixBlock.split(/[\s,]+/).filter(Boolean);
+        const base = {
+          country: name,
+          cqZone: parseInt(cqZone, 10) || null,
+          ituZone: parseInt(ituZone, 10) || null,
+          continent: continent || null,
+          lat: parseFloat(lat) || null,
+          lon: parseFloat(lon) || null,
+          tz: parseFloat(tz) || null
+        };
+        for (const p of prefixes) {
+          const parsed = parseToken(p.trim(), base);
+          if (parsed) entries.push(parsed);
+        }
       }
     }
     // Sort by exact first, then prefix length descending for longest-match lookups.

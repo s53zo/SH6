@@ -545,8 +545,17 @@
       state.ctySource = res.url;
       state.ctyDat = text;
       if (text) {
-        state.ctyTable = parseCtyDat(text);
-        recomputeDerived('cty');
+        const table = parseCtyDat(text);
+        if (table && table.length > 0) {
+          state.ctyTable = table;
+          state.ctyError = null;
+          state.ctyStatus = 'ok';
+          recomputeDerived('cty');
+        } else {
+          state.ctyTable = null;
+          state.ctyError = 'Parsed 0 prefixes from cty.dat';
+          state.ctyStatus = 'error';
+        }
       }
       updateDataStatus();
     });
@@ -566,8 +575,17 @@
       state.masterSource = res.url;
       state.masterDta = text;
       if (text) {
-        state.masterSet = parseMasterDta(text);
-        recomputeDerived('master');
+        const set = parseMasterDta(text);
+        if (set && set.size > 0) {
+          state.masterSet = set;
+          state.masterError = null;
+          state.masterStatus = 'ok';
+          recomputeDerived('master');
+        } else {
+          state.masterSet = null;
+          state.masterError = 'Parsed 0 calls from MASTER.DTA';
+          state.masterStatus = 'error';
+        }
       }
       updateDataStatus();
     });
@@ -1131,6 +1149,8 @@
 
   function renderLog() {
     if (!state.qsoData) return renderPlaceholder({ id: 'log', title: 'Log' });
+    const ctyLoaded = state.ctyTable && state.ctyTable.length > 0;
+    const masterLoaded = state.masterSet && state.masterSet.size > 0;
     const start = state.logPage * state.logPageSize;
     const end = start + state.logPageSize;
     const rows = state.qsoData.qsos.slice(start, end).map((q) => `
@@ -1152,8 +1172,10 @@
     `).join('');
     const totalPages = Math.ceil(state.qsoData.qsos.length / state.logPageSize);
     const note = `<p>Showing ${start + 1}-${Math.min(end, state.qsoData.qsos.length)} of ${state.qsoData.qsos.length} QSOs (page ${state.logPage + 1} / ${totalPages}).</p>`;
+    const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     return `
       ${note}
+      ${dataNote}
       <div>
         <button id="logPrev" ${state.logPage === 0 ? 'disabled' : ''}>Prev</button>
         <button id="logNext" ${state.logPage >= totalPages - 1 ? 'disabled' : ''}>Next</button>

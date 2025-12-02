@@ -50,6 +50,16 @@
     { id: 'sh5_info', title: 'App info' }
   ];
 
+  const APP_VERSION = 'v0.5.9';
+  const CTY_URLS = [
+    'https://www.country-files.com/cty/cty.dat',
+    'https://cors.isomorphic-git.org/https://www.country-files.com/cty/cty.dat'
+  ];
+  const MASTER_URLS = [
+    'https://www.supercheckpartial.com/MASTER.DTA',
+    'https://cors.isomorphic-git.org/https://www.supercheckpartial.com/MASTER.DTA'
+  ];
+
   const state = {
     activeIndex: 0,
     logFile: null,
@@ -64,10 +74,10 @@
     ctyStatus: 'pending',
     masterStatus: 'pending',
     ctyError: null,
-    masterError: null
+    masterError: null,
+    ctySource: null,
+    masterSource: null
   };
-
-  const APP_VERSION = 'v0.5.9';
 
   const dom = {
     navList: document.getElementById('navList'),
@@ -447,8 +457,10 @@
   function updateDataStatus() {
     const ctyErr = state.ctyError ? ` (${state.ctyError})` : '';
     const masterErr = state.masterError ? ` (${state.masterError})` : '';
-    dom.ctyStatus.textContent = `${state.ctyStatus}${ctyErr}`;
-    dom.masterStatus.textContent = `${state.masterStatus}${masterErr}`;
+    const ctySrc = state.ctySource ? ` [${state.ctySource}]` : '';
+    const masterSrc = state.masterSource ? ` [${state.masterSource}]` : '';
+    dom.ctyStatus.textContent = `${state.ctyStatus}${ctyErr}${ctySrc}`;
+    dom.masterStatus.textContent = `${state.masterStatus}${masterErr}${masterSrc}`;
   }
 
   function setupFileInput() {
@@ -481,6 +493,19 @@
     }
   }
 
+  async function fetchWithFallback(urls, onStatus) {
+    let lastError = null;
+    for (const url of urls) {
+      const res = await fetchResource(url, (status) => onStatus(status, url));
+      if (res && typeof res === 'object' && res.error) {
+        lastError = res.error;
+        continue;
+      }
+      return { text: res, url };
+    }
+    return { error: lastError || 'All sources failed' };
+  }
+
   function handleFetchResult(res, target) {
     if (res && typeof res === 'object' && res.error) {
       state[target + 'Error'] = res.error;
@@ -491,22 +516,38 @@
   }
 
   function initDataFetches() {
-    fetchResource('https://www.country-files.com/cty/cty.dat', (status) => {
+    fetchWithFallback(CTY_URLS, (status, url) => {
       state.ctyStatus = status;
+      if (status === 'error') state.ctySource = url;
       updateDataStatus();
     }).then((res) => {
-      const text = handleFetchResult(res, 'cty');
+      if (res.error) {
+        state.ctyError = res.error;
+        updateDataStatus();
+        return;
+      }
+      const text = handleFetchResult(res.text, 'cty');
+      state.ctySource = res.url;
       state.ctyDat = text;
       if (text) state.ctyTable = parseCtyDat(text);
+      updateDataStatus();
     });
 
-    fetchResource('https://www.supercheckpartial.com/MASTER.DTA', (status) => {
+    fetchWithFallback(MASTER_URLS, (status, url) => {
       state.masterStatus = status;
+      if (status === 'error') state.masterSource = url;
       updateDataStatus();
     }).then((res) => {
-      const text = handleFetchResult(res, 'master');
+      if (res.error) {
+        state.masterError = res.error;
+        updateDataStatus();
+        return;
+      }
+      const text = handleFetchResult(res.text, 'master');
+      state.masterSource = res.url;
       state.masterDta = text;
       if (text) state.masterSet = parseMasterDta(text);
+      updateDataStatus();
     });
   }
 

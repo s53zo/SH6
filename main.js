@@ -52,12 +52,12 @@
 
   const APP_VERSION = 'v0.5.9';
   const CTY_URLS = [
-    'https://www.country-files.com/cty/cty.dat',
-    'https://cors.isomorphic-git.org/https://www.country-files.com/cty/cty.dat'
+    'cty.dat', // same-origin copy if present
+    'https://www.country-files.com/cty/cty.dat'
   ];
   const MASTER_URLS = [
-    'https://www.supercheckpartial.com/MASTER.DTA',
-    'https://cors.isomorphic-git.org/https://www.supercheckpartial.com/MASTER.DTA'
+    'MASTER.DTA', // same-origin copy if present
+    'https://www.supercheckpartial.com/MASTER.DTA'
   ];
 
   const state = {
@@ -89,7 +89,9 @@
     nextBtn: document.getElementById('nextBtn'),
     ctyStatus: document.getElementById('ctyStatus'),
     masterStatus: document.getElementById('masterStatus'),
-    appVersion: document.getElementById('appVersion')
+    appVersion: document.getElementById('appVersion'),
+    ctyFileInput: document.getElementById('ctyFileInput'),
+    masterFileInput: document.getElementById('masterFileInput')
   };
 
   const renderers = {};
@@ -478,6 +480,41 @@
     });
   }
 
+  function setupDataFileInputs() {
+    const handleLocalFile = async (file, target) => {
+      if (!file) return;
+      const text = await file.text();
+      const sourceLabel = `local:${file.name}`;
+      if (target === 'cty') {
+        state.ctyStatus = 'ok';
+        state.ctyError = null;
+        state.ctySource = sourceLabel;
+        state.ctyDat = text;
+        state.ctyTable = parseCtyDat(text);
+      } else {
+        state.masterStatus = 'ok';
+        state.masterError = null;
+        state.masterSource = sourceLabel;
+        state.masterDta = text;
+        state.masterSet = parseMasterDta(text);
+      }
+      updateDataStatus();
+      if (state.qsoData) {
+        state.derived = buildDerived(state.qsoData.qsos);
+        setActiveReport(state.activeIndex);
+      }
+    };
+
+    dom.ctyFileInput?.addEventListener('change', (evt) => {
+      const [file] = evt.target.files || [];
+      handleLocalFile(file, 'cty');
+    });
+    dom.masterFileInput?.addEventListener('change', (evt) => {
+      const [file] = evt.target.files || [];
+      handleLocalFile(file, 'master');
+    });
+  }
+
   async function fetchResource(url, onStatus) {
     try {
       onStatus('loading');
@@ -519,6 +556,7 @@
     fetchWithFallback(CTY_URLS, (status, url) => {
       state.ctyStatus = status;
       if (status === 'error') state.ctySource = url;
+      if (status === 'loading') state.ctySource = url;
       updateDataStatus();
     }).then((res) => {
       if (res.error) {
@@ -536,6 +574,7 @@
     fetchWithFallback(MASTER_URLS, (status, url) => {
       state.masterStatus = status;
       if (status === 'error') state.masterSource = url;
+      if (status === 'loading') state.masterSource = url;
       updateDataStatus();
     }).then((res) => {
       if (res.error) {
@@ -1658,6 +1697,7 @@
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     initNavigation();
     setupFileInput();
+    setupDataFileInputs();
     setupPrevNext();
     initDataFetches();
     setActiveReport(0);

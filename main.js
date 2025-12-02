@@ -651,7 +651,38 @@
       }
     }
     // Sort by exact first, then prefix length descending for longest-match lookups.
-    return entries.sort((a, b) => {
+    const sorted = entries.sort((a, b) => {
+      if (a.exact !== b.exact) return a.exact ? -1 : 1;
+      return b.prefix.length - a.prefix.length;
+    });
+    if (sorted.length > 0) return sorted;
+
+    // Fallback loose parser if structured parse failed (e.g., unexpected formatting)
+    const looseEntries = [];
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const firstColon = line.indexOf(':');
+      if (firstColon === -1) continue;
+      const countryFields = line.split(':');
+      if (countryFields.length < 7) continue;
+      const [name, cqZone, ituZone, continent, lat, lon, tz, rest] = countryFields;
+      const suffix = rest ? rest.split(/[;,]/) : [];
+      const base = {
+        country: name,
+        cqZone: parseInt(cqZone, 10) || null,
+        ituZone: parseInt(ituZone, 10) || null,
+        continent: continent || null,
+        lat: parseFloat(lat) || null,
+        lon: parseFloat(lon) || null,
+        tz: parseFloat(tz) || null
+      };
+      for (const t of suffix) {
+        const parsed = parseToken(t.trim(), base);
+        if (parsed) looseEntries.push(parsed);
+      }
+    }
+    return looseEntries.sort((a, b) => {
       if (a.exact !== b.exact) return a.exact ? -1 : 1;
       return b.prefix.length - a.prefix.length;
     });

@@ -485,6 +485,13 @@
     });
   }
 
+  function recomputeDerived(reason) {
+    if (!state.qsoData) return;
+    state.derived = buildDerived(state.qsoData.qsos);
+    dom.viewContainer.innerHTML = renderReport(reports[state.activeIndex]);
+    bindReportInteractions(reports[state.activeIndex].id);
+  }
+
   async function fetchResource(url, onStatus) {
     try {
       onStatus('loading');
@@ -537,7 +544,10 @@
       const text = handleFetchResult(res.text, 'cty');
       state.ctySource = res.url;
       state.ctyDat = text;
-      if (text) state.ctyTable = parseCtyDat(text);
+      if (text) {
+        state.ctyTable = parseCtyDat(text);
+        recomputeDerived('cty');
+      }
       updateDataStatus();
     });
 
@@ -555,7 +565,10 @@
       const text = handleFetchResult(res.text, 'master');
       state.masterSource = res.url;
       state.masterDta = text;
-      if (text) state.masterSet = parseMasterDta(text);
+      if (text) {
+        state.masterSet = parseMasterDta(text);
+        recomputeDerived('master');
+      }
       updateDataStatus();
     });
   }

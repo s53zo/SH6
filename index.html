@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SH6 Contest Report</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">SH6</span>
+      <span class="subtitle">Client-side contest report</span>
+    </div>
+    <div class="controls">
+      <label class="file-label">
+        <input type="file" id="fileInput" accept=".adi,.adif,.cbf,.CBF,.ADI,.ADIF" hidden>
+        <span class="button">Upload ADIF/CBF</span>
+      </label>
+      <div class="status" id="fileStatus">No file loaded</div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <nav class="sidebar">
+      <ol id="navList">
+        <!-- Navigation entries are injected by main.js -->
+      </ol>
+      <div class="data-status" id="dataStatus">
+        <div>cty.dat: <span id="ctyStatus">pending</span></div>
+        <div>MASTER.DTA: <span id="masterStatus">pending</span></div>
+      </div>
+    </nav>
+
+    <section class="content">
+      <div class="nav-buttons">
+        <button id="prevBtn" type="button" disabled>&lt; Prev</button>
+        <button id="nextBtn" type="button" disabled>Next &gt;</button>
+      </div>
+      <div id="viewTitle" class="view-title">Welcome</div>
+      <div id="viewContainer" class="view-container">
+        <p>Upload a contest log in ADIF or CBF to generate SH5-style reports. The app will fetch the current <code>cty.dat</code> and <code>MASTER.DTA</code> files at runtime.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>

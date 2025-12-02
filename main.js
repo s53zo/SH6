@@ -593,8 +593,8 @@
 
   function parseCtyDat(text) {
     // Parses cty.dat into array of prefix objects for quick lookups.
-    // cty.dat format: country:...:tz, prefix1,prefix2,...;aliases
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    // cty.dat format: country:...:tz, prefix1,prefix2,...;aliases with entries spanning multiple lines ending in ';'
+    const lines = text.split(/\r?\n/);
     const entries = [];
     const parseToken = (tok, base) => {
       const m = tok.match(/^(=)?([^(\[\s]+)(?:\((\d+)\))?(?:\[(\d+)\])?$/);
@@ -613,12 +613,20 @@
       };
     };
 
-    for (const line of lines) {
-      if (line.startsWith('#')) continue;
-      const parts = line.split(',');
+    let buffer = '';
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      buffer += (buffer ? ' ' : '') + line;
+      if (!line.endsWith(';')) continue; // entry continues
+
+      // Process accumulated entry (strip trailing semicolon)
+      const entryLine = buffer.replace(/;+\s*$/, '');
+      buffer = '';
+      const parts = entryLine.split(',');
       if (parts.length < 2) continue;
       const countryPart = parts[0];
-      const remainder = parts.slice(1).join(','); // prefixes and maybe semicolons
+      const remainder = parts.slice(1).join(',');
       const countryFields = countryPart.split(':');
       if (countryFields.length < 7) continue;
       const [name, cqZone, ituZone, continent, lat, lon, tz] = countryFields;

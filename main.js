@@ -575,6 +575,7 @@
 
   function parseCtyDat(text) {
     // Parses cty.dat into array of prefix objects for quick lookups.
+    // cty.dat format: country:...:tz, prefix1,prefix2,...;aliases
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     const entries = [];
     for (const line of lines) {
@@ -586,7 +587,9 @@
       const countryFields = countryPart.split(':');
       if (countryFields.length < 7) continue;
       const [name, cqZone, ituZone, continent, lat, lon, tz] = countryFields;
-      const prefixes = remainder.split(';')[0].split(' ').join('').split(',');
+      // Only take the prefix list before any semicolon (which starts the country modifier section)
+      const prefixBlock = remainder.split(';')[0];
+      const prefixes = prefixBlock.split(/[\s,]+/).filter(Boolean);
       for (const p of prefixes) {
         const prefix = p.trim();
         if (!prefix) continue;
@@ -607,10 +610,22 @@
   }
 
   function parseMasterDta(text) {
-    const lines = text.split(/\r?\n/);
+    // MASTER.DTA can contain CRLF and potential binary junk; treat as bytes -> UTF-8 safely.
+    let data = text;
+    if (!(typeof text === 'string')) {
+      // Fallback: try to coerce ArrayBuffer/Uint8Array
+      try {
+        data = new TextDecoder('utf-8').decode(text);
+      } catch (e) {
+        console.warn('MASTER.DTA decode failed, using raw:', e);
+        data = '';
+      }
+    }
+    const lines = data.split(/\r?\n/);
     const set = new Set();
     for (const line of lines) {
-      const call = normalizeCall(line);
+      const cleaned = line.replace(/\0/g, '').trim();
+      const call = normalizeCall(cleaned);
       if (call) set.add(call);
     }
     return set;

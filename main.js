@@ -127,6 +127,8 @@
     `;
   }
 
+  const SUPPORTED_BANDS = new Set(['160', '80', '60', '40', '30', '20', '17', '15', '12', '10', '6', '2', '70']);
+
   function normalizeCall(call) {
     return (call || '').trim().toUpperCase();
   }
@@ -135,10 +137,17 @@
     if (!freqMHz || Number.isNaN(freqMHz)) return '';
     if (freqMHz >= 1.8 && freqMHz < 2.0) return '160';
     if (freqMHz >= 3.4 && freqMHz < 4.0) return '80';
+    if (freqMHz >= 5.0 && freqMHz < 5.5) return '60';
     if (freqMHz >= 6.9 && freqMHz < 7.5) return '40';
+    if (freqMHz >= 10.0 && freqMHz < 10.2) return '30';
     if (freqMHz >= 13.9 && freqMHz < 15.0) return '20';
+    if (freqMHz >= 18.0 && freqMHz < 18.2) return '17';
     if (freqMHz >= 20.8 && freqMHz < 22.0) return '15';
+    if (freqMHz >= 24.8 && freqMHz < 25.0) return '12';
     if (freqMHz >= 27.9 && freqMHz < 29.8) return '10';
+    if (freqMHz >= 50 && freqMHz < 54) return '6';
+    if (freqMHz >= 144 && freqMHz < 148) return '2';
+    if (freqMHz >= 420 && freqMHz < 450) return '70';
     return '';
   }
 
@@ -192,6 +201,11 @@
       if (v !== undefined && v !== null && v !== '') return v;
     }
     return null;
+  }
+
+  function parseZone(val) {
+    const n = parseInt((val ?? '').toString().trim(), 10);
+    return Number.isFinite(n) ? n : null;
   }
 
   function classifyCallStructure(call) {
@@ -773,6 +787,9 @@
       }
 
       // Possible errors
+      const freqBand = Number.isFinite(q.freq) ? parseBandFromFreq(q.freq) : null;
+      const loggedCq = parseZone(q.raw?.CQZ ?? q.raw?.CQ_ZONE);
+      const loggedItu = parseZone(q.raw?.ITUZ ?? q.raw?.ITU_ZONE);
       if (!q.call) {
         possibleErrors.push({ reason: 'Missing callsign', q });
       } else if (classifyCallStructure(q.call) === 'other') {
@@ -783,6 +800,24 @@
       }
       if (q.ts == null) {
         possibleErrors.push({ reason: 'Invalid/missing time', q });
+      }
+      if (q.band && !SUPPORTED_BANDS.has(q.band)) {
+        possibleErrors.push({ reason: `Unexpected band value "${q.band}"`, q });
+      }
+      if (Number.isFinite(q.freq)) {
+        if (!freqBand) {
+          possibleErrors.push({ reason: `Frequency ${q.freq} MHz is outside supported bands`, q });
+        } else if (q.band && q.band !== freqBand) {
+          possibleErrors.push({ reason: `Band/freq mismatch: band ${q.band}, freq ${q.freq} MHz (${freqBand}m)`, q });
+        }
+      }
+      if (prefix) {
+        if (prefix.cqZone && loggedCq != null && loggedCq !== prefix.cqZone) {
+          possibleErrors.push({ reason: `CQ zone mismatch: logged ${loggedCq}, prefix ${prefix.cqZone}`, q });
+        }
+        if (prefix.ituZone && loggedItu != null && loggedItu !== prefix.ituZone) {
+          possibleErrors.push({ reason: `ITU zone mismatch: logged ${loggedItu}, prefix ${prefix.ituZone}`, q });
+        }
       }
     });
 
@@ -1380,14 +1415,15 @@
         <td>${e.reason}</td>
         <td>${e.q.time}</td>
         <td>${e.q.band}</td>
+        <td>${e.q.freq ?? ''}</td>
         <td>${e.q.mode}</td>
         <td>${e.q.call || ''}</td>
       </tr>
     `).join('');
     return `
-      <p>Heuristics: missing callsign, unrecognized pattern, prefix not found, or zero/invalid time.</p>
+      <p>Heuristics: missing callsign, unrecognized pattern, prefix not found, invalid/missing time, band/frequency mismatch, or zone vs prefix disagreement.</p>
       <table>
-        <tr><th>Reason</th><th>Time</th><th>Band</th><th>Mode</th><th>Call</th></tr>
+        <tr><th>Reason</th><th>Time</th><th>Band</th><th>Freq (MHz)</th><th>Mode</th><th>Call</th></tr>
         ${rows}
       </table>
     `;

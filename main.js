@@ -53,11 +53,18 @@
   const APP_VERSION = 'v0.5.9';
   const CTY_URLS = [
     'https://www.country-files.com/cty/cty.dat',
-    'cty.dat' // same-origin fallback
+    'cty.dat',
+    './cty.dat',
+    '/cty.dat',
+    'CTY.DAT',
+    './CTY.DAT',
+    '/CTY.DAT'
   ];
   const MASTER_URLS = [
     'https://www.supercheckpartial.com/MASTER.DTA',
-    'MASTER.DTA' // same-origin fallback
+    'MASTER.DTA',
+    './MASTER.DTA',
+    '/MASTER.DTA'
   ];
 
   const state = {
@@ -89,9 +96,7 @@
     nextBtn: document.getElementById('nextBtn'),
     ctyStatus: document.getElementById('ctyStatus'),
     masterStatus: document.getElementById('masterStatus'),
-    appVersion: document.getElementById('appVersion'),
-    ctyFileInput: document.getElementById('ctyFileInput'),
-    masterFileInput: document.getElementById('masterFileInput')
+    appVersion: document.getElementById('appVersion')
   };
 
   const renderers = {};
@@ -480,41 +485,6 @@
     });
   }
 
-  function setupDataFileInputs() {
-    const handleLocalFile = async (file, target) => {
-      if (!file) return;
-      const text = await file.text();
-      const sourceLabel = `local:${file.name}`;
-      if (target === 'cty') {
-        state.ctyStatus = 'ok';
-        state.ctyError = null;
-        state.ctySource = sourceLabel;
-        state.ctyDat = text;
-        state.ctyTable = parseCtyDat(text);
-      } else {
-        state.masterStatus = 'ok';
-        state.masterError = null;
-        state.masterSource = sourceLabel;
-        state.masterDta = text;
-        state.masterSet = parseMasterDta(text);
-      }
-      updateDataStatus();
-      if (state.qsoData) {
-        state.derived = buildDerived(state.qsoData.qsos);
-        setActiveReport(state.activeIndex);
-      }
-    };
-
-    dom.ctyFileInput?.addEventListener('change', (evt) => {
-      const [file] = evt.target.files || [];
-      handleLocalFile(file, 'cty');
-    });
-    dom.masterFileInput?.addEventListener('change', (evt) => {
-      const [file] = evt.target.files || [];
-      handleLocalFile(file, 'master');
-    });
-  }
-
   async function fetchResource(url, onStatus) {
     try {
       onStatus('loading');
@@ -526,7 +496,7 @@
     } catch (err) {
       console.error('Fetch failed:', url, err);
       onStatus('error');
-      return { error: err.message };
+      return { error: err.message || 'Load failed' };
     }
   }
 
@@ -1697,7 +1667,6 @@
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     initNavigation();
     setupFileInput();
-    setupDataFileInputs();
     setupPrevNext();
     initDataFetches();
     setActiveReport(0);

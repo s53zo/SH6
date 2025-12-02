@@ -66,17 +66,6 @@ body {
   background: #1556a6;
 }
 
-.file-label .button.secondary {
-  background: #eef3fb;
-  color: #1c6dd0;
-  border: 1px solid #c5daf8;
-}
-
-.file-label .button.secondary:hover,
-.file-label input:focus + .button.secondary {
-  background: #dbe8fb;
-}
-
 .status {
   font-size: 13px;
   color: #444;

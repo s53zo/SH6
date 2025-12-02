@@ -596,6 +596,23 @@
     // cty.dat format: country:...:tz, prefix1,prefix2,...;aliases
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     const entries = [];
+    const parseToken = (tok, base) => {
+      const m = tok.match(/^(=)?([^(\[\s]+)(?:\((\d+)\))?(?:\[(\d+)\])?$/);
+      if (!m) return null;
+      const [, exactMark, body, cqOverride, ituOverride] = m;
+      return {
+        prefix: body.toUpperCase(),
+        exact: exactMark === '=',
+        country: base.country,
+        cqZone: cqOverride ? parseInt(cqOverride, 10) : base.cqZone,
+        ituZone: ituOverride ? parseInt(ituOverride, 10) : base.ituZone,
+        continent: base.continent,
+        lat: base.lat,
+        lon: base.lon,
+        tz: base.tz
+      };
+    };
+
     for (const line of lines) {
       if (line.startsWith('#')) continue;
       const parts = line.split(',');
@@ -608,23 +625,25 @@
       // Only take the prefix list before any semicolon (which starts the country modifier section)
       const prefixBlock = remainder.split(';')[0];
       const prefixes = prefixBlock.split(/[\s,]+/).filter(Boolean);
+      const base = {
+        country: name,
+        cqZone: parseInt(cqZone, 10) || null,
+        ituZone: parseInt(ituZone, 10) || null,
+        continent: continent || null,
+        lat: parseFloat(lat) || null,
+        lon: parseFloat(lon) || null,
+        tz: parseFloat(tz) || null
+      };
       for (const p of prefixes) {
-        const prefix = p.trim();
-        if (!prefix) continue;
-        entries.push({
-          prefix,
-          country: name,
-          cqZone: parseInt(cqZone, 10) || null,
-          ituZone: parseInt(ituZone, 10) || null,
-          continent: continent || null,
-          lat: parseFloat(lat) || null,
-          lon: parseFloat(lon) || null,
-          tz: parseFloat(tz) || null
-        });
+        const parsed = parseToken(p.trim(), base);
+        if (parsed) entries.push(parsed);
       }
     }
-    // Sort by prefix length descending for longest-match lookups.
-    return entries.sort((a, b) => b.prefix.length - a.prefix.length);
+    // Sort by exact first, then prefix length descending for longest-match lookups.
+    return entries.sort((a, b) => {
+      if (a.exact !== b.exact) return a.exact ? -1 : 1;
+      return b.prefix.length - a.prefix.length;
+    });
   }
 
   function parseMasterDta(text) {
@@ -661,7 +680,9 @@
   function lookupPrefix(call) {
     if (!state.ctyTable || !call) return null;
     for (const entry of state.ctyTable) {
-      if (call.startsWith(entry.prefix)) {
+      if (entry.exact) {
+        if (call === entry.prefix) return entry;
+      } else if (call.startsWith(entry.prefix)) {
         return entry;
       }
     }

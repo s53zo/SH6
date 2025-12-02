@@ -625,16 +625,12 @@
         buffer = rest || '';
         const entryLine = entryChunk.trim();
         if (!entryLine) continue;
-        const parts = entryLine.split(',');
-        if (parts.length < 2) continue;
-        const countryPart = parts[0];
-        const remainder = parts.slice(1).join(',');
-        const countryFields = countryPart.split(':');
-        if (countryFields.length < 7) continue;
-        const [name, cqZone, ituZone, continent, lat, lon, tz] = countryFields;
-        // Only take the prefix list before any semicolon (which starts the country modifier section)
-        const prefixBlock = remainder.split(';')[0];
-        const prefixes = prefixBlock.split(/[\s,]+/).filter(Boolean);
+        // Split by colon to get fixed fields; the remainder (after 7 fields) is the prefix list with commas
+        const fields = entryLine.split(':');
+        if (fields.length < 8) continue;
+        const [name, cqZone, ituZone, continent, lat, lon, tz, ...rest] = fields;
+        const prefixBlock = rest.join(':').replace(/;+$/, '');
+        const prefixes = prefixBlock.split(/[, \t]+/).filter(Boolean);
         const base = {
           country: name,
           cqZone: parseInt(cqZone, 10) || null,

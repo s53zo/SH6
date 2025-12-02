@@ -598,7 +598,8 @@
     const lines = text.split(/\r?\n/);
     const entries = [];
     const parseToken = (tok, base) => {
-      const m = tok.match(/^(=)?([^(\[\s]+)(?:\((\d+)\))?(?:\[(\d+)\])?$/);
+      const cleaned = tok.replace(/[:\s]+$/g, '');
+      const m = cleaned.match(/^(=)?([^(\[\s]+)(?:\((\d+)\))?(?:\[(\d+)\])?$/);
       if (!m) return null;
       const [, exactMark, body, cqOverride, ituOverride] = m;
       return {

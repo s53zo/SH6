@@ -52,12 +52,12 @@
 
   const APP_VERSION = 'v0.5.9';
   const CTY_URLS = [
-    'cty.dat', // same-origin copy if present
-    'https://www.country-files.com/cty/cty.dat'
+    'https://www.country-files.com/cty/cty.dat',
+    'cty.dat' // same-origin fallback
   ];
   const MASTER_URLS = [
-    'MASTER.DTA', // same-origin copy if present
-    'https://www.supercheckpartial.com/MASTER.DTA'
+    'https://www.supercheckpartial.com/MASTER.DTA',
+    'MASTER.DTA' // same-origin fallback
   ];
 
   const state = {

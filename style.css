@@ -34,6 +34,17 @@ body {
   color: #555;
 }
 
+.version-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d3a73;
+  background: #e3edfb;
+  border: 1px solid #c5daf8;
+  border-radius: 4px;
+}
+
 .controls {
   display: flex;
   align-items: center;

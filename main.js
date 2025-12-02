@@ -67,6 +67,8 @@
     masterError: null
   };
 
+  const APP_VERSION = 'v0.5.9';
+
   const dom = {
     navList: document.getElementById('navList'),
     fileInput: document.getElementById('fileInput'),
@@ -76,7 +78,8 @@
     prevBtn: document.getElementById('prevBtn'),
     nextBtn: document.getElementById('nextBtn'),
     ctyStatus: document.getElementById('ctyStatus'),
-    masterStatus: document.getElementById('masterStatus')
+    masterStatus: document.getElementById('masterStatus'),
+    appVersion: document.getElementById('appVersion')
   };
 
   const renderers = {};
@@ -442,8 +445,10 @@
   }
 
   function updateDataStatus() {
-    dom.ctyStatus.textContent = state.ctyStatus;
-    dom.masterStatus.textContent = state.masterStatus;
+    const ctyErr = state.ctyError ? ` (${state.ctyError})` : '';
+    const masterErr = state.masterError ? ` (${state.masterError})` : '';
+    dom.ctyStatus.textContent = `${state.ctyStatus}${ctyErr}`;
+    dom.masterStatus.textContent = `${state.masterStatus}${masterErr}`;
   }
 
   function setupFileInput() {
@@ -1609,6 +1614,7 @@
   }
 
   function init() {
+    if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     initNavigation();
     setupFileInput();
     setupPrevNext();

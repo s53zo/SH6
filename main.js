@@ -723,8 +723,8 @@
         }
       }
 
-      // Master lookup
-      if (state.masterSet) {
+      // Master lookup (only if file successfully loaded and non-empty)
+      if (state.masterSet && state.masterSet.size > 0) {
         q.inMaster = state.masterSet.has(q.call);
         if (!q.inMaster && q.call) {
           if (!notInMasterCalls.has(q.call)) notInMasterCalls.set(q.call, { qsos: 0, firstTs: q.ts, lastTs: q.ts });
@@ -1420,7 +1420,7 @@
 
   function renderNotInMaster() {
     if (!state.derived) return renderPlaceholder({ id: 'not_in_master', title: 'Not in master' });
-    if (!state.masterSet) return '<p>Master file not loaded.</p>';
+    if (!state.masterSet || state.masterSet.size === 0) return '<p>Master file not loaded.</p>';
     const rows = state.derived.notInMasterList.map((c) => `
       <tr>
         <td>${c.call}</td>
@@ -1517,6 +1517,21 @@
 
   function renderSun() {
     return '<p>Sun/solar data not available offline. Provide local indices file or integrate a feed.</p>';
+  }
+
+  function renderPassedQsos() {
+    return '<p>Passed QSOs detection not implemented. Add markers in your log or extend parser to flag passed contacts.</p>';
+  }
+
+  function renderAppInfo() {
+    return `
+      <p>SH6 client-side report generator ${APP_VERSION}</p>
+      <ul>
+        <li>Parses ADIF/CBF in browser</li>
+        <li>Uses cty.dat and MASTER.DTA (remote or same-origin)</li>
+        <li>Renders SH5-style summary, country/zone, rate, and QA reports</li>
+      </ul>
+    `;
   }
 
   function renderBars(data, labelField, valueField) {
@@ -1637,6 +1652,8 @@
       case 'fields_map': return renderFieldsMap();
       case 'kmz_files': return renderKmzFiles();
       case 'sun': return renderSun();
+      case 'passed_qsos': return renderPassedQsos();
+      case 'sh5_info': return renderAppInfo();
       default: return renderPlaceholder(report);
     }
   }

@@ -1,3 +1,5 @@
+ALPHA ALPHA ALPHA - not usable yet
+
 # SH6 Contest Report (client-side)
 
 Static HTML/JS app that parses ADIF/CBF contest logs in the browser, fetches `cty.dat` and `MASTER.DTA` at runtime, and renders SH5-like reports (Main, Summary, Log, Dupes, Countries, Continents, Zones, Rates, etc.). No server-side code.

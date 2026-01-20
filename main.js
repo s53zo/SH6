@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.9';
+  const APP_VERSION = 'v0.5.10';
   const CTY_URLS = [
     'https://www.country-files.com/cty/cty.dat',
     'cty.dat',

@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.11';
+  const APP_VERSION = 'v0.5.12';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -73,15 +73,18 @@
     '/MASTER.DTA'
   ];
 
-  function withCorsProxies(urls) {
-    const out = new Set();
+  function buildFetchUrls(urls) {
+    const remotes = [];
+    const locals = [];
     urls.forEach((url) => {
-      out.add(url);
-      if (/^https?:\/\//i.test(url)) {
-        CORS_PROXIES.forEach((proxy) => out.add(proxy(url)));
-      }
+      if (/^https?:\/\//i.test(url)) remotes.push(url);
+      else locals.push(url);
     });
-    return Array.from(out);
+    const proxies = [];
+    remotes.forEach((url) => {
+      CORS_PROXIES.forEach((proxy) => proxies.push(proxy(url)));
+    });
+    return remotes.concat(proxies, locals);
   }
 
   const state = {
@@ -826,7 +829,7 @@
   }
 
   function initDataFetches() {
-    fetchWithFallback(withCorsProxies(CTY_URLS), (status, url) => {
+    fetchWithFallback(buildFetchUrls(CTY_URLS), (status, url) => {
       state.ctyStatus = status;
       if (status === 'error') state.ctySource = url;
       if (status === 'loading') state.ctySource = url;
@@ -856,7 +859,7 @@
       updateDataStatus();
     });
 
-    fetchWithFallback(withCorsProxies(MASTER_URLS), (status, url) => {
+    fetchWithFallback(buildFetchUrls(MASTER_URLS), (status, url) => {
       state.masterStatus = status;
       if (status === 'error') state.masterSource = url;
       if (status === 'loading') state.masterSource = url;

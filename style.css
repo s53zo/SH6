@@ -4,9 +4,23 @@
 
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f8f8f8;
-  color: #222;
+  font-family: verdana, arial, tahoma, sans-serif;
+  font-size: 8pt;
+  background: #ffffff;
+  color: #000000;
+}
+
+a {
+  color: #0000ff;
+  text-decoration: underline;
+}
+
+a:visited {
+  color: #0000ff;
+}
+
+a:hover {
+  color: #cc0000;
 }
 
 .topbar {
@@ -14,8 +28,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: linear-gradient(90deg, #f0f0f0, #ffffff);
-  border-bottom: 1px solid #ddd;
+  background: #ffffff;
+  border-bottom: 1px dotted #cccccc;
 }
 
 .brand {
@@ -53,8 +67,8 @@ body {
 }
 
 .file-label .button {
-  background: #1c6dd0;
-  color: #fff;
+  background: #dddddd;
+  color: #000;
   padding: 8px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -63,12 +77,28 @@ body {
 
 .file-label input:focus + .button,
 .file-label .button:hover {
-  background: #1556a6;
+  background: #cccccc;
 }
 
 .status {
   font-size: 13px;
   color: #444;
+}
+
+#logClearFilters {
+  font-size: 8pt;
+  border-bottom: 1px dotted #0000ff;
+  text-decoration: none;
+}
+
+.log-filter-note {
+  font-size: 8pt;
+  margin: 4px 0;
+}
+
+.log-filter-hint {
+  color: #666666;
+  font-style: italic;
 }
 
 .layout {
@@ -78,10 +108,11 @@ body {
 }
 
 .sidebar {
-  border-right: 1px solid #ddd;
-  background: #fafafa;
+  border-right: 1px dotted #cccccc;
+  background: #dddddd;
   padding: 12px;
   overflow-y: auto;
+  vertical-align: top;
 }
 
 .sidebar ol {
@@ -130,15 +161,23 @@ body {
 }
 
 .view-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 10px;
+  font-size: 10pt;
+  font-weight: 700;
+  margin-bottom: 6px;
+  display: inline-block;
+  width: 100%;
+}
+
+.gradient {
+  background: linear-gradient(90deg, #5a6be6, #d3dbff);
+  color: #ffffff;
+  padding: 4px 8px;
 }
 
 .view-container {
-  background: #fff;
-  border: 1px solid #e2e2e2;
-  border-radius: 4px;
+  background: #ffffff;
+  border: 1px dotted #cccccc;
+  border-radius: 0;
   padding: 12px;
   min-height: 300px;
 }
@@ -149,13 +188,25 @@ table {
 }
 
 th, td {
-  padding: 6px 8px;
+  padding: 3px 5px;
   border: 1px solid #ddd;
+  vertical-align: middle;
 }
 
 th {
   background: #f2f2f2;
   text-align: left;
+}
+
+.mtc {
+  border: 1px dotted #cccccc;
+}
+
+.thc th,
+.thc td {
+  background: #5266df;
+  color: #ffffff;
+  text-align: center;
 }
 
 .bar-row {
@@ -175,4 +226,155 @@ th {
   background: #1c6dd0;
   border-radius: 3px;
   min-width: 4px;
+}
+
+.mtc {
+  font-size: 8pt;
+}
+
+.thc {
+  background: #5266df;
+  color: #ffffff;
+  text-align: center;
+}
+
+.td0 {
+  background: #eeeeee;
+}
+
+.td1 {
+  background: #fcfcfc;
+}
+
+.mdv {
+  background: #dddddd;
+}
+
+.mli,
+.cli,
+.sli {
+  color: #000000;
+  font-size: 8pt;
+  border-bottom: 1px dotted #cccccc;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+.cli {
+  text-transform: none;
+}
+
+.dal {
+  border-left: 1px dotted #bbbbbb;
+}
+
+.s0 {
+  background: #0000ff;
+  color: #ffffff;
+}
+
+.s1 {
+  background: #0060ff;
+  color: #ffffff;
+}
+
+.s2 {
+  background: #00c0ff;
+}
+
+.s3 {
+  background: #00ffe0;
+}
+
+.s4 {
+  background: #00ff80;
+}
+
+.s5 {
+  background: #00ff20;
+}
+
+.s6 {
+  background: #40ff00;
+}
+
+.s7 {
+  background: #a0ff00;
+}
+
+.s8 {
+  background: #ffff00;
+}
+
+.s9 {
+  background: #ffcc00;
+}
+
+.log-page.active {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.fields-map td {
+  width: 30px;
+  height: 20px;
+  text-align: center;
+  font-size: 8pt;
+}
+
+.lm {
+  text-align: center;
+}
+
+.sum {
+  height: 8px;
+  background: #0000ff;
+}
+
+.tac {
+  text-align: center;
+}
+
+.tl {
+  text-align: left;
+}
+
+.c2 { color: #003399; }
+.c3 { color: #009933; }
+.c4 { color: #990000; }
+.c5 { color: #996600; }
+.c6 { color: #660099; }
+.c7 { color: #006666; }
+
+.q1, .q2, .q3, .q4, .q5, .q6 {
+  font-weight: 700;
+  text-align: center;
+}
+
+.operator-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.operator-card {
+  width: 180px;
+  border: 1px solid #dddddd;
+  background: #fcfcfc;
+  text-align: center;
+  padding: 6px;
+}
+
+.np {
+  width: 160px;
+  height: 120px;
+  margin: 0 auto 6px;
+  border: 1px dashed #cccccc;
+}
+
+.map-preview {
+  margin: 8px 0;
+  border: 1px solid #cccccc;
+  background: #ffffff;
+  padding: 4px;
 }

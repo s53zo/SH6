@@ -44,10 +44,12 @@
     { id: 'charts', title: 'Charts' },
     { id: 'charts_top_10_countries', title: 'Top 10 countries' },
     { id: 'charts_qs_by_band', title: 'Qs by band' },
-    { id: 'charts_continents', title: 'Continents chart' },
+    { id: 'charts_continents', title: 'Continents' },
+    { id: 'charts_frequencies', title: 'Frequencies' },
+    { id: 'charts_beam_heading', title: 'Beam heading' },
     { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' },
     { id: 'comments', title: 'Comments' },
-    { id: 'sh5_info', title: 'App info' }
+    { id: 'sh6_info', title: 'SH6 info' }
   ];
 
   const APP_VERSION = 'v0.5.9';
@@ -77,7 +79,19 @@
     masterSet: null,
     derived: null,
     logPage: 0,
-    logPageSize: 200,
+    logPageSize: 500,
+    logSearch: '',
+    logFieldFilter: '',
+    logBandFilter: '',
+    logModeFilter: '',
+    logCountryFilter: '',
+    logContinentFilter: '',
+    logCqFilter: '',
+    logItuFilter: '',
+    logRange: null,
+    logTimeRange: null,
+    mapContext: null,
+    kmzUrls: {},
     ctyStatus: 'pending',
     masterStatus: 'pending',
     ctyError: null,
@@ -89,6 +103,8 @@
   const dom = {
     navList: document.getElementById('navList'),
     fileInput: document.getElementById('fileInput'),
+    ctyInput: document.getElementById('ctyInput'),
+    masterInput: document.getElementById('masterInput'),
     fileStatus: document.getElementById('fileStatus'),
     viewTitle: document.getElementById('viewTitle'),
     viewContainer: document.getElementById('viewContainer'),
@@ -102,11 +118,23 @@
   const renderers = {};
 
   function initNavigation() {
+    const childReportIds = new Set([
+      'countries_by_time_10', 'countries_by_time_15', 'countries_by_time_20', 'countries_by_time_40',
+      'countries_by_time_80', 'countries_by_time_160', 'graphs_qs_by_hour_10', 'graphs_qs_by_hour_15',
+      'graphs_qs_by_hour_20', 'graphs_qs_by_hour_40', 'graphs_qs_by_hour_80', 'graphs_qs_by_hour_160',
+      'charts_top_10_countries', 'charts_qs_by_band', 'charts_continents', 'charts_frequencies',
+      'charts_beam_heading', 'charts_beam_heading_by_hour'
+    ]);
     reports.forEach((r, idx) => {
       const li = document.createElement('li');
       li.textContent = r.title;
       li.dataset.index = idx;
       li.addEventListener('click', () => setActiveReport(idx));
+      if (childReportIds.has(r.id)) {
+        li.classList.add('cli');
+      } else {
+        li.classList.add('mli');
+      }
       dom.navList.appendChild(li);
     });
     updateNavHighlight();
@@ -116,7 +144,14 @@
   function updateNavHighlight() {
     const children = dom.navList.querySelectorAll('li');
     children.forEach((li, idx) => {
-      li.classList.toggle('active', idx === state.activeIndex);
+      const isActive = idx === state.activeIndex;
+      li.classList.toggle('active', isActive);
+      if (isActive) {
+        li.classList.remove('mli', 'cli');
+        li.classList.add('sli');
+      } else if (!li.classList.contains('mli') && !li.classList.contains('cli')) {
+        li.classList.add('mli');
+      }
     });
   }
 
@@ -143,7 +178,7 @@
       <p><strong>${report.title}</strong> view is not yet implemented.</p>
       <p>${logMsg}</p>
       <p>${qsoMsg}</p>
-      <p>Once parsing and aggregation are wired, this view will render SH5-style data for <code>${report.id}</code>.</p>
+      <p>Once parsing and aggregation are wired, this view will render SH6-style data for <code>${report.id}</code>.</p>
     `;
   }
 
@@ -179,6 +214,164 @@
 
   function normalizeMode(mode) {
     return (mode || '').trim().toUpperCase();
+  }
+
+  function formatNumberSh6(value) {
+    if (value == null || value === '') return '';
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value);
+    return num.toLocaleString('en-US');
+  }
+
+  const MODE_DIGITAL = new Set([
+    'FT8', 'FT4', 'RTTY', 'PSK', 'PSK31', 'DATA', 'DIGI', 'MFSK',
+    'JT65', 'JT9', 'OLIVIA', 'FSK', 'FSK441', 'AMTOR'
+  ]);
+  const MODE_PHONE = new Set(['SSB', 'USB', 'LSB', 'AM', 'FM', 'PH', 'PHONE']);
+
+  function modeBucket(mode) {
+    const m = normalizeMode(mode);
+    if (m === 'CW') return 'CW';
+    if (MODE_PHONE.has(m)) return 'Phone';
+    if (MODE_DIGITAL.has(m)) return 'Digital';
+    return 'Digital';
+  }
+
+  function formatDateSh6(ts) {
+    if (ts == null) return 'N/A';
+    const d = new Date(ts);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = months[d.getUTCMonth()];
+    const year = d.getUTCFullYear();
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${day}-${month}-${year} ${hh}:${mm}`;
+  }
+
+  function formatDaySh6(ts) {
+    if (ts == null) return '';
+    const d = new Date(ts);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = months[d.getUTCMonth()];
+    const year = d.getUTCFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  function formatMinutes(mins) {
+    if (mins == null || !Number.isFinite(mins)) return 'N/A';
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} (${mins} min.)`;
+  }
+
+  function minuteCountClass(count) {
+    if (!count) return '';
+    if (count >= 10) return 's9';
+    return `s${count - 1}`;
+  }
+
+  function hourRange(qsos) {
+    const times = qsos.map((q) => q.ts).filter((t) => typeof t === 'number');
+    if (!times.length) return { startHour: 0, endHour: -1 };
+    const min = Math.min(...times);
+    const max = Math.max(...times);
+    return {
+      startHour: Math.floor(min / 3600000),
+      endHour: Math.floor(max / 3600000)
+    };
+  }
+
+  function buildCountryTimeBuckets(qsos, bandFilter) {
+    const map = new Map(); // country -> {prefix, name, continent, total, buckets: Map(hourBucket -> [4 counts])}
+    qsos.forEach((q) => {
+      if (bandFilter && q.band !== bandFilter) return;
+      if (q.country == null || q.ts == null) return;
+      const hour = Math.floor(q.ts / 3600000);
+      const quarter = Math.floor((q.ts % 3600000) / (15 * 60000));
+      if (!map.has(q.country)) {
+        map.set(q.country, {
+          name: q.country,
+          prefix: q.prefix || '',
+          continent: q.continent || '',
+          total: 0,
+          buckets: new Map()
+        });
+      }
+      const entry = map.get(q.country);
+      entry.total += 1;
+      if (!entry.buckets.has(hour)) entry.buckets.set(hour, [0, 0, 0, 0]);
+      entry.buckets.get(hour)[quarter] += 1;
+    });
+    return map;
+  }
+
+  function deriveContestMeta(qsos) {
+    const meta = {
+      stationCallsign: null,
+      contestId: null,
+      category: null,
+      claimedScore: null,
+      club: null,
+      software: null,
+      ssn: null,
+      kIndex: null
+    };
+    for (const q of qsos) {
+      const r = q.raw || {};
+      if (!meta.stationCallsign) meta.stationCallsign = firstNonNull(r.STATION_CALLSIGN, r.OPERATOR, q.op);
+      if (!meta.contestId) meta.contestId = firstNonNull(r.CONTEST_ID, r.CONTEST_NAME, r.CONTEST);
+      if (!meta.category) meta.category = firstNonNull(r.CATEGORY_OPERATOR, r.CATEGORY, r.CATEGORY_OVERLAY);
+      if (meta.claimedScore == null) meta.claimedScore = firstNonNull(r.CLAIMED_SCORE, r.CLAIMED, r.APP_N1MM_CLAIMED_SCORE);
+      if (!meta.club) meta.club = firstNonNull(r.CLUB, r.APP_N1MM_CLUB);
+      if (!meta.software) meta.software = firstNonNull(r.APP_N1MM_N1MMVERSION, r.SW_VERSION, r.SOFTWARE);
+      if (meta.ssn == null) meta.ssn = firstNonNull(r.SSN, r.SOLAR_SSN);
+      if (meta.kIndex == null) meta.kIndex = firstNonNull(r.K_INDEX, r.SOLAR_KINDEX);
+      if (meta.stationCallsign && meta.contestId && meta.category) break;
+    }
+    return meta;
+  }
+
+  function loadSolarData() {
+    const raw = localStorage.getItem('sh6_solar_data');
+    if (!raw) return null;
+    try {
+      const data = JSON.parse(raw);
+      if (data && Array.isArray(data.hours)) return data;
+    } catch (e) {
+      return null;
+    }
+    return null;
+  }
+
+  function getSolarForHour(solarData, hourTs, fallback) {
+    if (!solarData || !Array.isArray(solarData.hours)) return fallback;
+    const hourKey = Math.floor(hourTs / 3600000);
+    const found = solarData.hours.find((h) => h.hour === hourKey);
+    if (found) {
+      return {
+        ssn: found.ssn ?? fallback.ssn,
+        kIndex: found.kIndex ?? fallback.kIndex
+      };
+    }
+    return fallback;
+  }
+
+  function computeBreakSummary(minutesMap, threshold) {
+    const minutes = Array.from(minutesMap.keys()).sort((a, b) => a - b);
+    if (!minutes.length) return { totalBreakMin: 0, breaks: [] };
+    const breaks = [];
+    let totalBreakMin = 0;
+    for (let i = 1; i < minutes.length; i++) {
+      const gap = minutes[i] - minutes[i - 1];
+      if (gap > threshold) {
+        const len = gap - 1;
+        totalBreakMin += len;
+        breaks.push({ start: minutes[i - 1] + 1, end: minutes[i] - 1, minutes: len });
+      }
+    }
+    return { totalBreakMin, breaks };
   }
 
   function gridToLatLon(grid) {
@@ -408,6 +601,7 @@
       const adifRecords = parseAdif(text);
       const qsos = adifRecords.map((r, idx) => ({
         id: idx,
+        qsoNumber: idx + 1,
         call: normalizeCall(r.CALL),
         band: normalizeBand(r.BAND, r.FREQ ? parseFloat(r.FREQ) : null),
         mode: normalizeMode(r.MODE),
@@ -416,6 +610,11 @@
         ts: parseDateTime(r.QSO_DATE, r.TIME_ON),
         op: normalizeCall(r.OPERATOR || r.STATION_CALLSIGN),
         grid: r.GRIDSQUARE || r.MY_GRIDSQUARE || r.STATION_LOC,
+        rstSent: r.RST_SENT,
+        rstRcvd: r.RST_RCVD,
+        exchSent: firstNonNull(r.STX_STRING, r.STX),
+        exchRcvd: firstNonNull(r.SRX_STRING, r.SRX, r.APP_N1MM_EXCHANGE1),
+        points: parseInt(firstNonNull(r.APP_N1MM_POINTS, r.QSO_PTS, r.QSO_POINTS, r.POINTS), 10),
         srx: firstNonNull(r.SRX_STRING, r.SRX),
         stx: firstNonNull(r.STX_STRING, r.STX),
         comment: r.COMMENT || r.NOTES,
@@ -427,6 +626,7 @@
       const cbfRecords = parseCbf(text);
       const qsos = cbfRecords.map((r, idx) => ({
         id: idx,
+        qsoNumber: idx + 1,
         call: normalizeCall(r.CALL),
         band: normalizeBand(r.BAND, null),
         mode: normalizeMode(r.MODE),
@@ -435,6 +635,11 @@
         ts: parseDateTime(r.DATE, r.TIME),
         op: normalizeCall(r.OPERATOR || r.STATION_CALLSIGN),
         grid: r.GRIDSQUARE || r.MY_GRIDSQUARE || r.STATION_LOC,
+        rstSent: r.RST_SENT,
+        rstRcvd: r.RST_RCVD,
+        exchSent: firstNonNull(r.EXCH_SENT, r.STX),
+        exchRcvd: firstNonNull(r.EXCH_RCVD, r.SRX),
+        points: parseInt(firstNonNull(r.POINTS), 10),
         srx: firstNonNull(r.EXCH_RCVD, r.SRX),
         stx: firstNonNull(r.EXCH_SENT, r.STX),
         comment: r.COMMENT || r.NOTES,
@@ -447,6 +652,7 @@
     if (adifRecords.length) {
       const qsos = adifRecords.map((r, idx) => ({
         id: idx,
+        qsoNumber: idx + 1,
         call: normalizeCall(r.CALL),
         band: normalizeBand(r.BAND, r.FREQ ? parseFloat(r.FREQ) : null),
         mode: normalizeMode(r.MODE),
@@ -454,6 +660,11 @@
         time: `${(r.QSO_DATE || '').trim()} ${(r.TIME_ON || '').trim()}`,
         ts: parseDateTime(r.QSO_DATE, r.TIME_ON),
         op: normalizeCall(r.OPERATOR || r.STATION_CALLSIGN),
+        rstSent: r.RST_SENT,
+        rstRcvd: r.RST_RCVD,
+        exchSent: firstNonNull(r.STX_STRING, r.STX),
+        exchRcvd: firstNonNull(r.SRX_STRING, r.SRX, r.APP_N1MM_EXCHANGE1),
+        points: parseInt(firstNonNull(r.APP_N1MM_POINTS, r.QSO_PTS, r.QSO_POINTS, r.POINTS), 10),
         raw: r
       }));
       return { type: 'ADIF', qsos };
@@ -474,15 +685,85 @@
     dom.fileInput.addEventListener('change', async (evt) => {
       const [file] = evt.target.files || [];
       if (!file) return;
-      state.logFile = file;
-      state.logPage = 0;
-      dom.fileStatus.textContent = `Loaded ${file.name} (${file.size} bytes)`;
-      const text = await file.text();
-      state.qsoData = parseLogFile(text, file.name);
-      state.derived = buildDerived(state.qsoData.qsos);
-      dom.fileStatus.textContent = `Loaded ${file.name} (${file.size} bytes) – parsed ${state.qsoData.qsos.length} QSOs as ${state.qsoData.type}`;
-      setActiveReport(state.activeIndex);
+      try {
+        state.logFile = file;
+        state.logPage = 0;
+        dom.fileStatus.textContent = `Loaded ${file.name} (${formatNumberSh6(file.size)} bytes)`;
+        const text = await file.text();
+        state.qsoData = parseLogFile(text, file.name);
+        state.derived = buildDerived(state.qsoData.qsos);
+        if (!state.qsoData.qsos.length) {
+          dom.fileStatus.textContent = `Loaded ${file.name} (${formatNumberSh6(file.size)} bytes) – parsed 0 QSOs. Check file format.`;
+        } else {
+          dom.fileStatus.textContent = `Loaded ${file.name} (${formatNumberSh6(file.size)} bytes) – parsed ${formatNumberSh6(state.qsoData.qsos.length)} QSOs as ${state.qsoData.type}`;
+        }
+        setActiveReport(state.activeIndex);
+      } catch (err) {
+        console.error('File parse failed:', err);
+        dom.fileStatus.textContent = `Failed to parse ${file.name}: ${err && err.message ? err.message : 'unknown error'}`;
+      }
     });
+  }
+
+  function setupDataFileInputs() {
+    if (dom.ctyInput) {
+      dom.ctyInput.addEventListener('change', async (evt) => {
+        const [file] = evt.target.files || [];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const table = parseCtyDat(text);
+          if (!table || !table.length) {
+            state.ctyTable = null;
+            state.ctyStatus = 'error';
+            state.ctyError = 'Parsed 0 prefixes from cty.dat';
+            state.ctySource = 'local upload';
+          } else {
+            state.ctyDat = text;
+            state.ctyTable = table;
+            state.ctyStatus = 'ok';
+            state.ctyError = null;
+            state.ctySource = 'local upload';
+            recomputeDerived('cty');
+          }
+        } catch (err) {
+          state.ctyTable = null;
+          state.ctyStatus = 'error';
+          state.ctyError = err && err.message ? err.message : 'Load failed';
+          state.ctySource = 'local upload';
+        }
+        updateDataStatus();
+      });
+    }
+    if (dom.masterInput) {
+      dom.masterInput.addEventListener('change', async (evt) => {
+        const [file] = evt.target.files || [];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const set = parseMasterDta(text);
+          if (!set || set.size === 0) {
+            state.masterSet = null;
+            state.masterStatus = 'error';
+            state.masterError = 'Parsed 0 calls from MASTER.DTA';
+            state.masterSource = 'local upload';
+          } else {
+            state.masterDta = text;
+            state.masterSet = set;
+            state.masterStatus = 'ok';
+            state.masterError = null;
+            state.masterSource = 'local upload';
+            recomputeDerived('master');
+          }
+        } catch (err) {
+          state.masterSet = null;
+          state.masterStatus = 'error';
+          state.masterError = err && err.message ? err.message : 'Load failed';
+          state.masterSource = 'local upload';
+        }
+        updateDataStatus();
+      });
+    }
   }
 
   function recomputeDerived(reason) {
@@ -621,23 +902,25 @@
       if (!line || line.startsWith('#')) continue;
       buffer += (buffer ? ' ' : '') + line;
       while (buffer.includes(';')) {
-        const [entryChunk, rest] = buffer.split(/;\s*/, 2);
-        buffer = rest || '';
+        const [entryChunk, restChunk] = buffer.split(/;\s*/, 2);
+        buffer = restChunk || '';
         const entryLine = entryChunk.trim();
         if (!entryLine) continue;
         // Split by colon to get fixed fields; the remainder (after 7 fields) is the prefix list with commas
         const fields = entryLine.split(':');
         if (fields.length < 8) continue;
-        const [name, cqZone, ituZone, continent, lat, lon, tz, ...rest] = fields;
-        const prefixBlock = rest.join(':').replace(/;+$/, '');
+        const [name, cqZone, ituZone, continent, lat, lon, tz, ...restFields] = fields;
+        const prefixBlock = restFields.join(':').replace(/;+$/, '');
         const prefixes = prefixBlock.split(/[, \t]+/).filter(Boolean);
+        const lonVal = parseFloat(lon);
         const base = {
           country: name,
           cqZone: parseInt(cqZone, 10) || null,
           ituZone: parseInt(ituZone, 10) || null,
-          continent: continent || null,
+          continent: (continent || '').trim() || null,
           lat: parseFloat(lat) || null,
-          lon: parseFloat(lon) || null,
+          // cty.dat longitudes are west-positive; invert to standard east-positive.
+          lon: Number.isFinite(lonVal) ? -lonVal : null,
           tz: parseFloat(tz) || null
         };
         for (const p of prefixes) {
@@ -662,15 +945,17 @@
       if (firstColon === -1) continue;
       const countryFields = line.split(':');
       if (countryFields.length < 7) continue;
-      const [name, cqZone, ituZone, continent, lat, lon, tz, rest] = countryFields;
-      const suffix = rest ? rest.split(/[;,]/) : [];
+      const [name, cqZone, ituZone, continent, lat, lon, tz, restFields] = countryFields;
+      const suffix = restFields ? restFields.split(/[;,]/) : [];
+      const lonVal = parseFloat(lon);
       const base = {
         country: name,
         cqZone: parseInt(cqZone, 10) || null,
         ituZone: parseInt(ituZone, 10) || null,
-        continent: continent || null,
+        continent: (continent || '').trim() || null,
         lat: parseFloat(lat) || null,
-        lon: parseFloat(lon) || null,
+        // cty.dat longitudes are west-positive; invert to standard east-positive.
+        lon: Number.isFinite(lonVal) ? -lonVal : null,
         tz: parseFloat(tz) || null
       };
       for (const t of suffix) {
@@ -682,6 +967,23 @@
       if (a.exact !== b.exact) return a.exact ? -1 : 1;
       return b.prefix.length - a.prefix.length;
     });
+  }
+
+  function suggestMasterMatches(call, masterSet, limit = 5) {
+    if (!call || !masterSet || masterSet.size === 0) return [];
+    const suggestions = [];
+    const target = call.toUpperCase();
+    for (const m of masterSet) {
+      if (m.length !== target.length) continue;
+      let diff = 0;
+      for (let i = 0; i < target.length; i++) {
+        if (target[i] !== m[i]) diff += 1;
+        if (diff > 1) break;
+      }
+      if (diff === 1) suggestions.push(m);
+      if (suggestions.length >= limit) break;
+    }
+    return suggestions;
   }
 
   function parseMasterDta(text) {
@@ -727,6 +1029,31 @@
     return null;
   }
 
+  function buildCountryPrefixMap() {
+    const map = new Map();
+    if (!state.ctyTable) return map;
+    for (const entry of state.ctyTable) {
+      if (!entry.country || !entry.prefix) continue;
+      const current = map.get(entry.country);
+      if (!current || entry.prefix.length < current.length) {
+        map.set(entry.country, entry.prefix);
+      }
+    }
+    return map;
+  }
+
+  function continentLabel(code) {
+    switch ((code || '').toUpperCase()) {
+      case 'NA': return 'North America';
+      case 'SA': return 'South America';
+      case 'EU': return 'Europe';
+      case 'AF': return 'Africa';
+      case 'AS': return 'Asia';
+      case 'OC': return 'Oceania';
+      default: return code || '';
+    }
+  }
+
   function markDupes(qsos) {
     const seen = new Map();
     const dupes = [];
@@ -748,6 +1075,7 @@
     const dupes = markDupes(qsos);
     const calls = new Set();
     const bands = new Map();
+    const bandModes = new Map(); // band -> {cw,digital,phone,all,points,countries:Set}
     const countries = new Map();
     const continents = new Map();
     const cqZones = new Map();
@@ -755,24 +1083,28 @@
     const minutes = new Map(); // minute bucket (UTC) -> stats
     const tenMinutes = new Map(); // 10-minute buckets
     const prefixes = new Map();
-    const callsignLengths = new Map();
+    const callsignLengths = new Map(); // len -> {callsigns:Set, qsos}
     const notInMasterCalls = new Map(); // call -> {qsos, firstTs, lastTs}
     const allCalls = new Map(); // call -> {qsos, bands:Set, firstTs, lastTs}
     const hoursCountries = new Map(); // hour -> Map(country -> count)
     const bandHourCountry = new Map(); // band -> Map(hour -> Map(country -> count))
     const ops = new Map(); // operator -> {qsos, uniques:Set}
-    const structures = new Map(); // call structure -> count
+    const structures = new Map(); // struct -> {callsigns:Set, qsos}
     const ituZones = new Map();
     const distanceSummary = makeDistanceSummary();
     const headingSummary = makeHeadingSummary();
     const headingByHour = new Map(); // hour -> Map(sector -> count)
+    const freqBins = new Map();
     const possibleErrors = [];
     const comments = new Set();
     const fields = new Map(); // grid field (first two letters)
     let minTs = null;
     let maxTs = null;
+    let totalPoints = 0;
 
     const station = deriveStation(qsos);
+    const contestMeta = deriveContestMeta(qsos);
+    const countryPrefixMap = buildCountryPrefixMap();
 
     qsos.forEach((q) => {
       if (q.call) calls.add(q.call);
@@ -789,6 +1121,20 @@
       if (q.isDupe) b.dupes += 1;
       if (q.call) b.uniques.add(q.call);
 
+      if (!bandModes.has(bandKey)) {
+        bandModes.set(bandKey, { band: bandKey, cw: 0, digital: 0, phone: 0, all: 0, points: 0, countries: new Set() });
+      }
+      const bm = bandModes.get(bandKey);
+      const bucket = modeBucket(q.mode);
+      if (bucket === 'CW') bm.cw += 1;
+      if (bucket === 'Digital') bm.digital += 1;
+      if (bucket === 'Phone') bm.phone += 1;
+      bm.all += 1;
+      if (Number.isFinite(q.points)) {
+        bm.points += q.points;
+        totalPoints += q.points;
+      }
+
       // Prefix/country enrich
       const prefix = lookupPrefix(q.call);
       if (prefix) {
@@ -798,33 +1144,61 @@
         q.continent = prefix.continent;
         q.prefix = prefix.prefix;
         if (prefix.country) {
-          if (!countries.has(prefix.country)) countries.set(prefix.country, { qsos: 0, uniques: new Set(), bands: new Set(), firstTs: q.ts, lastTs: q.ts });
+          if (!countries.has(prefix.country)) {
+            countries.set(prefix.country, {
+              qsos: 0,
+              uniques: new Set(),
+              bands: new Set(),
+              bandCounts: new Map(),
+              cw: 0,
+              digital: 0,
+              phone: 0,
+              firstTs: q.ts,
+              lastTs: q.ts,
+              continent: prefix.continent || null,
+              distSum: 0,
+              distCount: 0
+            });
+          }
           const c = countries.get(prefix.country);
           c.qsos += 1;
           if (q.call) c.uniques.add(q.call);
-          if (q.band) c.bands.add(q.band);
+          if (q.band) {
+            c.bands.add(q.band);
+            c.bandCounts.set(q.band, (c.bandCounts.get(q.band) || 0) + 1);
+          }
+          if (bucket === 'CW') c.cw += 1;
+          if (bucket === 'Digital') c.digital += 1;
+          if (bucket === 'Phone') c.phone += 1;
+          if (bm) bm.countries.add(prefix.country);
           if (typeof q.ts === 'number') {
             if (c.firstTs == null || q.ts < c.firstTs) c.firstTs = q.ts;
             if (c.lastTs == null || q.ts > c.lastTs) c.lastTs = q.ts;
           }
         }
         if (prefix.continent) {
-          if (!continents.has(prefix.continent)) continents.set(prefix.continent, { qsos: 0, uniques: new Set() });
+          if (!continents.has(prefix.continent)) {
+            continents.set(prefix.continent, { qsos: 0, uniques: new Set(), bandCounts: new Map(), cw: 0, digital: 0, phone: 0 });
+          }
           const c = continents.get(prefix.continent);
           c.qsos += 1;
           if (q.call) c.uniques.add(q.call);
+          if (q.band) c.bandCounts.set(q.band, (c.bandCounts.get(q.band) || 0) + 1);
+          if (bucket === 'CW') c.cw += 1;
+          if (bucket === 'Digital') c.digital += 1;
+          if (bucket === 'Phone') c.phone += 1;
         }
         if (prefix.cqZone) {
-          if (!cqZones.has(prefix.cqZone)) cqZones.set(prefix.cqZone, { qsos: 0, uniques: new Set() });
+          if (!cqZones.has(prefix.cqZone)) cqZones.set(prefix.cqZone, { qsos: 0, countries: new Set() });
           const z = cqZones.get(prefix.cqZone);
           z.qsos += 1;
-          if (q.call) z.uniques.add(q.call);
+          if (prefix.country) z.countries.add(prefix.country);
         }
         if (prefix.ituZone) {
-          if (!ituZones.has(prefix.ituZone)) ituZones.set(prefix.ituZone, { qsos: 0, uniques: new Set() });
+          if (!ituZones.has(prefix.ituZone)) ituZones.set(prefix.ituZone, { qsos: 0, countries: new Set() });
           const z = ituZones.get(prefix.ituZone);
           z.qsos += 1;
-          if (q.call) z.uniques.add(q.call);
+          if (prefix.country) z.countries.add(prefix.country);
         }
       }
 
@@ -890,9 +1264,16 @@
       // Callsign lengths
       if (q.call) {
         const len = q.call.length;
-        callsignLengths.set(len, (callsignLengths.get(len) || 0) + 1);
+        if (!callsignLengths.has(len)) callsignLengths.set(len, { callsigns: new Set(), qsos: 0 });
+        const lenEntry = callsignLengths.get(len);
+        lenEntry.qsos += 1;
+        lenEntry.callsigns.add(q.call);
         const struct = classifyCallStructure(q.call);
-        structures.set(struct, (structures.get(struct) || 0) + 1);
+        if (!structures.has(struct)) structures.set(struct, { callsigns: new Set(), qsos: 0, example: q.call });
+        const structEntry = structures.get(struct);
+        structEntry.qsos += 1;
+        structEntry.callsigns.add(q.call);
+        if (!structEntry.example) structEntry.example = q.call;
       }
 
       // All calls summary
@@ -925,6 +1306,11 @@
           q.bearing = brng;
           distanceSummary.add(dist);
           headingSummary.add(brng);
+          if (q.country && countries.has(q.country)) {
+            const c = countries.get(q.country);
+            c.distSum += dist;
+            c.distCount += 1;
+          }
           // heading by hour bucketed into 30 deg sectors
           if (typeof q.ts === 'number') {
             const hourBucket = Math.floor(q.ts / 3600000);
@@ -970,6 +1356,8 @@
         } else if (q.band && q.band !== freqBand) {
           possibleErrors.push({ reason: `Band/freq mismatch: band ${q.band}, freq ${q.freq} MHz (${freqBand}m)`, q });
         }
+        const bin = Math.floor(q.freq * 10) / 10;
+        freqBins.set(bin, (freqBins.get(bin) || 0) + 1);
       }
       if (prefix) {
         if (prefix.cqZone && loggedCq != null && loggedCq !== prefix.cqZone) {
@@ -992,6 +1380,21 @@
     });
     bandSummary.sort((a, b) => a.band.localeCompare(b.band));
 
+    const bandModeSummary = Array.from(bandModes.values()).map((b) => ({
+      band: b.band,
+      cw: b.cw,
+      digital: b.digital,
+      phone: b.phone,
+      all: b.all,
+      countries: b.countries.size,
+      points: b.points
+    })).sort((a, b) => {
+      const ai = parseInt(a.band, 10);
+      const bi = parseInt(b.band, 10);
+      if (Number.isFinite(ai) && Number.isFinite(bi)) return bi - ai;
+      return a.band.localeCompare(b.band);
+    });
+
     const countrySummary = [];
     countries.forEach((v, k) => {
       countrySummary.push({
@@ -999,28 +1402,50 @@
         qsos: v.qsos,
         uniques: v.uniques.size,
         bands: Array.from(v.bands).sort(),
+        bandCounts: v.bandCounts,
+        cw: v.cw,
+        digital: v.digital,
+        phone: v.phone,
+        continent: v.continent,
+        distanceAvg: v.distCount ? v.distSum / v.distCount : null,
+        prefixCode: countryPrefixMap.get(k) || '',
         firstTs: v.firstTs,
         lastTs: v.lastTs
       });
     });
-    countrySummary.sort((a, b) => b.qsos - a.qsos || a.country.localeCompare(b.country));
+    const continentOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
+    countrySummary.sort((a, b) => {
+      const ai = continentOrder.indexOf((a.continent || '').toUpperCase());
+      const bi = continentOrder.indexOf((b.continent || '').toUpperCase());
+      if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      return (a.prefixCode || a.country).localeCompare(b.prefixCode || b.country);
+    });
 
     const continentSummary = [];
     continents.forEach((v, k) => {
       continentSummary.push({
         continent: k,
         qsos: v.qsos,
-        uniques: v.uniques.size
+        uniques: v.uniques.size,
+        bandCounts: v.bandCounts,
+        cw: v.cw,
+        digital: v.digital,
+        phone: v.phone
       });
     });
-    continentSummary.sort((a, b) => b.qsos - a.qsos || a.continent.localeCompare(b.continent));
+    continentSummary.sort((a, b) => {
+      const ai = continentOrder.indexOf((a.continent || '').toUpperCase());
+      const bi = continentOrder.indexOf((b.continent || '').toUpperCase());
+      if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      return (a.continent || '').localeCompare(b.continent || '');
+    });
 
     const cqZoneSummary = [];
     cqZones.forEach((v, k) => {
       cqZoneSummary.push({
         cqZone: k,
         qsos: v.qsos,
-        uniques: v.uniques.size
+        countries: v.countries.size
       });
     });
     cqZoneSummary.sort((a, b) => a.cqZone - b.cqZone);
@@ -1030,7 +1455,7 @@
       ituZoneSummary.push({
         ituZone: k,
         qsos: v.qsos,
-        uniques: v.uniques.size
+        countries: v.countries.size
       });
     });
     ituZoneSummary.sort((a, b) => a.ituZone - b.ituZone);
@@ -1047,6 +1472,8 @@
       minute,
       qsos: v.qsos
     }));
+
+    const breakSummary = computeBreakSummary(minutes, 60);
 
     const tenMinuteSeries = Array.from(tenMinutes.entries()).sort((a, b) => a[0] - b[0]).map(([bucket, v]) => ({
       bucket,
@@ -1065,7 +1492,11 @@
     prefixSummary.sort((a, b) => b.qsos - a.qsos || a.prefix.localeCompare(b.prefix));
 
     // Callsign length summary
-    const callsignLengthSummary = Array.from(callsignLengths.entries()).map(([len, count]) => ({ len, count }))
+    const callsignLengthSummary = Array.from(callsignLengths.entries()).map(([len, info]) => ({
+      len,
+      callsigns: info.callsigns.size,
+      qsos: info.qsos
+    }))
       .sort((a, b) => a.len - b.len);
 
     // Not in master list
@@ -1090,15 +1521,22 @@
       uniques: info.uniques.size
     })).sort((a, b) => b.qsos - a.qsos || a.op.localeCompare(b.op));
 
-    const structureSummary = Array.from(structures.entries()).map(([struct, count]) => ({
+    const structureSummary = Array.from(structures.entries()).map(([struct, info]) => ({
       struct,
-      count
-    })).sort((a, b) => b.count - a.count || a.struct.localeCompare(b.struct));
+      example: info.example,
+      callsigns: info.callsigns.size,
+      qsos: info.qsos
+    })).sort((a, b) => b.qsos - a.qsos || a.struct.localeCompare(b.struct));
 
     const headingByHourSeries = Array.from(headingByHour.entries()).sort((a, b) => a[0] - b[0]).map(([hour, m]) => {
       const sectors = Array.from(m.entries()).sort((a, b) => a[0] - b[0]).map(([sector, count]) => ({ sector, count }));
       return { hour, sectors };
     });
+
+    const frequencySummary = Array.from(freqBins.entries()).sort((a, b) => a[0] - b[0]).map(([freq, count]) => ({
+      freq,
+      count
+    }));
 
     const fieldsSummary = Array.from(fields.entries()).map(([field, count]) => ({ field, count }))
       .sort((a, b) => b.count - a.count || a.field.localeCompare(b.field));
@@ -1107,6 +1545,7 @@
       dupes,
       uniqueCallsCount: calls.size,
       bandSummary,
+      bandModeSummary,
       countrySummary,
       continentSummary,
       cqZoneSummary,
@@ -1125,11 +1564,15 @@
       distanceSummary: distanceSummary.export(),
       headingSummary: headingSummary.export(),
       headingByHourSeries,
+      frequencySummary,
       fieldsSummary,
       station,
+      contestMeta,
       comments: Array.from(comments),
       possibleErrors,
-      timeRange: { minTs, maxTs }
+      timeRange: { minTs, maxTs },
+      breakSummary,
+      totalPoints
     };
   }
 
@@ -1147,21 +1590,67 @@
     const duration = (state.derived.timeRange.maxTs && state.derived.timeRange.minTs)
       ? Math.round((state.derived.timeRange.maxTs - state.derived.timeRange.minTs) / 60000)
       : null;
-    const hours = duration != null ? `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')} (min ${duration})` : 'N/A';
+    const participation = duration != null ? formatMinutes(duration) : 'N/A';
+    const breakMinutes = state.derived.breakSummary?.totalBreakMin || 0;
+    const breakTime = duration != null ? formatMinutes(breakMinutes) : 'N/A';
+    const operatingMinutes = duration != null ? Math.max(duration - breakMinutes, 0) : null;
+    const operatingTime = operatingMinutes != null ? formatMinutes(operatingMinutes) : 'N/A';
+    const qsosPerStation = uniques ? (totalQsos / uniques).toFixed(2) : 'N/A';
+    const kmPerQso = state.derived.distanceSummary?.avg ? `${state.derived.distanceSummary.avg.toFixed(0)} km` : 'N/A';
+    const countries = state.derived.countrySummary?.length || 0;
+    const fields = state.derived.fieldsSummary?.length || 0;
+    const notInMaster = state.derived.notInMasterList?.length || 0;
+    const notInMasterPct = uniques ? ((notInMaster / uniques) * 100).toFixed(2) : '0.00';
+    const prefixes = state.derived.prefixSummary?.length || 0;
+    const stationCall = state.derived.contestMeta?.stationCallsign || '';
+    const stationPrefix = stationCall ? lookupPrefix(stationCall) : null;
+    const stationCountry = stationPrefix?.country || 'N/A';
+    const locator = state.derived.station?.source === 'grid' ? state.derived.station.value : 'N/A';
+    const operators = state.derived.operatorsSummary?.map((o) => o.op).join(' ') || 'N/A';
+    const contest = state.derived.contestMeta?.contestId || 'N/A';
+    const category = state.derived.contestMeta?.category || 'N/A';
+    const claimedScore = Number.isFinite(state.derived.totalPoints) && state.derived.totalPoints > 0
+      ? state.derived.totalPoints
+      : (state.derived.contestMeta?.claimedScore || '0');
+    const software = state.derived.contestMeta?.software || 'N/A';
+    const club = state.derived.contestMeta?.club || 'N/A';
 
+    const rows = [
+      ['Callsign', `<strong>${stationCall || 'N/A'}</strong>`],
+      ['Country', stationCountry],
+      ['Locator', locator],
+      ['Sunrise', 'N/A'],
+      ['Sunset', 'N/A'],
+      ['Contest', contest],
+      ['Category', category],
+      ['Operators', operators],
+      ['Start date', formatDateSh6(state.derived.timeRange.minTs)],
+      ['End date', formatDateSh6(state.derived.timeRange.maxTs)],
+      ['Participation time', participation],
+      ['Break time', breakTime],
+      ['Operating time', operatingTime],
+      ['QSOs', `<strong>${formatNumberSh6(totalQsos)}</strong>`],
+      ['Dupes', formatNumberSh6(dupes)],
+      ['Unique callsigns', formatNumberSh6(uniques)],
+      ['QSOs per station', qsosPerStation],
+      ['Kilometers per QSO', kmPerQso],
+      ['Countries', formatNumberSh6(countries)],
+      ['Fields', formatNumberSh6(fields)],
+      ['Moves', 'N/A'],
+      ['Claimed score', `<strong>${formatNumberSh6(claimedScore)}</strong> pts`],
+      ['Software', software],
+      ['Sunspot number (SSN)', 'N/A'],
+      ['Callsigns not found in SH6.master', `${formatNumberSh6(notInMaster)} (${notInMasterPct}%)`],
+      ['Prefixes', formatNumberSh6(prefixes)],
+      ['Club', club]
+    ];
+    const rowHtml = rows.map(([label, value], idx) => `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
+      `).join('');
     return `
-      <table>
-        <tr><th>Parameter</th><th>Value</th></tr>
-        <tr><td>QSOs</td><td><strong>${totalQsos}</strong></td></tr>
-        <tr><td>Dupes</td><td>${dupes}</td></tr>
-        <tr><td>Unique callsigns</td><td>${uniques}</td></tr>
-        <tr><td>Start time</td><td>${formatDate(state.derived.timeRange.minTs)}</td></tr>
-        <tr><td>End time</td><td>${formatDate(state.derived.timeRange.maxTs)}</td></tr>
-        <tr><td>Participation time</td><td>${hours}</td></tr>
-        <tr><td>Operators</td><td>${state.derived.operatorsSummary?.length || 0}</td></tr>
-        <tr><td>Station location</td><td>${state.derived.station ? `${state.derived.station.value} (${state.derived.station.source})` : 'N/A'}</td></tr>
-        <tr><td>Country file</td><td>${state.ctyStatus}${state.ctyError ? ` (error: ${state.ctyError})` : ''}</td></tr>
-        <tr><td>Master file</td><td>${state.masterStatus}${state.masterError ? ` (error: ${state.masterError})` : ''}</td></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
+        <tr class="thc"><th>Parameter</th><th>Value</th></tr>
+        ${rowHtml}
       </table>
     `;
   }
@@ -1169,38 +1658,117 @@
   function renderOperators() {
     if (!state.derived) return renderPlaceholder({ id: 'operators', title: 'Operators' });
     if (!state.derived.operatorsSummary || state.derived.operatorsSummary.length === 0) return '<p>No operator data in log.</p>';
-    const rows = state.derived.operatorsSummary.map((o) => `
-      <tr>
-        <td>${o.op}</td>
-        <td>${o.qsos}</td>
-        <td>${o.uniques}</td>
-      </tr>
-    `).join('');
+    const cards = state.derived.operatorsSummary.map((o) => {
+      const call = o.op;
+      return `
+        <div class="operator-card">
+          <div class="np"></div>
+          <i style="border-bottom:1px dashed" title="No file ${call.toLowerCase()}.jpg in 'images' folder.">(No photo)</i>
+          <br/><br/>
+          <b><a rel="nofollow" title="${call} at QRZ.COM" target="_blank" href="http://www.qrz.com/db/${call}">${call}</a></b>
+          <br/>&nbsp;<br/><br/>
+        </div>
+      `;
+    }).join('');
     return `
-      <table>
-        <tr><th>Operator</th><th>QSOs</th><th>Uniques</th></tr>
-        ${rows}
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
+        <tr><td><div class="operator-grid">${cards}</div></td></tr>
       </table>
     `;
   }
 
   function renderQsPerStation() {
-    return renderOperators();
+    if (!state.derived) return renderPlaceholder({ id: 'qs_per_station', title: 'Qs per station' });
+    const grouped = new Map();
+    state.derived.allCallsList.forEach((c) => {
+      if (!grouped.has(c.qsos)) grouped.set(c.qsos, []);
+      grouped.get(c.qsos).push(c.call);
+    });
+    const rows = Array.from(grouped.entries()).sort((a, b) => b[0] - a[0]).map(([qsos, calls], idx) => {
+      const stations = calls.length;
+      const total = stations * qsos;
+      const callLinks = calls.map((call) => `<a href="#" class="log-call" data-call="${call}">${call}</a>`).join(' ');
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td><b>${formatNumberSh6(qsos)}</b></td>
+        <td>${callLinks}</td>
+        <td><b>${formatNumberSh6(stations)}</b></td>
+        <td><b>${formatNumberSh6(total)}</b></td>
+      </tr>
+    `;
+    }).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>QSOs</th><th>Callsigns</th><th>Stations</th><th>Total QSOs</th></tr>
+        ${rows}
+      </table>
+    `;
   }
 
   function renderSummary() {
     if (!state.derived) return renderPlaceholder({ id: 'summary', title: 'Summary' });
-    const rows = state.derived.bandSummary.map((b) => `
-      <tr>
-        <td>${b.band}</td>
-        <td>${b.qsos}</td>
-        <td>${b.dupes}</td>
-        <td>${b.uniques}</td>
+    const totalQsos = state.qsoData?.qsos.length || 0;
+    const totalCountries = state.derived.countrySummary?.length || 0;
+    const totalPoints = Number.isFinite(state.derived.totalPoints) ? state.derived.totalPoints : '';
+    const totals = state.derived.bandModeSummary.reduce((acc, b) => {
+      acc.cw += b.cw;
+      acc.digital += b.digital;
+      acc.phone += b.phone;
+      acc.all += b.all;
+      return acc;
+    }, { cw: 0, digital: 0, phone: 0, all: 0 });
+    const rowsData = [
+      ...state.derived.bandModeSummary,
+      { band: 'All', ...totals, countries: totalCountries, points: totalPoints }
+    ];
+    const renderModeCells = (count, pct, band, mode) => {
+      if (!count) return '<td colspan="3"></td>';
+      const pctText = pct.toFixed(1);
+      const title = `${formatNumberSh6(count)} Qs - ${pctText}%`;
+      const link = `<a href="#" class="log-filter" data-band="${band}" data-mode="${mode}">${formatNumberSh6(count)}</a>`;
+      return `
+        <td>${link}</td>
+        <td><i>${pctText}</i></td>
+        <td title="${title}" align="left"><div class="sum" style="width:${pctText}px"></div></td>
+      `;
+    };
+    const rows = rowsData.map((b, idx) => {
+      const cwPct = totalQsos ? (b.cw / totalQsos) * 100 : 0;
+      const digPct = totalQsos ? (b.digital / totalQsos) * 100 : 0;
+      const phonePct = totalQsos ? (b.phone / totalQsos) * 100 : 0;
+      const allPct = totalQsos ? (b.all / totalQsos) * 100 : 0;
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td><b>${b.band}</b></td>
+        ${renderModeCells(b.cw, cwPct, b.band, 'CW')}
+        ${renderModeCells(b.digital, digPct, b.band, 'Digital')}
+        ${renderModeCells(b.phone, phonePct, b.band, 'Phone')}
+        ${renderModeCells(b.all, allPct, b.band, 'All')}
+        <td>${formatNumberSh6(b.countries ?? '')}</td>
+        <td>${formatNumberSh6(b.points ?? '')}</td>
+        <td class="tac"><a href="#" class="map-link" data-scope="summary" data-key="${b.band}">map</a></td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     return `
-      <table>
-        <tr><th>Band</th><th>QSOs</th><th>Dupes</th><th>Uniques</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <colgroup><col width="6%" span="16"/></colgroup>
+        <tr class="thc">
+          <th rowspan="2">Band</th>
+          <th colspan="3">CW</th>
+          <th colspan="3">Digital</th>
+          <th colspan="3">Phone</th>
+          <th colspan="3">All</th>
+          <th rowspan="2">Countries</th>
+          <th rowspan="2">Qs Pts</th>
+          <th rowspan="2">Map</th>
+        </tr>
+        <tr class="thc">
+          <th>QSOs</th><th colspan="2">%</th>
+          <th>QSOs</th><th colspan="2">%</th>
+          <th>QSOs</th><th colspan="2">%</th>
+          <th>QSOs</th><th colspan="2">%</th>
+        </tr>
         ${rows}
       </table>
     `;
@@ -1210,37 +1778,107 @@
     if (!state.qsoData) return renderPlaceholder({ id: 'log', title: 'Log' });
     const ctyLoaded = state.ctyTable && state.ctyTable.length > 0;
     const masterLoaded = state.masterSet && state.masterSet.size > 0;
-    const start = state.logPage * state.logPageSize;
+    const search = (state.logSearch || '').trim().toUpperCase();
+    const fieldFilter = (state.logFieldFilter || '').trim().toUpperCase();
+    const bandFilter = (state.logBandFilter || '').trim().toUpperCase();
+    const modeFilter = (state.logModeFilter || '').trim();
+    const countryFilter = (state.logCountryFilter || '').trim().toUpperCase();
+    const continentFilter = (state.logContinentFilter || '').trim().toUpperCase();
+    const cqFilter = (state.logCqFilter || '').trim();
+    const ituFilter = (state.logItuFilter || '').trim();
+    const rangeFilter = state.logRange;
+    const timeRange = state.logTimeRange;
+    let filtered = state.qsoData.qsos;
+    if (search) {
+      filtered = filtered.filter((q) => q.call && q.call.includes(search));
+    }
+    if (fieldFilter) {
+      filtered = filtered.filter((q) => q.grid && q.grid.startsWith(fieldFilter));
+    }
+    if (bandFilter) {
+      filtered = filtered.filter((q) => q.band && q.band.toUpperCase() === bandFilter);
+    }
+    if (modeFilter && modeFilter !== 'All') {
+      filtered = filtered.filter((q) => modeBucket(q.mode) === modeFilter);
+    }
+    if (countryFilter) {
+      filtered = filtered.filter((q) => q.country && q.country.toUpperCase() === countryFilter);
+    }
+    if (continentFilter) {
+      filtered = filtered.filter((q) => q.continent && q.continent.toUpperCase() === continentFilter);
+    }
+    if (cqFilter) {
+      filtered = filtered.filter((q) => String(q.cqZone || '') === cqFilter);
+    }
+    if (ituFilter) {
+      filtered = filtered.filter((q) => String(q.ituZone || '') === ituFilter);
+    }
+    if (rangeFilter && Number.isFinite(rangeFilter.start) && Number.isFinite(rangeFilter.end)) {
+      filtered = filtered.filter((q) => {
+        const n = Number(q.qsoNumber);
+        return Number.isFinite(n) && n >= rangeFilter.start && n <= rangeFilter.end;
+      });
+    }
+    if (timeRange && Number.isFinite(timeRange.startTs) && Number.isFinite(timeRange.endTs)) {
+      filtered = filtered.filter((q) => typeof q.ts === 'number' && q.ts >= timeRange.startTs && q.ts <= timeRange.endTs);
+    }
+    const totalPages = Math.max(1, Math.ceil(filtered.length / state.logPageSize));
+    const page = Math.min(state.logPage, totalPages - 1);
+    if (page !== state.logPage) state.logPage = page;
+    const start = page * state.logPageSize;
     const end = start + state.logPageSize;
-    const rows = state.qsoData.qsos.slice(start, end).map((q) => `
-      <tr>
-        <td>${q.time}</td>
+    const rows = filtered.slice(start, end).map((q, idx) => `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${formatNumberSh6(q.qsoNumber || '')}</td>
+        <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
         <td>${q.band}</td>
         <td>${q.mode}</td>
         <td>${q.freq ?? ''}</td>
-        <td>${q.call}</td>
+        <td class="tl">${q.call}</td>
+        <td>${formatNumberSh6(q.rstSent || '')}</td>
+        <td>${formatNumberSh6(q.rstRcvd || '')}</td>
+        <td>${formatNumberSh6(q.stx || q.exchSent || '')}</td>
+        <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
         <td>${q.op || ''}</td>
-        <td>${q.stx || q.raw?.EXCH_SENT || q.raw?.STX_STRING || ''}</td>
-        <td>${q.srx || q.raw?.EXCH_RCVD || q.raw?.SRX_STRING || ''}</td>
-        <td>${q.country || ''}</td>
+        <td class="tl">${q.country || ''}</td>
         <td>${q.cqZone || ''}</td>
         <td>${q.ituZone || ''}</td>
-        <td>${q.grid || ''}</td>
-        <td>${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}</td>
+        <td class="tl">${q.grid || ''}</td>
+        <td class="tl">${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}</td>
       </tr>
     `).join('');
-    const totalPages = Math.ceil(state.qsoData.qsos.length / state.logPageSize);
-    const note = `<p>Showing ${start + 1}-${Math.min(end, state.qsoData.qsos.length)} of ${state.qsoData.qsos.length} QSOs (page ${state.logPage + 1} / ${totalPages}).</p>`;
+    const note = `<p>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(Math.min(end, filtered.length))} of ${formatNumberSh6(filtered.length)} QSOs (page ${page + 1} / ${totalPages}).</p>`;
     const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
+    const emptyNote = filtered.length ? '' : '<p>No QSOs match current filter.</p>';
+    const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter
+      ? `<p class="log-filter-note">Filter: ${bandFilter || 'All bands'} ${modeFilter ? `/${modeFilter}` : ''} ${countryFilter ? ` ${countryFilter}` : ''} ${continentFilter ? ` ${continentFilter}` : ''} ${cqFilter ? ` CQ${cqFilter}` : ''} ${ituFilter ? ` ITU${ituFilter}` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+      : '';
+    const pageLinks = Array.from({ length: totalPages }, (_, i) => {
+      const from = i * state.logPageSize + 1;
+      const to = Math.min((i + 1) * state.logPageSize, filtered.length);
+      const cls = i === page ? 'active' : '';
+      return `<a href="#" class="log-page ${cls}" data-page="${i}" title="${from}-${to} Qs">&nbsp;${i + 1}&nbsp;</a>`;
+    }).join(' ');
     return `
       ${note}
       ${dataNote}
+      ${filterNote}
+      ${emptyNote}
       <div>
-        <button id="logPrev" ${state.logPage === 0 ? 'disabled' : ''}>Prev</button>
-        <button id="logNext" ${state.logPage >= totalPages - 1 ? 'disabled' : ''}>Next</button>
+        <form id="logSearchForm">
+          Callsign:
+          <input id="logSearchInput" type="text" value="${search}" style="text-transform: uppercase; font-family: monospace; font-weight: bold; font-size: 24px;">
+          <button type="submit">Search</button>
+          <button type="button" id="logSearchClear">Clear</button>
+        </form>
+        <div>Pages: ${pageLinks}</div>
+        <div>
+          <button id="logPrev" ${page === 0 ? 'disabled' : ''}>Prev</button>
+          <button id="logNext" ${page >= totalPages - 1 ? 'disabled' : ''}>Next</button>
+        </div>
       </div>
-      <table>
-        <tr><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>Op</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Country</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
         ${rows}
       </table>
     `;
@@ -1248,20 +1886,20 @@
 
   function renderDupes() {
     if (!state.derived) return renderPlaceholder({ id: 'dupes', title: 'Dupes' });
-    const rows = state.derived.dupes.map((q) => `
-      <tr>
+    const rows = state.derived.dupes.map((q, idx) => `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${q.time}</td>
         <td>${q.band}</td>
         <td>${q.mode}</td>
-        <td>${q.call}</td>
+        <td><a href="#" class="log-call" data-call="${q.call}">${q.call}</a></td>
       </tr>
     `).join('');
     const count = state.derived.dupes.length;
     if (!count) return '<p>No duplicate QSOs detected.</p>';
     return `
-      <p>Duplicate QSOs: ${count}</p>
-      <table>
-        <tr><th>Time</th><th>Band</th><th>Mode</th><th>Call</th></tr>
+      <p>Duplicate QSOs: ${formatNumberSh6(count)}</p>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Time</th><th>Band</th><th>Mode</th><th>Call</th></tr>
         ${rows}
       </table>
     `;
@@ -1269,19 +1907,63 @@
 
   function renderCountries() {
     if (!state.derived) return renderPlaceholder({ id: 'countries', title: 'Countries' });
-    const rows = state.derived.countrySummary.map((c) => `
-      <tr>
-        <td>${c.country}</td>
-        <td>${c.qsos}</td>
-        <td>${c.uniques}</td>
-        <td>${c.bands.join(', ')}</td>
-        <td>${formatDate(c.firstTs)}</td>
-        <td>${formatDate(c.lastTs)}</td>
+    const totalQsos = state.qsoData?.qsos.length || 0;
+    const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const contClass = (cont) => {
+      switch ((cont || '').toUpperCase()) {
+        case 'NA': return 'c2';
+        case 'SA': return 'c3';
+        case 'EU': return 'c4';
+        case 'AF': return 'c5';
+        case 'AS': return 'c6';
+        case 'OC': return 'c7';
+        default: return '';
+      }
+    };
+    const renderCount = (count, country, band, mode) => {
+      if (!count) return '<td></td>';
+      return `<td><a href="#" class="log-country-filter" data-country="${country}" data-band="${band || ''}" data-mode="${mode || ''}">${formatNumberSh6(count)}</a></td>`;
+    };
+    const rows = state.derived.countrySummary.map((c, idx) => {
+      const pct = totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(1) : '0.0';
+      const bandCount = bandCols.filter((b) => c.bandCounts?.get(b)).length;
+      const bandClass = `q${Math.min(6, Math.max(1, bandCount || 1))}`;
+      const bandCells = bandCols.map((b) => renderCount(c.bandCounts?.get(b), c.country, b, ''));
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${formatNumberSh6(idx + 1)}</td>
+        <td class="${contClass(c.continent)}">${c.continent || ''}</td>
+        <td>${c.prefixCode || ''}</td>
+        <td class="tl"><a href="#" class="log-country" data-country="${c.country}">${c.country}</a></td>
+        <td>${c.distanceAvg ? formatNumberSh6(c.distanceAvg.toFixed(0)) : ''}</td>
+        ${renderCount(c.cw, c.country, '', 'CW')}
+        ${renderCount(c.digital, c.country, '', 'Digital')}
+        ${renderCount(c.phone, c.country, '', 'Phone')}
+        ${bandCells.join('')}
+        ${renderCount(c.qsos, c.country, '', '')}
+        <td><i>${pct}</i></td>
+        <td class="${bandClass}">${bandCount || ''}</td>
+        <td class="tac"><a href="#" class="map-link" data-scope="country" data-key="${c.country}">map</a></td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     return `
-      <table>
-        <tr><th>Country</th><th>QSOs</th><th>Uniques</th><th>Bands</th><th>First</th><th>Last</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <colgroup><col width="40px" span="3" align="center"/><col align="left"/><col span="12" width="40px" align="center"/></colgroup>
+        <tr class="thc">
+          <th rowspan="2">#</th>
+          <th rowspan="2">Cont.</th>
+          <th colspan="2" rowspan="2">Country</th>
+          <th rowspan="2">Distance, km</th>
+          <th colspan="11">QSOs</th>
+          <th rowspan="2">Bands</th>
+          <th rowspan="2">Map</th>
+        </tr>
+        <tr class="thc">
+          <th>CW</th><th>DIG</th><th>SSB</th>
+          <th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th>
+          <th>All</th><th>%</th>
+        </tr>
         ${rows}
       </table>
     `;
@@ -1289,16 +1971,41 @@
 
   function renderContinents() {
     if (!state.derived) return renderPlaceholder({ id: 'continents', title: 'Continents' });
-    const rows = state.derived.continentSummary.map((c) => `
-      <tr>
-        <td>${c.continent}</td>
-        <td>${c.qsos}</td>
-        <td>${c.uniques}</td>
-      </tr>
-    `).join('');
+    const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const totalQs = state.qsoData?.qsos?.length || 0;
+    const rows = state.derived.continentSummary.map((c, idx) => {
+      const pct = totalQs ? ((c.qsos / totalQs) * 100).toFixed(1) : '';
+      const bandCells = bandCols.map((b) => {
+        const count = c.bandCounts?.get(b) || 0;
+        if (!count) return '<td></td>';
+        return `<td><a href="#" class="log-continent-band" data-continent="${c.continent}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
+      }).join('');
+      const allLink = `<a href="#" class="log-continent" data-continent="${c.continent}">${formatNumberSh6(c.qsos)}</a>`;
+      const cw = c.cw ? formatNumberSh6(c.cw) : '';
+      const digital = c.digital ? formatNumberSh6(c.digital) : '';
+      const phone = c.phone ? formatNumberSh6(c.phone) : '';
+      const contKey = (c.continent || '').toUpperCase();
+      const contClassMap = { NA: 'c2', SA: 'c3', EU: 'c4', AF: 'c5', AS: 'c6', OC: 'c7' };
+      const contClass = contClassMap[contKey] || '';
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td class="${contClass}">${contKey}</td>
+          <td style="text-align:left">${continentLabel(contKey)}</td>
+          ${bandCells}
+          <td>${allLink}</td>
+          <td><i>${pct}</i></td>
+          <td>${cw}</td>
+          <td>${digital}</td>
+          <td>${phone}</td>
+          <td class="tac"><a href="#" class="map-link" data-scope="continent" data-key="${contKey}">map</a></td>
+        </tr>
+      `;
+    }).join('');
     return `
-      <table>
-        <tr><th>Continent</th><th>QSOs</th><th>Uniques</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <colgroup><col width="30px"/><col width="200px"/><col span="11" width="120px"/><col width="5%"/></colgroup>
+        <tr class="thc"><th colspan="2" rowspan="2">Continent</th><th colspan="11">QSOs</th><th colspan="2" rowspan="2">Map</th></tr>
+        <tr class="thc"><th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th><th>All</th><th>%</th><th>CW</th><th>Digital</th><th>Phone</th></tr>
         ${rows}
       </table>
     `;
@@ -1306,16 +2013,17 @@
 
   function renderCqZones() {
     if (!state.derived) return renderPlaceholder({ id: 'zones_cq', title: 'CQ zones' });
-    const rows = state.derived.cqZoneSummary.map((z) => `
-      <tr>
-        <td>${z.cqZone}</td>
-        <td>${z.qsos}</td>
-        <td>${z.uniques}</td>
+    const rows = state.derived.cqZoneSummary.map((z, idx) => `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td><a href="#" class="log-cq" data-cq="${z.cqZone}">${z.cqZone}</a></td>
+        <td>${formatNumberSh6(z.countries)}</td>
+        <td>${formatNumberSh6(z.qsos)}</td>
+        <td class="tac"><a href="#" class="map-link" data-scope="cq_zone" data-key="${z.cqZone}">map</a></td>
       </tr>
     `).join('');
     return `
-      <table>
-        <tr><th>CQ Zone</th><th>QSOs</th><th>Uniques</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map</th></tr>
         ${rows}
       </table>
     `;
@@ -1323,16 +2031,17 @@
 
   function renderItuZones() {
     if (!state.derived) return renderPlaceholder({ id: 'zones_itu', title: 'ITU zones' });
-    const rows = state.derived.ituZoneSummary.map((z) => `
-      <tr>
-        <td>${z.ituZone}</td>
-        <td>${z.qsos}</td>
-        <td>${z.uniques}</td>
+    const rows = state.derived.ituZoneSummary.map((z, idx) => `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td><a href="#" class="log-itu" data-itu="${z.ituZone}">${z.ituZone}</a></td>
+        <td>${formatNumberSh6(z.countries)}</td>
+        <td>${formatNumberSh6(z.qsos)}</td>
+        <td class="tac"><a href="#" class="map-link" data-scope="itu_zone" data-key="${z.ituZone}">map</a></td>
       </tr>
     `).join('');
     return `
-      <table>
-        <tr><th>ITU Zone</th><th>QSOs</th><th>Uniques</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map</th></tr>
         ${rows}
       </table>
     `;
@@ -1340,22 +2049,47 @@
 
   function renderQsByHourSheet() {
     if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'qs_by_hour_sheet', title: 'Qs by hour sheet' });
-    const allBands = new Set();
-    state.derived.hourSeries.forEach((h) => {
-      Object.keys(h.bands).forEach((b) => allBands.add(b));
+    const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const hourPoints = new Map();
+    (state.qsoData?.qsos || []).forEach((q) => {
+      if (typeof q.ts !== 'number' || !Number.isFinite(q.points)) return;
+      const hourBucket = Math.floor(q.ts / 3600000);
+      hourPoints.set(hourBucket, (hourPoints.get(hourBucket) || 0) + q.points);
     });
-    const bands = Array.from(allBands).sort();
-
-    const header = bands.map((b) => `<th>${b}</th>`).join('');
-    const rows = state.derived.hourSeries.map((h) => {
+    const solarData = loadSolarData();
+    let accum = 0;
+    let lastDay = '';
+    const rows = state.derived.hourSeries.map((h, idx) => {
       const date = new Date(h.hour * 3600000);
-      const label = date.toISOString().slice(0, 13).replace('T', ' ');
-      const cells = bands.map((b) => `<td>${h.bands[b] || 0}</td>`).join('');
-      return `<tr><td>${label}</td>${cells}<td>${h.qsos}</td></tr>`;
+      const day = date.toISOString().slice(0, 10);
+      const hour = date.toISOString().slice(11, 13);
+      const dayLabel = day !== lastDay ? day : '';
+      lastDay = day;
+      const solar = getSolarForHour(solarData, h.hour * 3600000, {
+        ssn: state.derived.contestMeta?.ssn || '',
+        kIndex: state.derived.contestMeta?.kIndex || ''
+      });
+      const kDots = solar.kIndex ? '&#8226;'.repeat(Math.max(1, Math.min(5, Number(solar.kIndex)))) : '';
+      const cells = bandCols.map((b) => `<td>${formatNumberSh6(h.bands[b] || '')}</td>`).join('');
+      accum += h.qsos;
+      const pts = hourPoints.get(h.hour) || '';
+      const avgPts = pts && h.qsos ? (pts / h.qsos).toFixed(1) : '';
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}</b></td><td>${solar.ssn || ''}</td><td>${solar.kIndex || ''}</td><td align="left">${kDots}</td>${cells}<td><b>${formatNumberSh6(h.qsos)}</b></td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
     }).join('');
     return `
-      <table>
-        <tr><th>Hour (UTC)</th>${header}<th>Total</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc">
+          <th rowspan="2">Day</th>
+          <th rowspan="2">Hour</th>
+          <th rowspan="2">SSN</th>
+          <th colspan="2" rowspan="2">K<br/>index</th>
+          <th colspan="10">QSOs</th>
+        </tr>
+        <tr class="thc">
+          <th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th>
+          <th>All</th><th>Accum.</th><th>Pts</th><th>Avg. Pts</th>
+        </tr>
         ${rows}
       </table>
     `;
@@ -1363,46 +2097,116 @@
 
   function renderRates() {
     if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'rates', title: 'Rates' });
-    // Simple 60-minute window peak calculation
-    const buckets = state.derived.hourSeries;
-    let peak = 0;
-    let peakHour = null;
-    buckets.forEach((h) => {
-      if (h.qsos > peak) {
-        peak = h.qsos;
-        peakHour = h.hour;
-      }
-    });
-    const peakLabel = peakHour != null ? new Date(peakHour * 3600000).toISOString().slice(0, 13).replace('T', ' ') : 'N/A';
-    // 10-minute peak
-    let peak10 = 0;
-    let peak10Bucket = null;
-    if (state.derived.tenMinuteSeries) {
-      state.derived.tenMinuteSeries.forEach((b) => {
-        if (b.qsos > peak10) {
-          peak10 = b.qsos;
-          peak10Bucket = b.bucket;
-        }
-      });
-    }
-    const peak10Label = peak10Bucket != null ? new Date(peak10Bucket * 600000).toISOString().slice(0, 16).replace('T', ' ') : 'N/A';
+    const qsos = state.qsoData?.qsos || [];
+    const windows = [10, 20, 30, 60, 120];
+    const rows = windows.map((mins, idx) => {
+      const peak = computePeakWindow(qsos, mins);
+      const perMin = peak.count ? (peak.count / mins).toFixed(1) : '0.0';
+      const perHour = peak.count ? Math.round((peak.count * 60) / mins) : 0;
+      const fromTime = peak.startTs ? formatDateSh6(peak.startTs) : 'N/A';
+      const toTime = peak.endTs ? formatDateSh6(peak.endTs) : 'N/A';
+      const rangeLink = (peak.startQso != null && peak.endQso != null)
+        ? `<a href="#" class="log-range" data-start="${peak.startQso}" data-end="${peak.endQso}">${formatNumberSh6(peak.count)}</a>`
+        : `${formatNumberSh6(peak.count)}`;
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td><b>${mins}</b></td>
+          <td>${rangeLink}</td>
+          <td>${perMin}</td>
+          <td>${formatNumberSh6(perHour)}</td>
+          <td>${fromTime}</td>
+          <td>${formatNumberSh6(peak.startQso ?? '')}</td>
+          <td>${toTime}</td>
+          <td>${formatNumberSh6(peak.endQso ?? '')}</td>
+        </tr>
+      `;
+    }).join('');
     return `
-      <p>Highest hourly rate: <strong>${peak}</strong> QSOs at ${peakLabel} UTC.</p>
-      <p>Highest 10-minute rate: <strong>${peak10}</strong> QSOs at ${peak10Label} UTC.</p>
-      ${renderQsByHourSheet()}
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <colgroup><col width="100px" span="4" align="center"/><col width="150px" align="center"/><col width="50px" align="center"/><col width="150px" align="center"/><col width="50px" align="center"/></colgroup>
+        <tr class="thc">
+          <th rowspan="2">Period, min.</th>
+          <th rowspan="2">QSOs</th>
+          <th rowspan="2">QSOs per<br/>minute</th>
+          <th rowspan="2">QSOs per<br/>hour</th>
+          <th colspan="2">From</th>
+          <th colspan="2">To</th>
+        </tr>
+        <tr class="thc">
+          <th>Time</th>
+          <th>QSO #</th>
+          <th>Time</th>
+          <th>QSO #</th>
+        </tr>
+        ${rows}
+      </table>
     `;
+  }
+
+  function computePeakWindow(qsos, windowMinutes) {
+    const windowMs = windowMinutes * 60000;
+    const data = qsos.filter((q) => typeof q.ts === 'number').sort((a, b) => a.ts - b.ts);
+    let best = { count: 0, startTs: null, endTs: null, startQso: null, endQso: null };
+    let j = 0;
+    for (let i = 0; i < data.length; i++) {
+      while (data[i].ts - data[j].ts >= windowMs) j += 1;
+      const count = i - j + 1;
+      if (count > best.count) {
+        best = {
+          count,
+          startTs: data[j].ts,
+          endTs: data[i].ts,
+          startQso: data[j].qsoNumber,
+          endQso: data[i].qsoNumber
+        };
+      }
+    }
+    return best;
   }
 
   function renderQsByMinute() {
     if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'qs_by_minute', title: 'Qs by minute' });
-    const rows = state.derived.minuteSeries.map((m) => {
-      const date = new Date(m.minute * 60000);
-      const label = date.toISOString().slice(0, 16).replace('T', ' ');
-      return `<tr><td>${label}</td><td>${m.qsos}</td></tr>`;
-    }).join('');
+    const minutesMap = new Map();
+    state.derived.minuteSeries.forEach((m) => minutesMap.set(m.minute, m.qsos));
+    const allMinutes = Array.from(minutesMap.keys());
+    if (allMinutes.length === 0) return '<p>No QSOs to analyze.</p>';
+    const minMinute = Math.min(...allMinutes);
+    const maxMinute = Math.max(...allMinutes);
+    const startHour = Math.floor(minMinute / 60);
+    const endHour = Math.floor(maxMinute / 60);
+    let lastDay = '';
+    let rows = '';
+    let rowIndex = 0;
+    for (let hour = startHour; hour <= endHour; hour++) {
+      const ts = hour * 3600000;
+      const day = formatDaySh6(ts);
+      const dayLabel = day !== lastDay ? day : '';
+      lastDay = day;
+      let cells = '';
+      for (let m = 0; m < 60; m++) {
+        const minuteBucket = hour * 60 + m;
+        const count = minutesMap.get(minuteBucket) || '';
+        const cls = minuteCountClass(count);
+        const startTs = minuteBucket * 60000;
+        const minuteLabel = formatDateSh6(startTs);
+        const cellValue = count ? `<a href="#" class="log-minute" data-minute="${minuteBucket}" title="${minuteLabel}">${count}</a>` : '';
+        cells += `<td class="${cls}">${cellValue}</td>`;
+      }
+      const rowCls = rowIndex % 2 === 0 ? 'td1' : 'td0';
+      rows += `<tr style="text-align:center;" class="${rowCls}"><td>${dayLabel}</td><td><b>${String(new Date(ts).getUTCHours()).padStart(2, '0')}</b></td>${cells}</tr>`;
+      rowIndex += 1;
+    }
     return `
-      <table>
-        <tr><th>Minute (UTC)</th><th>QSOs</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th rowspan="2">Day</th><th rowspan="2">Hour</th><th colspan="60">Minute</th></tr>
+        <tr class="thc">
+          <th style="text-align:left" colspan="10">0</th>
+          <th style="text-align:left" colspan="10">10</th>
+          <th style="text-align:left" colspan="10">20</th>
+          <th style="text-align:left" colspan="10">30</th>
+          <th style="text-align:left" colspan="10">40</th>
+          <th style="text-align:left" colspan="10">50</th>
+        </tr>
         ${rows}
       </table>
     `;
@@ -1410,16 +2214,24 @@
 
   function renderOneMinuteRates() {
     if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'one_minute_rates', title: 'One minute rates' });
-    const sorted = [...state.derived.minuteSeries].sort((a, b) => b.qsos - a.qsos || a.minute - b.minute).slice(0, 20);
-    const rows = sorted.map((m) => {
-      const date = new Date(m.minute * 60000);
-      const label = date.toISOString().slice(0, 16).replace('T', ' ');
-      return `<tr><td>${label}</td><td>${m.qsos}</td></tr>`;
+    const grouped = new Map();
+    state.derived.minuteSeries.forEach((m) => {
+      if (!grouped.has(m.qsos)) grouped.set(m.qsos, []);
+      grouped.get(m.qsos).push(m.minute);
+    });
+    const rows = Array.from(grouped.entries()).sort((a, b) => b[0] - a[0]).map(([rate, minutes], idx) => {
+      const labels = minutes.map((min) => formatDateSh6(min * 60000)).join(' ');
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td style="text-align:center"><b>${rate}</b></td>
+          <td>${labels}</td>
+          <td>${formatNumberSh6(minutes.length)}</td>
+        </tr>
+      `;
     }).join('');
     return `
-      <p>Top 20 one-minute rates.</p>
-      <table>
-        <tr><th>Minute (UTC)</th><th>QSOs</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Qs per<br/>minute</th><th>Minutes list</th><th>Total</th></tr>
         ${rows}
       </table>
     `;
@@ -1427,16 +2239,57 @@
 
   function renderPrefixes() {
     if (!state.derived) return renderPlaceholder({ id: 'prefixes', title: 'Prefixes' });
-    const rows = state.derived.prefixSummary.map((p) => `
-      <tr>
-        <td>${p.prefix}</td>
-        <td>${p.qsos}</td>
-        <td>${p.uniques}</td>
-      </tr>
-    `).join('');
+    if (!state.ctyTable || !state.ctyTable.length) return '<p>cty.dat not loaded.</p>';
+    const totalPrefixes = state.derived.prefixSummary.length || 0;
+    const countryPrefixMap = buildCountryPrefixMap();
+    const groups = new Map();
+    state.derived.prefixSummary.forEach((p) => {
+      const entry = state.ctyTable.find((e) => e.prefix === p.prefix);
+      if (!entry || !entry.country) return;
+      const key = entry.country;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          country: entry.country,
+          continent: entry.continent || '',
+          id: countryPrefixMap.get(entry.country) || entry.prefix,
+          prefixes: []
+        });
+      }
+      groups.get(key).prefixes.push(p.prefix);
+    });
+    const contClass = (cont) => {
+      switch ((cont || '').toUpperCase()) {
+        case 'NA': return 'c2';
+        case 'SA': return 'c3';
+        case 'EU': return 'c4';
+        case 'AF': return 'c5';
+        case 'AS': return 'c6';
+        case 'OC': return 'c7';
+        default: return '';
+      }
+    };
+    const rows = Array.from(groups.values())
+      .sort((a, b) => a.id.localeCompare(b.id) || a.country.localeCompare(b.country))
+      .map((g, idx) => {
+        const count = g.prefixes.length;
+        const pct = totalPrefixes ? ((count / totalPrefixes) * 100).toFixed(1) : '0.0';
+        const list = g.prefixes.sort((a, b) => a.localeCompare(b)).join(' ');
+        return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td>${formatNumberSh6(idx + 1)}</td>
+          <td class="${contClass(g.continent)}">${g.continent}</td>
+          <td>${g.id}</td>
+          <td class="tl">${g.country}</td>
+          <td><b>${formatNumberSh6(count)}</b></td>
+          <td><i>${pct}</i></td>
+          <td class="tl">${list} </td>
+        </tr>
+      `;
+      }).join('');
     return `
-      <table>
-        <tr><th>Prefix</th><th>QSOs</th><th>Uniques</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
+        <colgroup><col width="40px" span="3" align="center"/><col width="200px" align="left"/><col span="2" width="40px" align="center"/></colgroup>
+        <tr class="thc"><th>#</th><th>Cont.</th><th>ID</th><th>Country</th><th colspan="3">Prefixes</th></tr>
         ${rows}
       </table>
     `;
@@ -1444,15 +2297,23 @@
 
   function renderCallsignLength() {
     if (!state.derived) return renderPlaceholder({ id: 'callsign_length', title: 'Callsign length' });
-    const rows = state.derived.callsignLengthSummary.map((c) => `
-      <tr>
+    const totalCalls = state.derived.uniqueCallsCount || 0;
+    const totalQsos = state.qsoData?.qsos.length || 0;
+    const rows = state.derived.callsignLengthSummary.map((c, idx) => {
+      const callPct = totalCalls ? ((c.callsigns / totalCalls) * 100).toFixed(2) : '0.00';
+      const qsoPct = totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(2) : '0.00';
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${c.len}</td>
-        <td>${c.count}</td>
+        <td>${formatNumberSh6(c.callsigns)}</td>
+        <td>${callPct}</td>
+        <td>${formatNumberSh6(c.qsos)}</td>
+        <td>${qsoPct}</td>
       </tr>
-    `).join('');
+    `}).join('');
     return `
-      <table>
-        <tr><th>Length</th><th>Count</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Length</th><th>Callsigns</th><th>%</th><th>QSOs</th><th>%</th></tr>
         ${rows}
       </table>
     `;
@@ -1460,15 +2321,25 @@
 
   function renderCallsignStructure() {
     if (!state.derived) return renderPlaceholder({ id: 'callsign_structure', title: 'Callsign structure' });
-    const rows = state.derived.structureSummary.map((s) => `
-      <tr>
+    const totalCalls = state.derived.uniqueCallsCount || 0;
+    const totalQsos = state.qsoData?.qsos.length || 0;
+    const rows = state.derived.structureSummary.map((s, idx) => {
+      const callPct = totalCalls ? ((s.callsigns / totalCalls) * 100).toFixed(2) : '0.00';
+      const qsoPct = totalQsos ? ((s.qsos / totalQsos) * 100).toFixed(2) : '0.00';
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${idx + 1}</td>
         <td>${s.struct}</td>
-        <td>${s.count}</td>
+        <td>${s.example || ''}</td>
+        <td>${formatNumberSh6(s.callsigns)}</td>
+        <td>${callPct}</td>
+        <td>${formatNumberSh6(s.qsos)}</td>
+        <td>${qsoPct}</td>
       </tr>
-    `).join('');
+    `}).join('');
     return `
-      <table>
-        <tr><th>Structure</th><th>Count</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>#</th><th>Callsign structure, C - char, D - digit</th><th>Example</th><th>Callsigns</th><th>%</th><th>QSOs</th><th>%</th></tr>
         ${rows}
       </table>
     `;
@@ -1478,12 +2349,14 @@
     if (!state.derived || !state.derived.distanceSummary) return renderPlaceholder({ id: 'distance', title: 'Distance' });
     const ds = state.derived.distanceSummary;
     if (!ds.count) return '<p>No distance data (station or remote locations missing).</p>';
-    const buckets = ds.buckets.map((b) => `<tr><td>${b.range} km</td><td>${b.count}</td></tr>`).join('');
+    const buckets = ds.buckets.map((b, idx) => {
+      const pct = ds.count ? ((b.count / ds.count) * 100).toFixed(2) : '0.00';
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `<tr class="${cls}"><td>${formatNumberSh6(b.range)} km</td><td>${formatNumberSh6(b.count)}</td><td>${pct}</td><td class="tac"><a href="#" class="map-link" data-scope="distance" data-key="${b.range}">map</a></td></tr>`;
+    }).join('');
     return `
-      <p>QSOs with distance: ${ds.count}</p>
-      <p>Avg: ${ds.avg?.toFixed(1)} km, Min: ${ds.min?.toFixed(1)} km, Max: ${ds.max?.toFixed(1)} km</p>
-      <table>
-        <tr><th>Range (km)</th><th>Count</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map</th></tr>
         ${buckets}
       </table>
     `;
@@ -1491,37 +2364,76 @@
 
   function renderBeamHeading() {
     if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'beam_heading', title: 'Beam heading' });
-    const rows = state.derived.headingSummary.map((h) => `
-      <tr>
-        <td>${h.sector} deg</td>
-        <td>${h.count}</td>
+    const total = state.derived.headingSummary.reduce((sum, h) => sum + h.count, 0);
+    const rows = state.derived.headingSummary.map((h, idx) => {
+      const pct = total ? ((h.count / total) * 100).toFixed(2) : '0.00';
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `
+      <tr class="${cls}">
+        <td>${h.sector}</td>
+        <td>${formatNumberSh6(h.count)}</td>
+        <td>${pct}</td>
+        <td class="tac"><a href="#" class="map-link" data-scope="heading" data-key="${h.sector}">map</a></td>
       </tr>
-    `).join('');
+    `}).join('');
     if (!rows) return '<p>No heading data.</p>';
     return `
-      <table>
-        <tr><th>Sector</th><th>Count</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Heading, °</th><th>QSOs</th><th>%</th><th>Map</th></tr>
         ${rows}
       </table>
     `;
   }
 
+  function renderMapView() {
+    const ctx = state.mapContext || { scope: '', key: '' };
+    const title = ctx.key ? `${ctx.scope}: ${ctx.key}` : ctx.scope || 'Map';
+    const kmzLinks = Object.entries(state.kmzUrls || {}).map(([band, url]) => {
+      return `<li><a href="${url}" class="kmz-link" data-band="${band}" download="qsos_${band}m.kmz">Download ${band}m KMZ</a></li>`;
+    }).join('');
+    const kmzBlock = kmzLinks
+      ? `<ul>${kmzLinks}</ul>`
+      : '<p>No KMZ files generated yet. Open the KMZ files report to generate them.</p>';
+    return `
+      <div class="mtc">
+        <div class="gradient">&nbsp;Map</div>
+        <p><b>Selected:</b> ${title || 'Map'}</p>
+        <div class="map-preview">
+          <svg id="mapSvg" viewBox="0 0 600 300" role="img" aria-label="Map preview placeholder">
+            <rect x="1" y="1" width="598" height="298" fill="#f7f7f7" stroke="#999999" stroke-width="1"/>
+            <line x1="100" y1="0" x2="100" y2="300" stroke="#dddddd" />
+            <line x1="200" y1="0" x2="200" y2="300" stroke="#dddddd" />
+            <line x1="300" y1="0" x2="300" y2="300" stroke="#dddddd" />
+            <line x1="400" y1="0" x2="400" y2="300" stroke="#dddddd" />
+            <line x1="500" y1="0" x2="500" y2="300" stroke="#dddddd" />
+            <line x1="0" y1="60" x2="600" y2="60" stroke="#dddddd" />
+            <line x1="0" y1="120" x2="600" y2="120" stroke="#dddddd" />
+            <line x1="0" y1="180" x2="600" y2="180" stroke="#dddddd" />
+            <line x1="0" y1="240" x2="600" y2="240" stroke="#dddddd" />
+            <text x="300" y="155" font-size="16" text-anchor="middle" fill="#777777">Map preview (placeholder)</text>
+          </svg>
+        </div>
+        <p>Use KMZ downloads below for full path visualization.</p>
+        ${kmzBlock}
+        <p><button id="mapBack" type="button">Back</button></p>
+      </div>
+    `;
+  }
+
   function renderAllCallsigns() {
     if (!state.derived) return renderPlaceholder({ id: 'all_callsigns', title: 'All callsigns' });
-    const rows = state.derived.allCallsList.slice(0, 2000).map((c) => `
-      <tr>
-        <td>${c.call}</td>
-        <td>${c.qsos}</td>
-        <td>${c.bands.join(', ')}</td>
-        <td>${formatDate(c.firstTs)}</td>
-        <td>${formatDate(c.lastTs)}</td>
+    const rows = state.derived.allCallsList.slice(0, 2000).map((c, idx) => `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${formatNumberSh6(idx + 1)}</td>
+        <td><a href="#" class="log-call" data-call="${c.call}">${c.call}</a></td>
+        <td>${formatNumberSh6(c.qsos)}</td>
       </tr>
     `).join('');
     const note = state.derived.allCallsList.length > 2000 ? `<p>Showing first 2000 of ${state.derived.allCallsList.length} calls.</p>` : '';
     return `
       ${note}
-      <table>
-        <tr><th>Call</th><th>QSOs</th><th>Bands</th><th>First QSO</th><th>Last QSO</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>#</th><th>Callsign</th><th>QSOs</th></tr>
         ${rows}
       </table>
     `;
@@ -1530,21 +2442,28 @@
   function renderNotInMaster() {
     if (!state.derived) return renderPlaceholder({ id: 'not_in_master', title: 'Not in master' });
     if (!state.masterSet || state.masterSet.size === 0) return '<p>Master file not loaded.</p>';
-    const rows = state.derived.notInMasterList.map((c) => `
-      <tr>
-        <td>${c.call}</td>
-        <td>${c.qsos}</td>
-        <td>${formatDate(c.firstTs)}</td>
-        <td>${formatDate(c.lastTs)}</td>
-      </tr>
-    `).join('');
     const count = state.derived.notInMasterList.length;
     const note = count === 0 ? '<p>All calls found in master.</p>' : '';
+    const grouped = new Map();
+    state.derived.notInMasterList.forEach((c) => {
+      if (!grouped.has(c.qsos)) grouped.set(c.qsos, []);
+      grouped.get(c.qsos).push(c.call);
+    });
+    const rows = Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]).map(([qsos, calls], idx) => {
+      const callLinks = calls.map((call) => `<a href="#" class="log-call" data-call="${call}">${call}</a>`).join(' ');
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td><b>${formatNumberSh6(qsos)}</b></td>
+        <td>${callLinks}</td>
+        <td><b>${formatNumberSh6(calls.length)}</b></td>
+      </tr>
+    `;
+    }).join('');
     return `
-      <p>Calls not found in MASTER.DTA: ${count}</p>
+      <p>Calls not found in MASTER.DTA: ${formatNumberSh6(count)}</p>
       ${note}
-      <table>
-        <tr><th>Call</th><th>QSOs</th><th>First</th><th>Last</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>QSOs</th><th>Callsigns</th><th>Total</th></tr>
         ${rows}
       </table>
     `;
@@ -1552,42 +2471,110 @@
 
   function renderCountriesByTime(bandFilter) {
     if (!state.derived) return renderPlaceholder({ id: 'countries_by_time', title: 'Countries by time' });
-    const matrix = bandFilter ? state.derived.bandHourCountry.get(bandFilter) : state.derived.hoursCountries;
-    if (!matrix || matrix.size === 0) return '<p>No data.</p>';
-    const allCountries = new Set();
-    matrix.forEach((m) => m.forEach((_, country) => allCountries.add(country)));
-    const countries = Array.from(allCountries).sort();
-    const rows = Array.from(matrix.entries()).sort((a, b) => a[0] - b[0]).map(([hour, m]) => {
-      const date = new Date(hour * 3600000).toISOString().slice(0, 13).replace('T', ' ');
-      const cells = countries.map((c) => `<td>${m.get(c) || 0}</td>`).join('');
-      return `<tr><td>${date}</td>${cells}</tr>`;
-    }).join('');
-    const header = countries.map((c) => `<th>${c}</th>`).join('');
+    const qsos = state.qsoData?.qsos || [];
+    const map = buildCountryTimeBuckets(qsos, bandFilter);
+    if (map.size === 0) return '<p>No data.</p>';
+    const startHour = 0;
+    const endHour = 23;
+    const countryInfo = new Map();
+    state.derived.countrySummary.forEach((c) => {
+      countryInfo.set(c.country, { continent: c.continent, prefixCode: c.prefixCode });
+    });
+    const continentsOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
+    const groups = new Map();
+    Array.from(map.entries()).forEach(([country, data]) => {
+      const info = countryInfo.get(country) || {};
+      const code = (info.continent || data.continent || '').trim().toUpperCase();
+      const contKey = continentsOrder.includes(code) ? code : (code || 'Other');
+      const prefixCode = info.prefixCode || data.prefix || '';
+      const bucketsByHour = new Map();
+      data.buckets.forEach((counts, hourBucket) => {
+        const hourOfDay = hourBucket % 24;
+        if (!bucketsByHour.has(hourOfDay)) bucketsByHour.set(hourOfDay, [0, 0, 0, 0]);
+        const target = bucketsByHour.get(hourOfDay);
+        for (let i = 0; i < 4; i++) target[i] += counts[i] || 0;
+      });
+      const entry = { country, data: { ...data, continent: contKey, prefix: prefixCode } };
+      entry.data.buckets = bucketsByHour;
+      if (!groups.has(contKey)) groups.set(contKey, []);
+      groups.get(contKey).push(entry);
+    });
+    let rows = '';
+    let rowCount = 0;
+    continentsOrder.concat(['Other']).forEach((contKey) => {
+      const list = groups.get(contKey);
+      if (!list || list.length === 0) return;
+      rows += `<tr class="thc"><th colspan="3"><a href="#" class="log-continent" data-continent="${contKey}">${continentLabel(contKey)}</a></th><th>${bandFilter ? `${bandFilter} m Qs` : 'All m Qs'}</th>${hourHeaders(startHour, endHour).join('')}</tr>`;
+      rows += list.sort((a, b) => a.country.localeCompare(b.country)).map((entry, idx) => {
+        let cells = '';
+        for (let h = startHour; h <= endHour; h++) {
+          const counts = entry.data.buckets.get(h) || [0, 0, 0, 0];
+          counts.forEach((count, qi) => {
+            const cls = minuteCountClass(count);
+            const dal = qi === 0 ? 'dal' : '';
+            cells += `<td class="${dal} ${cls}"></td>`;
+          });
+        }
+        const rowCls = idx % 2 === 0 ? 'td1' : 'td0';
+        rowCount += 1;
+        return `
+          <tr class="${rowCls}">
+            <td>${formatNumberSh6(idx + 1)}</td>
+            <td>${entry.data.prefix}</td>
+            <td><a href="#" class="log-country" data-country="${entry.data.name}">${entry.data.name}</a></td>
+            <td>${formatNumberSh6(entry.data.total)}</td>
+            ${cells}
+          </tr>
+        `;
+      }).join('');
+    });
     return `
-      <table>
-        <tr><th>Hour (UTC)</th>${header}</tr>
-        ${rows}
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
+        <tr><td colspan="4">Legend (QSOs per each 15 min. period) :</td>
+          <td colspan="4" class="s0"></td><td colspan="4">1</td>
+          <td colspan="4" class="s1"></td><td colspan="4">2</td>
+          <td colspan="4" class="s2"></td><td colspan="4">3</td>
+          <td colspan="4" class="s3"></td><td colspan="4">4</td>
+          <td colspan="4" class="s4"></td><td colspan="4">5</td>
+          <td colspan="4" class="s5"></td><td colspan="4">6</td>
+          <td colspan="4" class="s6"></td><td colspan="4">7</td>
+          <td colspan="4" class="s7"></td><td colspan="4">8</td>
+          <td colspan="4" class="s8"></td><td colspan="4">9</td>
+          <td colspan="4" class="s9"></td><td colspan="4">10</td>
+          <td colspan="16"> and more</td>
+        </tr>
+        <tr><td colspan="100">&nbsp;</td></tr>
+        ${rows || '<tr><td colspan="100">No country rows available.</td></tr>'}
       </table>
     `;
   }
 
+  function hourHeaders(startHour, endHour) {
+    const headers = [];
+    for (let h = startHour; h <= endHour; h++) {
+      const label = String(h % 24).padStart(2, '0');
+      headers.push(`<th colspan="4">${label}</th>`);
+    }
+    return headers;
+  }
+
   function renderPossibleErrors() {
     if (!state.derived) return renderPlaceholder({ id: 'possible_errors', title: 'Possible errors' });
-    if (!state.derived.possibleErrors || !state.derived.possibleErrors.length) return '<p>No possible errors detected by simple heuristics.</p>';
-    const rows = state.derived.possibleErrors.map((e) => `
-      <tr>
-        <td>${e.reason}</td>
-        <td>${e.q.time}</td>
-        <td>${e.q.band}</td>
-        <td>${e.q.freq ?? ''}</td>
-        <td>${e.q.mode}</td>
-        <td>${e.q.call || ''}</td>
-      </tr>
-    `).join('');
+    if (!state.derived.possibleErrors || !state.derived.possibleErrors.length) return '<p>No possible errors detected.</p>';
+    const rows = state.derived.possibleErrors.map((e, idx) => {
+      const call = e.q.call || '';
+      const sugg = call ? suggestMasterMatches(call, state.masterSet, 5).join(' ') : e.reason;
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td>${idx + 1}</td>
+          <td>${call ? `<a href="#" class="log-call" data-call="${call}">${call}</a>` : ''}</td>
+          <td>${sugg}</td>
+        </tr>
+      `;
+    }).join('');
     return `
-      <p>Heuristics: missing callsign, unrecognized pattern, prefix not found, invalid/missing time, band/frequency mismatch, or zone vs prefix disagreement.</p>
-      <table>
-        <tr><th>Reason</th><th>Time</th><th>Band</th><th>Freq (MHz)</th><th>Mode</th><th>Call</th></tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>#</th><th>Callsign in log</th><th>Callsign(s) in master database</th></tr>
         ${rows}
       </table>
     `;
@@ -1603,43 +2590,251 @@
   function renderFieldsMap() {
     if (!state.derived) return renderPlaceholder({ id: 'fields_map', title: 'Fields map' });
     if (!state.derived.fieldsSummary || !state.derived.fieldsSummary.length) return '<p>No grid fields found.</p>';
-    const rows = state.derived.fieldsSummary.map((f) => `
-      <tr>
-        <td>${f.field}</td>
-        <td>${f.count}</td>
-      </tr>
-    `).join('');
+    const max = Math.max(...state.derived.fieldsSummary.map((f) => f.count), 1);
+    const counts = new Map(state.derived.fieldsSummary.map((f) => [f.field, f.count]));
+    const letters = 'ABCDEFGHIJKLMNOPQR'.split('');
+    let rows = '';
+    for (let r = letters.length - 1; r >= 0; r--) {
+      const rowLetter = letters[r];
+      let cells = '';
+      letters.forEach((colLetter) => {
+        const field = `${colLetter}${rowLetter}`;
+        const count = counts.get(field) || 0;
+        const alpha = count ? Math.min(0.3, count / max * 0.3) : 0;
+        const style = count ? `style="border:1px solid #000000;background-color:rgba(0,0,255,${alpha.toFixed(3)})"` : '';
+        const labelStyle = count ? '' : 'style="color:#dddddd;"';
+        const sup = count ? ` <sup><b>${count}</b></sup>` : '';
+        cells += `<td class="lm" ${style}><a href="#" class="field-cell" data-field="${field}"><span ${labelStyle}>${field}</span>${sup}</a></td>`;
+      });
+      rows += `<tr>${cells}</tr>`;
+    }
     const coverage = `${state.derived.fieldsSummary.length} fields`;
     return `
       <p>Fields coverage: ${coverage}</p>
-      ${renderBars(state.derived.fieldsSummary, 'field', 'count')}
-      <table>
-        <tr><th>Field</th><th>QSOs</th></tr>
+      <table class="fields-map">
         ${rows}
       </table>
     `;
   }
 
   function renderKmzFiles() {
-    return '<p>KMZ generation is not implemented in this client-side build.</p>';
+    const bands = ['160', '80', '40', '20', '15', '10'];
+    const urls = buildKmzUrls(bands);
+    const rows = bands.map((b, idx) => {
+      const url = urls[b];
+      const label = url ? `${b}_kmz.kmz` : 'N/A';
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td>${b}</td>
+          <td>${url ? `<a href="${url}" download="${b}_kmz.kmz">${label}</a>` : label}</td>
+        </tr>
+      `;
+    }).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Band</th><th>KMZ file</th></tr>
+        ${rows}
+      </table>
+    `;
+  }
+
+  function buildKmzUrls(bands) {
+    const urls = {};
+    if (!state.kmzUrls) state.kmzUrls = {};
+    const qsos = state.qsoData?.qsos || [];
+    bands.forEach((band) => {
+      if (state.kmzUrls[band]) {
+        urls[band] = state.kmzUrls[band];
+        return;
+      }
+      const kml = buildKmlForBand(qsos, band);
+      if (!kml) return;
+      const kmz = buildKmzFromKml(`${band}.kml`, kml);
+      const blob = new Blob([kmz], { type: 'application/vnd.google-earth.kmz' });
+      const url = URL.createObjectURL(blob);
+      state.kmzUrls[band] = url;
+      urls[band] = url;
+    });
+    return urls;
+  }
+
+  function buildKmlForBand(qsos, band) {
+    if (!qsos || qsos.length === 0) return null;
+    const placemarks = [];
+    const station = state.derived?.station;
+    if (station && station.lat != null && station.lon != null) {
+      placemarks.push(`
+        <Placemark>
+          <name>Station</name>
+          <Point><coordinates>${station.lon},${station.lat},0</coordinates></Point>
+        </Placemark>
+      `);
+    }
+    qsos.forEach((q) => {
+      if (band && q.band !== band) return;
+      const prefix = lookupPrefix(q.call);
+      const remote = deriveRemoteLatLon(q, prefix);
+      if (!remote) return;
+      const name = q.call || 'QSO';
+      const desc = `${q.ts ? formatDateSh6(q.ts) : q.time} ${q.band || ''} ${q.mode || ''}`;
+      placemarks.push(`
+        <Placemark>
+          <name>${name}</name>
+          <description>${desc}</description>
+          <Point><coordinates>${remote.lon},${remote.lat},0</coordinates></Point>
+        </Placemark>
+      `);
+    });
+    if (!placemarks.length) return null;
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${band}m QSOs</name>
+    ${placemarks.join('')}
+  </Document>
+</kml>`;
+  }
+
+  function crc32(buf) {
+    let crc = 0 ^ -1;
+    for (let i = 0; i < buf.length; i++) {
+      crc = (crc >>> 8) ^ CRC32_TABLE[(crc ^ buf[i]) & 0xff];
+    }
+    return (crc ^ -1) >>> 0;
+  }
+
+  const CRC32_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      table[i] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function buildKmzFromKml(filename, kmlText) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(kmlText);
+    const name = encoder.encode(filename);
+    const crc = crc32(data);
+    const localHeader = new Uint8Array(30 + name.length);
+    const dv1 = new DataView(localHeader.buffer);
+    dv1.setUint32(0, 0x04034b50, true);
+    dv1.setUint16(4, 20, true);
+    dv1.setUint16(6, 0, true);
+    dv1.setUint16(8, 0, true);
+    dv1.setUint16(10, 0, true);
+    dv1.setUint16(12, 0, true);
+    dv1.setUint32(14, crc, true);
+    dv1.setUint32(18, data.length, true);
+    dv1.setUint32(22, data.length, true);
+    dv1.setUint16(26, name.length, true);
+    dv1.setUint16(28, 0, true);
+    localHeader.set(name, 30);
+
+    const centralHeader = new Uint8Array(46 + name.length);
+    const dv2 = new DataView(centralHeader.buffer);
+    dv2.setUint32(0, 0x02014b50, true);
+    dv2.setUint16(4, 20, true);
+    dv2.setUint16(6, 20, true);
+    dv2.setUint16(8, 0, true);
+    dv2.setUint16(10, 0, true);
+    dv2.setUint16(12, 0, true);
+    dv2.setUint16(14, 0, true);
+    dv2.setUint32(16, crc, true);
+    dv2.setUint32(20, data.length, true);
+    dv2.setUint32(24, data.length, true);
+    dv2.setUint16(28, name.length, true);
+    dv2.setUint16(30, 0, true);
+    dv2.setUint16(32, 0, true);
+    dv2.setUint16(34, 0, true);
+    dv2.setUint16(36, 0, true);
+    dv2.setUint32(38, 0, true);
+    dv2.setUint32(42, 0, true);
+    centralHeader.set(name, 46);
+
+    const end = new Uint8Array(22);
+    const dv3 = new DataView(end.buffer);
+    dv3.setUint32(0, 0x06054b50, true);
+    dv3.setUint16(4, 0, true);
+    dv3.setUint16(6, 0, true);
+    dv3.setUint16(8, 1, true);
+    dv3.setUint16(10, 1, true);
+    dv3.setUint32(12, centralHeader.length, true);
+    dv3.setUint32(16, localHeader.length + data.length, true);
+    dv3.setUint16(20, 0, true);
+
+    const total = localHeader.length + data.length + centralHeader.length + end.length;
+    const out = new Uint8Array(total);
+    let offset = 0;
+    out.set(localHeader, offset); offset += localHeader.length;
+    out.set(data, offset); offset += data.length;
+    out.set(centralHeader, offset); offset += centralHeader.length;
+    out.set(end, offset);
+    return out;
   }
 
   function renderSun() {
-    return '<p>Sun/solar data not available offline. Provide local indices file or integrate a feed.</p>';
+    return `
+      <p>Solar data (SSN/K-index) can be provided via localStorage.</p>
+      <p>Set <code>sh6_solar_data</code> to JSON like:</p>
+      <pre>{
+  "hours":[
+    {"hour": 482316, "ssn": 152, "kIndex": 3},
+    {"hour": 482317, "ssn": 152, "kIndex": 3}
+  ]
+}</pre>
+      <p>Hour value is <code>Math.floor(Date.UTC(...) / 3600000)</code>.</p>
+    `;
   }
 
   function renderPassedQsos() {
-    return '<p>Passed QSOs detection not implemented. Add markers in your log or extend parser to flag passed contacts.</p>';
+    const qsos = state.qsoData?.qsos || [];
+    const passed = qsos.filter((q) => (q.raw?.APP_N1MM_ISRUNQSO === '0' || q.raw?.APP_N1MM_ISRUNQSO === 'False'));
+    if (!passed.length) return '<p>No passed QSOs detected.</p>';
+    const rows = passed.map((q, idx) => {
+      const number = q.qsoNumber || '';
+      const numberCell = number ? `<a href="#" class="log-range" data-start="${number}" data-end="${number}">${formatNumberSh6(number)}</a>` : '';
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${numberCell}</td>
+        <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
+        <td><a href="#" class="log-call" data-call="${q.call}">${q.call}</a></td>
+        <td>${q.band}</td>
+        <td>${q.mode}</td>
+      </tr>
+    `;
+    }).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>#</th><th>Time</th><th>Call</th><th>Band</th><th>Mode</th></tr>
+        ${rows}
+      </table>
+    `;
   }
 
   function renderAppInfo() {
+    const rows = [
+      ['Report generator', `SH6 ${APP_VERSION}`],
+      ['Generated', formatDateSh6(Date.now())],
+      ['Log file', state.logFile ? state.logFile.name : 'N/A'],
+      ['QSOs parsed', state.qsoData ? formatNumberSh6(state.qsoData.qsos.length) : '0'],
+      ['Contest', state.derived?.contestMeta?.contestId || 'N/A'],
+      ['Station callsign', state.derived?.contestMeta?.stationCallsign || 'N/A'],
+      ['cty.dat', state.ctyStatus || 'pending'],
+      ['MASTER.DTA', state.masterStatus || 'pending']
+    ];
+    const rowHtml = rows.map(([label, value], idx) => `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
+    `).join('');
     return `
-      <p>SH6 client-side report generator ${APP_VERSION}</p>
-      <ul>
-        <li>Parses ADIF/CBF in browser</li>
-        <li>Uses cty.dat and MASTER.DTA (remote or same-origin)</li>
-        <li>Renders SH5-style summary, country/zone, rate, and QA reports</li>
-      </ul>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
+        <tr class="thc"><th>Parameter</th><th>Value</th></tr>
+        ${rowHtml}
+      </table>
     `;
   }
 
@@ -1659,24 +2854,36 @@
 
   function renderChartsIndex() {
     return `
-      <p>Select a chart from the sidebar (Qs by band, Top countries, Continents, Beam heading by hour).</p>
+      <p>Select a chart from the sidebar (Qs by band, Top countries, Continents, Frequencies, Beam heading, Beam heading by hour).</p>
     `;
   }
 
   function renderChartQsByBand() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_qs_by_band', title: 'Qs by band' });
-    return renderBars(state.derived.bandSummary, 'band', 'qsos');
+    return `<div class="mtc"><div class="gradient">&nbsp;Qs by band</div>${renderBars(state.derived.bandSummary, 'band', 'qsos')}</div>`;
   }
 
   function renderChartTop10Countries() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_top_10_countries', title: 'Top 10 countries' });
     const top = state.derived.countrySummary.slice(0, 10);
-    return renderBars(top, 'country', 'qsos');
+    return `<div class="mtc"><div class="gradient">&nbsp;Top 10 countries</div>${renderBars(top, 'country', 'qsos')}</div>`;
   }
 
   function renderChartContinents() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_continents', title: 'Continents chart' });
-    return renderBars(state.derived.continentSummary, 'continent', 'qsos');
+    return `<div class="mtc"><div class="gradient">&nbsp;Continents</div>${renderBars(state.derived.continentSummary, 'continent', 'qsos')}</div>`;
+  }
+
+  function renderChartFrequencies() {
+    if (!state.derived || !state.derived.frequencySummary) return renderPlaceholder({ id: 'charts_frequencies', title: 'Frequencies' });
+    const data = state.derived.frequencySummary.map((f) => ({ label: f.freq.toFixed(1), value: f.count }));
+    return `<div class="mtc"><div class="gradient">&nbsp;Frequencies</div>${renderBars(data, 'label', 'value')}</div>`;
+  }
+
+  function renderChartBeamHeading() {
+    if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
+    const data = state.derived.headingSummary.map((h) => ({ label: h.sector, value: h.count }));
+    return `<div class="mtc"><div class="gradient">&nbsp;Beam heading</div>${renderBars(data, 'label', 'value')}</div>`;
   }
 
   function renderChartBeamHeadingByHour() {
@@ -1685,17 +2892,18 @@
     state.derived.headingByHourSeries.forEach((h) => h.sectors.forEach((s) => allSectors.add(s.sector)));
     const sectors = Array.from(allSectors).sort((a, b) => a - b);
     const header = sectors.map((s) => `<th>${s}-${s + 29}</th>`).join('');
-    const rows = state.derived.headingByHourSeries.map((h) => {
+    const rows = state.derived.headingByHourSeries.map((h, idx) => {
       const date = new Date(h.hour * 3600000).toISOString().slice(0, 13).replace('T', ' ');
       const cells = sectors.map((s) => {
         const found = h.sectors.find((x) => x.sector === s);
         return `<td>${found ? found.count : 0}</td>`;
       }).join('');
-      return `<tr><td>${date}</td>${cells}</tr>`;
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `<tr class="${cls}"><td>${date}</td>${cells}</tr>`;
     }).join('');
     return `
-      <table>
-        <tr><th>Hour (UTC)</th>${header}</tr>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Hour (UTC)</th>${header}</tr>
         ${rows}
       </table>
     `;
@@ -1704,13 +2912,20 @@
   function renderGraphsQsByHour(bandFilter) {
     if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'graphs_qs_by_hour', title: 'Qs by hour' });
     const data = state.derived.hourSeries.map((h) => {
-      const hourLabel = new Date(h.hour * 3600000).toISOString().slice(0, 13).replace('T', ' ');
+      const ts = h.hour * 3600000;
+      const hourLabel = `${formatDaySh6(ts)} ${String(new Date(ts).getUTCHours()).padStart(2, '0')}`;
       const val = bandFilter ? (h.bands[bandFilter] || 0) : h.qsos;
       return { label: hourLabel, value: val };
     });
     const bars = renderBars(data, 'label', 'value');
     const subtitle = bandFilter ? `Band ${bandFilter}` : 'All bands';
-    return `<p>${subtitle}</p>${bars}`;
+    return `
+      <div class="mtc">
+        <div class="gradient">&nbsp;Qs by hour</div>
+        <p>${subtitle}</p>
+        ${bars}
+      </div>
+    `;
   }
 
   function renderReport(report) {
@@ -1757,12 +2972,14 @@
       case 'charts_qs_by_band': return renderChartQsByBand();
       case 'charts_top_10_countries': return renderChartTop10Countries();
       case 'charts_continents': return renderChartContinents();
+      case 'charts_frequencies': return renderChartFrequencies();
+      case 'charts_beam_heading': return renderChartBeamHeading();
       case 'charts_beam_heading_by_hour': return renderChartBeamHeadingByHour();
       case 'fields_map': return renderFieldsMap();
       case 'kmz_files': return renderKmzFiles();
       case 'sun': return renderSun();
       case 'passed_qsos': return renderPassedQsos();
-      case 'sh5_info': return renderAppInfo();
+      case 'sh6_info': return renderAppInfo();
       default: return renderPlaceholder(report);
     }
   }
@@ -1771,6 +2988,11 @@
     if (reportId === 'log') {
       const prev = document.getElementById('logPrev');
       const next = document.getElementById('logNext');
+      const pageLinks = document.querySelectorAll('.log-page');
+      const searchForm = document.getElementById('logSearchForm');
+      const searchInput = document.getElementById('logSearchInput');
+      const searchClear = document.getElementById('logSearchClear');
+      const clearFilters = document.getElementById('logClearFilters');
       if (prev) prev.addEventListener('click', () => {
         if (state.logPage > 0) {
           state.logPage -= 1;
@@ -1779,20 +3001,437 @@
         }
       });
       if (next) next.addEventListener('click', () => {
-        const totalPages = Math.ceil((state.qsoData?.qsos.length || 0) / state.logPageSize);
+        const search = (state.logSearch || '').trim().toUpperCase();
+        const fieldFilter = (state.logFieldFilter || '').trim().toUpperCase();
+        const bandFilter = (state.logBandFilter || '').trim().toUpperCase();
+        const modeFilter = (state.logModeFilter || '').trim();
+        const countryFilter = (state.logCountryFilter || '').trim().toUpperCase();
+        const continentFilter = (state.logContinentFilter || '').trim().toUpperCase();
+        const cqFilter = (state.logCqFilter || '').trim();
+        const ituFilter = (state.logItuFilter || '').trim();
+        const rangeFilter = state.logRange;
+        const timeRange = state.logTimeRange;
+        let filtered = state.qsoData?.qsos || [];
+        if (search) {
+          filtered = filtered.filter((q) => q.call && q.call.includes(search));
+        }
+        if (fieldFilter) {
+          filtered = filtered.filter((q) => q.grid && q.grid.startsWith(fieldFilter));
+        }
+        if (bandFilter) {
+          filtered = filtered.filter((q) => q.band && q.band.toUpperCase() === bandFilter);
+        }
+        if (modeFilter && modeFilter !== 'All') {
+          filtered = filtered.filter((q) => modeBucket(q.mode) === modeFilter);
+        }
+        if (countryFilter) {
+          filtered = filtered.filter((q) => q.country && q.country.toUpperCase() === countryFilter);
+        }
+        if (continentFilter) {
+          filtered = filtered.filter((q) => q.continent && q.continent.toUpperCase() === continentFilter);
+        }
+        if (cqFilter) {
+          filtered = filtered.filter((q) => String(q.cqZone || '') === cqFilter);
+        }
+        if (ituFilter) {
+          filtered = filtered.filter((q) => String(q.ituZone || '') === ituFilter);
+        }
+        if (rangeFilter && Number.isFinite(rangeFilter.start) && Number.isFinite(rangeFilter.end)) {
+          filtered = filtered.filter((q) => {
+            const n = Number(q.qsoNumber);
+            return Number.isFinite(n) && n >= rangeFilter.start && n <= rangeFilter.end;
+          });
+        }
+        if (timeRange && Number.isFinite(timeRange.startTs) && Number.isFinite(timeRange.endTs)) {
+          filtered = filtered.filter((q) => typeof q.ts === 'number' && q.ts >= timeRange.startTs && q.ts <= timeRange.endTs);
+        }
+        const filteredCount = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(filteredCount / state.logPageSize));
         if (state.logPage < totalPages - 1) {
           state.logPage += 1;
           dom.viewContainer.innerHTML = renderLog();
           bindReportInteractions('log');
         }
       });
+      pageLinks.forEach((link) => {
+        link.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const page = parseInt(link.dataset.page, 10);
+          if (Number.isFinite(page)) {
+            state.logPage = page;
+            dom.viewContainer.innerHTML = renderLog();
+            bindReportInteractions('log');
+          }
+        });
+      });
+      if (searchForm) {
+        searchForm.addEventListener('submit', (evt) => {
+          evt.preventDefault();
+          state.logSearch = (searchInput?.value || '').trim().toUpperCase();
+          state.logFieldFilter = '';
+          state.logBandFilter = '';
+          state.logModeFilter = '';
+          state.logCountryFilter = '';
+          state.logContinentFilter = '';
+          state.logCqFilter = '';
+          state.logItuFilter = '';
+          state.logRange = null;
+          state.logTimeRange = null;
+          state.logPage = 0;
+          dom.viewContainer.innerHTML = renderLog();
+          bindReportInteractions('log');
+        });
+      }
+      if (searchClear) {
+        searchClear.addEventListener('click', () => {
+          state.logSearch = '';
+          state.logFieldFilter = '';
+          state.logBandFilter = '';
+          state.logModeFilter = '';
+          state.logCountryFilter = '';
+          state.logContinentFilter = '';
+          state.logCqFilter = '';
+          state.logItuFilter = '';
+          state.logRange = null;
+          state.logTimeRange = null;
+          state.logPage = 0;
+          dom.viewContainer.innerHTML = renderLog();
+          bindReportInteractions('log');
+        });
+      }
+      if (clearFilters) {
+        clearFilters.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          state.logSearch = '';
+          state.logFieldFilter = '';
+          state.logBandFilter = '';
+          state.logModeFilter = '';
+          state.logCountryFilter = '';
+          state.logContinentFilter = '';
+          state.logCqFilter = '';
+          state.logItuFilter = '';
+          state.logRange = null;
+          state.logTimeRange = null;
+          state.logPage = 0;
+          dom.viewContainer.innerHTML = renderLog();
+          bindReportInteractions('log');
+        });
+      }
     }
+    if (reportId === 'fields_map') {
+      const cells = document.querySelectorAll('.field-cell');
+      cells.forEach((cell) => {
+        cell.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const field = cell.dataset.field;
+          if (!field) return;
+          state.logSearch = '';
+          state.logFieldFilter = field;
+          state.logBandFilter = '';
+          state.logModeFilter = '';
+          state.logCountryFilter = '';
+          state.logContinentFilter = '';
+          state.logCqFilter = '';
+          state.logItuFilter = '';
+          state.logRange = null;
+          state.logTimeRange = null;
+          state.logPage = 0;
+          dom.viewContainer.innerHTML = renderLog();
+          bindReportInteractions('log');
+        });
+      });
+    }
+
+    const rangeLinks = document.querySelectorAll('.log-range');
+    rangeLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const start = Number(link.dataset.start);
+        const end = Number(link.dataset.end);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        state.logRange = { start, end };
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const filterLinks = document.querySelectorAll('.log-filter');
+    filterLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const band = (link.dataset.band || '').trim().toUpperCase();
+        const mode = (link.dataset.mode || '').trim();
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = band === 'ALL' ? '' : band;
+        state.logModeFilter = mode === 'All' ? '' : (mode || '');
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const mapLinks = document.querySelectorAll('.map-link');
+    mapLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const scope = link.dataset.scope || 'map';
+        const key = link.dataset.key || '';
+        state.mapContext = { scope, key };
+        dom.viewTitle.textContent = 'Map';
+        dom.viewContainer.innerHTML = renderMapView();
+        bindReportInteractions('map_view');
+      });
+    });
+
+    const kmzLinks = document.querySelectorAll('.kmz-link');
+    kmzLinks.forEach((link) => {
+      link.addEventListener('click', () => {
+        const band = link.dataset.band || '';
+        const mapSvg = document.getElementById('mapSvg');
+        if (mapSvg) {
+          const label = mapSvg.querySelector('text');
+          if (label) label.textContent = band ? `Map preview (KMZ ${band}m selected)` : 'Map preview (placeholder)';
+        }
+      });
+    });
+
+    const callLinks = document.querySelectorAll('.log-call');
+    callLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const call = (link.dataset.call || '').trim().toUpperCase();
+        if (!call) return;
+        state.logRange = null;
+        state.logSearch = call;
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const countryLinks = document.querySelectorAll('.log-country');
+    countryLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const country = (link.dataset.country || '').trim().toUpperCase();
+        if (!country) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = country;
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const continentLinks = document.querySelectorAll('.log-continent');
+    continentLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const continent = (link.dataset.continent || '').trim().toUpperCase();
+        if (!continent) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = continent;
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const continentBandLinks = document.querySelectorAll('.log-continent-band');
+    continentBandLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const continent = (link.dataset.continent || '').trim().toUpperCase();
+        const band = (link.dataset.band || '').trim().toUpperCase();
+        if (!continent) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = band;
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = continent;
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const minuteLinks = document.querySelectorAll('.log-minute');
+    minuteLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const minute = Number(link.dataset.minute);
+        if (!Number.isFinite(minute)) return;
+        const startTs = minute * 60000;
+        const endTs = startTs + 59999;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = { startTs, endTs };
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const countryFilters = document.querySelectorAll('.log-country-filter');
+    countryFilters.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const country = (link.dataset.country || '').trim().toUpperCase();
+        const band = (link.dataset.band || '').trim().toUpperCase();
+        const mode = (link.dataset.mode || '').trim();
+        if (!country) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = band;
+        state.logModeFilter = mode || '';
+        state.logCountryFilter = country;
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const cqLinks = document.querySelectorAll('.log-cq');
+    cqLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const cq = (link.dataset.cq || '').trim();
+        if (!cq) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = cq;
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const ituLinks = document.querySelectorAll('.log-itu');
+    ituLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const itu = (link.dataset.itu || '').trim();
+        if (!itu) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = itu;
+        state.logTimeRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    if (reportId === 'map_view') {
+      const backBtn = document.getElementById('mapBack');
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          setActiveReport(state.activeIndex);
+        });
+      }
+    }
+  }
+
+  function renderBreaks() {
+    if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'breaks', title: 'Break time' });
+    const breakSummary = state.derived.breakSummary || { totalBreakMin: 0, breaks: [] };
+    if (!breakSummary.breaks.length) return '<p>No breaks detected.</p>';
+    let accum = 0;
+    const rows = breakSummary.breaks.map((b, idx) => {
+      accum += b.minutes;
+      const start = new Date(b.start * 60000).toISOString().slice(0, 16).replace('T', ' ');
+      const end = new Date(b.end * 60000).toISOString().slice(0, 16).replace('T', ' ');
+      const len = `${String(Math.floor(b.minutes / 60)).padStart(2, '0')}:${String(b.minutes % 60).padStart(2, '0')}`;
+      const acc = `${String(Math.floor(accum / 60)).padStart(2, '0')}:${String(accum % 60).padStart(2, '0')}`;
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `<tr class="${cls}"><td>${idx + 1}</td><td>${start}</td><td>${end}</td><td>${len}</td><td>${acc}</td></tr>`;
+    }).join('');
+    const totalHours = `${Math.floor(breakSummary.totalBreakMin / 60)}:${String(breakSummary.totalBreakMin % 60).padStart(2, '0')} (${breakSummary.totalBreakMin} min)`;
+    return `
+      <p>Total break time (&gt;60 min gaps): ${totalHours}</p>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>#</th><th>From</th><th>To</th><th>Break time,HH:mm</th><th>Accum.HH:mm</th></tr>
+        ${rows}
+      </table>
+    `;
   }
 
   function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     initNavigation();
     setupFileInput();
+    setupDataFileInputs();
     setupPrevNext();
     initDataFetches();
     setActiveReport(0);
@@ -1800,32 +3439,3 @@
 
   document.addEventListener('DOMContentLoaded', init);
 })();
-  function renderBreaks() {
-    if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'breaks', title: 'Break time' });
-    const minutes = state.derived.minuteSeries.map((m) => m.minute).sort((a, b) => a - b);
-    if (!minutes.length) return '<p>No QSOs to analyze.</p>';
-    const threshold = 60; // minutes gap to count as break
-    let totalBreakMin = 0;
-    const breaks = [];
-    for (let i = 1; i < minutes.length; i++) {
-      const gap = minutes[i] - minutes[i - 1];
-      if (gap > threshold) {
-        const len = gap - 1;
-        totalBreakMin += len;
-        breaks.push({ start: minutes[i - 1] + 1, end: minutes[i] - 1, minutes: len });
-      }
-    }
-    const rows = breaks.map((b) => {
-      const start = new Date(b.start * 60000).toISOString().slice(0, 16).replace('T', ' ');
-      const end = new Date(b.end * 60000).toISOString().slice(0, 16).replace('T', ' ');
-      return `<tr><td>${start}</td><td>${end}</td><td>${b.minutes}</td></tr>`;
-    }).join('');
-    const totalHours = `${Math.floor(totalBreakMin / 60)}:${String(totalBreakMin % 60).padStart(2, '0')} (${totalBreakMin} min)`;
-    return `
-      <p>Total break time (&gt;${threshold} min gaps): ${totalHours}</p>
-      <table>
-        <tr><th>Start (UTC)</th><th>End (UTC)</th><th>Minutes</th></tr>
-        ${rows}
-      </table>
-    `;
-  }

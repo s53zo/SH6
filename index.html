@@ -7,43 +7,67 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo">SH6</span>
-      <span class="subtitle">Client-side contest report</span>
-      <span class="version-badge" id="appVersion"></span>
-    </div>
-    <div class="controls">
-      <label class="file-label">
-        <input type="file" id="fileInput" accept=".adi,.adif,.cbf,.CBF,.ADI,.ADIF" hidden>
-        <span class="button">Upload ADIF/CBF</span>
-      </label>
-      <div class="status" id="fileStatus">No file loaded</div>
-    </div>
-  </header>
+  <table cellpadding="0" cellspacing="0" border="0" style="border-bottom:1px dotted #cccccc;" width="100%">
+    <tr>
+      <td>
+        <div class="brand">
+          <span class="logo">SH6</span>
+          <span class="subtitle">Client-side contest report</span>
+          <span class="version-badge" id="appVersion"></span>
+        </div>
+      </td>
+      <td valign="top" align="right">
+        <div class="no-print nav-buttons">
+          <button id="prevBtn" type="button" disabled>&lt; Prev</button>
+          <button id="nextBtn" type="button" disabled>Next &gt;</button>
+        </div>
+      </td>
+    </tr>
+  </table>
 
-  <main class="layout">
-    <nav class="sidebar">
-      <ol id="navList">
-        <!-- Navigation entries are injected by main.js -->
-      </ol>
-      <div class="data-status" id="dataStatus">
-        <div>cty.dat: <span id="ctyStatus">pending</span></div>
-        <div>MASTER.DTA: <span id="masterStatus">pending</span></div>
-      </div>
-    </nav>
-
-    <section class="content">
-      <div class="nav-buttons">
-        <button id="prevBtn" type="button" disabled>&lt; Prev</button>
-        <button id="nextBtn" type="button" disabled>Next &gt;</button>
-      </div>
-      <div id="viewTitle" class="view-title">Welcome</div>
-      <div id="viewContainer" class="view-container">
-        <p>Upload a contest log in ADIF or CBF to generate SH5-style reports. The app will fetch the current <code>cty.dat</code> and <code>MASTER.DTA</code> files at runtime.</p>
-      </div>
-    </section>
-  </main>
+  <table class="ta1" cellspacing="0" cellpadding="0">
+    <tr>
+      <td class="no-print sidebar" style="width:17%" valign="top">
+        <div style="width:100%;min-width:220px;" class="mdv">
+          <ol id="navList">
+            <!-- Navigation entries are injected by main.js -->
+          </ol>
+        </div>
+        <div class="data-status" id="dataStatus">
+          <div>cty.dat: <span id="ctyStatus">pending</span></div>
+          <div>MASTER.DTA: <span id="masterStatus">pending</span></div>
+        </div>
+      </td>
+      <td style="width:83%" valign="top">
+        <div class="content">
+          <div class="controls">
+            <label class="file-label">
+              <input type="file" id="fileInput" accept=".adi,.adif,.cbf,.CBF,.ADI,.ADIF" hidden>
+              <span class="button">Upload ADIF/CBF</span>
+            </label>
+            <label class="file-label">
+              <input type="file" id="ctyInput" accept=".dat,.DAT" hidden>
+              <span class="button">Upload cty.dat</span>
+            </label>
+            <label class="file-label">
+              <input type="file" id="masterInput" accept=".dta,.DTA" hidden>
+              <span class="button">Upload MASTER.DTA</span>
+            </label>
+            <div class="status" id="fileStatus">No file loaded</div>
+          </div>
+          <div id="viewTitle" class="view-title gradient">Welcome</div>
+          <div id="viewContainer" class="view-container">
+            <p>Upload a contest log in ADIF or CBF to generate SH6-style reports. The app will fetch the current <code>cty.dat</code> and <code>MASTER.DTA</code> files at runtime.</p>
+          </div>
+        </div>
+      </td>
+    </tr>
+    <tr class="no-print" valign="bottom">
+      <td style="height:50px;font-size:10pt;border-top:1px dotted #cccccc;" colspan="2" align="center">
+        <i>Registered to: SH6</i>
+      </td>
+    </tr>
+  </table>
 
   <script src="main.js"></script>
 </body>

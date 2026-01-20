@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.12';
+  const APP_VERSION = 'v0.5.13';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -691,12 +691,17 @@
   }
 
   function updateDataStatus() {
-    const ctyErr = state.ctyError ? ` (${state.ctyError})` : '';
-    const masterErr = state.masterError ? ` (${state.masterError})` : '';
-    const ctySrc = state.ctySource ? ` [${state.ctySource}]` : '';
-    const masterSrc = state.masterSource ? ` [${state.masterSource}]` : '';
-    dom.ctyStatus.textContent = `${state.ctyStatus}${ctyErr}${ctySrc}`;
-    dom.masterStatus.textContent = `${state.masterStatus}${masterErr}${masterSrc}`;
+    const isProxy = (src) => /allorigins\.win|corsproxy\.io/i.test(src || '');
+    const formatStatus = (status, src) => {
+      if (status === 'ok') return 'OK';
+      if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
+      if (status === 'error') return 'error';
+      return status || '';
+    };
+    dom.ctyStatus.textContent = formatStatus(state.ctyStatus, state.ctySource);
+    dom.masterStatus.textContent = formatStatus(state.masterStatus, state.masterSource);
+    if (dom.ctyStatus) dom.ctyStatus.title = [state.ctySource, state.ctyError].filter(Boolean).join(' ');
+    if (dom.masterStatus) dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
   }
 
   function setupFileInput() {

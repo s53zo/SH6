@@ -52,7 +52,11 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.10';
+  const APP_VERSION = 'v0.5.11';
+  const CORS_PROXIES = [
+    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+  ];
   const CTY_URLS = [
     'https://www.country-files.com/cty/cty.dat',
     'cty.dat',
@@ -68,6 +72,17 @@
     './MASTER.DTA',
     '/MASTER.DTA'
   ];
+
+  function withCorsProxies(urls) {
+    const out = new Set();
+    urls.forEach((url) => {
+      out.add(url);
+      if (/^https?:\/\//i.test(url)) {
+        CORS_PROXIES.forEach((proxy) => out.add(proxy(url)));
+      }
+    });
+    return Array.from(out);
+  }
 
   const state = {
     activeIndex: 0,
@@ -811,7 +826,7 @@
   }
 
   function initDataFetches() {
-    fetchWithFallback(CTY_URLS, (status, url) => {
+    fetchWithFallback(withCorsProxies(CTY_URLS), (status, url) => {
       state.ctyStatus = status;
       if (status === 'error') state.ctySource = url;
       if (status === 'loading') state.ctySource = url;
@@ -841,7 +856,7 @@
       updateDataStatus();
     });
 
-    fetchWithFallback(MASTER_URLS, (status, url) => {
+    fetchWithFallback(withCorsProxies(MASTER_URLS), (status, url) => {
       state.masterStatus = status;
       if (status === 'error') state.masterSource = url;
       if (status === 'loading') state.masterSource = url;

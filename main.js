@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.14';
+  const APP_VERSION = 'v0.5.15';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -693,7 +693,7 @@
   function updateDataStatus() {
     const isProxy = (src) => /allorigins\.win|corsproxy\.io/i.test(src || '');
     const formatStatus = (status, src) => {
-      if (status === 'ok') return 'OK';
+      if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
       if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
       if (status === 'error') return 'error';
       return status || '';

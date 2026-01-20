@@ -537,9 +537,9 @@
         const gt = raw.indexOf('>', lt);
         if (gt === -1) break;
         const header = raw.slice(lt + 1, gt);
-        const [namePart, rest] = header.split(':');
+        const [namePart, restPart] = header.split(':');
         const name = (namePart || '').trim().toUpperCase();
-        const lenStr = (rest || '').split(/[>:]/)[0];
+        const lenStr = (restPart || '').split(/[>:]/)[0];
         const len = parseInt(lenStr, 10);
         if (!name || !Number.isFinite(len) || len <= 0) {
           i = gt + 1;

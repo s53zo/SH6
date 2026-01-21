@@ -286,6 +286,15 @@ th {
   height: 10px;
 }
 
+.break-controls {
+  margin: 6px 0 8px;
+}
+
+.break-controls input[type="range"] {
+  vertical-align: middle;
+  margin: 0 6px;
+}
+
 .mtc {
   font-size: 8pt;
 }

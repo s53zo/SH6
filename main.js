@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.28';
+  const APP_VERSION = 'v0.5.29';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -109,6 +109,7 @@
     logRange: null,
     logTimeRange: null,
     logHeadingRange: null,
+    breakThreshold: 60,
     mapContext: null,
     kmzUrls: {},
     ctyStatus: 'pending',
@@ -3614,12 +3615,35 @@
         });
       }
     }
+    if (reportId === 'breaks') {
+      const slider = document.getElementById('breakThreshold');
+      const value = document.getElementById('breakThresholdValue');
+      if (slider && value) {
+        slider.addEventListener('input', () => {
+          state.breakThreshold = Number(slider.value) || 60;
+          value.textContent = String(state.breakThreshold);
+        });
+        slider.addEventListener('change', () => {
+          dom.viewContainer.innerHTML = renderBreaks();
+          bindReportInteractions('breaks');
+        });
+      }
+    }
   }
 
   function renderBreaks() {
     if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'breaks', title: 'Break time' });
-    const breakSummary = state.derived.breakSummary || { totalBreakMin: 0, breaks: [] };
-    if (!breakSummary.breaks.length) return '<p>No breaks detected.</p>';
+    const threshold = state.breakThreshold || 60;
+    const minutesMap = new Map(state.derived.minuteSeries.map((m) => [m.minute, m.qsos]));
+    const breakSummary = computeBreakSummary(minutesMap, threshold);
+    const slider = `
+      <div class="break-controls">
+        Break threshold (minutes):
+        <input type="range" id="breakThreshold" min="10" max="60" step="1" value="${threshold}">
+        <span id="breakThresholdValue">${threshold}</span>
+      </div>
+    `;
+    if (!breakSummary.breaks.length) return `${slider}<p>No breaks detected.</p>`;
     let accum = 0;
     const rows = breakSummary.breaks.map((b, idx) => {
       accum += b.minutes;
@@ -3632,7 +3656,8 @@
     }).join('');
     const totalHours = `${Math.floor(breakSummary.totalBreakMin / 60)}:${String(breakSummary.totalBreakMin % 60).padStart(2, '0')} (${breakSummary.totalBreakMin} min)`;
     return `
-      <p>Total break time (&gt;60 min gaps): ${totalHours}</p>
+      ${slider}
+      <p>Total break time (&gt;${threshold} min gaps): ${totalHours}</p>
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th>#</th><th>From</th><th>To</th><th>Break time,HH:mm</th><th>Accum.HH:mm</th></tr>
         ${rows}

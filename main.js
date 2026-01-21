@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.24';
+  const APP_VERSION = 'v0.5.25';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -405,6 +405,15 @@
       return { lat: lat + latMin, lon: lon + lonMin };
     }
     return { lat, lon };
+  }
+
+  function latLonToField(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const fieldLon = Math.floor((lon + 180) / 20);
+    const fieldLat = Math.floor((lat + 90) / 10);
+    if (fieldLon < 0 || fieldLon > 17 || fieldLat < 0 || fieldLat > 17) return null;
+    const A = 'A'.charCodeAt(0);
+    return String.fromCharCode(A + fieldLon) + String.fromCharCode(A + fieldLat);
   }
 
   function haversineKm(lat1, lon1, lat2, lon2) {
@@ -1410,10 +1419,16 @@
       const comment = q.raw?.COMMENT || q.raw?.NOTES;
       if (comment) comments.add(comment);
 
-      // Fields (grid first two letters)
+      // Fields (grid first two letters, fallback to lat/lon)
       if (q.grid && q.grid.length >= 2) {
         const field = q.grid.slice(0, 2).toUpperCase();
         fields.set(field, (fields.get(field) || 0) + 1);
+      } else {
+        const remote = deriveRemoteLatLon(q, prefix);
+        if (remote) {
+          const field = latLonToField(remote.lat, remote.lon);
+          if (field) fields.set(field, (fields.get(field) || 0) + 1);
+        }
       }
 
       // Possible errors

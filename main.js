@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.23';
+  const APP_VERSION = 'v0.5.24';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -1045,7 +1045,11 @@
     for (const line of lines) {
       const cleaned = line.replace(/\0/g, '').trim();
       const call = normalizeCall(cleaned);
-      if (call) set.add(call);
+      if (call) {
+        set.add(call);
+        const base = baseCall(call);
+        if (base) set.add(base);
+      }
     }
     // If the file is binary, line parsing yields too few calls; scan for call-like tokens.
     if (set.size < 1000) {
@@ -1064,10 +1068,26 @@
         if (!/^\w/.test(token)) continue;
         if (!/[0-9]/.test(token)) continue;
         const call = normalizeCall(token);
-        if (call) set.add(call);
+        if (call) {
+          set.add(call);
+          const base = baseCall(call);
+          if (base) set.add(base);
+        }
       }
     }
     return set;
+  }
+
+  function baseCall(call) {
+    if (!call) return '';
+    const parts = call.split('/');
+    if (parts.length === 1) return call;
+    const suffix = parts[parts.length - 1];
+    const portable = new Set(['P', 'M', 'MM', 'AM', 'QRP']);
+    if (portable.has(suffix)) return parts[0];
+    // Prefer the longer segment that looks like a callsign
+    const cand = parts.reduce((best, p) => (p.length > best.length ? p : best), '');
+    return cand || call;
   }
 
   function setupPrevNext() {
@@ -1266,7 +1286,9 @@
 
       // Master lookup (only if file successfully loaded and non-empty)
       if (state.masterSet && state.masterSet.size > 0) {
-        q.inMaster = state.masterSet.has(q.call);
+        const callKey = normalizeCall(q.call);
+        const base = baseCall(callKey);
+        q.inMaster = (callKey && state.masterSet.has(callKey)) || (base && state.masterSet.has(base));
         if (!q.inMaster && q.call) {
           if (!notInMasterCalls.has(q.call)) notInMasterCalls.set(q.call, { qsos: 0, firstTs: q.ts, lastTs: q.ts });
           const n = notInMasterCalls.get(q.call);

@@ -203,12 +203,11 @@ a:hover {
   margin-bottom: 6px;
 }
 
-.no-print,
-.export-hide {
-  display: none;
-}
-
 @media print {
+  .no-print,
+  .export-hide {
+    display: none !important;
+  }
   .export-section {
     page-break-before: always;
   }

@@ -281,6 +281,11 @@ th {
   min-width: 4px;
 }
 
+.sum {
+  background: #0000ff;
+  height: 10px;
+}
+
 .mtc {
   font-size: 8pt;
 }

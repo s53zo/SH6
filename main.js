@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.25';
+  const APP_VERSION = 'v0.5.26';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -520,17 +520,24 @@
   }
 
   function makeHeadingSummary() {
-    const sectors = new Map(); // 0-30, 30-60, etc
+    const sectors = new Map(); // 0-10, 10-20, etc
     return {
-      add(b) {
+      add(b, band) {
         if (!Number.isFinite(b)) return;
-        const bucket = Math.floor(b / 30) * 30;
-        sectors.set(bucket, (sectors.get(bucket) || 0) + 1);
+        const bucket = Math.floor(b / 10) * 10;
+        if (!sectors.has(bucket)) {
+          sectors.set(bucket, { count: 0, bands: new Map() });
+        }
+        const entry = sectors.get(bucket);
+        entry.count += 1;
+        if (band) entry.bands.set(band, (entry.bands.get(band) || 0) + 1);
       },
       export() {
-        return Array.from(sectors.entries()).sort((a, b) => a[0] - b[0]).map(([start, count]) => ({
-          sector: `${start}-${start + 29}`,
-          count
+        return Array.from(sectors.entries()).sort((a, b) => a[0] - b[0]).map(([start, data]) => ({
+          sector: `${String(start).padStart(3, '0')} - ${String(start + 9).padStart(3, '0')}`,
+          start,
+          count: data.count,
+          bands: data.bands
         }));
       }
     };
@@ -1398,7 +1405,7 @@
           q.distance = dist;
           q.bearing = brng;
           distanceSummary.add(dist);
-          headingSummary.add(brng);
+          headingSummary.add(brng, q.band);
           if (q.country && countries.has(q.country)) {
             const c = countries.get(q.country);
             c.distSum += dist;
@@ -2469,22 +2476,39 @@
 
   function renderBeamHeading() {
     if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'beam_heading', title: 'Beam heading' });
+    const bands = ['160', '80', '40', '20', '15', '10'];
     const total = state.derived.headingSummary.reduce((sum, h) => sum + h.count, 0);
-    const rows = state.derived.headingSummary.map((h, idx) => {
-      const pct = total ? ((h.count / total) * 100).toFixed(2) : '0.00';
+    const maxCount = state.derived.headingSummary.reduce((max, h) => Math.max(max, h.count), 1);
+    let rows = '';
+    state.derived.headingSummary.forEach((h, idx) => {
+      const pct = total ? ((h.count / total) * 100).toFixed(1) : '0.0';
       const cls = idx % 2 === 0 ? 'td1' : 'td0';
-      return `
-      <tr class="${cls}">
-        <td>${h.sector}</td>
-        <td>${formatNumberSh6(h.count)}</td>
-        <td>${pct}</td>
-        <td class="tac"><a href="#" class="map-link" data-scope="heading" data-key="${h.sector}">map</a></td>
-      </tr>
-    `}).join('');
+      const bandCells = bands.map((b) => {
+        const count = h.bands?.get(b) || 0;
+        if (!count) return '<td></td>';
+        return `<td>${formatNumberSh6(count)}</td>`;
+      }).join('');
+      const barWidth = Math.round((h.count / maxCount) * 100);
+      rows += `
+        <tr class="${cls}">
+          <td>${h.sector}</td>
+          ${bandCells}
+          <td>${formatNumberSh6(h.count)}</td>
+          <td><i>${pct}</i></td>
+          <td style="text-align:left"><div class="sum" style="width:${barWidth}%" /></td>
+          <td class="tac"><a href="#" class="map-link" data-scope="heading" data-key="${h.start}">map</a></td>
+        </tr>
+      `;
+      if (h.start % 90 === 80) {
+        rows += '<tr><td colspan="11"><hr/></td></tr>';
+      }
+    });
     if (!rows) return '<p>No heading data.</p>';
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Heading, °</th><th>QSOs</th><th>%</th><th>Map</th></tr>
+        <colgroup><col width="100px" align="center"/><col span="9" width="60px"/><col width="5%"/></colgroup>
+        <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="7">QSOs</th><th colspan="2" rowspan="2">%</th><th colspan="2" rowspan="2">Map</th></tr>
+        <tr class="thc"><th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th><th>All</th></tr>
         ${rows}
       </table>
     `;

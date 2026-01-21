@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.33';
+  const APP_VERSION = 'v0.5.34';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -2215,12 +2215,17 @@
         kIndex: state.derived.contestMeta?.kIndex || ''
       });
       const kDots = solar.kIndex ? '&#8226;'.repeat(Math.max(1, Math.min(5, Number(solar.kIndex)))) : '';
-      const cells = bandCols.map((b) => `<td>${formatNumberSh6(h.bands[b] || '')}</td>`).join('');
+      const cells = bandCols.map((b) => {
+        const count = h.bands[b] || 0;
+        if (!count) return '<td></td>';
+        return `<td><a href="#" class="log-hour-band" data-hour="${h.hour}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
+      }).join('');
       accum += h.qsos;
       const pts = hourPoints.get(h.hour) || '';
       const avgPts = pts && h.qsos ? (pts / h.qsos).toFixed(1) : '';
       const cls = idx % 2 === 0 ? 'td1' : 'td0';
-      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}:00Z</b></td><td>${solar.ssn || ''}</td><td>${solar.kIndex || ''}</td><td align="left">${kDots}</td>${cells}<td><b>${formatNumberSh6(h.qsos)}</b></td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
+      const allLink = `<a href="#" class="log-hour" data-hour="${h.hour}"><b>${formatNumberSh6(h.qsos)}</b></a>`;
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}:00Z</b></td><td>${solar.ssn || ''}</td><td>${solar.kIndex || ''}</td><td align="left">${kDots}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
@@ -2365,11 +2370,11 @@
       grouped.get(m.qsos).push(m.minute);
     });
     const rows = Array.from(grouped.entries()).sort((a, b) => b[0] - a[0]).map(([rate, minutes], idx) => {
-      const labels = minutes.map((min) => formatDateSh6(min * 60000)).join(' ');
+      const labels = minutes.map((min) => `<a href="#" class="log-minute" data-minute="${min}">${formatDateSh6(min * 60000)}</a>`).join(' ');
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td style="text-align:center"><b>${rate}</b></td>
-          <td>${labels}</td>
+          <td class="minute-list">${labels}</td>
           <td>${formatNumberSh6(minutes.length)}</td>
         </tr>
       `;
@@ -3505,6 +3510,57 @@
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logHeadingRange = { start: heading, end: heading + 9 };
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const hourLinks = document.querySelectorAll('.log-hour');
+    hourLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const hour = Number(link.dataset.hour);
+        if (!Number.isFinite(hour)) return;
+        const startTs = hour * 3600000;
+        const endTs = startTs + 3599999;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = { startTs, endTs };
+        state.logHeadingRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const hourBandLinks = document.querySelectorAll('.log-hour-band');
+    hourBandLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const hour = Number(link.dataset.hour);
+        const band = (link.dataset.band || '').trim().toUpperCase();
+        if (!Number.isFinite(hour)) return;
+        const startTs = hour * 3600000;
+        const endTs = startTs + 3599999;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = band;
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = { startTs, endTs };
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);

@@ -305,6 +305,11 @@ th {
   margin: 0 6px;
 }
 
+.minute-list {
+  white-space: normal;
+  word-break: break-word;
+}
+
 .mtc {
   font-size: 8pt;
 }

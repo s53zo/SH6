@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.26';
+  const APP_VERSION = 'v0.5.27';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -108,6 +108,7 @@
     logItuFilter: '',
     logRange: null,
     logTimeRange: null,
+    logHeadingRange: null,
     mapContext: null,
     kmzUrls: {},
     ctyStatus: 'pending',
@@ -1894,6 +1895,7 @@
     const ituFilter = (state.logItuFilter || '').trim();
     const rangeFilter = state.logRange;
     const timeRange = state.logTimeRange;
+    const headingRange = state.logHeadingRange;
     let filtered = state.qsoData.qsos;
     if (search) {
       filtered = filtered.filter((q) => q.call && q.call.includes(search));
@@ -1927,6 +1929,9 @@
     }
     if (timeRange && Number.isFinite(timeRange.startTs) && Number.isFinite(timeRange.endTs)) {
       filtered = filtered.filter((q) => typeof q.ts === 'number' && q.ts >= timeRange.startTs && q.ts <= timeRange.endTs);
+    }
+    if (headingRange && Number.isFinite(headingRange.start) && Number.isFinite(headingRange.end)) {
+      filtered = filtered.filter((q) => Number.isFinite(q.bearing) && q.bearing >= headingRange.start && q.bearing <= headingRange.end);
     }
     const totalPages = Math.max(1, Math.ceil(filtered.length / state.logPageSize));
     const page = Math.min(state.logPage, totalPages - 1);
@@ -1966,8 +1971,8 @@
     const note = `<p>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(Math.min(end, filtered.length))} of ${formatNumberSh6(filtered.length)} QSOs (page ${page + 1} / ${totalPages}).</p>`;
     const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const emptyNote = filtered.length ? '' : '<p>No QSOs match current filter.</p>';
-    const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter
-      ? `<p class="log-filter-note">Filter: ${bandFilter || 'All bands'} ${modeFilter ? `/${modeFilter}` : ''} ${countryFilter ? ` ${countryFilter}` : ''} ${continentFilter ? ` ${continentFilter}` : ''} ${cqFilter ? ` CQ${cqFilter}` : ''} ${ituFilter ? ` ITU${ituFilter}` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+    const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter || headingRange
+      ? `<p class="log-filter-note">Filter: ${bandFilter || 'All bands'} ${modeFilter ? `/${modeFilter}` : ''} ${countryFilter ? ` ${countryFilter}` : ''} ${continentFilter ? ` ${continentFilter}` : ''} ${cqFilter ? ` CQ${cqFilter}` : ''} ${ituFilter ? ` ITU${ituFilter}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const pageLinks = Array.from({ length: totalPages }, (_, i) => {
       const from = i * state.logPageSize + 1;
@@ -2486,14 +2491,14 @@
       const bandCells = bands.map((b) => {
         const count = h.bands?.get(b) || 0;
         if (!count) return '<td></td>';
-        return `<td>${formatNumberSh6(count)}</td>`;
+        return `<td><a href="#" class="log-heading-band" data-heading="${h.start}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
       }).join('');
       const barWidth = Math.round((h.count / maxCount) * 100);
       rows += `
         <tr class="${cls}">
           <td>${h.sector}</td>
           ${bandCells}
-          <td>${formatNumberSh6(h.count)}</td>
+          <td><a href="#" class="log-heading" data-heading="${h.start}">${formatNumberSh6(h.count)}</a></td>
           <td><i>${pct}</i></td>
           <td style="text-align:left"><div class="sum" style="width:${barWidth}%" /></td>
           <td class="tac"><a href="#" class="map-link" data-scope="heading" data-key="${h.start}">map</a></td>
@@ -3206,6 +3211,7 @@
           state.logItuFilter = '';
           state.logRange = null;
           state.logTimeRange = null;
+          state.logHeadingRange = null;
           state.logPage = 0;
           dom.viewContainer.innerHTML = renderLog();
           bindReportInteractions('log');
@@ -3223,6 +3229,7 @@
           state.logItuFilter = '';
           state.logRange = null;
           state.logTimeRange = null;
+          state.logHeadingRange = null;
           state.logPage = 0;
           dom.viewContainer.innerHTML = renderLog();
           bindReportInteractions('log');
@@ -3241,6 +3248,7 @@
           state.logItuFilter = '';
           state.logRange = null;
           state.logTimeRange = null;
+          state.logHeadingRange = null;
           state.logPage = 0;
           dom.viewContainer.innerHTML = renderLog();
           bindReportInteractions('log');
@@ -3264,6 +3272,7 @@
           state.logItuFilter = '';
           state.logRange = null;
           state.logTimeRange = null;
+          state.logHeadingRange = null;
           state.logPage = 0;
           dom.viewContainer.innerHTML = renderLog();
           bindReportInteractions('log');
@@ -3288,6 +3297,7 @@
         state.logCqFilter = '';
         state.logItuFilter = '';
         state.logTimeRange = null;
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -3310,6 +3320,7 @@
         state.logCqFilter = '';
         state.logItuFilter = '';
         state.logTimeRange = null;
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -3357,6 +3368,7 @@
         state.logCqFilter = '';
         state.logItuFilter = '';
         state.logTimeRange = null;
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -3379,6 +3391,7 @@
         state.logCqFilter = '';
         state.logItuFilter = '';
         state.logTimeRange = null;
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -3401,6 +3414,7 @@
         state.logCqFilter = '';
         state.logItuFilter = '';
         state.logTimeRange = null;
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -3424,6 +3438,56 @@
         state.logCqFilter = '';
         state.logItuFilter = '';
         state.logTimeRange = null;
+        state.logHeadingRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const headingLinks = document.querySelectorAll('.log-heading');
+    headingLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const heading = Number(link.dataset.heading);
+        if (!Number.isFinite(heading)) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logHeadingRange = null;
+        state.logHeadingRange = { start: heading, end: heading + 9 };
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const headingBandLinks = document.querySelectorAll('.log-heading-band');
+    headingBandLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const heading = Number(link.dataset.heading);
+        const band = (link.dataset.band || '').trim().toUpperCase();
+        if (!Number.isFinite(heading)) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = band;
+        state.logModeFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logHeadingRange = null;
+        state.logHeadingRange = { start: heading, end: heading + 9 };
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -3472,6 +3536,7 @@
         state.logCqFilter = '';
         state.logItuFilter = '';
         state.logTimeRange = null;
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -3494,6 +3559,7 @@
         state.logCqFilter = cq;
         state.logItuFilter = '';
         state.logTimeRange = null;
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -3516,6 +3582,7 @@
         state.logCqFilter = '';
         state.logItuFilter = itu;
         state.logTimeRange = null;
+        state.logHeadingRange = null;
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);

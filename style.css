@@ -246,6 +246,7 @@ th, td {
   padding: 3px 5px;
   border: 1px solid #ddd;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .ta1 td {
@@ -259,6 +260,9 @@ th {
 
 .mtc {
   border: 1px dotted #cccccc;
+  width: auto;
+  max-width: 100%;
+  table-layout: auto;
 }
 
 .thc th,

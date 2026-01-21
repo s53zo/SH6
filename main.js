@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.17';
+  const APP_VERSION = 'v0.5.18';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -1887,20 +1887,16 @@
       ${dataNote}
       ${filterNote}
       ${emptyNote}
-      <div>
-        <form id="logSearchForm">
+      <div class="log-controls">
+        <form id="logSearchForm" class="no-print log-search">
           Callsign:
-          <input id="logSearchInput" type="text" value="${search}" style="text-transform: uppercase; font-family: monospace; font-weight: bold; font-size: 24px;">
-          <button type="submit">Search</button>
+          <input id="logSearchInput" type="text" value="${search}">
+          <input type="submit" value="Search">
           <button type="button" id="logSearchClear">Clear</button>
         </form>
-        <div>Pages: ${pageLinks}</div>
-        <div>
-          <button id="logPrev" ${page === 0 ? 'disabled' : ''}>Prev</button>
-          <button id="logNext" ${page >= totalPages - 1 ? 'disabled' : ''}>Next</button>
-        </div>
+        <div class="log-pages">Pages: ${pageLinks}</div>
       </div>
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+      <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
         ${rows}
       </table>

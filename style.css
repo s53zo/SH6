@@ -182,6 +182,44 @@ a:hover {
   min-height: 300px;
 }
 
+.log-controls {
+  margin-top: 6px;
+  margin-bottom: 8px;
+}
+
+.log-search {
+  margin: 0 0 6px;
+}
+
+.log-search input[type="text"] {
+  text-transform: uppercase;
+  font-family: "Courier New", Courier, monospace;
+  font-weight: bold;
+  font-size: 24px;
+  padding: 2px 4px;
+  border: 1px solid #999999;
+}
+
+.log-pages {
+  display: block;
+}
+
+.log-page {
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.log-page.active {
+  background: #5266df;
+  color: #ffffff;
+  border-color: #5266df;
+}
+
+.log-table td,
+.log-table th {
+  font-family: "Courier New", Courier, monospace;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

@@ -155,6 +155,13 @@ a:hover {
   cursor: pointer;
 }
 
+.button {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+}
+
 .nav-buttons button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -180,6 +187,34 @@ a:hover {
   border-radius: 0;
   padding: 12px;
   min-height: 300px;
+}
+
+.export-doc {
+  font-size: 8pt;
+}
+
+.export-section {
+  margin: 12px 0 18px;
+}
+
+.export-title {
+  font-size: 10pt;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.no-print,
+.export-hide {
+  display: none;
+}
+
+@media print {
+  .export-section {
+    page-break-before: always;
+  }
+  .export-section:first-child {
+    page-break-before: avoid;
+  }
 }
 
 .log-controls {

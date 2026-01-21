@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.34';
+  const APP_VERSION = 'v0.5.35';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -132,7 +132,9 @@
     nextBtn: document.getElementById('nextBtn'),
     ctyStatus: document.getElementById('ctyStatus'),
     masterStatus: document.getElementById('masterStatus'),
-    appVersion: document.getElementById('appVersion')
+    appVersion: document.getElementById('appVersion'),
+    exportPdfBtn: document.getElementById('exportPdfBtn'),
+    exportHtmlBtn: document.getElementById('exportHtmlBtn')
   };
 
   const renderers = {};
@@ -2041,6 +2043,95 @@
     `;
   }
 
+  function renderLogExport() {
+    if (!state.qsoData) return renderPlaceholder({ id: 'log', title: 'Log' });
+    const rows = state.qsoData.qsos.map((q, idx) => `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
+        <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
+        <td class="${bandClass(q.band)}">${q.band}</td>
+        <td class="${modeClass(q.mode)}">${q.mode}</td>
+        <td class="${bandClass(q.band)}">${q.freq ?? ''}</td>
+        <td class="tl">${q.call}</td>
+        <td>${formatNumberSh6(q.rstSent || '')}</td>
+        <td>${formatNumberSh6(q.rstRcvd || '')}</td>
+        <td>${formatNumberSh6(q.stx || q.exchSent || '')}</td>
+        <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
+        <td>${q.op || ''}</td>
+        <td class="tl">${q.country || ''}</td>
+        <td class="tac ${continentClass(q.continent)}">${q.continent || ''}</td>
+        <td>${q.cqZone || ''}</td>
+        <td>${q.ituZone || ''}</td>
+        <td class="tl">${q.grid || ''}</td>
+        <td class="tl">${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}</td>
+      </tr>
+    `).join('');
+    return `
+      <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
+        ${rows}
+      </table>
+    `;
+  }
+
+  function stripLinks(html) {
+    return html.replace(/<a [^>]*>(.*?)<\/a>/g, '$1');
+  }
+
+  function renderReportExport(report) {
+    if (report.id === 'log') return renderLogExport();
+    const html = renderReport(report);
+    return stripLinks(html);
+  }
+
+  function buildExportHtmlSections() {
+    return reports.map((r) => `
+      <section class="export-section">
+        <div class="export-title">${r.title}</div>
+        ${renderReportExport(r)}
+      </section>
+    `).join('');
+  }
+
+  async function getStyleText() {
+    try {
+      const res = await fetch('style.css', { cache: 'no-store' });
+      if (!res.ok) throw new Error('style fetch failed');
+      return await res.text();
+    } catch (err) {
+      console.warn('Style fetch failed:', err);
+      return '';
+    }
+  }
+
+  async function exportHtmlFile() {
+    if (!state.qsoData) return;
+    const styleText = await getStyleText();
+    const body = `<div class="export-doc">${buildExportHtmlSections()}</div>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>SH6 Export</title><style>${styleText}</style></head><body>${body}</body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sh6_report.html';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportPdf() {
+    if (!state.qsoData) return;
+    const styleText = await getStyleText();
+    const body = `<div class="export-doc">${buildExportHtmlSections()}</div>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>SH6 Export</title><style>${styleText}</style></head><body>${body}</body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   function renderDupes() {
     if (!state.derived) return renderPlaceholder({ id: 'dupes', title: 'Dupes' });
     const rows = state.derived.dupes.map((q, idx) => `
@@ -3727,6 +3818,16 @@
     setupDataFileInputs();
     setupPrevNext();
     initDataFetches();
+    if (dom.exportPdfBtn) {
+      dom.exportPdfBtn.addEventListener('click', () => {
+        exportPdf();
+      });
+    }
+    if (dom.exportHtmlBtn) {
+      dom.exportHtmlBtn.addEventListener('click', () => {
+        exportHtmlFile();
+      });
+    }
     setActiveReport(0);
   }
 

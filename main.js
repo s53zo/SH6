@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.21';
+  const APP_VERSION = 'v0.5.22';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -833,8 +833,10 @@
     return res;
   }
 
-  function isLocalFile() {
-    return typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
+  function isLocalHost() {
+    if (typeof window === 'undefined' || !window.location) return false;
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
   }
 
   function buildLocalFirstUrls(urls) {
@@ -848,8 +850,9 @@
   }
 
   function initDataFetches() {
-    const ctyUrls = isLocalFile() ? buildLocalFirstUrls(CTY_URLS) : buildFetchUrls(CTY_URLS);
-    const masterUrls = isLocalFile() ? buildLocalFirstUrls(MASTER_URLS) : buildFetchUrls(MASTER_URLS);
+    const useLocalFirst = isLocalHost();
+    const ctyUrls = useLocalFirst ? buildLocalFirstUrls(CTY_URLS) : buildFetchUrls(CTY_URLS);
+    const masterUrls = useLocalFirst ? buildLocalFirstUrls(MASTER_URLS) : buildFetchUrls(MASTER_URLS);
     fetchWithFallback(ctyUrls, (status, url) => {
       state.ctyStatus = status;
       if (status === 'error') state.ctySource = url;

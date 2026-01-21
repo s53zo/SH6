@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.19';
+  const APP_VERSION = 'v0.5.20';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -1851,13 +1851,21 @@
     const start = page * state.logPageSize;
     const end = start + state.logPageSize;
     const contClassMap = { NA: 'c2', SA: 'c3', EU: 'c4', AF: 'c5', AS: 'c6', OC: 'c7' };
+    const bandClassMap = {
+      '160': 'b160',
+      '80': 'b80',
+      '40': 'b40',
+      '20': 'b20',
+      '15': 'b15',
+      '10': 'b10'
+    };
     const rows = filtered.slice(start, end).map((q, idx) => `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td class="log-qso">${formatNumberSh6(q.qsoNumber || '')}</td>
+        <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
-        <td>${q.band}</td>
+        <td class="${bandClassMap[q.band] || ''}">${q.band}</td>
         <td>${q.mode}</td>
-        <td class="log-freq">${q.freq ?? ''}</td>
+        <td class="${bandClassMap[q.band] || ''}">${q.freq ?? ''}</td>
         <td class="tl">${q.call}</td>
         <td>${formatNumberSh6(q.rstSent || '')}</td>
         <td>${formatNumberSh6(q.rstRcvd || '')}</td>

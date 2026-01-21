@@ -221,12 +221,15 @@ a:hover {
 }
 
 .log-qso {
-  color: #0000ff;
+  font-weight: bold;
 }
 
-.log-freq {
-  color: #ff0000;
-}
+.b160 { background: #eeeeee; }
+.b80 { background: #e6f2ff; }
+.b40 { background: #e6ffe6; }
+.b20 { background: #fff2cc; }
+.b15 { background: #ffe6e6; }
+.b10 { background: #f0e6ff; }
 
 table {
   width: 100%;

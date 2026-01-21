@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.38';
+  const APP_VERSION = 'v0.5.39';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -110,6 +110,10 @@
     logTimeRange: null,
     logHeadingRange: null,
     breakThreshold: 15,
+    globalBandFilter: '',
+    fullQsoData: null,
+    fullDerived: null,
+    bandDerivedCache: new Map(),
     mapContext: null,
     kmzUrls: {},
     ctyStatus: 'pending',
@@ -134,7 +138,8 @@
     masterStatus: document.getElementById('masterStatus'),
     appVersion: document.getElementById('appVersion'),
     exportPdfBtn: document.getElementById('exportPdfBtn'),
-    exportHtmlBtn: document.getElementById('exportHtmlBtn')
+    exportHtmlBtn: document.getElementById('exportHtmlBtn'),
+    bandRibbon: document.getElementById('bandRibbon')
   };
 
   const renderers = {};
@@ -257,6 +262,20 @@
     if (MODE_PHONE.has(m)) return 'Phone';
     if (MODE_DIGITAL.has(m)) return 'Digital';
     return 'Digital';
+  }
+
+  function escapeHtml(value) {
+    if (value == null) return '';
+    return String(value).replace(/[&<>"']/g, (ch) => {
+      switch (ch) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&#39;';
+        default: return ch;
+      }
+    });
   }
 
   const BAND_CLASS_MAP = {
@@ -783,6 +802,9 @@
         const text = await file.text();
         state.qsoData = parseLogFile(text, file.name);
         state.derived = buildDerived(state.qsoData.qsos);
+        state.fullQsoData = state.qsoData;
+        state.fullDerived = state.derived;
+        state.bandDerivedCache = new Map();
         if (!state.qsoData.qsos.length) {
           dom.fileStatus.textContent = `Loaded ${file.name} (${formatNumberSh6(file.size)} bytes) – parsed 0 QSOs. Check file format.`;
         } else {
@@ -860,8 +882,53 @@
   function recomputeDerived(reason) {
     if (!state.qsoData) return;
     state.derived = buildDerived(state.qsoData.qsos);
+    state.fullQsoData = state.qsoData;
+    state.fullDerived = state.derived;
+    state.bandDerivedCache = new Map();
     dom.viewContainer.innerHTML = renderReport(reports[state.activeIndex]);
     bindReportInteractions(reports[state.activeIndex].id);
+  }
+
+  function shouldBandFilterReport(reportId) {
+    if (!state.globalBandFilter) return false;
+    const excluded = new Set([
+      'kmz_files',
+      'charts_frequencies',
+      'charts_beam_heading_by_hour',
+      'sun',
+      'comments',
+      'sh6_info'
+    ]);
+    return !excluded.has(reportId);
+  }
+
+  function getBandFilteredQsos(band) {
+    const source = state.fullQsoData?.qsos || state.qsoData?.qsos || [];
+    return source.filter((q) => q.band && q.band.toUpperCase() === band);
+  }
+
+  function withBandContext(reportId, fn) {
+    if (!state.globalBandFilter || !shouldBandFilterReport(reportId)) return fn();
+    const band = state.globalBandFilter;
+    const cache = state.bandDerivedCache || new Map();
+    if (!state.bandDerivedCache) state.bandDerivedCache = cache;
+    let derived = cache.get(band);
+    let qsos;
+    if (!derived) {
+      qsos = getBandFilteredQsos(band);
+      derived = buildDerived(qsos);
+      cache.set(band, derived);
+    } else {
+      qsos = getBandFilteredQsos(band);
+    }
+    const prevQso = state.qsoData;
+    const prevDerived = state.derived;
+    state.qsoData = { ...(state.fullQsoData || prevQso), qsos };
+    state.derived = derived;
+    const out = fn();
+    state.qsoData = prevQso;
+    state.derived = prevDerived;
+    return out;
   }
 
   async function fetchResource(url, onStatus) {
@@ -1817,13 +1884,14 @@
     if (!state.derived) return renderPlaceholder({ id: 'operators', title: 'Operators' });
     if (!state.derived.operatorsSummary || state.derived.operatorsSummary.length === 0) return '<p>No operator data in log.</p>';
     const cards = state.derived.operatorsSummary.map((o) => {
-      const call = o.op;
+      const call = escapeHtml(o.op);
+      const urlCall = encodeURIComponent(o.op || '');
       return `
         <div class="operator-card">
           <div class="np"></div>
           <i style="border-bottom:1px dashed" title="No file ${call.toLowerCase()}.jpg in 'images' folder.">(No photo)</i>
           <br/><br/>
-          <b><a rel="nofollow" title="${call} at QRZ.COM" target="_blank" href="http://www.qrz.com/db/${call}">${call}</a></b>
+          <b><a rel="nofollow" title="${call} at QRZ.COM" target="_blank" href="http://www.qrz.com/db/${urlCall}">${call}</a></b>
           <br/>&nbsp;<br/><br/>
         </div>
       `;
@@ -1845,7 +1913,10 @@
     const rows = Array.from(grouped.entries()).sort((a, b) => b[0] - a[0]).map(([qsos, calls], idx) => {
       const stations = calls.length;
       const total = stations * qsos;
-      const callLinks = calls.map((call) => `<a href="#" class="log-call" data-call="${call}">${call}</a>`).join(' ');
+      const callLinks = calls.map((call) => {
+        const safe = escapeHtml(call);
+        return `<a href="#" class="log-call" data-call="${safe}">${safe}</a>`;
+      }).join(' ');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td><b>${formatNumberSh6(qsos)}</b></td>
@@ -1989,27 +2060,37 @@
     if (page !== state.logPage) state.logPage = page;
     const start = page * state.logPageSize;
     const end = start + state.logPageSize;
-    const rows = filtered.slice(start, end).map((q, idx) => `
+    const rows = filtered.slice(start, end).map((q, idx) => {
+      const call = escapeHtml(q.call || '');
+      const op = escapeHtml(q.op || '');
+      const country = escapeHtml(q.country || '');
+      const grid = escapeHtml(q.grid || '');
+      const mode = escapeHtml(q.mode || '');
+      const band = escapeHtml(q.band || '');
+      const cont = escapeHtml(q.continent || '');
+      const flags = escapeHtml(`${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`);
+      return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
-        <td class="${bandClass(q.band)}">${q.band}</td>
-        <td class="${modeClass(q.mode)}">${q.mode}</td>
+        <td class="${bandClass(q.band)}">${band}</td>
+        <td class="${modeClass(q.mode)}">${mode}</td>
         <td class="${bandClass(q.band)}">${q.freq ?? ''}</td>
-        <td class="tl">${q.call}</td>
+        <td class="tl">${call}</td>
         <td>${formatNumberSh6(q.rstSent || '')}</td>
         <td>${formatNumberSh6(q.rstRcvd || '')}</td>
         <td>${formatNumberSh6(q.stx || q.exchSent || '')}</td>
         <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
-        <td>${q.op || ''}</td>
-        <td class="tl">${q.country || ''}</td>
-        <td class="tac ${continentClass(q.continent)}">${q.continent || ''}</td>
+        <td>${op}</td>
+        <td class="tl">${country}</td>
+        <td class="tac ${continentClass(q.continent)}">${cont}</td>
         <td>${q.cqZone || ''}</td>
         <td>${q.ituZone || ''}</td>
-        <td class="tl">${q.grid || ''}</td>
-        <td class="tl">${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}</td>
+        <td class="tl">${grid}</td>
+        <td class="tl">${flags}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     const note = `<p>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(Math.min(end, filtered.length))} of ${formatNumberSh6(filtered.length)} QSOs (page ${page + 1} / ${totalPages}).</p>`;
     const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const emptyNote = filtered.length ? '' : '<p>No QSOs match current filter.</p>';
@@ -2045,27 +2126,37 @@
 
   function renderLogExport() {
     if (!state.qsoData) return renderPlaceholder({ id: 'log', title: 'Log' });
-    const rows = state.qsoData.qsos.map((q, idx) => `
+    const rows = state.qsoData.qsos.map((q, idx) => {
+      const call = escapeHtml(q.call || '');
+      const op = escapeHtml(q.op || '');
+      const country = escapeHtml(q.country || '');
+      const grid = escapeHtml(q.grid || '');
+      const mode = escapeHtml(q.mode || '');
+      const band = escapeHtml(q.band || '');
+      const cont = escapeHtml(q.continent || '');
+      const flags = escapeHtml(`${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`);
+      return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
-        <td class="${bandClass(q.band)}">${q.band}</td>
-        <td class="${modeClass(q.mode)}">${q.mode}</td>
+        <td class="${bandClass(q.band)}">${band}</td>
+        <td class="${modeClass(q.mode)}">${mode}</td>
         <td class="${bandClass(q.band)}">${q.freq ?? ''}</td>
-        <td class="tl">${q.call}</td>
+        <td class="tl">${call}</td>
         <td>${formatNumberSh6(q.rstSent || '')}</td>
         <td>${formatNumberSh6(q.rstRcvd || '')}</td>
         <td>${formatNumberSh6(q.stx || q.exchSent || '')}</td>
         <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
-        <td>${q.op || ''}</td>
-        <td class="tl">${q.country || ''}</td>
-        <td class="tac ${continentClass(q.continent)}">${q.continent || ''}</td>
+        <td>${op}</td>
+        <td class="tl">${country}</td>
+        <td class="tac ${continentClass(q.continent)}">${cont}</td>
         <td>${q.cqZone || ''}</td>
         <td>${q.ituZone || ''}</td>
-        <td class="tl">${q.grid || ''}</td>
-        <td class="tl">${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}</td>
+        <td class="tl">${grid}</td>
+        <td class="tl">${flags}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     return `
       <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
@@ -2099,7 +2190,7 @@
           <div class="export-title">${r.title}</div>
           <div class="export-page"></div>
         </div>
-        ${renderReportExport(r)}
+        ${withBandContext(r.id, () => renderReportExport(r))}
       </section>
     `).join('');
   }
@@ -3188,59 +3279,61 @@
   }
 
   function renderReport(report) {
-    switch (report.id) {
-      case 'main': return renderMain();
-      case 'summary': return renderSummary();
-      case 'log': return renderLog();
-      case 'dupes': return renderDupes();
-      case 'operators': return renderOperators();
-      case 'qs_per_station': return renderQsPerStation();
-      case 'countries': return renderCountries();
-      case 'continents': return renderContinents();
-      case 'zones_cq': return renderCqZones();
-      case 'zones_itu': return renderItuZones();
-      case 'qs_by_hour_sheet': return renderQsByHourSheet();
-      case 'graphs_qs_by_hour': return renderGraphsQsByHour(null);
-      case 'graphs_qs_by_hour_10': return renderGraphsQsByHour('10');
-      case 'graphs_qs_by_hour_15': return renderGraphsQsByHour('15');
-      case 'graphs_qs_by_hour_20': return renderGraphsQsByHour('20');
-      case 'graphs_qs_by_hour_40': return renderGraphsQsByHour('40');
-      case 'graphs_qs_by_hour_80': return renderGraphsQsByHour('80');
-      case 'graphs_qs_by_hour_160': return renderGraphsQsByHour('160');
-      case 'rates': return renderRates();
-      case 'qs_by_minute': return renderQsByMinute();
-      case 'one_minute_rates': return renderOneMinuteRates();
-      case 'prefixes': return renderPrefixes();
-      case 'callsign_length': return renderCallsignLength();
-      case 'callsign_structure': return renderCallsignStructure();
-      case 'distance': return renderDistance();
-      case 'beam_heading': return renderBeamHeading();
-      case 'breaks': return renderBreaks();
-      case 'all_callsigns': return renderAllCallsigns();
-      case 'not_in_master': return renderNotInMaster();
-      case 'countries_by_time': return renderCountriesByTime(null);
-      case 'countries_by_time_10': return renderCountriesByTime('10');
-      case 'countries_by_time_15': return renderCountriesByTime('15');
-      case 'countries_by_time_20': return renderCountriesByTime('20');
-      case 'countries_by_time_40': return renderCountriesByTime('40');
-      case 'countries_by_time_80': return renderCountriesByTime('80');
-      case 'countries_by_time_160': return renderCountriesByTime('160');
-      case 'possible_errors': return renderPossibleErrors();
-      case 'comments': return renderComments();
-      case 'charts': return renderChartsIndex();
-      case 'charts_qs_by_band': return renderChartQsByBand();
-      case 'charts_top_10_countries': return renderChartTop10Countries();
-      case 'charts_continents': return renderChartContinents();
-      case 'charts_frequencies': return renderChartFrequencies();
-      case 'charts_beam_heading': return renderChartBeamHeading();
-      case 'charts_beam_heading_by_hour': return renderChartBeamHeadingByHour();
-      case 'fields_map': return renderFieldsMap();
-      case 'kmz_files': return renderKmzFiles();
-      case 'sun': return renderSun();
-      case 'passed_qsos': return renderPassedQsos();
-      case 'sh6_info': return renderAppInfo();
-      default: return renderPlaceholder(report);
-    }
+    return withBandContext(report.id, () => {
+      switch (report.id) {
+        case 'main': return renderMain();
+        case 'summary': return renderSummary();
+        case 'log': return renderLog();
+        case 'dupes': return renderDupes();
+        case 'operators': return renderOperators();
+        case 'qs_per_station': return renderQsPerStation();
+        case 'countries': return renderCountries();
+        case 'continents': return renderContinents();
+        case 'zones_cq': return renderCqZones();
+        case 'zones_itu': return renderItuZones();
+        case 'qs_by_hour_sheet': return renderQsByHourSheet();
+        case 'graphs_qs_by_hour': return renderGraphsQsByHour(null);
+        case 'graphs_qs_by_hour_10': return renderGraphsQsByHour('10');
+        case 'graphs_qs_by_hour_15': return renderGraphsQsByHour('15');
+        case 'graphs_qs_by_hour_20': return renderGraphsQsByHour('20');
+        case 'graphs_qs_by_hour_40': return renderGraphsQsByHour('40');
+        case 'graphs_qs_by_hour_80': return renderGraphsQsByHour('80');
+        case 'graphs_qs_by_hour_160': return renderGraphsQsByHour('160');
+        case 'rates': return renderRates();
+        case 'qs_by_minute': return renderQsByMinute();
+        case 'one_minute_rates': return renderOneMinuteRates();
+        case 'prefixes': return renderPrefixes();
+        case 'callsign_length': return renderCallsignLength();
+        case 'callsign_structure': return renderCallsignStructure();
+        case 'distance': return renderDistance();
+        case 'beam_heading': return renderBeamHeading();
+        case 'breaks': return renderBreaks();
+        case 'all_callsigns': return renderAllCallsigns();
+        case 'not_in_master': return renderNotInMaster();
+        case 'countries_by_time': return renderCountriesByTime(null);
+        case 'countries_by_time_10': return renderCountriesByTime('10');
+        case 'countries_by_time_15': return renderCountriesByTime('15');
+        case 'countries_by_time_20': return renderCountriesByTime('20');
+        case 'countries_by_time_40': return renderCountriesByTime('40');
+        case 'countries_by_time_80': return renderCountriesByTime('80');
+        case 'countries_by_time_160': return renderCountriesByTime('160');
+        case 'possible_errors': return renderPossibleErrors();
+        case 'comments': return renderComments();
+        case 'charts': return renderChartsIndex();
+        case 'charts_qs_by_band': return renderChartQsByBand();
+        case 'charts_top_10_countries': return renderChartTop10Countries();
+        case 'charts_continents': return renderChartContinents();
+        case 'charts_frequencies': return renderChartFrequencies();
+        case 'charts_beam_heading': return renderChartBeamHeading();
+        case 'charts_beam_heading_by_hour': return renderChartBeamHeadingByHour();
+        case 'fields_map': return renderFieldsMap();
+        case 'kmz_files': return renderKmzFiles();
+        case 'sun': return renderSun();
+        case 'passed_qsos': return renderPassedQsos();
+        case 'sh6_info': return renderAppInfo();
+        default: return renderPlaceholder(report);
+      }
+    });
   }
 
   function bindReportInteractions(reportId) {
@@ -3830,6 +3923,22 @@
     setupDataFileInputs();
     setupPrevNext();
     initDataFetches();
+    if (dom.bandRibbon) {
+      dom.bandRibbon.addEventListener('click', (evt) => {
+        const target = evt.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.classList.contains('band-pill')) return;
+        evt.preventDefault();
+        const band = (target.dataset.band || '').trim().toUpperCase();
+        state.globalBandFilter = band;
+        const pills = dom.bandRibbon.querySelectorAll('.band-pill');
+        pills.forEach((pill) => {
+          pill.classList.toggle('active', (pill.dataset.band || '').trim().toUpperCase() === band);
+        });
+        dom.viewContainer.innerHTML = renderReport(reports[state.activeIndex]);
+        bindReportInteractions(reports[state.activeIndex].id);
+      });
+    }
     if (dom.exportPdfBtn) {
       dom.exportPdfBtn.addEventListener('click', () => {
         exportPdf();

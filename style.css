@@ -229,6 +229,32 @@ a:hover {
   }
 }
 
+.band-ribbon {
+  margin: 6px 0 8px;
+  padding: 4px 0;
+}
+
+.band-label {
+  margin-right: 6px;
+  font-weight: 700;
+}
+
+.band-pill {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid #cccccc;
+  margin-right: 4px;
+  text-decoration: none;
+  color: #000000;
+  background: #f7f7f7;
+}
+
+.band-pill.active {
+  background: #5266df;
+  color: #ffffff;
+  border-color: #5266df;
+}
+
 .log-controls {
   margin-top: 6px;
   margin-bottom: 8px;

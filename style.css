@@ -224,16 +224,16 @@ a:hover {
   font-weight: bold;
 }
 
-.b160 { background: #eeeeee; }
-.b80 { background: #e6f2ff; }
-.b40 { background: #e6ffe6; }
-.b20 { background: #fff2cc; }
-.b15 { background: #ffe6e6; }
-.b10 { background: #f0e6ff; }
+.b160 { background: #d6d6d6; }
+.b80 { background: #bcdcff; }
+.b40 { background: #bff2bf; }
+.b20 { background: #ffe199; }
+.b15 { background: #ffc0c0; }
+.b10 { background: #dcc6ff; }
 
-.m-cw { background: #ffffcc; }
-.m-dig { background: #e6ffe6; }
-.m-ph { background: #ffe6cc; }
+.m-cw { background: #ffe680; }
+.m-dig { background: #9fe6b3; }
+.m-ph { background: #ffcc99; }
 
 .c1 { background: #00ffff; text-align: center; }
 

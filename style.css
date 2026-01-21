@@ -220,6 +220,14 @@ a:hover {
   font-family: "Courier New", Courier, monospace;
 }
 
+.log-qso {
+  color: #0000ff;
+}
+
+.log-freq {
+  color: #ff0000;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

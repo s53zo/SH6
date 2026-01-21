@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.18';
+  const APP_VERSION = 'v0.5.19';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -1850,13 +1850,14 @@
     if (page !== state.logPage) state.logPage = page;
     const start = page * state.logPageSize;
     const end = start + state.logPageSize;
+    const contClassMap = { NA: 'c2', SA: 'c3', EU: 'c4', AF: 'c5', AS: 'c6', OC: 'c7' };
     const rows = filtered.slice(start, end).map((q, idx) => `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td>${formatNumberSh6(q.qsoNumber || '')}</td>
+        <td class="log-qso">${formatNumberSh6(q.qsoNumber || '')}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
         <td>${q.band}</td>
         <td>${q.mode}</td>
-        <td>${q.freq ?? ''}</td>
+        <td class="log-freq">${q.freq ?? ''}</td>
         <td class="tl">${q.call}</td>
         <td>${formatNumberSh6(q.rstSent || '')}</td>
         <td>${formatNumberSh6(q.rstRcvd || '')}</td>
@@ -1864,6 +1865,7 @@
         <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
         <td>${q.op || ''}</td>
         <td class="tl">${q.country || ''}</td>
+        <td class="tac ${contClassMap[(q.continent || '').toUpperCase()] || ''}">${q.continent || ''}</td>
         <td>${q.cqZone || ''}</td>
         <td>${q.ituZone || ''}</td>
         <td class="tl">${q.grid || ''}</td>
@@ -1897,7 +1899,7 @@
         <div class="log-pages">Pages: ${pageLinks}</div>
       </div>
       <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
+        <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
         ${rows}
       </table>
     `;

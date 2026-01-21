@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.36';
+  const APP_VERSION = 'v0.5.37';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -2087,7 +2087,10 @@
   function buildExportHtmlSections() {
     return reports.map((r) => `
       <section class="export-section">
-        <div class="export-title">${r.title}</div>
+        <div class="export-header">
+          <div class="export-title">${r.title}</div>
+          <div class="export-page"></div>
+        </div>
         ${renderReportExport(r)}
       </section>
     `).join('');

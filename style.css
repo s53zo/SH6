@@ -203,6 +203,19 @@ a:hover {
   margin-bottom: 6px;
 }
 
+.export-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.export-page::after {
+  content: "Page " counter(page) " / " counter(pages);
+  font-size: 8pt;
+  color: #333333;
+}
+
 @media print {
   .no-print,
   .export-hide {

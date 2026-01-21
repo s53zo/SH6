@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.22';
+  const APP_VERSION = 'v0.5.23';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -1040,12 +1040,32 @@
         data = '';
       }
     }
-    const lines = data.split(/\r?\n/);
     const set = new Set();
+    const lines = data.split(/\r?\n/);
     for (const line of lines) {
       const cleaned = line.replace(/\0/g, '').trim();
       const call = normalizeCall(cleaned);
       if (call) set.add(call);
+    }
+    // If the file is binary, line parsing yields too few calls; scan for call-like tokens.
+    if (set.size < 1000) {
+      let scan = data;
+      if (typeof text !== 'string') {
+        try {
+          scan = new TextDecoder('latin1').decode(text);
+        } catch (e) {
+          scan = data;
+        }
+      }
+      const re = /[A-Z0-9\/]{3,12}/g;
+      let m;
+      while ((m = re.exec(scan)) !== null) {
+        const token = m[0];
+        if (!/^\w/.test(token)) continue;
+        if (!/[0-9]/.test(token)) continue;
+        const call = normalizeCall(token);
+        if (call) set.add(call);
+      }
     }
     return set;
   }

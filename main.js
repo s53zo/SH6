@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.29';
+  const APP_VERSION = 'v0.5.30';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -109,7 +109,7 @@
     logRange: null,
     logTimeRange: null,
     logHeadingRange: null,
-    breakThreshold: 60,
+    breakThreshold: 15,
     mapContext: null,
     kmzUrls: {},
     ctyStatus: 'pending',

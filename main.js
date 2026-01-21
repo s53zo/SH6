@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.27';
+  const APP_VERSION = 'v0.5.28';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -472,6 +472,23 @@
         const lon = parseFloat(r.MY_LON);
         if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon, source: 'latlon', value: `${lat},${lon}` };
       }
+    }
+    const stationCall = deriveStationCallsign(qsos);
+    if (stationCall) {
+      const prefix = lookupPrefix(stationCall);
+      if (prefix && prefix.lat != null && prefix.lon != null) {
+        return { lat: prefix.lat, lon: prefix.lon, source: 'cty', value: stationCall };
+      }
+    }
+    return null;
+  }
+
+  function deriveStationCallsign(qsos) {
+    for (const q of qsos) {
+      const r = q.raw || {};
+      const call = firstNonNull(r.STATION_CALLSIGN, r.OPERATOR, q.op);
+      const normalized = normalizeCall(call);
+      if (normalized) return normalized;
     }
     return null;
   }

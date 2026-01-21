@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.37';
+  const APP_VERSION = 'v0.5.38';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -2074,6 +2074,14 @@
     `;
   }
 
+  function buildExportFilename(ext) {
+    const call = state.derived?.contestMeta?.stationCallsign || 'CALL';
+    const contest = state.derived?.contestMeta?.contestId || 'CONTEST';
+    const year = state.derived?.timeRange?.minTs ? new Date(state.derived.timeRange.minTs).getUTCFullYear() : 'YEAR';
+    const safe = (val) => String(val || '').trim().replace(/[^A-Za-z0-9_-]+/g, '_');
+    return `${safe(call)}_${safe(contest)}_${year}.${ext}`;
+  }
+
   function stripLinks(html) {
     return html.replace(/<a [^>]*>(.*?)<\/a>/g, '$1');
   }
@@ -2116,7 +2124,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'sh6_report.html';
+    a.download = buildExportFilename('html');
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -2131,6 +2139,7 @@
     win.document.open();
     win.document.write(html);
     win.document.close();
+    win.document.title = buildExportFilename('pdf').replace(/\.pdf$/, '');
     win.focus();
     win.print();
   }

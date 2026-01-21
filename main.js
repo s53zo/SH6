@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.30';
+  const APP_VERSION = 'v0.5.31';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -257,26 +257,57 @@
     return 'Digital';
   }
 
+  const BAND_CLASS_MAP = {
+    '160': 'b160',
+    '80': 'b80',
+    '40': 'b40',
+    '20': 'b20',
+    '15': 'b15',
+    '10': 'b10'
+  };
+
+  function bandClass(band) {
+    return BAND_CLASS_MAP[band] || '';
+  }
+
+  function modeClass(mode) {
+    const bucket = modeBucket(mode);
+    if (bucket === 'CW') return 'm-cw';
+    if (bucket === 'Digital') return 'm-dig';
+    if (bucket === 'Phone') return 'm-ph';
+    return '';
+  }
+
+  function continentClass(cont) {
+    switch ((cont || '').toUpperCase()) {
+      case 'NA': return 'c2';
+      case 'SA': return 'c3';
+      case 'EU': return 'c4';
+      case 'AF': return 'c5';
+      case 'AS': return 'c6';
+      case 'OC': return 'c7';
+      default: return '';
+    }
+  }
+
   function formatDateSh6(ts) {
     if (ts == null) return 'N/A';
     const d = new Date(ts);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const day = String(d.getUTCDate()).padStart(2, '0');
-    const month = months[d.getUTCMonth()];
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
     const year = d.getUTCFullYear();
     const hh = String(d.getUTCHours()).padStart(2, '0');
     const mm = String(d.getUTCMinutes()).padStart(2, '0');
-    return `${day}-${month}-${year} ${hh}:${mm}`;
+    return `${day}-${month}_${year} ${hh}:${mm}Z`;
   }
 
   function formatDaySh6(ts) {
     if (ts == null) return '';
     const d = new Date(ts);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const day = String(d.getUTCDate()).padStart(2, '0');
-    const month = months[d.getUTCMonth()];
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
     const year = d.getUTCFullYear();
-    return `${day}-${month}-${year}`;
+    return `${day}-${month}_${year}`;
   }
 
   function formatMinutes(mins) {
@@ -1864,7 +1895,7 @@
       const allPct = totalQsos ? (b.all / totalQsos) * 100 : 0;
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td><b>${b.band}</b></td>
+        <td class="${bandClass(b.band)}"><b>${b.band}</b></td>
         ${renderModeCells(b.cw, cwPct, b.band, 'CW')}
         ${renderModeCells(b.digital, digPct, b.band, 'Digital')}
         ${renderModeCells(b.phone, phonePct, b.band, 'Phone')}
@@ -1956,22 +1987,13 @@
     if (page !== state.logPage) state.logPage = page;
     const start = page * state.logPageSize;
     const end = start + state.logPageSize;
-    const contClassMap = { NA: 'c2', SA: 'c3', EU: 'c4', AF: 'c5', AS: 'c6', OC: 'c7' };
-    const bandClassMap = {
-      '160': 'b160',
-      '80': 'b80',
-      '40': 'b40',
-      '20': 'b20',
-      '15': 'b15',
-      '10': 'b10'
-    };
     const rows = filtered.slice(start, end).map((q, idx) => `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
-        <td class="${bandClassMap[q.band] || ''}">${q.band}</td>
-        <td>${q.mode}</td>
-        <td class="${bandClassMap[q.band] || ''}">${q.freq ?? ''}</td>
+        <td class="${bandClass(q.band)}">${q.band}</td>
+        <td class="${modeClass(q.mode)}">${q.mode}</td>
+        <td class="${bandClass(q.band)}">${q.freq ?? ''}</td>
         <td class="tl">${q.call}</td>
         <td>${formatNumberSh6(q.rstSent || '')}</td>
         <td>${formatNumberSh6(q.rstRcvd || '')}</td>
@@ -1979,7 +2001,7 @@
         <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
         <td>${q.op || ''}</td>
         <td class="tl">${q.country || ''}</td>
-        <td class="tac ${contClassMap[(q.continent || '').toUpperCase()] || ''}">${q.continent || ''}</td>
+        <td class="tac ${continentClass(q.continent)}">${q.continent || ''}</td>
         <td>${q.cqZone || ''}</td>
         <td>${q.ituZone || ''}</td>
         <td class="tl">${q.grid || ''}</td>
@@ -2024,8 +2046,8 @@
     const rows = state.derived.dupes.map((q, idx) => `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${q.time}</td>
-        <td>${q.band}</td>
-        <td>${q.mode}</td>
+        <td class="${bandClass(q.band)}">${q.band}</td>
+        <td class="${modeClass(q.mode)}">${q.mode}</td>
         <td><a href="#" class="log-call" data-call="${q.call}">${q.call}</a></td>
       </tr>
     `).join('');
@@ -2044,17 +2066,6 @@
     if (!state.derived) return renderPlaceholder({ id: 'countries', title: 'Countries' });
     const totalQsos = state.qsoData?.qsos.length || 0;
     const bandCols = ['160', '80', '40', '20', '15', '10'];
-    const contClass = (cont) => {
-      switch ((cont || '').toUpperCase()) {
-        case 'NA': return 'c2';
-        case 'SA': return 'c3';
-        case 'EU': return 'c4';
-        case 'AF': return 'c5';
-        case 'AS': return 'c6';
-        case 'OC': return 'c7';
-        default: return '';
-      }
-    };
     const renderCount = (count, country, band, mode) => {
       if (!count) return '<td></td>';
       return `<td><a href="#" class="log-country-filter" data-country="${country}" data-band="${band || ''}" data-mode="${mode || ''}">${formatNumberSh6(count)}</a></td>`;
@@ -2067,7 +2078,7 @@
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${formatNumberSh6(idx + 1)}</td>
-        <td class="${contClass(c.continent)}">${c.continent || ''}</td>
+        <td class="${continentClass(c.continent)}">${c.continent || ''}</td>
         <td>${c.prefixCode || ''}</td>
         <td class="tl"><a href="#" class="log-country" data-country="${c.country}">${c.country}</a></td>
         <td>${c.distanceAvg ? formatNumberSh6(c.distanceAvg.toFixed(0)) : ''}</td>
@@ -2120,8 +2131,7 @@
       const digital = c.digital ? formatNumberSh6(c.digital) : '';
       const phone = c.phone ? formatNumberSh6(c.phone) : '';
       const contKey = (c.continent || '').toUpperCase();
-      const contClassMap = { NA: 'c2', SA: 'c3', EU: 'c4', AF: 'c5', AS: 'c6', OC: 'c7' };
-      const contClass = contClassMap[contKey] || '';
+      const contClass = continentClass(contKey);
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td class="${contClass}">${contKey}</td>
@@ -2195,9 +2205,9 @@
     let accum = 0;
     let lastDay = '';
     const rows = state.derived.hourSeries.map((h, idx) => {
-      const date = new Date(h.hour * 3600000);
-      const day = date.toISOString().slice(0, 10);
-      const hour = date.toISOString().slice(11, 13);
+      const hourTs = h.hour * 3600000;
+      const day = formatDaySh6(hourTs);
+      const hour = String(new Date(hourTs).getUTCHours()).padStart(2, '0');
       const dayLabel = day !== lastDay ? day : '';
       lastDay = day;
       const solar = getSolarForHour(solarData, h.hour * 3600000, {
@@ -2210,7 +2220,7 @@
       const pts = hourPoints.get(h.hour) || '';
       const avgPts = pts && h.qsos ? (pts / h.qsos).toFixed(1) : '';
       const cls = idx % 2 === 0 ? 'td1' : 'td0';
-      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}</b></td><td>${solar.ssn || ''}</td><td>${solar.kIndex || ''}</td><td align="left">${kDots}</td>${cells}<td><b>${formatNumberSh6(h.qsos)}</b></td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}:00Z</b></td><td>${solar.ssn || ''}</td><td>${solar.kIndex || ''}</td><td align="left">${kDots}</td>${cells}<td><b>${formatNumberSh6(h.qsos)}</b></td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
@@ -2392,17 +2402,6 @@
       }
       groups.get(key).prefixes.push(p.prefix);
     });
-    const contClass = (cont) => {
-      switch ((cont || '').toUpperCase()) {
-        case 'NA': return 'c2';
-        case 'SA': return 'c3';
-        case 'EU': return 'c4';
-        case 'AF': return 'c5';
-        case 'AS': return 'c6';
-        case 'OC': return 'c7';
-        default: return '';
-      }
-    };
     const rows = Array.from(groups.values())
       .sort((a, b) => a.id.localeCompare(b.id) || a.country.localeCompare(b.country))
       .map((g, idx) => {
@@ -2412,7 +2411,7 @@
         return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td>${formatNumberSh6(idx + 1)}</td>
-          <td class="${contClass(g.continent)}">${g.continent}</td>
+          <td class="${continentClass(g.continent)}">${g.continent}</td>
           <td>${g.id}</td>
           <td class="tl">${g.country}</td>
           <td><b>${formatNumberSh6(count)}</b></td>
@@ -2656,7 +2655,7 @@
     continentsOrder.concat(['Other']).forEach((contKey) => {
       const list = groups.get(contKey);
       if (!list || list.length === 0) return;
-      rows += `<tr class="thc"><th colspan="3"><a href="#" class="log-continent" data-continent="${contKey}">${continentLabel(contKey)}</a></th><th>${bandFilter ? `${bandFilter} m Qs` : 'All m Qs'}</th>${hourHeaders(startHour, endHour).join('')}</tr>`;
+      rows += `<tr class="thc"><th colspan="3" class="${continentClass(contKey)}"><a href="#" class="log-continent" data-continent="${contKey}">${continentLabel(contKey)}</a></th><th>${bandFilter ? `${bandFilter} m Qs` : 'All m Qs'}</th>${hourHeaders(startHour, endHour).join('')}</tr>`;
       rows += list.sort((a, b) => a.country.localeCompare(b.country)).map((entry, idx) => {
         let cells = '';
         for (let h = startHour; h <= endHour; h++) {
@@ -2955,8 +2954,8 @@
         <td>${numberCell}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
         <td><a href="#" class="log-call" data-call="${q.call}">${q.call}</a></td>
-        <td>${q.band}</td>
-        <td>${q.mode}</td>
+        <td class="${bandClass(q.band)}">${q.band}</td>
+        <td class="${modeClass(q.mode)}">${q.mode}</td>
       </tr>
     `;
     }).join('');
@@ -3045,7 +3044,7 @@
     const sectors = Array.from(allSectors).sort((a, b) => a - b);
     const header = sectors.map((s) => `<th>${s}-${s + 29}</th>`).join('');
     const rows = state.derived.headingByHourSeries.map((h, idx) => {
-      const date = new Date(h.hour * 3600000).toISOString().slice(0, 13).replace('T', ' ');
+      const date = formatDateSh6(h.hour * 3600000);
       const cells = sectors.map((s) => {
         const found = h.sectors.find((x) => x.sector === s);
         return `<td>${found ? found.count : 0}</td>`;
@@ -3065,7 +3064,7 @@
     if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'graphs_qs_by_hour', title: 'Qs by hour' });
     const data = state.derived.hourSeries.map((h) => {
       const ts = h.hour * 3600000;
-      const hourLabel = `${formatDaySh6(ts)} ${String(new Date(ts).getUTCHours()).padStart(2, '0')}`;
+      const hourLabel = formatDateSh6(ts);
       const val = bandFilter ? (h.bands[bandFilter] || 0) : h.qsos;
       return { label: hourLabel, value: val };
     });
@@ -3647,8 +3646,8 @@
     let accum = 0;
     const rows = breakSummary.breaks.map((b, idx) => {
       accum += b.minutes;
-      const start = new Date(b.start * 60000).toISOString().slice(0, 16).replace('T', ' ');
-      const end = new Date(b.end * 60000).toISOString().slice(0, 16).replace('T', ' ');
+      const start = formatDateSh6(b.start * 60000);
+      const end = formatDateSh6(b.end * 60000);
       const len = `${String(Math.floor(b.minutes / 60)).padStart(2, '0')}:${String(b.minutes % 60).padStart(2, '0')}`;
       const acc = `${String(Math.floor(accum / 60)).padStart(2, '0')}:${String(accum % 60).padStart(2, '0')}`;
       const cls = idx % 2 === 0 ? 'td1' : 'td0';

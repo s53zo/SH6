@@ -231,6 +231,12 @@ a:hover {
 .b15 { background: #ffe6e6; }
 .b10 { background: #f0e6ff; }
 
+.m-cw { background: #ffffcc; }
+.m-dig { background: #e6ffe6; }
+.m-ph { background: #ffe6cc; }
+
+.c1 { background: #00ffff; text-align: center; }
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -406,12 +412,12 @@ th {
   text-align: left;
 }
 
-.c2 { color: #003399; }
-.c3 { color: #009933; }
-.c4 { color: #990000; }
-.c5 { color: #996600; }
-.c6 { color: #660099; }
-.c7 { color: #006666; }
+.c2 { background: #ff0000; color: #ffffff; text-align: center; }
+.c3 { background: #ffff00; text-align: center; }
+.c4 { background: #0000ff; color: #ffffff; text-align: center; }
+.c5 { background: #00ff00; text-align: center; }
+.c6 { background: #333333; color: #ffffff; text-align: center; }
+.c7 { background: #888888; color: #ffffff; text-align: center; }
 
 .q1, .q2, .q3, .q4, .q5, .q6 {
   font-weight: 700;

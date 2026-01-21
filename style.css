@@ -193,6 +193,10 @@ th, td {
   vertical-align: middle;
 }
 
+.ta1 td {
+  vertical-align: top;
+}
+
 th {
   background: #f2f2f2;
   text-align: left;

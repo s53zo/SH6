@@ -52,10 +52,10 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.41';
-  const ARCHIVE_REPO = 's53zo/Hamradio-Contest-logs-Archives';
+  const APP_VERSION = 'v0.5.42';
+  const ARCHIVE_BASE_URL = 'https://s53zo.github.io/Hamradio-Contest-logs-Archives';
+  const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
-  const ARCHIVE_EXTENSIONS = new Set(['adi', 'adif', 'cbf']);
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -145,7 +145,11 @@
     bandRibbon: document.getElementById('bandRibbon'),
     repoSearch: document.getElementById('repoSearch'),
     repoStatus: document.getElementById('repoStatus'),
-    repoResults: document.getElementById('repoResults')
+    repoResults: document.getElementById('repoResults'),
+    repoContest: document.getElementById('repoContest'),
+    repoYear: document.getElementById('repoYear'),
+    repoMode: document.getElementById('repoMode'),
+    repoSeason: document.getElementById('repoSeason')
   };
 
   const renderers = {};
@@ -4017,82 +4021,142 @@
 
   function setupRepoSearch() {
     if (!dom.repoSearch || !dom.repoResults || !dom.repoStatus) return;
-    const cache = new Map();
     let timer = null;
+    const shardCache = new Map();
+    let sqlLoader = null;
 
-    const renderResults = (items) => {
-      if (!items.length) {
+    const crc32Table = (() => {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i += 1) {
+        let c = i;
+        for (let k = 0; k < 8; k += 1) {
+          c = ((c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1));
+        }
+        table[i] = c >>> 0;
+      }
+      return table;
+    })();
+
+    const crc32 = (str) => {
+      let c = 0xffffffff;
+      for (let i = 0; i < str.length; i += 1) {
+        c = crc32Table[(c ^ str.charCodeAt(i)) & 0xff] ^ (c >>> 8);
+      }
+      return (c ^ 0xffffffff) >>> 0;
+    };
+
+    const normalizeCallsign = (input) => (input || '').trim().toUpperCase().replace(/\s+/g, '');
+
+    const getShardUrl = (callsign) => {
+      const bucket = crc32(callsign) & 0xff;
+      const shard = bucket.toString(16).padStart(2, '0');
+      return `${ARCHIVE_SH6_BASE}/logs_${shard}.sqlite`;
+    };
+
+    const openSqliteHttpVfs = async (shardUrl) => {
+      if (shardCache.has(shardUrl)) return shardCache.get(shardUrl);
+      if (!sqlLoader) {
+        sqlLoader = import('https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/index.js');
+      }
+      const { createDbWorker } = await sqlLoader;
+      const workerUrl = 'https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/sqlite.worker.js';
+      const wasmUrl = 'https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/sql-wasm.wasm';
+      const worker = await createDbWorker([{
+        from: 'inline',
+        config: { serverMode: 'full', url: shardUrl }
+      }], workerUrl, wasmUrl);
+      shardCache.set(shardUrl, worker);
+      return worker;
+    };
+
+    const renderResults = (rows) => {
+      if (!rows.length) {
         dom.repoResults.innerHTML = '';
         dom.repoStatus.textContent = 'No matches found in the archive.';
         return;
       }
       dom.repoStatus.textContent = 'Select a log to load.';
-      dom.repoResults.innerHTML = items.map((item) => {
-        const name = item.path.split('/').pop();
+      dom.repoResults.innerHTML = rows.map((row) => {
+        const label = `${row.contest} ${row.year} ${row.mode} ${row.season}`.trim();
         return `
-          <button type="button" class="repo-result" data-path="${item.path}" data-name="${name}">
-            <span class="repo-name">${name}</span>
-            <span class="repo-path">${item.path}</span>
+          <button type="button" class="repo-result" data-path="${row.path}">
+            <span class="repo-name">${label}</span>
+            <span class="repo-path">${row.path}</span>
           </button>
         `;
       }).join('');
     };
 
-    const searchArchive = async (query) => {
-      const trimmed = (query || '').trim();
-      if (trimmed.length < 2) {
+    const searchArchive = async (input) => {
+      const callsign = normalizeCallsign(input);
+      if (callsign.length < 3) {
         dom.repoResults.innerHTML = '';
         dom.repoStatus.textContent = '';
         return;
       }
-      const key = trimmed.toLowerCase();
-      if (cache.has(key)) {
-        renderResults(cache.get(key));
-        return;
-      }
       dom.repoStatus.textContent = 'Searching archive...';
-      const q = `${trimmed} repo:${ARCHIVE_REPO} in:path`;
-      const url = `https://api.github.com/search/code?q=${encodeURIComponent(q)}&per_page=30`;
+      const shardUrl = getShardUrl(callsign);
       try {
-        const res = await fetch(url, {
-          headers: { Accept: 'application/vnd.github.v3+json' }
-        });
-        if (res.status === 403) {
-          dom.repoStatus.textContent = 'GitHub API rate limit reached. Try later.';
-          dom.repoResults.innerHTML = '';
-          return;
-        }
-        if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-        const data = await res.json();
-        const items = (data.items || []).filter((item) => {
-          const ext = item.path.split('.').pop().toLowerCase();
-          return ARCHIVE_EXTENSIONS.has(ext);
-        });
-        cache.set(key, items);
-        renderResults(items);
+        const dbWorker = await openSqliteHttpVfs(shardUrl);
+        const filters = [];
+        const contest = normalizeFilter(dom.repoContest?.value);
+        const year = toIntOrNull(normalizeFilter(dom.repoYear?.value));
+        const mode = normalizeFilter(dom.repoMode?.value);
+        const season = normalizeFilter(dom.repoSeason?.value);
+        if (contest) filters.push(`contest LIKE '%${sqlEscape(contest)}%'`);
+        if (year) filters.push(`year = ${year}`);
+        if (mode) filters.push(`mode LIKE '%${sqlEscape(mode)}%'`);
+        if (season) filters.push(`season LIKE '%${sqlEscape(season)}%'`);
+        const escaped = sqlEscape(callsign);
+        const where = [`callsign = '${escaped}'`].concat(filters).join(' AND ');
+        const result = await dbWorker.db.exec(
+          `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`
+        );
+        const rows = (result[0]?.values || []).map((row) => ({
+          path: row[0],
+          contest: row[1],
+          year: row[2],
+          mode: row[3],
+          season: row[4]
+        }));
+        renderResults(rows);
       } catch (err) {
         console.error('Archive search failed:', err);
-        dom.repoStatus.textContent = 'Archive search failed.';
         dom.repoResults.innerHTML = '';
+        dom.repoStatus.textContent = 'Archive search failed.';
       }
     };
 
-    const fetchFromArchive = async (path, name) => {
+    const fetchFromArchive = async (path) => {
+      if (!path) return;
+      const name = path.split('/').pop();
       dom.repoStatus.textContent = `Downloading ${name}...`;
       dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = true);
       let text = null;
       let source = null;
-      for (const branch of ARCHIVE_BRANCHES) {
-        const rawUrl = `https://raw.githubusercontent.com/${ARCHIVE_REPO}/${branch}/${path}`;
-        try {
-          const res = await fetch(rawUrl);
-          if (res.ok) {
-            text = await res.text();
-            source = rawUrl;
-            break;
+      const pageUrl = `${ARCHIVE_BASE_URL}/${path}`;
+      try {
+        const res = await fetch(pageUrl);
+        if (res.ok) {
+          text = await res.text();
+          source = pageUrl;
+        }
+      } catch (err) {
+        console.warn('Archive fetch failed:', pageUrl, err);
+      }
+      if (!text) {
+        for (const branch of ARCHIVE_BRANCHES) {
+          const rawUrl = `https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/${branch}/${path}`;
+          try {
+            const res = await fetch(rawUrl);
+            if (res.ok) {
+              text = await res.text();
+              source = rawUrl;
+              break;
+            }
+          } catch (err) {
+            console.warn('Archive fetch failed:', rawUrl, err);
           }
-        } catch (err) {
-          console.warn('Archive fetch failed:', rawUrl, err);
         }
       }
       if (!text) {
@@ -4117,13 +4181,18 @@
       timer = setTimeout(() => searchArchive(evt.target.value), 300);
     });
 
+    const filterInputs = [dom.repoContest, dom.repoYear, dom.repoMode, dom.repoSeason].filter(Boolean);
+    filterInputs.forEach((input) => {
+      input.addEventListener('input', () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => searchArchive(dom.repoSearch.value), 200);
+      });
+    });
+
     dom.repoResults.addEventListener('click', (evt) => {
       const target = evt.target instanceof HTMLElement ? evt.target.closest('button[data-path]') : null;
       if (!target) return;
-      const path = target.dataset.path;
-      const name = target.dataset.name || (path ? path.split('/').pop() : 'log.adi');
-      if (!path) return;
-      fetchFromArchive(path, name);
+      fetchFromArchive(target.dataset.path);
     });
   }
 
@@ -4166,3 +4235,9 @@
 
   document.addEventListener('DOMContentLoaded', init);
 })();
+    const normalizeFilter = (value) => (value || '').trim();
+    const sqlEscape = (value) => value.replace(/'/g, "''");
+    const toIntOrNull = (value) => {
+      const n = parseInt(value, 10);
+      return Number.isFinite(n) ? n : null;
+    };

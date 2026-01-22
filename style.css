@@ -85,6 +85,19 @@ a:hover {
   border-radius: 4px;
 }
 
+.repo-filters {
+  margin-top: 6px;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.repo-filters input {
+  padding: 6px 8px;
+  border: 1px solid #b9b9b9;
+  border-radius: 4px;
+}
+
 .repo-results {
   margin-top: 8px;
   display: grid;

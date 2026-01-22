@@ -1,5 +1,6 @@
 (() => {
   const reports = [
+    { id: 'load_logs', title: 'Load logs' },
     { id: 'main', title: 'Main' },
     { id: 'summary', title: 'Summary' },
     { id: 'log', title: 'Log' },
@@ -52,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.73';
+  const APP_VERSION = 'v0.5.74';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -146,6 +147,7 @@
 
   const dom = {
     navList: document.getElementById('navList'),
+    loadPanel: document.getElementById('loadPanel'),
     fileInput: document.getElementById('fileInput'),
     fileInputB: document.getElementById('fileInputB'),
     ctyInput: document.getElementById('ctyInput'),
@@ -224,6 +226,9 @@
     dom.viewTitle.textContent = report.title;
     dom.viewContainer.innerHTML = renderReport(report);
     bindReportInteractions(report.id);
+    if (dom.loadPanel) {
+      dom.loadPanel.style.display = report.id === 'load_logs' ? 'block' : 'none';
+    }
     updateNavHighlight();
     updatePrevNextButtons();
   }
@@ -2215,6 +2220,27 @@
     `;
   }
 
+  function renderLoadLogs() {
+    const aMeta = state.derived?.contestMeta;
+    const bMeta = state.compareB?.derived?.contestMeta;
+    const aText = state.qsoData
+      ? `${aMeta?.stationCallsign || 'Log A'} · ${aMeta?.contestId || 'N/A'} · ${state.qsoData.qsos.length} QSOs`
+      : 'No Log A loaded yet.';
+    const bText = state.compareB?.qsoData
+      ? `${bMeta?.stationCallsign || 'Log B'} · ${bMeta?.contestId || 'N/A'} · ${state.compareB.qsoData.qsos.length} QSOs`
+      : 'No Log B loaded yet.';
+    return `
+      <div class="mtc">
+        <div class="gradient">&nbsp;Load logs</div>
+        <p>Use the controls above to upload or select logs from the archive. Once loaded, switch to any report in the menu.</p>
+        <table class="mtc" style="margin-top:6px;">
+          <tr class="thc"><th>Log A</th><th>Log B</th></tr>
+          <tr><td>${escapeHtml(aText)}</td><td>${escapeHtml(bText)}</td></tr>
+        </table>
+      </div>
+    `;
+  }
+
   function getLogFilters() {
     return {
       search: (state.logSearch || '').trim().toUpperCase(),
@@ -3757,6 +3783,7 @@
   function renderReportSingle(report) {
     return withBandContext(report.id, () => {
       switch (report.id) {
+        case 'load_logs': return renderLoadLogs();
         case 'main': return renderMain();
         case 'summary': return renderSummary();
         case 'log': return renderLog();

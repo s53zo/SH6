@@ -41,24 +41,52 @@
       </td>
       <td style="width:83%" valign="top">
         <div class="content">
-          <div class="controls">
-            <label class="file-label">
-              <input type="file" id="fileInput" accept=".adi,.adif,.cbf,.CBF,.ADI,.ADIF" hidden>
-              <span class="button">Upload ADIF/CBF</span>
-            </label>
-            <button type="button" id="exportPdfBtn" class="button">Export PDF</button>
-            <button type="button" id="exportHtmlBtn" class="button">Export HTML</button>
-            <div class="status" id="fileStatus">No file loaded</div>
+          <div class="compare-toggle">
+            <span class="compare-label">Mode:</span>
+            <label><input type="radio" name="compareMode" value="single" checked> Single</label>
+            <label><input type="radio" name="compareMode" value="compare"> Compare</label>
           </div>
-          <div class="remote-picker">
-            <div class="remote-label">Load from log archive:</div>
-            <input id="repoSearch" type="text" placeholder="Type a callsign (e.g. TK0C)..." autocomplete="off">
-            <label class="repo-option">
-              <input type="checkbox" id="repoAutoClose" checked>
-              Auto-close tree after selection
-            </label>
-            <div id="repoStatus" class="status"></div>
-            <div id="repoResults" class="repo-results"></div>
+          <div class="log-panel log-a">
+            <div class="log-panel-title">Log A</div>
+            <div class="controls">
+              <label class="file-label">
+                <input type="file" id="fileInput" accept=".adi,.adif,.cbf,.cbr,.log,.CBF,.ADI,.ADIF,.CBR,.LOG" hidden>
+                <span class="button">Upload Log A</span>
+              </label>
+              <button type="button" id="exportPdfBtn" class="button">Export PDF</button>
+              <button type="button" id="exportHtmlBtn" class="button">Export HTML</button>
+              <div class="status" id="fileStatus">No log loaded</div>
+            </div>
+            <div class="remote-picker">
+              <div class="remote-label">Load Log A from archive:</div>
+              <input id="repoSearch" type="text" placeholder="Type a callsign (e.g. TK0C)..." autocomplete="off">
+              <label class="repo-option">
+                <input type="checkbox" id="repoAutoClose" checked>
+                Auto-close tree after selection
+              </label>
+              <div id="repoStatus" class="status"></div>
+              <div id="repoResults" class="repo-results"></div>
+            </div>
+          </div>
+          <div class="log-panel log-b compare-only">
+            <div class="log-panel-title">Log B</div>
+            <div class="controls">
+              <label class="file-label">
+                <input type="file" id="fileInputB" accept=".adi,.adif,.cbf,.cbr,.log,.CBF,.ADI,.ADIF,.CBR,.LOG" hidden>
+                <span class="button">Upload Log B</span>
+              </label>
+              <div class="status" id="fileStatusB">No log loaded</div>
+            </div>
+            <div class="remote-picker">
+              <div class="remote-label">Load Log B from archive:</div>
+              <input id="repoSearchB" type="text" placeholder="Type a callsign (e.g. TK0C)..." autocomplete="off">
+              <label class="repo-option">
+                <input type="checkbox" id="repoAutoCloseB" checked>
+                Auto-close tree after selection
+              </label>
+              <div id="repoStatusB" class="status"></div>
+              <div id="repoResultsB" class="repo-results"></div>
+            </div>
           </div>
           <div class="band-ribbon no-print" id="bandRibbon">
             <span class="band-label">Band:</span>

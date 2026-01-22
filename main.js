@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.71';
+  const APP_VERSION = 'v0.5.72';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -130,15 +130,28 @@
     ctyError: null,
     masterError: null,
     ctySource: null,
-    masterSource: null
+    masterSource: null,
+    compareEnabled: false,
+    compareB: {
+      logFile: null,
+      qsoData: null,
+      derived: null,
+      logPage: 0,
+      logPageSize: 500,
+      fullQsoData: null,
+      fullDerived: null,
+      bandDerivedCache: new Map()
+    }
   };
 
   const dom = {
     navList: document.getElementById('navList'),
     fileInput: document.getElementById('fileInput'),
+    fileInputB: document.getElementById('fileInputB'),
     ctyInput: document.getElementById('ctyInput'),
     masterInput: document.getElementById('masterInput'),
     fileStatus: document.getElementById('fileStatus'),
+    fileStatusB: document.getElementById('fileStatusB'),
     viewTitle: document.getElementById('viewTitle'),
     viewContainer: document.getElementById('viewContainer'),
     prevBtn: document.getElementById('prevBtn'),
@@ -151,8 +164,13 @@
     bandRibbon: document.getElementById('bandRibbon'),
     repoSearch: document.getElementById('repoSearch'),
     repoStatus: document.getElementById('repoStatus'),
-    repoResults: document.getElementById('repoResults')
-    ,repoAutoClose: document.getElementById('repoAutoClose')
+    repoResults: document.getElementById('repoResults'),
+    repoAutoClose: document.getElementById('repoAutoClose'),
+    repoSearchB: document.getElementById('repoSearchB'),
+    repoStatusB: document.getElementById('repoStatusB'),
+    repoResultsB: document.getElementById('repoResultsB'),
+    repoAutoCloseB: document.getElementById('repoAutoCloseB'),
+    compareModeRadios: document.querySelectorAll('input[name="compareMode"]')
   };
 
   const renderers = {};
@@ -968,34 +986,38 @@
     if (dom.masterStatus) dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
   }
 
-  function setupFileInput() {
-    dom.fileInput.addEventListener('change', async (evt) => {
+  function setupFileInput(inputEl, statusEl, slotId) {
+    if (!inputEl) return;
+    inputEl.addEventListener('change', async (evt) => {
       const [file] = evt.target.files || [];
       if (!file) return;
       try {
         const text = await file.text();
-        applyLoadedLog(text, file.name, file.size, 'Uploaded');
+        applyLoadedLogToSlot(slotId, text, file.name, file.size, 'Uploaded', statusEl);
       } catch (err) {
         console.error('File parse failed:', err);
-        dom.fileStatus.textContent = `Failed to parse ${file.name}: ${err && err.message ? err.message : 'unknown error'}`;
+        if (statusEl) {
+          statusEl.textContent = `Failed to parse ${file.name}: ${err && err.message ? err.message : 'unknown error'}`;
+        }
       }
     });
   }
 
-  function applyLoadedLog(text, filename, size, sourceLabel) {
+  function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl) {
     const safeSize = Number.isFinite(size) ? size : text.length;
-    state.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
-    state.logPage = 0;
-    dom.fileStatus.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
-    state.qsoData = parseLogFile(text, filename);
-    state.derived = buildDerived(state.qsoData.qsos);
-    state.fullQsoData = state.qsoData;
-    state.fullDerived = state.derived;
-    state.bandDerivedCache = new Map();
-    if (!state.qsoData.qsos.length) {
-      dom.fileStatus.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs. Check file format.`;
-    } else {
-      dom.fileStatus.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(state.qsoData.qsos.length)} QSOs as ${state.qsoData.type}`;
+    const target = slotId === 'B' ? state.compareB : state;
+    target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
+    target.logPage = 0;
+    if (statusEl) statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
+    target.qsoData = parseLogFile(text, filename);
+    target.derived = buildDerived(target.qsoData.qsos);
+    target.fullQsoData = target.qsoData;
+    target.fullDerived = target.derived;
+    target.bandDerivedCache = new Map();
+    if (!target.qsoData.qsos.length) {
+      if (statusEl) statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs. Check file format.`;
+    } else if (statusEl) {
+      statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(target.qsoData.qsos.length)} QSOs as ${target.qsoData.type}`;
     }
     setActiveReport(state.activeIndex);
   }
@@ -1062,11 +1084,19 @@
   }
 
   function recomputeDerived(reason) {
-    if (!state.qsoData) return;
-    state.derived = buildDerived(state.qsoData.qsos);
-    state.fullQsoData = state.qsoData;
-    state.fullDerived = state.derived;
-    state.bandDerivedCache = new Map();
+    if (state.qsoData) {
+      state.derived = buildDerived(state.qsoData.qsos);
+      state.fullQsoData = state.qsoData;
+      state.fullDerived = state.derived;
+      state.bandDerivedCache = new Map();
+    }
+    if (state.compareB && state.compareB.qsoData) {
+      state.compareB.derived = buildDerived(state.compareB.qsoData.qsos);
+      state.compareB.fullQsoData = state.compareB.qsoData;
+      state.compareB.fullDerived = state.compareB.derived;
+      state.compareB.bandDerivedCache = new Map();
+    }
+    if (!state.qsoData && !state.compareB?.qsoData) return;
     dom.viewContainer.innerHTML = renderReport(reports[state.activeIndex]);
     bindReportInteractions(reports[state.activeIndex].id);
   }
@@ -2185,58 +2215,198 @@
     `;
   }
 
+  function getLogFilters() {
+    return {
+      search: (state.logSearch || '').trim().toUpperCase(),
+      fieldFilter: (state.logFieldFilter || '').trim().toUpperCase(),
+      bandFilter: (state.logBandFilter || '').trim().toUpperCase(),
+      modeFilter: (state.logModeFilter || '').trim(),
+      countryFilter: (state.logCountryFilter || '').trim().toUpperCase(),
+      continentFilter: (state.logContinentFilter || '').trim().toUpperCase(),
+      cqFilter: (state.logCqFilter || '').trim(),
+      ituFilter: (state.logItuFilter || '').trim(),
+      rangeFilter: state.logRange,
+      timeRange: state.logTimeRange,
+      headingRange: state.logHeadingRange
+    };
+  }
+
+  function applyLogFilters(qsos, filters) {
+    let filtered = qsos || [];
+    if (filters.search) {
+      filtered = filtered.filter((q) => q.call && q.call.includes(filters.search));
+    }
+    if (filters.fieldFilter) {
+      filtered = filtered.filter((q) => q.grid && q.grid.startsWith(filters.fieldFilter));
+    }
+    if (filters.bandFilter) {
+      filtered = filtered.filter((q) => q.band && q.band.toUpperCase() === filters.bandFilter);
+    }
+    if (filters.modeFilter && filters.modeFilter !== 'All') {
+      filtered = filtered.filter((q) => modeBucket(q.mode) === filters.modeFilter);
+    }
+    if (filters.countryFilter) {
+      filtered = filtered.filter((q) => q.country && q.country.toUpperCase() === filters.countryFilter);
+    }
+    if (filters.continentFilter) {
+      filtered = filtered.filter((q) => q.continent && q.continent.toUpperCase() === filters.continentFilter);
+    }
+    if (filters.cqFilter) {
+      filtered = filtered.filter((q) => String(q.cqZone || '') === filters.cqFilter);
+    }
+    if (filters.ituFilter) {
+      filtered = filtered.filter((q) => String(q.ituZone || '') === filters.ituFilter);
+    }
+    if (filters.rangeFilter && Number.isFinite(filters.rangeFilter.start) && Number.isFinite(filters.rangeFilter.end)) {
+      filtered = filtered.filter((q) => {
+        const n = Number(q.qsoNumber);
+        return Number.isFinite(n) && n >= filters.rangeFilter.start && n <= filters.rangeFilter.end;
+      });
+    }
+    if (filters.timeRange && Number.isFinite(filters.timeRange.startTs) && Number.isFinite(filters.timeRange.endTs)) {
+      filtered = filtered.filter((q) => typeof q.ts === 'number' && q.ts >= filters.timeRange.startTs && q.ts <= filters.timeRange.endTs);
+    }
+    if (filters.headingRange && Number.isFinite(filters.headingRange.start) && Number.isFinite(filters.headingRange.end)) {
+      filtered = filtered.filter((q) => Number.isFinite(q.bearing) && q.bearing >= filters.headingRange.start && q.bearing <= filters.headingRange.end);
+    }
+    return filtered;
+  }
+
+  function renderLogCells(q, idx) {
+    if (!q) {
+      return '<td></td>'.repeat(17);
+    }
+    const call = escapeHtml(q.call || '');
+    const op = escapeHtml(q.op || '');
+    const country = escapeHtml(q.country || '');
+    const grid = escapeHtml(q.grid || '');
+    const mode = escapeHtml(q.mode || '');
+    const band = escapeHtml(q.band || '');
+    const cont = escapeHtml(q.continent || '');
+    const flags = escapeHtml(`${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`);
+    return `
+        <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
+        <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
+        <td class="${bandClass(q.band)}">${band}</td>
+        <td class="${modeClass(q.mode)}">${mode}</td>
+        <td class="${bandClass(q.band)}">${q.freq ?? ''}</td>
+        <td class="tl">${call}</td>
+        <td>${formatNumberSh6(q.rstSent || '')}</td>
+        <td>${formatNumberSh6(q.rstRcvd || '')}</td>
+        <td>${formatNumberSh6(q.stx || q.exchSent || '')}</td>
+        <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
+        <td>${op}</td>
+        <td class="tl">${country}</td>
+        <td class="tac ${continentClass(q.continent)}">${cont}</td>
+        <td>${q.cqZone || ''}</td>
+        <td>${q.ituZone || ''}</td>
+        <td class="tl">${grid}</td>
+        <td class="tl">${flags}</td>
+    `;
+  }
+
+  function buildTenMinuteBuckets(qsos) {
+    const buckets = new Map();
+    (qsos || []).forEach((q) => {
+      const key = Number.isFinite(q.ts) ? Math.floor(q.ts / 600000) : 'unknown';
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(q);
+    });
+    return buckets;
+  }
+
+  function renderLogCompare() {
+    if (!state.qsoData && !state.compareB.qsoData) {
+      return '<p>No logs loaded for comparison yet.</p>';
+    }
+    const filters = getLogFilters();
+    const aQsos = state.qsoData ? applyLogFilters(state.qsoData.qsos, filters) : [];
+    const bQsos = state.compareB.qsoData ? applyLogFilters(state.compareB.qsoData.qsos, filters) : [];
+    const aBuckets = buildTenMinuteBuckets(aQsos);
+    const bBuckets = buildTenMinuteBuckets(bQsos);
+    const allKeys = new Set([...aBuckets.keys(), ...bBuckets.keys()]);
+    const numericKeys = Array.from(allKeys).filter((k) => k !== 'unknown').sort((a, b) => a - b);
+    const hasUnknown = allKeys.has('unknown');
+    const orderedKeys = hasUnknown ? numericKeys.concat(['unknown']) : numericKeys;
+    let rowIndex = 0;
+    const rows = orderedKeys.map((key) => {
+      const aList = aBuckets.get(key) || [];
+      const bList = bBuckets.get(key) || [];
+      const max = Math.max(aList.length, bList.length, 1);
+      const bucketLabel = key === 'unknown'
+        ? 'Unknown time bucket'
+        : `${formatDateSh6(key * 600000)} - ${formatDateSh6(key * 600000 + 9 * 60000 + 59000)}`;
+      const bucketRow = `<tr class="compare-bucket"><td colspan="34">${bucketLabel}</td></tr>`;
+      const dataRows = Array.from({ length: max }, () => {
+        const a = aList.shift() || null;
+        const b = bList.shift() || null;
+        const cls = rowIndex % 2 === 0 ? 'td1' : 'td0';
+        rowIndex += 1;
+        return `<tr class="${cls}">${renderLogCells(a, rowIndex)}${renderLogCells(b, rowIndex)}</tr>`;
+      }).join('');
+      return bucketRow + dataRows;
+    }).join('');
+    const dataNote = `<p>${(state.ctyTable && state.ctyTable.length) ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${(state.masterSet && state.masterSet.size) ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
+    const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange
+      ? `<p class="log-filter-note">Filter applied to both logs: ${filters.bandFilter || 'All bands'} ${filters.modeFilter ? `/${filters.modeFilter}` : ''} ${filters.countryFilter ? ` ${filters.countryFilter}` : ''} ${filters.continentFilter ? ` ${filters.continentFilter}` : ''} ${filters.cqFilter ? ` CQ${filters.cqFilter}` : ''} ${filters.ituFilter ? ` ITU${filters.ituFilter}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+      : '';
+    const aCount = aQsos.length;
+    const bCount = bQsos.length;
+    const note = `<p>Log A: ${formatNumberSh6(aCount)} QSOs. Log B: ${formatNumberSh6(bCount)} QSOs.</p>`;
+    const missingNote = (!state.qsoData || !state.compareB.qsoData)
+      ? `<p class="log-filter-note">Load ${!state.qsoData ? 'Log A' : 'Log B'} to enable full comparison.</p>`
+      : '';
+    const emptyNote = (aCount + bCount) === 0 ? '<p>No QSOs match current filter.</p>' : '';
+    return `
+      ${note}
+      ${missingNote}
+      ${dataNote}
+      ${filterNote}
+      ${emptyNote}
+      <div class="log-controls">
+        <form id="logSearchForm" class="no-print log-search">
+          Callsign:
+          <input id="logSearchInput" type="text" value="${filters.search}">
+          <input type="submit" value="Search">
+          <button type="button" id="logSearchClear">Clear</button>
+        </form>
+      </div>
+      <div class="compare-log-wrap">
+        <table class="mtc log-table compare-log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc">
+            <th colspan="17">Log A</th>
+            <th colspan="17">Log B</th>
+          </tr>
+          <tr class="thc">
+            <th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>
+            <th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>
+          </tr>
+          ${rows}
+        </table>
+      </div>
+    `;
+  }
+
   function renderLog() {
+    if (state.compareEnabled) {
+      return renderLogCompare();
+    }
     if (!state.qsoData) return renderPlaceholder({ id: 'log', title: 'Log' });
     const ctyLoaded = state.ctyTable && state.ctyTable.length > 0;
     const masterLoaded = state.masterSet && state.masterSet.size > 0;
-    const search = (state.logSearch || '').trim().toUpperCase();
-    const fieldFilter = (state.logFieldFilter || '').trim().toUpperCase();
-    const bandFilter = (state.logBandFilter || '').trim().toUpperCase();
-    const modeFilter = (state.logModeFilter || '').trim();
-    const countryFilter = (state.logCountryFilter || '').trim().toUpperCase();
-    const continentFilter = (state.logContinentFilter || '').trim().toUpperCase();
-    const cqFilter = (state.logCqFilter || '').trim();
-    const ituFilter = (state.logItuFilter || '').trim();
-    const rangeFilter = state.logRange;
-    const timeRange = state.logTimeRange;
-    const headingRange = state.logHeadingRange;
-    let filtered = state.qsoData.qsos;
-    if (search) {
-      filtered = filtered.filter((q) => q.call && q.call.includes(search));
-    }
-    if (fieldFilter) {
-      filtered = filtered.filter((q) => q.grid && q.grid.startsWith(fieldFilter));
-    }
-    if (bandFilter) {
-      filtered = filtered.filter((q) => q.band && q.band.toUpperCase() === bandFilter);
-    }
-    if (modeFilter && modeFilter !== 'All') {
-      filtered = filtered.filter((q) => modeBucket(q.mode) === modeFilter);
-    }
-    if (countryFilter) {
-      filtered = filtered.filter((q) => q.country && q.country.toUpperCase() === countryFilter);
-    }
-    if (continentFilter) {
-      filtered = filtered.filter((q) => q.continent && q.continent.toUpperCase() === continentFilter);
-    }
-    if (cqFilter) {
-      filtered = filtered.filter((q) => String(q.cqZone || '') === cqFilter);
-    }
-    if (ituFilter) {
-      filtered = filtered.filter((q) => String(q.ituZone || '') === ituFilter);
-    }
-    if (rangeFilter && Number.isFinite(rangeFilter.start) && Number.isFinite(rangeFilter.end)) {
-      filtered = filtered.filter((q) => {
-        const n = Number(q.qsoNumber);
-        return Number.isFinite(n) && n >= rangeFilter.start && n <= rangeFilter.end;
-      });
-    }
-    if (timeRange && Number.isFinite(timeRange.startTs) && Number.isFinite(timeRange.endTs)) {
-      filtered = filtered.filter((q) => typeof q.ts === 'number' && q.ts >= timeRange.startTs && q.ts <= timeRange.endTs);
-    }
-    if (headingRange && Number.isFinite(headingRange.start) && Number.isFinite(headingRange.end)) {
-      filtered = filtered.filter((q) => Number.isFinite(q.bearing) && q.bearing >= headingRange.start && q.bearing <= headingRange.end);
-    }
+    const filters = getLogFilters();
+    const search = filters.search;
+    const fieldFilter = filters.fieldFilter;
+    const bandFilter = filters.bandFilter;
+    const modeFilter = filters.modeFilter;
+    const countryFilter = filters.countryFilter;
+    const continentFilter = filters.continentFilter;
+    const cqFilter = filters.cqFilter;
+    const ituFilter = filters.ituFilter;
+    const rangeFilter = filters.rangeFilter;
+    const timeRange = filters.timeRange;
+    const headingRange = filters.headingRange;
+    const filtered = applyLogFilters(state.qsoData.qsos, filters);
     const totalPages = Math.max(1, Math.ceil(filtered.length / state.logPageSize));
     const page = Math.min(state.logPage, totalPages - 1);
     if (page !== state.logPage) state.logPage = page;
@@ -2926,6 +3096,12 @@
     const kmzBlock = kmzLinks
       ? `<ul>${kmzLinks}</ul>`
       : '<p>No KMZ files generated yet. Open the KMZ files report to generate them.</p>';
+    const legend = state.compareEnabled && state.compareB?.qsoData
+      ? `<div class="map-legend">
+          <span><i class="map-swatch" style="background:#1e5bd6;"></i> Log A</span>
+          <span><i class="map-swatch" style="background:#c62828;"></i> Log B</span>
+        </div>`
+      : '';
     return `
       <div class="mtc">
         <div class="gradient">&nbsp;Map</div>
@@ -2934,6 +3110,7 @@
           <label><input type="checkbox" id="mapShowPoints" checked> Points</label>
           <label style="margin-left:10px;"><input type="checkbox" id="mapShowLines" checked> Lines</label>
         </div>
+        ${legend}
         <div id="map"></div>
         <p>Use KMZ downloads below for full path visualization.</p>
         ${kmzBlock}
@@ -3180,8 +3357,8 @@
     return urls;
   }
 
-  function filterQsosForMap(ctx) {
-    let qsos = state.qsoData?.qsos || [];
+  function filterQsosForMap(ctx, dataState = state) {
+    let qsos = dataState.qsoData?.qsos || [];
     if (!ctx) return qsos;
     const scope = ctx.scope || '';
     const key = ctx.key || '';
@@ -3227,40 +3404,54 @@
     const showPoints = document.getElementById('mapShowPoints');
     const showLines = document.getElementById('mapShowLines');
 
-    const station = state.derived?.station;
-    const qsos = filterQsosForMap(ctx);
-    const markers = [];
-    const lines = [];
+    const markerLayer = L.layerGroup();
+    const lineLayer = L.layerGroup();
+    const allLatLngs = [];
+    const slots = state.compareEnabled && state.compareB?.qsoData
+      ? [
+        { label: 'A', color: '#1e5bd6', state: state },
+        { label: 'B', color: '#c62828', state: state.compareB }
+      ]
+      : [
+        { label: '', color: '#cc0000', state: state }
+      ];
 
-    if (station && station.lat != null && station.lon != null) {
-      const stationMarker = L.circleMarker([station.lat, station.lon], { radius: 6, color: '#5266df', fillColor: '#5266df', fillOpacity: 0.9 });
-      stationMarker.bindPopup(`Station: ${escapeHtml(state.derived?.contestMeta?.stationCallsign || '')}`);
-      markers.push(stationMarker);
-    }
-
-    qsos.forEach((q) => {
-      const prefix = lookupPrefix(q.call);
-      const remote = deriveRemoteLatLon(q, prefix);
-      if (!remote) return;
-      const marker = L.circleMarker([remote.lat, remote.lon], { radius: 3, color: '#cc0000', fillColor: '#cc0000', fillOpacity: 0.8 });
-      marker.bindPopup(`${escapeHtml(q.call || '')} ${escapeHtml(q.band || '')} ${escapeHtml(q.mode || '')}`);
-      markers.push(marker);
+    slots.forEach((slot) => {
+      const station = slot.state.derived?.station;
+      const qsos = filterQsosForMap(ctx, slot.state);
       if (station && station.lat != null && station.lon != null) {
-        const distance = haversineKm(station.lat, station.lon, remote.lat, remote.lon);
-        const segments = Math.min(64, Math.max(8, Math.round(distance / 400)));
-        const linePoints = greatCirclePoints(station.lat, station.lon, remote.lat, remote.lon, segments);
-        const line = L.polyline(linePoints, { color: '#555555', weight: 1, opacity: 0.6 });
-        lines.push(line);
+        const stationLabel = slot.label ? ` ${slot.label}` : '';
+        const stationMarker = L.circleMarker([station.lat, station.lon], {
+          radius: 6,
+          color: slot.color,
+          fillColor: slot.color,
+          fillOpacity: 0.9
+        });
+        stationMarker.bindPopup(`Station${stationLabel}: ${escapeHtml(slot.state.derived?.contestMeta?.stationCallsign || '')}`);
+        markerLayer.addLayer(stationMarker);
+        allLatLngs.push(stationMarker.getLatLng());
       }
+      qsos.forEach((q) => {
+        const prefix = lookupPrefix(q.call);
+        const remote = deriveRemoteLatLon(q, prefix);
+        if (!remote) return;
+        const marker = L.circleMarker([remote.lat, remote.lon], { radius: 3, color: slot.color, fillColor: slot.color, fillOpacity: 0.7 });
+        marker.bindPopup(`${escapeHtml(q.call || '')} ${escapeHtml(q.band || '')} ${escapeHtml(q.mode || '')}`);
+        markerLayer.addLayer(marker);
+        allLatLngs.push(marker.getLatLng());
+        if (station && station.lat != null && station.lon != null) {
+          const distance = haversineKm(station.lat, station.lon, remote.lat, remote.lon);
+          const segments = Math.min(64, Math.max(8, Math.round(distance / 400)));
+          const linePoints = greatCirclePoints(station.lat, station.lon, remote.lat, remote.lon, segments);
+          const line = L.polyline(linePoints, { color: slot.color, weight: 1, opacity: 0.5 });
+          lineLayer.addLayer(line);
+        }
+      });
     });
-
-    const markerLayer = L.layerGroup(markers);
-    const lineLayer = L.layerGroup(lines);
 
     if (showPoints && showPoints.checked) markerLayer.addTo(map);
     if (showLines && showLines.checked) lineLayer.addTo(map);
 
-    const allLatLngs = markers.map((m) => m.getLatLng());
     if (allLatLngs.length) {
       const bounds = L.latLngBounds(allLatLngs);
       map.fitBounds(bounds.pad(0.2));
@@ -3552,7 +3743,7 @@
     `;
   }
 
-  function renderReport(report) {
+  function renderReportSingle(report) {
     return withBandContext(report.id, () => {
       switch (report.id) {
         case 'main': return renderMain();
@@ -3608,6 +3799,100 @@
         default: return renderPlaceholder(report);
       }
     });
+  }
+
+  function withSlotState(slot, fn) {
+    const snapshot = {
+      logFile: state.logFile,
+      qsoData: state.qsoData,
+      derived: state.derived,
+      logPage: state.logPage,
+      logPageSize: state.logPageSize,
+      fullQsoData: state.fullQsoData,
+      fullDerived: state.fullDerived,
+      bandDerivedCache: state.bandDerivedCache
+    };
+    Object.assign(state, slot);
+    const result = fn();
+    Object.assign(state, snapshot);
+    return result;
+  }
+
+  function formatCompareHeader(slot, label) {
+    const call = slot.derived?.contestMeta?.stationCallsign || 'N/A';
+    const contest = slot.derived?.contestMeta?.contestId || 'N/A';
+    const year = slot.derived?.timeRange?.minTs ? new Date(slot.derived.timeRange.minTs).getUTCFullYear() : 'N/A';
+    const qsos = slot.qsoData?.qsos?.length ? formatNumberSh6(slot.qsoData.qsos.length) : '0';
+    return `${label}: ${call} · ${contest} · ${year} · ${qsos} QSOs`;
+  }
+
+  function estimateReportRows(reportId, derived) {
+    if (!derived) return 0;
+    switch (reportId) {
+      case 'main': return 8;
+      case 'summary': return derived.bandModeSummary?.length || 0;
+      case 'operators': return derived.operatorsSummary?.length || 0;
+      case 'dupes': return derived.dupes?.length || 0;
+      case 'qs_by_hour_sheet': return derived.hourSeries?.length || 0;
+      case 'qs_by_minute': return derived.minuteSeries?.length || 0;
+      case 'one_minute_rates': return derived.minuteSeries?.length || 0;
+      case 'rates': return derived.hourSeries?.length || 0;
+      case 'continents': return derived.continentSummary?.length || 0;
+      case 'zones_cq': return derived.cqZoneSummary?.length || 0;
+      case 'zones_itu': return derived.ituZoneSummary?.length || 0;
+      case 'callsign_length': return derived.callsignLengthSummary?.length || 0;
+      case 'callsign_structure': return derived.structureSummary?.length || 0;
+      case 'distance': return derived.distanceSummary?.buckets?.length || 0;
+      case 'beam_heading': return derived.headingSummary?.length || 0;
+      case 'comments': return derived.comments?.length || 0;
+      case 'fields_map': return derived.fieldsSummary?.length || 0;
+      case 'kmz_files': return 6;
+      default: return 1000;
+    }
+  }
+
+  function renderReportCompare(report) {
+    if (report.id === 'log') {
+      return renderLogCompare();
+    }
+    const slotA = {
+      logFile: state.logFile,
+      qsoData: state.qsoData,
+      derived: state.derived,
+      logPage: state.logPage,
+      logPageSize: state.logPageSize,
+      fullQsoData: state.fullQsoData,
+      fullDerived: state.fullDerived,
+      bandDerivedCache: state.bandDerivedCache
+    };
+    const slotB = state.compareB || {};
+    const aReady = !!slotA.qsoData;
+    const bReady = !!slotB.qsoData;
+    const aHtml = aReady ? withSlotState(slotA, () => renderReportSingle(report)) : `<p>No Log A loaded.</p>`;
+    const bHtml = bReady ? withSlotState(slotB, () => renderReportSingle(report)) : `<p>No Log B loaded.</p>`;
+    const aRows = estimateReportRows(report.id, slotA.derived);
+    const bRows = estimateReportRows(report.id, slotB.derived);
+    const stack = Math.max(aRows, bRows) <= 10;
+    const gridClass = stack ? 'compare-grid compare-stack' : 'compare-grid';
+    return `
+      <div class="${gridClass}">
+        <div class="compare-panel compare-a">
+          <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
+          ${aHtml}
+        </div>
+        <div class="compare-panel compare-b">
+          <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
+          ${bHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderReport(report) {
+    if (state.compareEnabled) {
+      return renderReportCompare(report);
+    }
+    return renderReportSingle(report);
   }
 
   function bindReportInteractions(reportId) {
@@ -4191,8 +4476,14 @@
     `;
   }
 
-  function setupRepoSearch() {
-    if (!dom.repoSearch || !dom.repoResults || !dom.repoStatus) return;
+  function setupRepoSearch(slotId) {
+    const isB = slotId === 'B';
+    const searchInput = isB ? dom.repoSearchB : dom.repoSearch;
+    const resultsEl = isB ? dom.repoResultsB : dom.repoResults;
+    const statusEl = isB ? dom.repoStatusB : dom.repoStatus;
+    const autoCloseEl = isB ? dom.repoAutoCloseB : dom.repoAutoClose;
+    const statusTarget = isB ? dom.fileStatusB : dom.fileStatus;
+    if (!searchInput || !resultsEl || !statusEl) return;
     let timer = null;
     const shardCache = new Map();
     let sqlLoader = null;
@@ -4319,8 +4610,8 @@
 
     const renderResultsTree = () => {
       if (!archiveRows.length) {
-        dom.repoResults.innerHTML = '';
-        dom.repoStatus.textContent = 'No matches found in the archive.';
+        resultsEl.innerHTML = '';
+        statusEl.textContent = 'No matches found in the archive.';
         return;
       }
       const tree = new Map();
@@ -4339,7 +4630,7 @@
       });
       const chunks = ['<div class="repo-tree">'];
       const contestCount = tree.size;
-      dom.repoStatus.textContent = `Select a log to load. Found ${archiveRows.length} logs in ${contestCount} contests.`;
+      statusEl.textContent = `Select a log to load. Found ${archiveRows.length} logs in ${contestCount} contests.`;
       tree.forEach((yearMap, contest) => {
         const hasContest = Boolean(contest);
         if (hasContest) chunks.push(`<details class="repo-contest"><summary>${contest}</summary>`);
@@ -4360,7 +4651,7 @@
         if (hasContest) chunks.push(`</details>`);
       });
       chunks.push('</div>');
-      dom.repoResults.innerHTML = chunks.join('');
+      resultsEl.innerHTML = chunks.join('');
     };
 
     const renderResults = (rows) => {
@@ -4371,19 +4662,19 @@
     const searchArchive = async (input) => {
       const callsign = normalizeCallsign(input);
       if (callsign.length < 3) {
-        dom.repoResults.innerHTML = '';
-        dom.repoStatus.textContent = '';
+        resultsEl.innerHTML = '';
+        statusEl.textContent = '';
         return;
       }
       const seq = ++searchSeq;
-      dom.repoStatus.textContent = `Searching archive for ${callsign}...`;
+      statusEl.textContent = `Searching archive for ${callsign}...`;
       const shardUrls = getShardUrls(callsign);
       try {
         const shardLabel = shardUrls[0].split('/').pop().split('?')[0];
-        dom.repoStatus.textContent = `Downloading shard ${shardLabel}...`;
+        statusEl.textContent = `Downloading shard ${shardLabel}...`;
         const db = await withTimeout(openSqliteShard(shardUrls), 20000, 'Shard open');
         if (seq !== searchSeq) return;
-        dom.repoStatus.textContent = 'Querying archive...';
+        statusEl.textContent = 'Querying archive...';
         const where = `callsign = ?`;
         const sql = `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`;
         const stmt = db.prepare(sql);
@@ -4393,20 +4684,20 @@
         stmt.free();
         if (seq !== searchSeq) return;
         renderResults(rows);
-        dom.repoStatus.textContent = rows.length ? `Select a log to load for ${callsign}.` : `No matches found for ${callsign}.`;
+        statusEl.textContent = rows.length ? `Select a log to load for ${callsign}.` : `No matches found for ${callsign}.`;
       } catch (err) {
         if (seq !== searchSeq) return;
         console.error('Archive search failed:', err);
-        dom.repoResults.innerHTML = '';
-        dom.repoStatus.textContent = `Archive search failed: ${err && err.message ? err.message : 'unknown error'}`;
+        resultsEl.innerHTML = '';
+        statusEl.textContent = `Archive search failed: ${err && err.message ? err.message : 'unknown error'}`;
       }
     };
 
     const fetchFromArchive = async (path) => {
       if (!path) return;
       const name = path.split('/').pop();
-      dom.repoStatus.textContent = `Downloading ${name}...`;
-      dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = true);
+      statusEl.textContent = `Downloading ${name}...`;
+      resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = true);
       let text = null;
       let source = null;
       const pageUrl = `${ARCHIVE_BASE_URL}/${path}`;
@@ -4435,45 +4726,67 @@
         }
       }
       if (!text) {
-        dom.repoStatus.textContent = 'Download failed.';
-        dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = false);
+        statusEl.textContent = 'Download failed.';
+        resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = false);
         return;
       }
       try {
-        applyLoadedLog(text, name, text.length, 'Archive');
-        dom.repoStatus.textContent = `Loaded ${name} from archive.`;
-        dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = false);
-        if (source) dom.repoStatus.title = source;
+        applyLoadedLogToSlot(slotId, text, name, text.length, 'Archive', statusTarget);
+        statusEl.textContent = `Loaded ${name} from archive.`;
+        resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = false);
+        if (source) statusEl.title = source;
       } catch (err) {
-        dom.repoStatus.textContent = 'Failed to parse archive log.';
-        dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = false);
+        statusEl.textContent = 'Failed to parse archive log.';
+        resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = false);
         console.error('Archive parse failed:', err);
       }
     };
 
-    dom.repoSearch.addEventListener('input', (evt) => {
+    searchInput.addEventListener('input', (evt) => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => searchArchive(evt.target.value), 300);
     });
 
-    dom.repoResults.addEventListener('click', (evt) => {
+    resultsEl.addEventListener('click', (evt) => {
       const target = evt.target instanceof HTMLElement ? evt.target.closest('button') : null;
       if (!target) return;
       const path = target.dataset.path;
       if (!path) return;
       fetchFromArchive(path);
-      if (!dom.repoAutoClose || dom.repoAutoClose.checked) {
-        const details = dom.repoResults.querySelectorAll('details');
+      if (!autoCloseEl || autoCloseEl.checked) {
+        const details = resultsEl.querySelectorAll('details');
         details.forEach((d) => d.open = false);
       }
     });
   }
 
+  function setupCompareToggle() {
+    if (!dom.compareModeRadios || !dom.compareModeRadios.length) return;
+    const applyMode = (enabled) => {
+      state.compareEnabled = enabled;
+      document.body.classList.toggle('compare-mode', enabled);
+      dom.viewContainer.innerHTML = renderReport(reports[state.activeIndex]);
+      bindReportInteractions(reports[state.activeIndex].id);
+    };
+    dom.compareModeRadios.forEach((radio) => {
+      radio.addEventListener('change', () => {
+        if (radio.checked) {
+          applyMode(radio.value === 'compare');
+        }
+      });
+    });
+    const selected = Array.from(dom.compareModeRadios).find((r) => r.checked);
+    applyMode(selected ? selected.value === 'compare' : false);
+  }
+
   function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     initNavigation();
-    setupFileInput();
-    setupRepoSearch();
+    setupFileInput(dom.fileInput, dom.fileStatus, 'A');
+    setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
+    setupRepoSearch('A');
+    setupRepoSearch('B');
+    setupCompareToggle();
     setupDataFileInputs();
     setupPrevNext();
     initDataFetches();

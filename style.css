@@ -66,6 +66,41 @@ a:hover {
   flex-wrap: wrap;
 }
 
+.compare-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px dotted #999999;
+  background: #f8f8f8;
+  margin-bottom: 6px;
+}
+
+.compare-label {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.log-panel {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px dotted #999999;
+  background: #fdfdfd;
+}
+
+.log-panel-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.compare-only {
+  display: none;
+}
+
+.compare-mode .compare-only {
+  display: block;
+}
+
 .remote-picker {
   margin-top: 8px;
   padding: 8px 10px;
@@ -78,7 +113,8 @@ a:hover {
   margin-bottom: 4px;
 }
 
-#repoSearch {
+#repoSearch,
+#repoSearchB {
   width: min(520px, 100%);
   padding: 6px 8px;
   border: 1px solid #b9b9b9;
@@ -116,6 +152,75 @@ a:hover {
 
 .repo-tree .repo-subcat {
   margin-left: 28px;
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compare-grid.compare-stack {
+  grid-template-columns: 1fr;
+}
+
+.compare-panel {
+  border: 1px dotted #999999;
+  background: #ffffff;
+  padding: 6px 8px;
+}
+
+.compare-panel .compare-head {
+  font-weight: 700;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.compare-panel.compare-a .compare-head {
+  color: #1e5bd6;
+}
+
+.compare-panel.compare-b .compare-head {
+  color: #c62828;
+}
+
+.compare-log-wrap {
+  overflow-x: auto;
+}
+
+.compare-log-table th,
+.compare-log-table td {
+  white-space: nowrap;
+}
+
+.compare-bucket {
+  background: #f0f0f0;
+  font-weight: 600;
+  text-align: left;
+}
+
+.map-legend {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 6px 0 10px;
+  font-size: 12px;
+}
+
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-swatch {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  border: 1px solid #333333;
 }
 
 .repo-tree button.repo-leaf {

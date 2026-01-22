@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.17';
+  const APP_VERSION = 'v1.1.18';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2868,6 +2868,144 @@
     `;
   }
 
+  function buildHourBucketMap(qsos) {
+    const map = new Map();
+    (qsos || []).forEach((q) => {
+      if (!Number.isFinite(q.ts)) return;
+      const d = new Date(q.ts);
+      const day = d.getUTCDay();
+      const hour = d.getUTCHours();
+      const key = `${day}-${hour}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          day,
+          hour,
+          qsos: 0,
+          points: 0,
+          bands: new Map(),
+          sampleTs: q.ts
+        });
+      }
+      const entry = map.get(key);
+      entry.qsos += 1;
+      if (Number.isFinite(q.points)) entry.points += q.points;
+      if (q.band) entry.bands.set(q.band, (entry.bands.get(q.band) || 0) + 1);
+    });
+    return map;
+  }
+
+  function buildHourKeyOrderFromMaps(mapA, mapB, qsosA, qsosB) {
+    const allKeys = new Set([...mapA.keys(), ...mapB.keys()]);
+    const keys = Array.from(allKeys);
+    let startIndex = null;
+    const allWithTs = (qsosA || []).concat(qsosB || []).filter((q) => Number.isFinite(q.ts));
+    if (allWithTs.length) {
+      const minTs = Math.min(...allWithTs.map((q) => q.ts));
+      const d = new Date(minTs);
+      startIndex = d.getUTCDay() * 24 + d.getUTCHours();
+    }
+    const idx = (key) => {
+      const [dayStr, hourStr] = String(key).split('-');
+      return Number(dayStr) * 24 + Number(hourStr);
+    };
+    return keys.sort((a, b) => {
+      const ai = idx(a);
+      const bi = idx(b);
+      if (startIndex == null) return ai - bi;
+      const da = (ai - startIndex + 168) % 168;
+      const db = (bi - startIndex + 168) % 168;
+      return da - db;
+    });
+  }
+
+  function renderQsByHourSheetForSlot(slot, keyOrder, bucketMap) {
+    if (!slot || !slot.derived) return '<p>No log loaded.</p>';
+    const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const solarData = loadSolarData();
+    let accum = 0;
+    let lastDay = null;
+    const rows = keyOrder.map((key, idx) => {
+      const entry = bucketMap.get(key);
+      const day = entry ? entry.day : Number(String(key).split('-')[0]);
+      const hour = entry ? entry.hour : Number(String(key).split('-')[1]);
+      const dayLabel = day !== lastDay ? (WEEKDAY_LABELS[day] || '') : '';
+      lastDay = day;
+      const kDots = entry && entry.sampleTs
+        ? (() => {
+          const solar = getSolarForHour(solarData, entry.sampleTs, {
+            ssn: slot.derived.contestMeta?.ssn || '',
+            kIndex: slot.derived.contestMeta?.kIndex || ''
+          });
+          return solar.kIndex ? '&#8226;'.repeat(Math.max(1, Math.min(5, Number(solar.kIndex)))) : '';
+        })()
+        : '';
+      const solar = entry && entry.sampleTs
+        ? getSolarForHour(solarData, entry.sampleTs, {
+          ssn: slot.derived.contestMeta?.ssn || '',
+          kIndex: slot.derived.contestMeta?.kIndex || ''
+        })
+        : { ssn: '', kIndex: '' };
+      const cells = bandCols.map((b) => {
+        const count = entry ? (entry.bands.get(b) || 0) : 0;
+        if (!count) return '<td></td>';
+        const hourBucket = entry ? Math.floor(entry.sampleTs / 3600000) : null;
+        return hourBucket != null
+          ? `<td><a href="#" class="log-hour-band" data-hour="${hourBucket}" data-band="${b}">${formatNumberSh6(count)}</a></td>`
+          : `<td>${formatNumberSh6(count)}</td>`;
+      }).join('');
+      const qsos = entry ? entry.qsos : 0;
+      accum += qsos;
+      const pts = entry ? entry.points : 0;
+      const avgPts = pts && qsos ? (pts / qsos).toFixed(1) : '';
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      const hourLabel = `${String(hour).padStart(2, '0')}:00Z`;
+      const hourBucket = entry ? Math.floor(entry.sampleTs / 3600000) : null;
+      const allLink = qsos && hourBucket != null
+        ? `<a href="#" class="log-hour" data-hour="${hourBucket}"><b>${formatNumberSh6(qsos)}</b></a>`
+        : (qsos ? `<b>${formatNumberSh6(qsos)}</b>` : '');
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hourLabel}</b></td><td>${solar.ssn || ''}</td><td>${solar.kIndex || ''}</td><td align="left">${kDots}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum || '')}</td><td>${formatNumberSh6(pts || '')}</td><td>${avgPts}</td></tr>`;
+    }).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc">
+          <th rowspan="2">Day</th>
+          <th rowspan="2">Hour</th>
+          <th rowspan="2">SSN</th>
+          <th colspan="2" rowspan="2">K<br/>index</th>
+          <th colspan="10">QSOs</th>
+        </tr>
+        <tr class="thc">
+          <th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th>
+          <th>All</th><th>Accum.</th><th>Pts</th><th>Avg. Pts</th>
+        </tr>
+        ${rows}
+      </table>
+    `;
+  }
+
+  function renderQsByHourSheetCompare() {
+    const slotA = {
+      qsoData: state.qsoData,
+      derived: state.derived
+    };
+    const slotB = state.compareB || {};
+    const mapA = buildHourBucketMap(slotA.qsoData?.qsos || []);
+    const mapB = buildHourBucketMap(slotB.qsoData?.qsos || []);
+    const order = buildHourKeyOrderFromMaps(mapA, mapB, slotA.qsoData?.qsos || [], slotB.qsoData?.qsos || []);
+    return `
+      <div class="compare-grid">
+        <div class="compare-panel compare-a">
+          <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
+          ${renderQsByHourSheetForSlot(slotA, order, mapA)}
+        </div>
+        <div class="compare-panel compare-b">
+          <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
+          ${renderQsByHourSheetForSlot(slotB, order, mapB)}
+        </div>
+      </div>
+    `;
+  }
+
   function renderRates() {
     if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'rates', title: 'Rates' });
     const qsos = state.qsoData?.qsos || [];
@@ -3820,6 +3958,61 @@
     `;
   }
 
+  function renderGraphsQsByHourForSlot(slot, keyOrder, bucketMap, bandFilter, maxValue) {
+    if (!slot || !slot.derived) return '<p>No log loaded.</p>';
+    const rows = keyOrder.map((key, idx) => {
+      const entry = bucketMap.get(key);
+      const day = entry ? entry.day : Number(String(key).split('-')[0]);
+      const hour = entry ? entry.hour : Number(String(key).split('-')[1]);
+      const label = `${WEEKDAY_LABELS[day] || ''} ${String(hour).padStart(2, '0')}:00Z`;
+      const count = entry ? (bandFilter ? (entry.bands.get(bandFilter) || 0) : entry.qsos) : 0;
+      const barWidth = maxValue ? Math.round((count / maxValue) * 100) : 0;
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `
+        <tr class="${cls}">
+          <td>${label}</td>
+          <td>${count ? formatNumberSh6(count) : ''}</td>
+          <td style="text-align:left"><div class="sum" style="width:${barWidth}%" /></td>
+        </tr>
+      `;
+    }).join('');
+    const subtitle = bandFilter ? `Band ${bandFilter}` : 'All bands';
+    return `
+      <div class="mtc">
+        <div class="gradient">&nbsp;Qs by hour</div>
+        <p>${subtitle}</p>
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Hour (UTC)</th><th>QSOs</th><th>&nbsp;</th></tr>
+          ${rows}
+        </table>
+      </div>
+    `;
+  }
+
+  function renderGraphsQsByHourCompare(bandFilter) {
+    const slotA = { qsoData: state.qsoData, derived: state.derived };
+    const slotB = state.compareB || {};
+    const mapA = buildHourBucketMap(slotA.qsoData?.qsos || []);
+    const mapB = buildHourBucketMap(slotB.qsoData?.qsos || []);
+    const order = buildHourKeyOrderFromMaps(mapA, mapB, slotA.qsoData?.qsos || [], slotB.qsoData?.qsos || []);
+    const values = [];
+    mapA.forEach((entry) => values.push(bandFilter ? (entry.bands.get(bandFilter) || 0) : entry.qsos));
+    mapB.forEach((entry) => values.push(bandFilter ? (entry.bands.get(bandFilter) || 0) : entry.qsos));
+    const maxValue = Math.max(1, ...values);
+    return `
+      <div class="compare-grid">
+        <div class="compare-panel compare-a">
+          <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
+          ${renderGraphsQsByHourForSlot(slotA, order, mapA, bandFilter, maxValue)}
+        </div>
+        <div class="compare-panel compare-b">
+          <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
+          ${renderGraphsQsByHourForSlot(slotB, order, mapB, bandFilter, maxValue)}
+        </div>
+      </div>
+    `;
+  }
+
   function renderReportSingle(report) {
     return withBandContext(report.id, () => {
       switch (report.id) {
@@ -3932,6 +4125,17 @@
   function renderReportCompare(report) {
     if (report.id === 'log') {
       return renderLogCompare();
+    }
+    if (report.id === 'qs_by_hour_sheet') {
+      return renderQsByHourSheetCompare();
+    }
+    if (report.id.startsWith('graphs_qs_by_hour')) {
+      let bandFilter = null;
+      if (report.id !== 'graphs_qs_by_hour') {
+        const parts = report.id.split('_');
+        bandFilter = parts[parts.length - 1];
+      }
+      return renderGraphsQsByHourCompare(bandFilter);
     }
     const slotA = {
       logFile: state.logFile,

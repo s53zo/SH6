@@ -85,61 +85,49 @@ a:hover {
   border-radius: 4px;
 }
 
-.repo-filters {
-  margin-top: 6px;
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-}
-
-.repo-filters input {
-  padding: 6px 8px;
-  border: 1px solid #b9b9b9;
-  border-radius: 4px;
-}
-
 .repo-results {
   margin-top: 8px;
   display: grid;
   gap: 6px;
 }
 
-.repo-group {
-  font-weight: 700;
-  background: #e5edf9;
-  border: 1px solid #c5daf8;
-  padding: 6px 8px;
-}
-
-.repo-subgroup {
-  font-weight: 600;
-  color: #1f3e74;
-  padding: 2px 8px;
-}
-
-.repo-result {
+.repo-tree {
   border: 1px solid #c3c3c3;
   background: #ffffff;
   padding: 6px 8px;
-  text-align: left;
+}
+
+.repo-tree details {
+  margin: 4px 0;
+}
+
+.repo-tree summary {
   cursor: pointer;
+  font-weight: 700;
 }
 
-.repo-result:hover {
-  background: #f0f6ff;
-}
-
-.repo-result:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.repo-more {
-  padding: 6px 10px;
-  border: 1px solid #8aa0c8;
-  background: #f0f6ff;
+.repo-tree .repo-year summary {
   font-weight: 600;
+  color: #1f3e74;
+}
+
+.repo-tree .repo-subcat summary {
+  font-weight: 600;
+  color: #3b3b3b;
+}
+
+.repo-tree button.repo-leaf {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #c3c3c3;
+  background: #ffffff;
+  padding: 4px 6px;
+  margin: 4px 0;
   cursor: pointer;
+}
+
+.repo-tree button.repo-leaf:hover {
+  background: #f0f6ff;
 }
 
 .repo-name {

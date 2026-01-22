@@ -150,11 +150,7 @@
     bandRibbon: document.getElementById('bandRibbon'),
     repoSearch: document.getElementById('repoSearch'),
     repoStatus: document.getElementById('repoStatus'),
-    repoResults: document.getElementById('repoResults'),
-    repoContest: document.getElementById('repoContest'),
-    repoYear: document.getElementById('repoYear'),
-    repoMode: document.getElementById('repoMode'),
-    repoSeason: document.getElementById('repoSeason')
+    repoResults: document.getElementById('repoResults')
   };
 
   const renderers = {};
@@ -4225,7 +4221,10 @@
       if (yearA !== yearB) return yearB - yearA;
       const modeA = normalizeLabel(a.mode).toUpperCase();
       const modeB = normalizeLabel(b.mode).toUpperCase();
-      return modeA.localeCompare(modeB);
+      if (modeA !== modeB) return modeA.localeCompare(modeB);
+      const seasonA = normalizeLabel(a.season).toUpperCase();
+      const seasonB = normalizeLabel(b.season).toUpperCase();
+      return seasonA.localeCompare(seasonB);
     });
 
     const renderResultsPage = () => {
@@ -4238,34 +4237,41 @@
       const shown = Math.min(total, (archivePage + 1) * PAGE_SIZE);
       dom.repoStatus.textContent = `Select a log to load. Showing ${shown} of ${total}.`;
       const slice = archiveRows.slice(0, shown);
-      let lastContest = null;
-      let lastYear = null;
-      const chunks = [];
+      const tree = new Map();
       slice.forEach((row) => {
         const contest = normalizeLabel(row.contest) || 'Unknown contest';
-        const year = Number.isFinite(row.year) ? row.year : 'Unknown year';
-        if (contest !== lastContest) {
-          chunks.push(`<div class="repo-group">${contest}</div>`);
-          lastContest = contest;
-          lastYear = null;
-        }
-        if (year !== lastYear) {
-          chunks.push(`<div class="repo-subgroup">${year}</div>`);
-          lastYear = year;
-        }
-        const mode = normalizeLabel(row.mode);
-        const season = normalizeLabel(row.season);
-        const label = [year, mode, season].filter(Boolean).join(' • ');
-        chunks.push(`
-          <button type="button" class="repo-result" data-path="${row.path}">
-            <span class="repo-name">${label || row.path.split('/').pop()}</span>
-            <span class="repo-path">${row.path}</span>
-          </button>
-        `);
+        const year = Number.isFinite(row.year) ? String(row.year) : 'Unknown year';
+        const mode = normalizeLabel(row.mode) || 'Unknown mode';
+        const season = normalizeLabel(row.season) || 'Unknown season';
+        if (!tree.has(contest)) tree.set(contest, new Map());
+        const yearMap = tree.get(contest);
+        if (!yearMap.has(year)) yearMap.set(year, new Map());
+        const modeMap = yearMap.get(year);
+        const subKey = `${mode} • ${season}`;
+        if (!modeMap.has(subKey)) modeMap.set(subKey, []);
+        modeMap.get(subKey).push(row);
+      });
+      const chunks = ['<div class="repo-tree">'];
+      tree.forEach((yearMap, contest) => {
+        chunks.push(`<details class="repo-contest"><summary>${contest}</summary>`);
+        yearMap.forEach((modeMap, year) => {
+          chunks.push(`<details class="repo-year"><summary>${year}</summary>`);
+          modeMap.forEach((rows, subKey) => {
+            chunks.push(`<details class="repo-subcat"><summary>${subKey}</summary>`);
+            rows.forEach((row) => {
+              const label = row.path.split('/').pop();
+              chunks.push(`<button type="button" class="repo-leaf" data-path="${row.path}">${label}</button>`);
+            });
+            chunks.push(`</details>`);
+          });
+          chunks.push(`</details>`);
+        });
+        chunks.push(`</details>`);
       });
       if (shown < total) {
         chunks.push(`<button type="button" class="repo-more" id="repoMore">Show ${Math.min(PAGE_SIZE, total - shown)} more</button>`);
       }
+      chunks.push('</div>');
       dom.repoResults.innerHTML = chunks.join('');
     };
 
@@ -4288,24 +4294,10 @@
         dom.repoStatus.textContent = `Downloading shard ${shardUrl.split('/').pop()}...`;
         const db = await withTimeout(openSqliteShard(shardUrl), 20000, 'Shard open');
         dom.repoStatus.textContent = 'Querying archive...';
-        const filters = [];
-        const contest = normalizeFilter(dom.repoContest?.value);
-        const year = toIntOrNull(normalizeFilter(dom.repoYear?.value));
-        const mode = normalizeFilter(dom.repoMode?.value);
-        const season = normalizeFilter(dom.repoSeason?.value);
-        if (contest) filters.push(`contest LIKE ?`);
-        if (year) filters.push(`year = ?`);
-        if (mode) filters.push(`mode LIKE ?`);
-        if (season) filters.push(`season LIKE ?`);
-        const where = [`callsign = ?`].concat(filters).join(' AND ');
+        const where = `callsign = ?`;
         const sql = `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`;
         const stmt = db.prepare(sql);
-        const params = [callsign];
-        if (contest) params.push(`%${contest}%`);
-        if (year) params.push(year);
-        if (mode) params.push(`%${mode}%`);
-        if (season) params.push(`%${season}%`);
-        stmt.bind(params);
+        stmt.bind([callsign]);
         const rows = [];
         while (stmt.step()) rows.push(stmt.getAsObject());
         stmt.free();
@@ -4372,14 +4364,6 @@
       timer = setTimeout(() => searchArchive(evt.target.value), 300);
     });
 
-    const filterInputs = [dom.repoContest, dom.repoYear, dom.repoMode, dom.repoSeason].filter(Boolean);
-    filterInputs.forEach((input) => {
-      input.addEventListener('input', () => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => searchArchive(dom.repoSearch.value), 200);
-      });
-    });
-
     dom.repoResults.addEventListener('click', (evt) => {
       const target = evt.target instanceof HTMLElement ? evt.target.closest('button') : null;
       if (!target) return;
@@ -4391,6 +4375,8 @@
       const path = target.dataset.path;
       if (!path) return;
       fetchFromArchive(path);
+      const details = dom.repoResults.querySelectorAll('details');
+      details.forEach((d) => d.open = false);
     });
   }
 
@@ -4433,9 +4419,3 @@
 
   document.addEventListener('DOMContentLoaded', init);
 })();
-    const normalizeFilter = (value) => (value || '').trim();
-    const sqlEscape = (value) => value.replace(/'/g, "''");
-    const toIntOrNull = (value) => {
-      const n = parseInt(value, 10);
-      return Number.isFinite(n) ? n : null;
-    };

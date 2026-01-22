@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.47';
+  const APP_VERSION = 'v0.5.48';
   const SQLJS_HTTPVFS_URLS = [
     'vendor/sqljs-httpvfs/index.js',
     'https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/index.js',

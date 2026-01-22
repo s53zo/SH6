@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.65';
+  const APP_VERSION = 'v0.5.66';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -693,6 +693,10 @@
         const call = rest[dxIndex] || '';
         const rstRcvd = rest[dxIndex + 1] || '';
         const exchRcvd = rest.slice(dxIndex + 2).join(' ').trim();
+        const sentTokens = rest.slice(0, dxIndex).map((t) => t.trim()).filter(Boolean);
+        const rcvdTokens = rest.slice(dxIndex + 2).map((t) => t.trim()).filter(Boolean);
+        const sentGrid = sentTokens.find((t) => isMaidenheadGrid(t));
+        const rcvdGrid = rcvdTokens.find((t) => isMaidenheadGrid(t));
         qsos.push({
           QSO_DATE: date,
           TIME_ON: time,
@@ -704,6 +708,8 @@
           RST_RCVD: rstRcvd,
           STX_STRING: exchSent,
           SRX_STRING: exchRcvd,
+          MY_GRIDSQUARE: sentGrid,
+          GRIDSQUARE: rcvdGrid,
           OPERATOR: myCall
         });
       } else {
@@ -808,6 +814,7 @@
         CLAIMED_SCORE: meta['CLAIMED-SCORE'] || meta['CLAIMED-SCORE:'] || null,
         OPERATORS: meta.OPERATORS || null,
         GRID: meta['GRID-LOCATOR'] || meta['HQ-GRID-LOCATOR'] || null,
+        MY_GRIDSQUARE: meta['GRID-LOCATOR'] || meta['HQ-GRID-LOCATOR'] || null,
         LOCATION: meta.LOCATION || null
       };
       const qsos = cab.qsos.map((r, idx) => ({

@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.74';
+  const APP_VERSION = 'v0.5.75';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4646,6 +4646,40 @@
       return seasonA.localeCompare(seasonB);
     });
 
+    const parseIsoWeek = (dateStr) => {
+      const [y, m, d] = dateStr.split('-').map((v) => parseInt(v, 10));
+      if (!y || !m || !d) return null;
+      const date = new Date(Date.UTC(y, m - 1, d));
+      const day = (date.getUTCDay() + 6) % 7;
+      date.setUTCDate(date.getUTCDate() - day + 3);
+      const firstThu = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+      const firstDay = (firstThu.getUTCDay() + 6) % 7;
+      firstThu.setUTCDate(firstThu.getUTCDate() - firstDay + 3);
+      const week = 1 + Math.round((date - firstThu) / 604800000);
+      return { year: date.getUTCFullYear(), week };
+    };
+
+    const formatArchiveSubKey = (row) => {
+      const contest = normalizeLabel(row.contest);
+      const path = normalizeLabel(row.path);
+      if (!contest || !path) return [normalizeLabel(row.mode), normalizeLabel(row.season)].filter(Boolean).join(' • ');
+      if (contest.startsWith('WednesdayMiniTest')) {
+        const match = path.match(/\d{4}-\d{2}-\d{2}/);
+        if (match) {
+          const iso = parseIsoWeek(match[0]);
+          if (iso) return `Week ${iso.year}-W${String(iso.week).padStart(2, '0')}`;
+        }
+        return 'Week';
+      }
+      if (contest === 'EU_VHF_CONTESTS') {
+        const parts = path.split('/').filter(Boolean);
+        const event = parts[1] ? parts[1].replace(/_/g, ' ') : '';
+        const band = parts[2] || '';
+        return [event, band].filter(Boolean).join(' \u2022 ');
+      }
+      return [normalizeLabel(row.mode), normalizeLabel(row.season)].filter(Boolean).join(' • ');
+    };
+
     const renderResultsTree = () => {
       if (!archiveRows.length) {
         resultsEl.innerHTML = '';
@@ -4656,13 +4690,11 @@
       archiveRows.forEach((row) => {
         const contest = normalizeLabel(row.contest);
         const year = Number.isFinite(row.year) ? String(row.year) : '';
-        const mode = normalizeLabel(row.mode);
-        const season = normalizeLabel(row.season);
+        const subKey = formatArchiveSubKey(row);
         if (!tree.has(contest)) tree.set(contest, new Map());
         const yearMap = tree.get(contest);
         if (!yearMap.has(year)) yearMap.set(year, new Map());
         const modeMap = yearMap.get(year);
-        const subKey = [mode, season].filter(Boolean).join(' • ');
         if (!modeMap.has(subKey)) modeMap.set(subKey, []);
         modeMap.get(subKey).push(row);
       });

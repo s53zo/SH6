@@ -50,6 +50,12 @@
             <button type="button" id="exportHtmlBtn" class="button">Export HTML</button>
             <div class="status" id="fileStatus">No file loaded</div>
           </div>
+          <div class="remote-picker">
+            <div class="remote-label">Load from log archive:</div>
+            <input id="repoSearch" type="text" placeholder="Type to search callsign or filename..." autocomplete="off">
+            <div id="repoStatus" class="status"></div>
+            <div id="repoResults" class="repo-results"></div>
+          </div>
           <div class="band-ribbon no-print" id="bandRibbon">
             <span class="band-label">Band:</span>
             <a href="#" class="band-pill active" data-band="">All</a>

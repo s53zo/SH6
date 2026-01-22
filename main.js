@@ -52,7 +52,10 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.40';
+  const APP_VERSION = 'v0.5.41';
+  const ARCHIVE_REPO = 's53zo/Hamradio-Contest-logs-Archives';
+  const ARCHIVE_BRANCHES = ['main', 'master'];
+  const ARCHIVE_EXTENSIONS = new Set(['adi', 'adif', 'cbf']);
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -139,7 +142,10 @@
     appVersion: document.getElementById('appVersion'),
     exportPdfBtn: document.getElementById('exportPdfBtn'),
     exportHtmlBtn: document.getElementById('exportHtmlBtn'),
-    bandRibbon: document.getElementById('bandRibbon')
+    bandRibbon: document.getElementById('bandRibbon'),
+    repoSearch: document.getElementById('repoSearch'),
+    repoStatus: document.getElementById('repoStatus'),
+    repoResults: document.getElementById('repoResults')
   };
 
   const renderers = {};
@@ -796,26 +802,31 @@
       const [file] = evt.target.files || [];
       if (!file) return;
       try {
-        state.logFile = file;
-        state.logPage = 0;
-        dom.fileStatus.textContent = `Loaded ${file.name} (${formatNumberSh6(file.size)} bytes)`;
         const text = await file.text();
-        state.qsoData = parseLogFile(text, file.name);
-        state.derived = buildDerived(state.qsoData.qsos);
-        state.fullQsoData = state.qsoData;
-        state.fullDerived = state.derived;
-        state.bandDerivedCache = new Map();
-        if (!state.qsoData.qsos.length) {
-          dom.fileStatus.textContent = `Loaded ${file.name} (${formatNumberSh6(file.size)} bytes) – parsed 0 QSOs. Check file format.`;
-        } else {
-          dom.fileStatus.textContent = `Loaded ${file.name} (${formatNumberSh6(file.size)} bytes) – parsed ${formatNumberSh6(state.qsoData.qsos.length)} QSOs as ${state.qsoData.type}`;
-        }
-        setActiveReport(state.activeIndex);
+        applyLoadedLog(text, file.name, file.size, 'Uploaded');
       } catch (err) {
         console.error('File parse failed:', err);
         dom.fileStatus.textContent = `Failed to parse ${file.name}: ${err && err.message ? err.message : 'unknown error'}`;
       }
     });
+  }
+
+  function applyLoadedLog(text, filename, size, sourceLabel) {
+    const safeSize = Number.isFinite(size) ? size : text.length;
+    state.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
+    state.logPage = 0;
+    dom.fileStatus.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
+    state.qsoData = parseLogFile(text, filename);
+    state.derived = buildDerived(state.qsoData.qsos);
+    state.fullQsoData = state.qsoData;
+    state.fullDerived = state.derived;
+    state.bandDerivedCache = new Map();
+    if (!state.qsoData.qsos.length) {
+      dom.fileStatus.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs. Check file format.`;
+    } else {
+      dom.fileStatus.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(state.qsoData.qsos.length)} QSOs as ${state.qsoData.type}`;
+    }
+    setActiveReport(state.activeIndex);
   }
 
   function setupDataFileInputs() {
@@ -4004,10 +4015,123 @@
     `;
   }
 
+  function setupRepoSearch() {
+    if (!dom.repoSearch || !dom.repoResults || !dom.repoStatus) return;
+    const cache = new Map();
+    let timer = null;
+
+    const renderResults = (items) => {
+      if (!items.length) {
+        dom.repoResults.innerHTML = '';
+        dom.repoStatus.textContent = 'No matches found in the archive.';
+        return;
+      }
+      dom.repoStatus.textContent = 'Select a log to load.';
+      dom.repoResults.innerHTML = items.map((item) => {
+        const name = item.path.split('/').pop();
+        return `
+          <button type="button" class="repo-result" data-path="${item.path}" data-name="${name}">
+            <span class="repo-name">${name}</span>
+            <span class="repo-path">${item.path}</span>
+          </button>
+        `;
+      }).join('');
+    };
+
+    const searchArchive = async (query) => {
+      const trimmed = (query || '').trim();
+      if (trimmed.length < 2) {
+        dom.repoResults.innerHTML = '';
+        dom.repoStatus.textContent = '';
+        return;
+      }
+      const key = trimmed.toLowerCase();
+      if (cache.has(key)) {
+        renderResults(cache.get(key));
+        return;
+      }
+      dom.repoStatus.textContent = 'Searching archive...';
+      const q = `${trimmed} repo:${ARCHIVE_REPO} in:path`;
+      const url = `https://api.github.com/search/code?q=${encodeURIComponent(q)}&per_page=30`;
+      try {
+        const res = await fetch(url, {
+          headers: { Accept: 'application/vnd.github.v3+json' }
+        });
+        if (res.status === 403) {
+          dom.repoStatus.textContent = 'GitHub API rate limit reached. Try later.';
+          dom.repoResults.innerHTML = '';
+          return;
+        }
+        if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+        const data = await res.json();
+        const items = (data.items || []).filter((item) => {
+          const ext = item.path.split('.').pop().toLowerCase();
+          return ARCHIVE_EXTENSIONS.has(ext);
+        });
+        cache.set(key, items);
+        renderResults(items);
+      } catch (err) {
+        console.error('Archive search failed:', err);
+        dom.repoStatus.textContent = 'Archive search failed.';
+        dom.repoResults.innerHTML = '';
+      }
+    };
+
+    const fetchFromArchive = async (path, name) => {
+      dom.repoStatus.textContent = `Downloading ${name}...`;
+      dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = true);
+      let text = null;
+      let source = null;
+      for (const branch of ARCHIVE_BRANCHES) {
+        const rawUrl = `https://raw.githubusercontent.com/${ARCHIVE_REPO}/${branch}/${path}`;
+        try {
+          const res = await fetch(rawUrl);
+          if (res.ok) {
+            text = await res.text();
+            source = rawUrl;
+            break;
+          }
+        } catch (err) {
+          console.warn('Archive fetch failed:', rawUrl, err);
+        }
+      }
+      if (!text) {
+        dom.repoStatus.textContent = 'Download failed.';
+        dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = false);
+        return;
+      }
+      try {
+        applyLoadedLog(text, name, text.length, 'Archive');
+        dom.repoStatus.textContent = `Loaded ${name} from archive.`;
+        dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = false);
+        if (source) dom.repoStatus.title = source;
+      } catch (err) {
+        dom.repoStatus.textContent = 'Failed to parse archive log.';
+        dom.repoResults.querySelectorAll('button').forEach((btn) => btn.disabled = false);
+        console.error('Archive parse failed:', err);
+      }
+    };
+
+    dom.repoSearch.addEventListener('input', (evt) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => searchArchive(evt.target.value), 300);
+    });
+
+    dom.repoResults.addEventListener('click', (evt) => {
+      const target = evt.target instanceof HTMLElement ? evt.target.closest('button[data-path]') : null;
+      if (!target) return;
+      const path = target.dataset.path;
+      const name = target.dataset.name || (path ? path.split('/').pop() : 'log.adi');
+      if (!path) return;
+      fetchFromArchive(path, name);
+    });
+  }
+
   function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     initNavigation();
     setupFileInput();
+    setupRepoSearch();
     setupDataFileInputs();
     setupPrevNext();
     initDataFetches();

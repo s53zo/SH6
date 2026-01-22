@@ -52,12 +52,10 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.55';
-  const SQLJS_HTTPVFS_URLS = [
-    'vendor/sqljs-httpvfs/index.js',
-    'https://cdn.jsdelivr.net/gh/s53zo/SH6@main/vendor/sqljs-httpvfs/index.js',
-    'https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/index.js',
-    'https://unpkg.com/sql.js-httpvfs@0.8.6/dist/index.js'
+  const APP_VERSION = 'v0.5.57';
+  const SQLJS_BASE_URLS = [
+    'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
+    'https://unpkg.com/sql.js@1.8.0/dist/'
   ];
   const ARCHIVE_BASE_URL = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main';
   const ARCHIVE_SHARD_BASE = 'https://cdn.jsdelivr.net/gh/s53zo/Hamradio-Contest-logs-Archives@main/SH6';
@@ -4069,24 +4067,28 @@
       document.head.appendChild(script);
     });
 
-    const loadSqlHttpVfs = async () => {
-      if (typeof window.createDbWorker === 'function') {
-        return window;
-      }
+    let sqlBaseUrl = null;
+
+    const loadSqlJs = async () => {
       if (sqlLoader) return sqlLoader;
       sqlLoader = (async () => {
+        if (typeof window.initSqlJs === 'function') {
+          sqlBaseUrl = sqlBaseUrl || SQLJS_BASE_URLS[0];
+          return window.initSqlJs({ locateFile: (file) => `${sqlBaseUrl}${file}` });
+        }
         let lastErr = null;
-        for (const url of SQLJS_HTTPVFS_URLS) {
+        for (const base of SQLJS_BASE_URLS) {
           try {
-            await loadScript(url);
-            if (typeof window.createDbWorker === 'function') {
-              return window;
+            await loadScript(`${base}sql-wasm.js`);
+            if (typeof window.initSqlJs === 'function') {
+              sqlBaseUrl = base;
+              return window.initSqlJs({ locateFile: (file) => `${base}${file}` });
             }
           } catch (err) {
             lastErr = err;
           }
         }
-        throw lastErr || new Error('sql.js-httpvfs not loaded.');
+        throw lastErr || new Error('sql.js not loaded.');
       })();
       return sqlLoader;
     };
@@ -4104,19 +4106,15 @@
       });
     });
 
-    const getAssetUrl = (relativePath) => new URL(relativePath, document.baseURI).toString();
-
-    const openSqliteHttpVfs = async (shardUrl) => {
+    const openSqliteShard = async (shardUrl) => {
       if (shardCache.has(shardUrl)) return shardCache.get(shardUrl);
-      const { createDbWorker } = await loadSqlHttpVfs();
-      const workerUrl = getAssetUrl('vendor/sqljs-httpvfs/sqlite.worker.js');
-      const wasmUrl = getAssetUrl('vendor/sqljs-httpvfs/sql-wasm.wasm');
-      const worker = await createDbWorker([{
-        from: 'inline',
-        config: { serverMode: 'full', url: shardUrl }
-      }], workerUrl, wasmUrl);
-      shardCache.set(shardUrl, worker);
-      return worker;
+      const SQL = await loadSqlJs();
+      const res = await fetch(shardUrl);
+      if (!res.ok) throw new Error(`Shard download failed: ${res.status}`);
+      const buf = await res.arrayBuffer();
+      const db = new SQL.Database(new Uint8Array(buf));
+      shardCache.set(shardUrl, db);
+      return db;
     };
 
     const renderResults = (rows) => {
@@ -4147,32 +4145,30 @@
       dom.repoStatus.textContent = 'Searching archive...';
       const shardUrl = getShardUrl(callsign);
       try {
-        dom.repoStatus.textContent = `Opening shard ${shardUrl.split('/').pop()}...`;
-        const dbWorker = await withTimeout(openSqliteHttpVfs(shardUrl), 12000, 'Shard open');
+        dom.repoStatus.textContent = `Downloading shard ${shardUrl.split('/').pop()}...`;
+        const db = await withTimeout(openSqliteShard(shardUrl), 20000, 'Shard open');
         dom.repoStatus.textContent = 'Querying archive...';
         const filters = [];
         const contest = normalizeFilter(dom.repoContest?.value);
         const year = toIntOrNull(normalizeFilter(dom.repoYear?.value));
         const mode = normalizeFilter(dom.repoMode?.value);
         const season = normalizeFilter(dom.repoSeason?.value);
-        if (contest) filters.push(`contest LIKE '%${sqlEscape(contest)}%'`);
-        if (year) filters.push(`year = ${year}`);
-        if (mode) filters.push(`mode LIKE '%${sqlEscape(mode)}%'`);
-        if (season) filters.push(`season LIKE '%${sqlEscape(season)}%'`);
-        const escaped = sqlEscape(callsign);
-        const where = [`callsign = '${escaped}'`].concat(filters).join(' AND ');
-        const result = await withTimeout(
-          dbWorker.db.exec(`SELECT path, contest, year, mode, season FROM logs WHERE ${where}`),
-          12000,
-          'Query'
-        );
-        const rows = (result[0]?.values || []).map((row) => ({
-          path: row[0],
-          contest: row[1],
-          year: row[2],
-          mode: row[3],
-          season: row[4]
-        }));
+        if (contest) filters.push(`contest LIKE ?`);
+        if (year) filters.push(`year = ?`);
+        if (mode) filters.push(`mode LIKE ?`);
+        if (season) filters.push(`season LIKE ?`);
+        const where = [`callsign = ?`].concat(filters).join(' AND ');
+        const sql = `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`;
+        const stmt = db.prepare(sql);
+        const params = [callsign];
+        if (contest) params.push(`%${contest}%`);
+        if (year) params.push(year);
+        if (mode) params.push(`%${mode}%`);
+        if (season) params.push(`%${season}%`);
+        stmt.bind(params);
+        const rows = [];
+        while (stmt.step()) rows.push(stmt.getAsObject());
+        stmt.free();
         renderResults(rows);
         dom.repoStatus.textContent = rows.length ? 'Select a log to load.' : 'No matches found in the archive.';
       } catch (err) {

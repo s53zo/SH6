@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.61';
+  const APP_VERSION = 'v0.5.62';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4120,6 +4120,7 @@
     const shardCache = new Map();
     let sqlLoader = null;
     let archiveRows = [];
+    let searchSeq = 0;
 
     const crc32Table = (() => {
       const table = new Uint32Array(256);
@@ -4283,11 +4284,13 @@
         dom.repoStatus.textContent = '';
         return;
       }
-      dom.repoStatus.textContent = 'Searching archive...';
+      const seq = ++searchSeq;
+      dom.repoStatus.textContent = `Searching archive for ${callsign}...`;
       const shardUrl = getShardUrl(callsign);
       try {
         dom.repoStatus.textContent = `Downloading shard ${shardUrl.split('/').pop()}...`;
         const db = await withTimeout(openSqliteShard(shardUrl), 20000, 'Shard open');
+        if (seq !== searchSeq) return;
         dom.repoStatus.textContent = 'Querying archive...';
         const where = `callsign = ?`;
         const sql = `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`;
@@ -4296,9 +4299,11 @@
         const rows = [];
         while (stmt.step()) rows.push(stmt.getAsObject());
         stmt.free();
+        if (seq !== searchSeq) return;
         renderResults(rows);
-        dom.repoStatus.textContent = rows.length ? 'Select a log to load.' : 'No matches found in the archive.';
+        dom.repoStatus.textContent = rows.length ? `Select a log to load for ${callsign}.` : `No matches found for ${callsign}.`;
       } catch (err) {
+        if (seq !== searchSeq) return;
         console.error('Archive search failed:', err);
         dom.repoResults.innerHTML = '';
         dom.repoStatus.textContent = `Archive search failed: ${err && err.message ? err.message : 'unknown error'}`;

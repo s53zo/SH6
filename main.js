@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.53';
+  const APP_VERSION = 'v0.5.54';
   const SQLJS_HTTPVFS_URLS = [
     'vendor/sqljs-httpvfs/index.js',
     'https://cdn.jsdelivr.net/gh/s53zo/SH6@main/vendor/sqljs-httpvfs/index.js',
@@ -4103,11 +4103,13 @@
       });
     });
 
+    const getAssetUrl = (relativePath) => new URL(relativePath, document.baseURI).toString();
+
     const openSqliteHttpVfs = async (shardUrl) => {
       if (shardCache.has(shardUrl)) return shardCache.get(shardUrl);
       const { createDbWorker } = await loadSqlHttpVfs();
-      const workerUrl = 'vendor/sqljs-httpvfs/sqlite.worker.js';
-      const wasmUrl = 'vendor/sqljs-httpvfs/sql-wasm.wasm';
+      const workerUrl = getAssetUrl('vendor/sqljs-httpvfs/sqlite.worker.js');
+      const wasmUrl = getAssetUrl('vendor/sqljs-httpvfs/sql-wasm.wasm');
       const worker = await createDbWorker([{
         from: 'inline',
         config: { serverMode: 'full', url: shardUrl }

@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.20';
+  const APP_VERSION = 'v1.1.21';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -144,6 +144,12 @@
       bandDerivedCache: new Map()
     }
   };
+
+  function trackEvent(name, params) {
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', name, params || {});
+    }
+  }
 
   const dom = {
     navList: document.getElementById('navList'),
@@ -1032,6 +1038,13 @@
     } else if (statusEl) {
       statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(target.qsoData.qsos.length)} QSOs as ${target.qsoData.type}`;
     }
+    trackEvent('upload_log', {
+      log_slot: slotId || 'A',
+      source: sourceLabel || 'unknown',
+      file_name: filename || '',
+      qso_count: target.qsoData.qsos.length || 0,
+      log_type: target.qsoData.type || ''
+    });
     setActiveReport(state.activeIndex);
   }
 
@@ -5122,11 +5135,21 @@
     }
     if (dom.exportPdfBtn) {
       dom.exportPdfBtn.addEventListener('click', () => {
+        trackEvent('download_pdf', {
+          log_a: state.derived?.contestMeta?.stationCallsign || '',
+          log_b: state.compareB?.derived?.contestMeta?.stationCallsign || '',
+          compare: state.compareEnabled ? 'yes' : 'no'
+        });
         exportPdf();
       });
     }
     if (dom.exportHtmlBtn) {
       dom.exportHtmlBtn.addEventListener('click', () => {
+        trackEvent('download_html', {
+          log_a: state.derived?.contestMeta?.stationCallsign || '',
+          log_b: state.compareB?.derived?.contestMeta?.stationCallsign || '',
+          compare: state.compareEnabled ? 'yes' : 'no'
+        });
         exportHtmlFile();
       });
     }

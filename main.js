@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.75';
+  const APP_VERSION = 'v0.5.76';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2331,6 +2331,8 @@
     `;
   }
 
+  const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   function formatTimeOfDay(minutes) {
     const hh = Math.floor(minutes / 60);
     const mm = minutes % 60;
@@ -2344,7 +2346,8 @@
       if (Number.isFinite(q.ts)) {
         const d = new Date(q.ts);
         const minOfDay = d.getUTCHours() * 60 + d.getUTCMinutes();
-        key = Math.floor(minOfDay / 10);
+        const day = d.getUTCDay();
+        key = `${day}-${Math.floor(minOfDay / 10)}`;
       }
       if (!buckets.has(key)) buckets.set(key, []);
       buckets.get(key).push(q);
@@ -2362,7 +2365,14 @@
     const aBuckets = buildTenMinuteBuckets(aQsos);
     const bBuckets = buildTenMinuteBuckets(bQsos);
     const allKeys = new Set([...aBuckets.keys(), ...bBuckets.keys()]);
-    const numericKeys = Array.from(allKeys).filter((k) => k !== 'unknown').sort((a, b) => a - b);
+    const numericKeys = Array.from(allKeys)
+      .filter((k) => k !== 'unknown')
+      .sort((a, b) => {
+        const [ad, at] = String(a).split('-').map((v) => parseInt(v, 10));
+        const [bd, bt] = String(b).split('-').map((v) => parseInt(v, 10));
+        if (ad !== bd) return ad - bd;
+        return at - bt;
+      });
     const hasUnknown = allKeys.has('unknown');
     const orderedKeys = hasUnknown ? numericKeys.concat(['unknown']) : numericKeys;
     let rowIndex = 0;
@@ -2372,7 +2382,13 @@
       const max = Math.max(aList.length, bList.length, 1);
       const bucketLabel = key === 'unknown'
         ? 'Unknown time bucket'
-        : `${formatTimeOfDay(key * 10)} - ${formatTimeOfDay(key * 10 + 9)}`;
+        : (() => {
+          const [dayStr, slotStr] = String(key).split('-');
+          const day = Number(dayStr);
+          const slot = Number(slotStr);
+          const dayLabel = WEEKDAY_LABELS[Number.isFinite(day) ? day : 0] || '';
+          return `${dayLabel} ${formatTimeOfDay(slot * 10)} - ${formatTimeOfDay(slot * 10 + 9)}`;
+        })();
       const bucketRow = `<tr class="compare-bucket"><td colspan="34">${bucketLabel}</td></tr>`;
       const dataRows = Array.from({ length: max }, () => {
         const a = aList.shift() || null;

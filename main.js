@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.76';
+  const APP_VERSION = 'v0.5.77';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2365,16 +2365,32 @@
     const aBuckets = buildTenMinuteBuckets(aQsos);
     const bBuckets = buildTenMinuteBuckets(bQsos);
     const allKeys = new Set([...aBuckets.keys(), ...bBuckets.keys()]);
-    const numericKeys = Array.from(allKeys)
-      .filter((k) => k !== 'unknown')
-      .sort((a, b) => {
-        const [ad, at] = String(a).split('-').map((v) => parseInt(v, 10));
-        const [bd, bt] = String(b).split('-').map((v) => parseInt(v, 10));
-        if (ad !== bd) return ad - bd;
-        return at - bt;
-      });
+    const numericKeys = Array.from(allKeys).filter((k) => k !== 'unknown');
+    let startIndex = null;
+    const allWithTs = aQsos.concat(bQsos).filter((q) => Number.isFinite(q.ts));
+    if (allWithTs.length) {
+      const minTs = Math.min(...allWithTs.map((q) => q.ts));
+      const d = new Date(minTs);
+      const startDay = d.getUTCDay();
+      const startSlot = Math.floor((d.getUTCHours() * 60 + d.getUTCMinutes()) / 10);
+      startIndex = startDay * 144 + startSlot;
+    }
+    const slotIndex = (key) => {
+      const [dayStr, slotStr] = String(key).split('-');
+      const day = Number(dayStr);
+      const slot = Number(slotStr);
+      return day * 144 + slot;
+    };
+    const numericSorted = numericKeys.slice().sort((a, b) => {
+      const ai = slotIndex(a);
+      const bi = slotIndex(b);
+      if (startIndex == null) return ai - bi;
+      const da = (ai - startIndex + 1008) % 1008;
+      const db = (bi - startIndex + 1008) % 1008;
+      return da - db;
+    });
     const hasUnknown = allKeys.has('unknown');
-    const orderedKeys = hasUnknown ? numericKeys.concat(['unknown']) : numericKeys;
+    const orderedKeys = hasUnknown ? numericSorted.concat(['unknown']) : numericSorted;
     let rowIndex = 0;
     const rows = orderedKeys.map((key) => {
       const aList = aBuckets.get(key) || [];

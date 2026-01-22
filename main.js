@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.66';
+  const APP_VERSION = 'v0.5.67';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -152,6 +152,7 @@
     repoSearch: document.getElementById('repoSearch'),
     repoStatus: document.getElementById('repoStatus'),
     repoResults: document.getElementById('repoResults')
+    ,repoAutoClose: document.getElementById('repoAutoClose')
   };
 
   const renderers = {};
@@ -4417,8 +4418,10 @@
       const path = target.dataset.path;
       if (!path) return;
       fetchFromArchive(path);
-      const details = dom.repoResults.querySelectorAll('details');
-      details.forEach((d) => d.open = false);
+      if (!dom.repoAutoClose || dom.repoAutoClose.checked) {
+        const details = dom.repoResults.querySelectorAll('details');
+        details.forEach((d) => d.open = false);
+      }
     });
   }
 

@@ -91,6 +91,15 @@ a:hover {
   gap: 6px;
 }
 
+.repo-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #444444;
+  margin-top: 6px;
+}
+
 .repo-tree {
   border: 1px solid #c3c3c3;
   background: #ffffff;
@@ -99,6 +108,18 @@ a:hover {
 
 .repo-tree details {
   margin: 4px 0;
+}
+
+.repo-tree .repo-year {
+  margin-left: 14px;
+}
+
+.repo-tree .repo-subcat {
+  margin-left: 28px;
+}
+
+.repo-tree button.repo-leaf {
+  margin-left: 42px;
 }
 
 .repo-tree summary {

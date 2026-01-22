@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.77';
+  const APP_VERSION = 'v0.5.78';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -728,53 +728,60 @@
     const lines = text.split(/\r?\n/);
     const header = {};
     const qsos = [];
+    const parseQsoTokens = (tokens, isQtc) => {
+      if (tokens.length < 9) return;
+      const freqKHz = parseInt(tokens[0], 10);
+      const freqMHz = Number.isFinite(freqKHz) ? freqKHz / 1000 : null;
+      const mode = normalizeCabrilloMode(tokens[1]);
+      const date = tokens[2] || '';
+      const time = tokens[3] || '';
+      const myCall = tokens[4] || '';
+      const rstSent = tokens[5] || '';
+      const rest = tokens.slice(6);
+      let dxIndex = -1;
+      for (let i = 0; i < rest.length; i += 1) {
+        if (isCallsignToken(rest[i])) {
+          dxIndex = i;
+          break;
+        }
+      }
+      if (dxIndex === -1 || dxIndex + 1 >= rest.length) {
+        dxIndex = 1;
+      }
+      const exchSent = rest.slice(0, dxIndex).join(' ').trim();
+      const call = rest[dxIndex] || '';
+      const rstRcvd = rest[dxIndex + 1] || '';
+      const exchRcvd = rest.slice(dxIndex + 2).join(' ').trim();
+      const sentTokens = rest.slice(0, dxIndex).map((t) => t.trim()).filter(Boolean);
+      const rcvdTokens = rest.slice(dxIndex + 2).map((t) => t.trim()).filter(Boolean);
+      const sentGrid = sentTokens.find((t) => isMaidenheadGrid(t));
+      const rcvdGrid = rcvdTokens.find((t) => isMaidenheadGrid(t));
+      qsos.push({
+        QSO_DATE: date,
+        TIME_ON: time,
+        BAND: freqMHz ? parseBandFromFreq(freqMHz) : '',
+        MODE: mode,
+        CALL: call,
+        FREQ: freqMHz,
+        RST_SENT: rstSent,
+        RST_RCVD: rstRcvd,
+        STX_STRING: exchSent,
+        SRX_STRING: exchRcvd,
+        MY_GRIDSQUARE: sentGrid,
+        GRIDSQUARE: rcvdGrid,
+        OPERATOR: myCall,
+        IS_QTC: isQtc
+      });
+    };
     lines.forEach((line) => {
       const trimmed = line.trim();
       if (!trimmed) return;
       if (/^QSO:/i.test(trimmed)) {
         const tokens = trimmed.replace(/^QSO:\s*/i, '').split(/\s+/);
-        if (tokens.length < 9) return;
-        const freqKHz = parseInt(tokens[0], 10);
-        const freqMHz = Number.isFinite(freqKHz) ? freqKHz / 1000 : null;
-        const mode = normalizeCabrilloMode(tokens[1]);
-        const date = tokens[2] || '';
-        const time = tokens[3] || '';
-        const myCall = tokens[4] || '';
-        const rstSent = tokens[5] || '';
-        const rest = tokens.slice(6);
-        let dxIndex = -1;
-        for (let i = 0; i < rest.length; i += 1) {
-          if (isCallsignToken(rest[i])) {
-            dxIndex = i;
-            break;
-          }
-        }
-        if (dxIndex === -1 || dxIndex + 1 >= rest.length) {
-          dxIndex = 1;
-        }
-        const exchSent = rest.slice(0, dxIndex).join(' ').trim();
-        const call = rest[dxIndex] || '';
-        const rstRcvd = rest[dxIndex + 1] || '';
-        const exchRcvd = rest.slice(dxIndex + 2).join(' ').trim();
-        const sentTokens = rest.slice(0, dxIndex).map((t) => t.trim()).filter(Boolean);
-        const rcvdTokens = rest.slice(dxIndex + 2).map((t) => t.trim()).filter(Boolean);
-        const sentGrid = sentTokens.find((t) => isMaidenheadGrid(t));
-        const rcvdGrid = rcvdTokens.find((t) => isMaidenheadGrid(t));
-        qsos.push({
-          QSO_DATE: date,
-          TIME_ON: time,
-          BAND: freqMHz ? parseBandFromFreq(freqMHz) : '',
-          MODE: mode,
-          CALL: call,
-          FREQ: freqMHz,
-          RST_SENT: rstSent,
-          RST_RCVD: rstRcvd,
-          STX_STRING: exchSent,
-          SRX_STRING: exchRcvd,
-          MY_GRIDSQUARE: sentGrid,
-          GRIDSQUARE: rcvdGrid,
-          OPERATOR: myCall
-        });
+        parseQsoTokens(tokens, false);
+      } else if (/^QTC:/i.test(trimmed)) {
+        const tokens = trimmed.replace(/^QTC:\s*/i, '').split(/\s+/);
+        parseQsoTokens(tokens, true);
       } else {
         const idx = trimmed.indexOf(':');
         if (idx === -1) return;
@@ -898,6 +905,7 @@
         points: parseInt(firstNonNull(r.POINTS), 10),
         srx: firstNonNull(r.SRX_STRING, r.SRX),
         stx: firstNonNull(r.STX_STRING, r.STX),
+        isQtc: Boolean(r.IS_QTC),
         raw: { ...sharedRaw, ...r }
       }));
       return { type: 'CABRILLO', qsos };
@@ -2309,7 +2317,7 @@
     const mode = escapeHtml(q.mode || '');
     const band = escapeHtml(q.band || '');
     const cont = escapeHtml(q.continent || '');
-    const flags = escapeHtml(`${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`);
+    const flags = escapeHtml(`${q.isQtc ? 'QTC' : ''}${q.inMaster === false ? ' NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
     return `
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
@@ -2489,7 +2497,7 @@
       const mode = escapeHtml(q.mode || '');
       const band = escapeHtml(q.band || '');
       const cont = escapeHtml(q.continent || '');
-      const flags = escapeHtml(`${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`);
+      const flags = escapeHtml(`${q.isQtc ? 'QTC' : ''}${q.inMaster === false ? ' NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
@@ -2555,7 +2563,7 @@
       const mode = escapeHtml(q.mode || '');
       const band = escapeHtml(q.band || '');
       const cont = escapeHtml(q.continent || '');
-      const flags = escapeHtml(`${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`);
+      const flags = escapeHtml(`${q.isQtc ? 'QTC' : ''}${q.inMaster === false ? ' NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>

@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.59';
+  const APP_VERSION = 'v0.5.60';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4239,34 +4239,37 @@
       const slice = archiveRows.slice(0, shown);
       const tree = new Map();
       slice.forEach((row) => {
-        const contest = normalizeLabel(row.contest) || 'Unknown contest';
-        const year = Number.isFinite(row.year) ? String(row.year) : 'Unknown year';
-        const mode = normalizeLabel(row.mode) || 'Unknown mode';
-        const season = normalizeLabel(row.season) || 'Unknown season';
+        const contest = normalizeLabel(row.contest);
+        const year = Number.isFinite(row.year) ? String(row.year) : '';
+        const mode = normalizeLabel(row.mode);
+        const season = normalizeLabel(row.season);
         if (!tree.has(contest)) tree.set(contest, new Map());
         const yearMap = tree.get(contest);
         if (!yearMap.has(year)) yearMap.set(year, new Map());
         const modeMap = yearMap.get(year);
-        const subKey = `${mode} • ${season}`;
+        const subKey = [mode, season].filter(Boolean).join(' • ');
         if (!modeMap.has(subKey)) modeMap.set(subKey, []);
         modeMap.get(subKey).push(row);
       });
       const chunks = ['<div class="repo-tree">'];
       tree.forEach((yearMap, contest) => {
-        chunks.push(`<details class="repo-contest"><summary>${contest}</summary>`);
+        const hasContest = Boolean(contest);
+        if (hasContest) chunks.push(`<details class="repo-contest"><summary>${contest}</summary>`);
         yearMap.forEach((modeMap, year) => {
-          chunks.push(`<details class="repo-year"><summary>${year}</summary>`);
+          const hasYear = Boolean(year);
+          if (hasYear) chunks.push(`<details class="repo-year"><summary>${year}</summary>`);
           modeMap.forEach((rows, subKey) => {
-            chunks.push(`<details class="repo-subcat"><summary>${subKey}</summary>`);
+            const hasSub = Boolean(subKey);
+            if (hasSub) chunks.push(`<details class="repo-subcat"><summary>${subKey}</summary>`);
             rows.forEach((row) => {
               const label = row.path.split('/').pop();
               chunks.push(`<button type="button" class="repo-leaf" data-path="${row.path}">${label}</button>`);
             });
-            chunks.push(`</details>`);
+            if (hasSub) chunks.push(`</details>`);
           });
-          chunks.push(`</details>`);
+          if (hasYear) chunks.push(`</details>`);
         });
-        chunks.push(`</details>`);
+        if (hasContest) chunks.push(`</details>`);
       });
       if (shown < total) {
         chunks.push(`<button type="button" class="repo-more" id="repoMore">Show ${Math.min(PAGE_SIZE, total - shown)} more</button>`);

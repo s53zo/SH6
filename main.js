@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.68';
+  const APP_VERSION = 'v0.5.69';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -491,6 +491,45 @@
     const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+  }
+
+  function greatCirclePoints(lat1, lon1, lat2, lon2, segments) {
+    const toRad = (d) => (d * Math.PI) / 180;
+    const toDeg = (r) => (r * 180) / Math.PI;
+    const phi1 = toRad(lat1);
+    const lambda1 = toRad(lon1);
+    const phi2 = toRad(lat2);
+    const lambda2 = toRad(lon2);
+    const sinPhi1 = Math.sin(phi1);
+    const cosPhi1 = Math.cos(phi1);
+    const sinPhi2 = Math.sin(phi2);
+    const cosPhi2 = Math.cos(phi2);
+    const x1 = cosPhi1 * Math.cos(lambda1);
+    const y1 = cosPhi1 * Math.sin(lambda1);
+    const z1 = sinPhi1;
+    const x2 = cosPhi2 * Math.cos(lambda2);
+    const y2 = cosPhi2 * Math.sin(lambda2);
+    const z2 = sinPhi2;
+    const dot = Math.min(1, Math.max(-1, x1 * x2 + y1 * y2 + z1 * z2));
+    const omega = Math.acos(dot);
+    if (!Number.isFinite(omega) || omega === 0) {
+      return [[lat1, lon1], [lat2, lon2]];
+    }
+    const sinOmega = Math.sin(omega);
+    const pts = [];
+    const steps = Math.max(2, segments || 24);
+    for (let i = 0; i <= steps; i += 1) {
+      const t = i / steps;
+      const a = Math.sin((1 - t) * omega) / sinOmega;
+      const b = Math.sin(t * omega) / sinOmega;
+      const x = a * x1 + b * x2;
+      const y = a * y1 + b * y2;
+      const z = a * z1 + b * z2;
+      const lat = toDeg(Math.atan2(z, Math.sqrt(x * x + y * y)));
+      const lon = toDeg(Math.atan2(y, x));
+      pts.push([lat, lon]);
+    }
+    return pts;
   }
 
   function bearingDeg(lat1, lon1, lat2, lon2) {
@@ -3205,7 +3244,10 @@
       marker.bindPopup(`${escapeHtml(q.call || '')} ${escapeHtml(q.band || '')} ${escapeHtml(q.mode || '')}`);
       markers.push(marker);
       if (station && station.lat != null && station.lon != null) {
-        const line = L.polyline([[station.lat, station.lon], [remote.lat, remote.lon]], { color: '#555555', weight: 1, opacity: 0.6 });
+        const distance = haversineKm(station.lat, station.lon, remote.lat, remote.lon);
+        const segments = Math.min(64, Math.max(8, Math.round(distance / 400)));
+        const linePoints = greatCirclePoints(station.lat, station.lon, remote.lat, remote.lon, segments);
+        const line = L.polyline(linePoints, { color: '#555555', weight: 1, opacity: 0.6 });
         lines.push(line);
       }
     });

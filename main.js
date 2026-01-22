@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.39';
+  const APP_VERSION = 'v0.5.40';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -2748,21 +2748,11 @@
       <div class="mtc">
         <div class="gradient">&nbsp;Map</div>
         <p><b>Selected:</b> ${title || 'Map'}</p>
-        <div class="map-preview">
-          <svg id="mapSvg" viewBox="0 0 600 300" role="img" aria-label="Map preview placeholder">
-            <rect x="1" y="1" width="598" height="298" fill="#f7f7f7" stroke="#999999" stroke-width="1"/>
-            <line x1="100" y1="0" x2="100" y2="300" stroke="#dddddd" />
-            <line x1="200" y1="0" x2="200" y2="300" stroke="#dddddd" />
-            <line x1="300" y1="0" x2="300" y2="300" stroke="#dddddd" />
-            <line x1="400" y1="0" x2="400" y2="300" stroke="#dddddd" />
-            <line x1="500" y1="0" x2="500" y2="300" stroke="#dddddd" />
-            <line x1="0" y1="60" x2="600" y2="60" stroke="#dddddd" />
-            <line x1="0" y1="120" x2="600" y2="120" stroke="#dddddd" />
-            <line x1="0" y1="180" x2="600" y2="180" stroke="#dddddd" />
-            <line x1="0" y1="240" x2="600" y2="240" stroke="#dddddd" />
-            <text x="300" y="155" font-size="16" text-anchor="middle" fill="#777777">Map preview (placeholder)</text>
-          </svg>
+        <div class="map-controls">
+          <label><input type="checkbox" id="mapShowPoints" checked> Points</label>
+          <label style="margin-left:10px;"><input type="checkbox" id="mapShowLines" checked> Lines</label>
         </div>
+        <div id="map"></div>
         <p>Use KMZ downloads below for full path visualization.</p>
         ${kmzBlock}
         <p><button id="mapBack" type="button">Back</button></p>
@@ -3006,6 +2996,103 @@
       urls[band] = url;
     });
     return urls;
+  }
+
+  function filterQsosForMap(ctx) {
+    let qsos = state.qsoData?.qsos || [];
+    if (!ctx) return qsos;
+    const scope = ctx.scope || '';
+    const key = ctx.key || '';
+    if (scope === 'country' && key) {
+      qsos = qsos.filter((q) => q.country === key);
+    } else if (scope === 'continent' && key) {
+      qsos = qsos.filter((q) => q.continent === key);
+    } else if (scope === 'cq_zone' && key) {
+      qsos = qsos.filter((q) => String(q.cqZone || '') === String(key));
+    } else if (scope === 'itu_zone' && key) {
+      qsos = qsos.filter((q) => String(q.ituZone || '') === String(key));
+    } else if (scope === 'summary' && key) {
+      qsos = qsos.filter((q) => q.band === key);
+    } else if (scope === 'distance' && key) {
+      const [startStr, endStr] = String(key).split('-');
+      const start = Number(startStr);
+      const end = Number(endStr);
+      if (Number.isFinite(start) && Number.isFinite(end)) {
+        qsos = qsos.filter((q) => Number.isFinite(q.distance) && q.distance >= start && q.distance <= end);
+      }
+    } else if (scope === 'heading' && key) {
+      const start = Number(key);
+      if (Number.isFinite(start)) {
+        qsos = qsos.filter((q) => Number.isFinite(q.bearing) && q.bearing >= start && q.bearing <= start + 9);
+      }
+    }
+    return qsos;
+  }
+
+  function initLeafletMap(ctx) {
+    if (!window.L) return;
+    const mapEl = document.getElementById('map');
+    if (!mapEl) return;
+    mapEl.innerHTML = '';
+    const map = L.map(mapEl, { worldCopyJump: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 6,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const showPoints = document.getElementById('mapShowPoints');
+    const showLines = document.getElementById('mapShowLines');
+
+    const station = state.derived?.station;
+    const qsos = filterQsosForMap(ctx);
+    const markers = [];
+    const lines = [];
+
+    if (station && station.lat != null && station.lon != null) {
+      const stationMarker = L.circleMarker([station.lat, station.lon], { radius: 6, color: '#5266df', fillColor: '#5266df', fillOpacity: 0.9 });
+      stationMarker.bindPopup(`Station: ${escapeHtml(state.derived?.contestMeta?.stationCallsign || '')}`);
+      markers.push(stationMarker);
+    }
+
+    qsos.forEach((q) => {
+      const prefix = lookupPrefix(q.call);
+      const remote = deriveRemoteLatLon(q, prefix);
+      if (!remote) return;
+      const marker = L.circleMarker([remote.lat, remote.lon], { radius: 3, color: '#cc0000', fillColor: '#cc0000', fillOpacity: 0.8 });
+      marker.bindPopup(`${escapeHtml(q.call || '')} ${escapeHtml(q.band || '')} ${escapeHtml(q.mode || '')}`);
+      markers.push(marker);
+      if (station && station.lat != null && station.lon != null) {
+        const line = L.polyline([[station.lat, station.lon], [remote.lat, remote.lon]], { color: '#555555', weight: 1, opacity: 0.6 });
+        lines.push(line);
+      }
+    });
+
+    const markerLayer = L.layerGroup(markers);
+    const lineLayer = L.layerGroup(lines);
+
+    if (showPoints && showPoints.checked) markerLayer.addTo(map);
+    if (showLines && showLines.checked) lineLayer.addTo(map);
+
+    const allLatLngs = markers.map((m) => m.getLatLng());
+    if (allLatLngs.length) {
+      const bounds = L.latLngBounds(allLatLngs);
+      map.fitBounds(bounds.pad(0.2));
+    } else {
+      map.setView([20, 0], 2);
+    }
+
+    if (showPoints) {
+      showPoints.addEventListener('change', () => {
+        if (showPoints.checked) markerLayer.addTo(map);
+        else map.removeLayer(markerLayer);
+      });
+    }
+    if (showLines) {
+      showLines.addEventListener('change', () => {
+        if (showLines.checked) lineLayer.addTo(map);
+        else map.removeLayer(lineLayer);
+      });
+    }
   }
 
   function buildKmlForBand(qsos, band) {
@@ -3865,6 +3952,7 @@
           setActiveReport(state.activeIndex);
         });
       }
+      initLeafletMap(state.mapContext);
     }
     if (reportId === 'breaks') {
       const slider = document.getElementById('breakThreshold');

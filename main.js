@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.44';
+  const APP_VERSION = 'v0.5.45';
   const ARCHIVE_BASE_URL = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
@@ -4057,10 +4057,7 @@
       if (window.sqljsHttpvfs && typeof window.sqljsHttpvfs.createDbWorker === 'function') {
         return window.sqljsHttpvfs;
       }
-      if (!sqlLoader) {
-        sqlLoader = import('https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/sqljs-httpvfs.mjs');
-      }
-      return sqlLoader;
+      throw new Error('sql.js-httpvfs not loaded.');
     };
 
     const openSqliteHttpVfs = async (shardUrl) => {

@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.43';
+  const APP_VERSION = 'v0.5.44';
   const ARCHIVE_BASE_URL = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
@@ -4053,12 +4053,19 @@
       return `${ARCHIVE_SH6_BASE}/logs_${shard}.sqlite`;
     };
 
+    const loadSqlHttpVfs = async () => {
+      if (window.sqljsHttpvfs && typeof window.sqljsHttpvfs.createDbWorker === 'function') {
+        return window.sqljsHttpvfs;
+      }
+      if (!sqlLoader) {
+        sqlLoader = import('https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/sqljs-httpvfs.mjs');
+      }
+      return sqlLoader;
+    };
+
     const openSqliteHttpVfs = async (shardUrl) => {
       if (shardCache.has(shardUrl)) return shardCache.get(shardUrl);
-      if (!sqlLoader) {
-        sqlLoader = import('https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/index.js');
-      }
-      const { createDbWorker } = await sqlLoader;
+      const { createDbWorker } = await loadSqlHttpVfs();
       const workerUrl = 'https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/sqlite.worker.js';
       const wasmUrl = 'https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/sql-wasm.wasm';
       const worker = await createDbWorker([{

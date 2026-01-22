@@ -52,13 +52,14 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.62';
+  const APP_VERSION = 'v0.5.63';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
   ];
   const ARCHIVE_BASE_URL = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main';
   const ARCHIVE_SHARD_BASE = 'https://cdn.jsdelivr.net/gh/s53zo/Hamradio-Contest-logs-Archives@main/SH6';
+  const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const CORS_PROXIES = [
@@ -4144,10 +4145,14 @@
 
     const normalizeCallsign = (input) => (input || '').trim().toUpperCase().replace(/\s+/g, '');
 
-    const getShardUrl = (callsign) => {
+    const getShardUrls = (callsign) => {
       const bucket = crc32(callsign) & 0xff;
       const shard = bucket.toString(16).padStart(2, '0');
-      return `${ARCHIVE_SHARD_BASE}/logs_${shard}.sqlite`;
+      const suffix = `logs_${shard}.sqlite?v=${encodeURIComponent(APP_VERSION)}`;
+      return [
+        `${ARCHIVE_SHARD_BASE_RAW}/${suffix}`,
+        `${ARCHIVE_SHARD_BASE}/${suffix}`
+      ];
     };
 
     const loadScript = (url) => new Promise((resolve, reject) => {
@@ -4198,15 +4203,24 @@
       });
     });
 
-    const openSqliteShard = async (shardUrl) => {
-      if (shardCache.has(shardUrl)) return shardCache.get(shardUrl);
+    const openSqliteShard = async (shardUrls) => {
+      const cacheKey = shardUrls.join('|');
+      if (shardCache.has(cacheKey)) return shardCache.get(cacheKey);
       const SQL = await loadSqlJs();
-      const res = await fetch(shardUrl);
-      if (!res.ok) throw new Error(`Shard download failed: ${res.status}`);
-      const buf = await res.arrayBuffer();
-      const db = new SQL.Database(new Uint8Array(buf));
-      shardCache.set(shardUrl, db);
-      return db;
+      let lastErr = null;
+      for (const url of shardUrls) {
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) throw new Error(`Shard download failed: ${res.status}`);
+          const buf = await res.arrayBuffer();
+          const db = new SQL.Database(new Uint8Array(buf));
+          shardCache.set(cacheKey, db);
+          return db;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('Shard download failed.');
     };
 
     const normalizeLabel = (value) => (value == null ? '' : String(value).trim());
@@ -4286,10 +4300,11 @@
       }
       const seq = ++searchSeq;
       dom.repoStatus.textContent = `Searching archive for ${callsign}...`;
-      const shardUrl = getShardUrl(callsign);
+      const shardUrls = getShardUrls(callsign);
       try {
-        dom.repoStatus.textContent = `Downloading shard ${shardUrl.split('/').pop()}...`;
-        const db = await withTimeout(openSqliteShard(shardUrl), 20000, 'Shard open');
+        const shardLabel = shardUrls[0].split('/').pop().split('?')[0];
+        dom.repoStatus.textContent = `Downloading shard ${shardLabel}...`;
+        const db = await withTimeout(openSqliteShard(shardUrls), 20000, 'Shard open');
         if (seq !== searchSeq) return;
         dom.repoStatus.textContent = 'Querying archive...';
         const where = `callsign = ?`;

@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.78';
+  const APP_VERSION = 'v1.1.17';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2317,7 +2317,7 @@
     const mode = escapeHtml(q.mode || '');
     const band = escapeHtml(q.band || '');
     const cont = escapeHtml(q.continent || '');
-    const flags = escapeHtml(`${q.isQtc ? 'QTC' : ''}${q.inMaster === false ? ' NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
+    const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
     return `
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
@@ -2497,7 +2497,7 @@
       const mode = escapeHtml(q.mode || '');
       const band = escapeHtml(q.band || '');
       const cont = escapeHtml(q.continent || '');
-      const flags = escapeHtml(`${q.isQtc ? 'QTC' : ''}${q.inMaster === false ? ' NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
+      const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
@@ -2563,7 +2563,7 @@
       const mode = escapeHtml(q.mode || '');
       const band = escapeHtml(q.band || '');
       const cont = escapeHtml(q.continent || '');
-      const flags = escapeHtml(`${q.isQtc ? 'QTC' : ''}${q.inMaster === false ? ' NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
+      const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>

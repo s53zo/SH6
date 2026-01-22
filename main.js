@@ -52,7 +52,11 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.45';
+  const APP_VERSION = 'v0.5.46';
+  const SQLJS_HTTPVFS_URLS = [
+    'https://cdn.jsdelivr.net/npm/sql.js-httpvfs@0.8.6/dist/index.js',
+    'https://unpkg.com/sql.js-httpvfs@0.8.6/dist/index.js'
+  ];
   const ARCHIVE_BASE_URL = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
@@ -4053,11 +4057,35 @@
       return `${ARCHIVE_SH6_BASE}/logs_${shard}.sqlite`;
     };
 
+    const loadScript = (url) => new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Failed to load ${url}`));
+      document.head.appendChild(script);
+    });
+
     const loadSqlHttpVfs = async () => {
       if (window.sqljsHttpvfs && typeof window.sqljsHttpvfs.createDbWorker === 'function') {
         return window.sqljsHttpvfs;
       }
-      throw new Error('sql.js-httpvfs not loaded.');
+      if (sqlLoader) return sqlLoader;
+      sqlLoader = (async () => {
+        let lastErr = null;
+        for (const url of SQLJS_HTTPVFS_URLS) {
+          try {
+            await loadScript(url);
+            if (window.sqljsHttpvfs && typeof window.sqljsHttpvfs.createDbWorker === 'function') {
+              return window.sqljsHttpvfs;
+            }
+          } catch (err) {
+            lastErr = err;
+          }
+        }
+        throw lastErr || new Error('sql.js-httpvfs not loaded.');
+      })();
+      return sqlLoader;
     };
 
     const openSqliteHttpVfs = async (shardUrl) => {

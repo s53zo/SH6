@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.70';
+  const APP_VERSION = 'v0.5.71';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -3193,8 +3193,10 @@
       qsos = qsos.filter((q) => String(q.cqZone || '') === String(key));
     } else if (scope === 'itu_zone' && key) {
       qsos = qsos.filter((q) => String(q.ituZone || '') === String(key));
-    } else if (scope === 'summary' && key) {
-      qsos = qsos.filter((q) => q.band === key);
+    } else if (scope === 'summary') {
+      if (key && key !== 'All') {
+        qsos = qsos.filter((q) => q.band === key);
+      }
     } else if (scope === 'distance' && key) {
       const [startStr, endStr] = String(key).split('-');
       const start = Number(startStr);

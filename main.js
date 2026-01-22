@@ -52,8 +52,8 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.42';
-  const ARCHIVE_BASE_URL = 'https://s53zo.github.io/Hamradio-Contest-logs-Archives';
+  const APP_VERSION = 'v0.5.43';
+  const ARCHIVE_BASE_URL = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const CORS_PROXIES = [

@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.54';
+  const APP_VERSION = 'v0.5.55';
   const SQLJS_HTTPVFS_URLS = [
     'vendor/sqljs-httpvfs/index.js',
     'https://cdn.jsdelivr.net/gh/s53zo/SH6@main/vendor/sqljs-httpvfs/index.js',
@@ -60,6 +60,7 @@
     'https://unpkg.com/sql.js-httpvfs@0.8.6/dist/index.js'
   ];
   const ARCHIVE_BASE_URL = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main';
+  const ARCHIVE_SHARD_BASE = 'https://cdn.jsdelivr.net/gh/s53zo/Hamradio-Contest-logs-Archives@main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const CORS_PROXIES = [
@@ -4056,7 +4057,7 @@
     const getShardUrl = (callsign) => {
       const bucket = crc32(callsign) & 0xff;
       const shard = bucket.toString(16).padStart(2, '0');
-      return `${ARCHIVE_SH6_BASE}/logs_${shard}.sqlite`;
+      return `${ARCHIVE_SHARD_BASE}/logs_${shard}.sqlite`;
     };
 
     const loadScript = (url) => new Promise((resolve, reject) => {

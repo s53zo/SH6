@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.50';
+  const APP_VERSION = 'v0.5.51';
   const SQLJS_HTTPVFS_URLS = [
     'https://cdn.jsdelivr.net/gh/s53zo/SH6@main/vendor/sqljs-httpvfs/index.js',
     'vendor/sqljs-httpvfs/index.js',
@@ -4069,8 +4069,8 @@
     });
 
     const loadSqlHttpVfs = async () => {
-      if (window.sqljsHttpvfs && typeof window.sqljsHttpvfs.createDbWorker === 'function') {
-        return window.sqljsHttpvfs;
+      if (typeof window.createDbWorker === 'function') {
+        return window;
       }
       if (sqlLoader) return sqlLoader;
       sqlLoader = (async () => {
@@ -4078,8 +4078,8 @@
         for (const url of SQLJS_HTTPVFS_URLS) {
           try {
             await loadScript(url);
-            if (window.sqljsHttpvfs && typeof window.sqljsHttpvfs.createDbWorker === 'function') {
-              return window.sqljsHttpvfs;
+            if (typeof window.createDbWorker === 'function') {
+              return window;
             }
           } catch (err) {
             lastErr = err;

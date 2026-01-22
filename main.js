@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.51';
+  const APP_VERSION = 'v0.5.52';
   const SQLJS_HTTPVFS_URLS = [
     'https://cdn.jsdelivr.net/gh/s53zo/SH6@main/vendor/sqljs-httpvfs/index.js',
     'vendor/sqljs-httpvfs/index.js',
@@ -4090,6 +4090,19 @@
       return sqlLoader;
     };
 
+    const withTimeout = (promise, ms, label) => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`${label || 'Operation'} timed out after ${ms}ms`));
+      }, ms);
+      promise.then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      }).catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+
     const openSqliteHttpVfs = async (shardUrl) => {
       if (shardCache.has(shardUrl)) return shardCache.get(shardUrl);
       const { createDbWorker } = await loadSqlHttpVfs();
@@ -4131,7 +4144,9 @@
       dom.repoStatus.textContent = 'Searching archive...';
       const shardUrl = getShardUrl(callsign);
       try {
-        const dbWorker = await openSqliteHttpVfs(shardUrl);
+        dom.repoStatus.textContent = `Opening shard ${shardUrl.split('/').pop()}...`;
+        const dbWorker = await withTimeout(openSqliteHttpVfs(shardUrl), 12000, 'Shard open');
+        dom.repoStatus.textContent = 'Querying archive...';
         const filters = [];
         const contest = normalizeFilter(dom.repoContest?.value);
         const year = toIntOrNull(normalizeFilter(dom.repoYear?.value));
@@ -4143,8 +4158,10 @@
         if (season) filters.push(`season LIKE '%${sqlEscape(season)}%'`);
         const escaped = sqlEscape(callsign);
         const where = [`callsign = '${escaped}'`].concat(filters).join(' AND ');
-        const result = await dbWorker.db.exec(
-          `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`
+        const result = await withTimeout(
+          dbWorker.db.exec(`SELECT path, contest, year, mode, season FROM logs WHERE ${where}`),
+          12000,
+          'Query'
         );
         const rows = (result[0]?.values || []).map((row) => ({
           path: row[0],
@@ -4154,10 +4171,11 @@
           season: row[4]
         }));
         renderResults(rows);
+        dom.repoStatus.textContent = rows.length ? 'Select a log to load.' : 'No matches found in the archive.';
       } catch (err) {
         console.error('Archive search failed:', err);
         dom.repoResults.innerHTML = '';
-        dom.repoStatus.textContent = 'Archive search failed.';
+        dom.repoStatus.textContent = `Archive search failed: ${err && err.message ? err.message : 'unknown error'}`;
       }
     };
 

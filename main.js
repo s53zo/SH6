@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.57';
+  const APP_VERSION = 'v0.5.58';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -630,8 +630,8 @@
   }
 
   function parseDateTime(dateStr, timeStr) {
-    const d = (dateStr || '').trim();
-    const t = (timeStr || '').trim();
+    const d = (dateStr || '').trim().replace(/\D/g, '');
+    const t = (timeStr || '').trim().replace(/\D/g, '');
     if (d.length !== 8) return null;
     const year = parseInt(d.slice(0, 4), 10);
     const month = parseInt(d.slice(4, 6), 10) - 1;
@@ -642,6 +642,58 @@
     if (t.length >= 6) ss = parseInt(t.slice(4, 6), 10) || 0;
     const ts = Date.UTC(year, month, day, hh, mm, ss);
     return Number.isNaN(ts) ? null : ts;
+  }
+
+  function normalizeCabrilloMode(mode) {
+    const m = normalizeMode(mode);
+    if (m === 'RY' || m === 'RTTY') return 'RTTY';
+    if (m === 'PH') return 'SSB';
+    return m;
+  }
+
+  function parseCabrillo(text) {
+    const lines = text.split(/\r?\n/);
+    const header = {};
+    const qsos = [];
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      if (/^QSO:/i.test(trimmed)) {
+        const tokens = trimmed.replace(/^QSO:\s*/i, '').split(/\s+/);
+        if (tokens.length < 9) return;
+        const freqKHz = parseInt(tokens[0], 10);
+        const freqMHz = Number.isFinite(freqKHz) ? freqKHz / 1000 : null;
+        const mode = normalizeCabrilloMode(tokens[1]);
+        const date = tokens[2] || '';
+        const time = tokens[3] || '';
+        const myCall = tokens[4] || '';
+        const rstSent = tokens[5] || '';
+        const exchSent = tokens[6] || '';
+        const call = tokens[7] || '';
+        const rstRcvd = tokens[8] || '';
+        const exchRcvd = tokens.slice(9).join(' ');
+        qsos.push({
+          QSO_DATE: date,
+          TIME_ON: time,
+          BAND: freqMHz ? parseBandFromFreq(freqMHz) : '',
+          MODE: mode,
+          CALL: call,
+          FREQ: freqMHz,
+          RST_SENT: rstSent,
+          RST_RCVD: rstRcvd,
+          STX_STRING: exchSent,
+          SRX_STRING: exchRcvd,
+          OPERATOR: myCall
+        });
+      } else {
+        const idx = trimmed.indexOf(':');
+        if (idx === -1) return;
+        const key = trimmed.slice(0, idx).trim().toUpperCase();
+        const value = trimmed.slice(idx + 1).trim();
+        if (key) header[key] = value;
+      }
+    });
+    return { header, qsos };
   }
 
   function parseAdif(text) {
@@ -717,6 +769,48 @@
 
   function parseLogFile(text, filename) {
     const lower = (filename || '').toLowerCase();
+    if (lower.endsWith('.log') || lower.endsWith('.cbr') || /START-OF-LOG:/i.test(text) || /^QSO:/im.test(text)) {
+      const cab = parseCabrillo(text);
+      const meta = cab.header || {};
+      const sharedRaw = {
+        STATION_CALLSIGN: meta.CALLSIGN || meta.CALL || null,
+        CONTEST: meta.CONTEST || null,
+        CATEGORY_OPERATOR: meta['CATEGORY-OPERATOR'] || null,
+        CATEGORY_ASSISTED: meta['CATEGORY-ASSISTED'] || null,
+        CATEGORY_POWER: meta['CATEGORY-POWER'] || null,
+        CATEGORY_BAND: meta['CATEGORY-BAND'] || null,
+        CATEGORY_MODE: meta['CATEGORY-MODE'] || null,
+        CATEGORY_TRANSMITTER: meta['CATEGORY-TRANSMITTER'] || null,
+        CATEGORY_STATION: meta['CATEGORY-STATION'] || null,
+        CLUB: meta.CLUB || null,
+        SOFTWARE: meta['CREATED-BY'] || null,
+        CLAIMED_SCORE: meta['CLAIMED-SCORE'] || meta['CLAIMED-SCORE:'] || null,
+        OPERATORS: meta.OPERATORS || null,
+        GRID: meta['GRID-LOCATOR'] || meta['HQ-GRID-LOCATOR'] || null,
+        LOCATION: meta.LOCATION || null
+      };
+      const qsos = cab.qsos.map((r, idx) => ({
+        id: idx,
+        qsoNumber: idx + 1,
+        call: normalizeCall(r.CALL),
+        band: normalizeBand(r.BAND, r.FREQ),
+        mode: normalizeMode(r.MODE),
+        freq: r.FREQ ? parseFloat(r.FREQ) : null,
+        time: `${(r.QSO_DATE || '').trim()} ${(r.TIME_ON || '').trim()}`,
+        ts: parseDateTime(r.QSO_DATE, r.TIME_ON),
+        op: normalizeCall(r.OPERATOR || sharedRaw.STATION_CALLSIGN),
+        grid: sharedRaw.GRID,
+        rstSent: r.RST_SENT,
+        rstRcvd: r.RST_RCVD,
+        exchSent: firstNonNull(r.STX_STRING, r.STX),
+        exchRcvd: firstNonNull(r.SRX_STRING, r.SRX),
+        points: parseInt(firstNonNull(r.POINTS), 10),
+        srx: firstNonNull(r.SRX_STRING, r.SRX),
+        stx: firstNonNull(r.STX_STRING, r.STX),
+        raw: { ...sharedRaw, ...r }
+      }));
+      return { type: 'CABRILLO', qsos };
+    }
     if (lower.endsWith('.adi') || lower.endsWith('.adif') || /<eoh>/i.test(text) || /<eor>/i.test(text)) {
       const adifRecords = parseAdif(text);
       const qsos = adifRecords.map((r, idx) => ({

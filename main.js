@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.69';
+  const APP_VERSION = 'v0.5.70';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -867,7 +867,7 @@
         time: `${(r.QSO_DATE || '').trim()} ${(r.TIME_ON || '').trim()}`,
         ts: parseDateTime(r.QSO_DATE, r.TIME_ON),
         op: normalizeCall(r.OPERATOR || sharedRaw.STATION_CALLSIGN),
-        grid: r.GRIDSQUARE || r.MY_GRIDSQUARE || sharedRaw.GRID,
+        grid: r.GRIDSQUARE,
         rstSent: r.RST_SENT,
         rstRcvd: r.RST_RCVD,
         exchSent: firstNonNull(r.STX_STRING, r.STX),
@@ -891,7 +891,7 @@
         time: `${(r.QSO_DATE || '').trim()} ${(r.TIME_ON || '').trim()}`,
         ts: parseDateTime(r.QSO_DATE, r.TIME_ON),
         op: normalizeCall(r.OPERATOR || r.STATION_CALLSIGN),
-        grid: r.GRIDSQUARE || r.MY_GRIDSQUARE || r.STATION_LOC,
+        grid: r.GRIDSQUARE,
         rstSent: r.RST_SENT,
         rstRcvd: r.RST_RCVD,
         exchSent: firstNonNull(r.STX_STRING, r.STX),
@@ -916,7 +916,7 @@
         time: `${(r.DATE || '').trim()} ${(r.TIME || '').trim()}`,
         ts: parseDateTime(r.DATE, r.TIME),
         op: normalizeCall(r.OPERATOR || r.STATION_CALLSIGN),
-        grid: r.GRIDSQUARE || r.MY_GRIDSQUARE || r.STATION_LOC,
+        grid: r.GRIDSQUARE,
         rstSent: r.RST_SENT,
         rstRcvd: r.RST_RCVD,
         exchSent: firstNonNull(r.EXCH_SENT, r.STX),

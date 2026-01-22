@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.72';
+  const APP_VERSION = 'v0.5.73';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2305,10 +2305,21 @@
     `;
   }
 
+  function formatTimeOfDay(minutes) {
+    const hh = Math.floor(minutes / 60);
+    const mm = minutes % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}Z`;
+  }
+
   function buildTenMinuteBuckets(qsos) {
     const buckets = new Map();
     (qsos || []).forEach((q) => {
-      const key = Number.isFinite(q.ts) ? Math.floor(q.ts / 600000) : 'unknown';
+      let key = 'unknown';
+      if (Number.isFinite(q.ts)) {
+        const d = new Date(q.ts);
+        const minOfDay = d.getUTCHours() * 60 + d.getUTCMinutes();
+        key = Math.floor(minOfDay / 10);
+      }
       if (!buckets.has(key)) buckets.set(key, []);
       buckets.get(key).push(q);
     });
@@ -2335,7 +2346,7 @@
       const max = Math.max(aList.length, bList.length, 1);
       const bucketLabel = key === 'unknown'
         ? 'Unknown time bucket'
-        : `${formatDateSh6(key * 600000)} - ${formatDateSh6(key * 600000 + 9 * 60000 + 59000)}`;
+        : `${formatTimeOfDay(key * 10)} - ${formatTimeOfDay(key * 10 + 9)}`;
       const bucketRow = `<tr class="compare-bucket"><td colspan="34">${bucketLabel}</td></tr>`;
       const dataRows = Array.from({ length: max }, () => {
         const a = aList.shift() || null;

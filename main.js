@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.63';
+  const APP_VERSION = 'v0.5.64';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4148,7 +4148,8 @@
     const getShardUrls = (callsign) => {
       const bucket = crc32(callsign) & 0xff;
       const shard = bucket.toString(16).padStart(2, '0');
-      const suffix = `logs_${shard}.sqlite?v=${encodeURIComponent(APP_VERSION)}`;
+      const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      const suffix = `logs_${shard}.sqlite?v=${encodeURIComponent(APP_VERSION)}-${nonce}`;
       return [
         `${ARCHIVE_SHARD_BASE_RAW}/${suffix}`,
         `${ARCHIVE_SHARD_BASE}/${suffix}`

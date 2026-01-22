@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.64';
+  const APP_VERSION = 'v0.5.65';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -648,6 +648,19 @@
     return m;
   }
 
+  function isMaidenheadGrid(token) {
+    if (!token) return false;
+    const t = token.trim().toUpperCase();
+    return /^[A-R]{2}\d{2}([A-X]{2})?$/.test(t);
+  }
+
+  function isCallsignToken(token) {
+    if (!token) return false;
+    const t = token.trim().toUpperCase();
+    if (isMaidenheadGrid(t)) return false;
+    return /[A-Z]/.test(t) && /\d/.test(t);
+  }
+
   function parseCabrillo(text) {
     const lines = text.split(/\r?\n/);
     const header = {};
@@ -665,10 +678,21 @@
         const time = tokens[3] || '';
         const myCall = tokens[4] || '';
         const rstSent = tokens[5] || '';
-        const exchSent = tokens[6] || '';
-        const call = tokens[7] || '';
-        const rstRcvd = tokens[8] || '';
-        const exchRcvd = tokens.slice(9).join(' ');
+        const rest = tokens.slice(6);
+        let dxIndex = -1;
+        for (let i = 0; i < rest.length; i += 1) {
+          if (isCallsignToken(rest[i])) {
+            dxIndex = i;
+            break;
+          }
+        }
+        if (dxIndex === -1 || dxIndex + 1 >= rest.length) {
+          dxIndex = 1;
+        }
+        const exchSent = rest.slice(0, dxIndex).join(' ').trim();
+        const call = rest[dxIndex] || '';
+        const rstRcvd = rest[dxIndex + 1] || '';
+        const exchRcvd = rest.slice(dxIndex + 2).join(' ').trim();
         qsos.push({
           QSO_DATE: date,
           TIME_ON: time,

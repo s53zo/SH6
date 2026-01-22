@@ -52,7 +52,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v0.5.58';
+  const APP_VERSION = 'v0.5.59';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4123,6 +4123,9 @@
     let timer = null;
     const shardCache = new Map();
     let sqlLoader = null;
+    const PAGE_SIZE = 50;
+    let archiveRows = [];
+    let archivePage = 0;
 
     const crc32Table = (() => {
       const table = new Uint32Array(256);
@@ -4211,22 +4214,65 @@
       return db;
     };
 
-    const renderResults = (rows) => {
-      if (!rows.length) {
+    const normalizeLabel = (value) => (value == null ? '' : String(value).trim());
+
+    const sortResults = (rows) => rows.slice().sort((a, b) => {
+      const contestA = normalizeLabel(a.contest).toUpperCase();
+      const contestB = normalizeLabel(b.contest).toUpperCase();
+      if (contestA !== contestB) return contestA.localeCompare(contestB);
+      const yearA = Number.isFinite(a.year) ? a.year : -1;
+      const yearB = Number.isFinite(b.year) ? b.year : -1;
+      if (yearA !== yearB) return yearB - yearA;
+      const modeA = normalizeLabel(a.mode).toUpperCase();
+      const modeB = normalizeLabel(b.mode).toUpperCase();
+      return modeA.localeCompare(modeB);
+    });
+
+    const renderResultsPage = () => {
+      if (!archiveRows.length) {
         dom.repoResults.innerHTML = '';
         dom.repoStatus.textContent = 'No matches found in the archive.';
         return;
       }
-      dom.repoStatus.textContent = 'Select a log to load.';
-      dom.repoResults.innerHTML = rows.map((row) => {
-        const label = `${row.contest} ${row.year} ${row.mode} ${row.season}`.trim();
-        return `
+      const total = archiveRows.length;
+      const shown = Math.min(total, (archivePage + 1) * PAGE_SIZE);
+      dom.repoStatus.textContent = `Select a log to load. Showing ${shown} of ${total}.`;
+      const slice = archiveRows.slice(0, shown);
+      let lastContest = null;
+      let lastYear = null;
+      const chunks = [];
+      slice.forEach((row) => {
+        const contest = normalizeLabel(row.contest) || 'Unknown contest';
+        const year = Number.isFinite(row.year) ? row.year : 'Unknown year';
+        if (contest !== lastContest) {
+          chunks.push(`<div class="repo-group">${contest}</div>`);
+          lastContest = contest;
+          lastYear = null;
+        }
+        if (year !== lastYear) {
+          chunks.push(`<div class="repo-subgroup">${year}</div>`);
+          lastYear = year;
+        }
+        const mode = normalizeLabel(row.mode);
+        const season = normalizeLabel(row.season);
+        const label = [year, mode, season].filter(Boolean).join(' • ');
+        chunks.push(`
           <button type="button" class="repo-result" data-path="${row.path}">
-            <span class="repo-name">${label}</span>
+            <span class="repo-name">${label || row.path.split('/').pop()}</span>
             <span class="repo-path">${row.path}</span>
           </button>
-        `;
-      }).join('');
+        `);
+      });
+      if (shown < total) {
+        chunks.push(`<button type="button" class="repo-more" id="repoMore">Show ${Math.min(PAGE_SIZE, total - shown)} more</button>`);
+      }
+      dom.repoResults.innerHTML = chunks.join('');
+    };
+
+    const renderResults = (rows) => {
+      archiveRows = sortResults(rows);
+      archivePage = 0;
+      renderResultsPage();
     };
 
     const searchArchive = async (input) => {
@@ -4335,9 +4381,16 @@
     });
 
     dom.repoResults.addEventListener('click', (evt) => {
-      const target = evt.target instanceof HTMLElement ? evt.target.closest('button[data-path]') : null;
+      const target = evt.target instanceof HTMLElement ? evt.target.closest('button') : null;
       if (!target) return;
-      fetchFromArchive(target.dataset.path);
+      if (target.id === 'repoMore') {
+        archivePage += 1;
+        renderResultsPage();
+        return;
+      }
+      const path = target.dataset.path;
+      if (!path) return;
+      fetchFromArchive(path);
     });
   }
 

@@ -104,6 +104,19 @@ a:hover {
   gap: 6px;
 }
 
+.repo-group {
+  font-weight: 700;
+  background: #e5edf9;
+  border: 1px solid #c5daf8;
+  padding: 6px 8px;
+}
+
+.repo-subgroup {
+  font-weight: 600;
+  color: #1f3e74;
+  padding: 2px 8px;
+}
+
 .repo-result {
   border: 1px solid #c3c3c3;
   background: #ffffff;
@@ -119,6 +132,14 @@ a:hover {
 .repo-result:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.repo-more {
+  padding: 6px 10px;
+  border: 1px solid #8aa0c8;
+  background: #f0f6ff;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .repo-name {

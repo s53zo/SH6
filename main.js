@@ -3386,26 +3386,33 @@
     return best;
   }
 
-  function renderQsByMinute() {
-    if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'qs_by_minute', title: 'Qs by minute' });
+  function buildMinuteMapFromDerived(derived) {
     const minutesMap = new Map();
-    state.derived.minuteSeries.forEach((m) => minutesMap.set(m.minute, m.qsos));
+    if (!derived || !derived.minuteSeries) return minutesMap;
+    derived.minuteSeries.forEach((m) => minutesMap.set(m.minute, m.qsos));
+    return minutesMap;
+  }
+
+  function getMinuteRangeFromMap(minutesMap) {
     const allMinutes = Array.from(minutesMap.keys());
-    if (allMinutes.length === 0) return '<p>No QSOs to analyze.</p>';
-    const minMinute = Math.min(...allMinutes);
-    const maxMinute = Math.max(...allMinutes);
-    const startHour = Math.floor(minMinute / 60);
-    const endHour = Math.floor(maxMinute / 60);
+    if (!allMinutes.length) return null;
+    return {
+      minMinute: Math.min(...allMinutes),
+      maxMinute: Math.max(...allMinutes)
+    };
+  }
+
+  function renderQsByMinuteTable(minutesMap, startHour, endHour) {
     let lastDay = '';
     let rows = '';
     let rowIndex = 0;
-    for (let hour = startHour; hour <= endHour; hour++) {
+    for (let hour = startHour; hour <= endHour; hour += 1) {
       const ts = hour * 3600000;
       const day = formatDaySh6(ts);
       const dayLabel = day !== lastDay ? day : '';
       lastDay = day;
       let cells = '';
-      for (let m = 0; m < 60; m++) {
+      for (let m = 0; m < 60; m += 1) {
         const minuteBucket = hour * 60 + m;
         const count = minutesMap.get(minuteBucket) || '';
         const cls = minuteCountClass(count);
@@ -3432,6 +3439,16 @@
         ${rows}
       </table>
     `;
+  }
+
+  function renderQsByMinute() {
+    if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'qs_by_minute', title: 'Qs by minute' });
+    const minutesMap = buildMinuteMapFromDerived(state.derived);
+    const range = getMinuteRangeFromMap(minutesMap);
+    if (!range) return '<p>No QSOs to analyze.</p>';
+    const startHour = Math.floor(range.minMinute / 60);
+    const endHour = Math.floor(range.maxMinute / 60);
+    return renderQsByMinuteTable(minutesMap, startHour, endHour);
   }
 
   function renderOneMinuteRates() {
@@ -4810,12 +4827,45 @@
     return renderComparePanels(slotA, slotB, aHtml, bHtml, reportId);
   }
 
+  function renderQsByMinuteCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const mapA = buildMinuteMapFromDerived(slotA.derived);
+    const mapB = buildMinuteMapFromDerived(slotB.derived);
+    const rangeA = getMinuteRangeFromMap(mapA);
+    const rangeB = getMinuteRangeFromMap(mapB);
+    if (!rangeA && !rangeB) {
+      const aHtml = aReady ? '<p>No QSOs to analyze.</p>' : '<p>No Log A loaded.</p>';
+      const bHtml = bReady ? '<p>No QSOs to analyze.</p>' : '<p>No Log B loaded.</p>';
+      return renderComparePanels(slotA, slotB, aHtml, bHtml, 'qs_by_minute');
+    }
+    const minMinute = Math.min(
+      rangeA ? rangeA.minMinute : Infinity,
+      rangeB ? rangeB.minMinute : Infinity
+    );
+    const maxMinute = Math.max(
+      rangeA ? rangeA.maxMinute : -Infinity,
+      rangeB ? rangeB.maxMinute : -Infinity
+    );
+    const startHour = Math.floor(minMinute / 60);
+    const endHour = Math.floor(maxMinute / 60);
+    const aHtml = aReady
+      ? renderQsByMinuteTable(mapA, startHour, endHour)
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? renderQsByMinuteTable(mapB, startHour, endHour)
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'qs_by_minute');
+  }
+
   function renderReportCompare(report) {
     if (report.id === 'log') {
       return renderLogCompare();
     }
     if (report.id === 'qs_by_hour_sheet') {
       return renderQsByHourSheetCompare();
+    }
+    if (report.id === 'qs_by_minute') {
+      return renderQsByMinuteCompareAligned();
     }
     if (report.id.startsWith('graphs_qs_by_hour')) {
       let bandFilter = null;

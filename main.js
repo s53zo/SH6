@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.21';
+  const APP_VERSION = 'v1.1.22';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -290,6 +290,170 @@
     const num = Number(value);
     if (!Number.isFinite(num)) return String(value);
     return num.toLocaleString('en-US');
+  }
+
+  const SORT_HEADER_BLACKLIST = new Set(['Map', 'KMZ file']);
+
+  function buildHeaderGrid(headerRows) {
+    const grid = [];
+    headerRows.forEach((row, rowIndex) => {
+      let colIndex = 0;
+      grid[rowIndex] = grid[rowIndex] || [];
+      Array.from(row.cells).forEach((cell) => {
+        const colspan = cell.colSpan || 1;
+        const rowspan = cell.rowSpan || 1;
+        while (grid[rowIndex][colIndex]) colIndex += 1;
+        for (let r = 0; r < rowspan; r += 1) {
+          const targetRow = rowIndex + r;
+          grid[targetRow] = grid[targetRow] || [];
+          for (let c = 0; c < colspan; c += 1) {
+            grid[targetRow][colIndex + c] = cell;
+          }
+        }
+        colIndex += colspan;
+      });
+    });
+    return grid;
+  }
+
+  function findHeaderColumnIndex(grid, cell) {
+    for (let r = 0; r < grid.length; r += 1) {
+      const row = grid[r];
+      if (!row) continue;
+      for (let c = 0; c < row.length; c += 1) {
+        if (row[c] === cell) return c;
+      }
+    }
+    return -1;
+  }
+
+  function getCellByColumn(row, colIndex) {
+    let col = 0;
+    for (const cell of Array.from(row.cells)) {
+      const span = cell.colSpan || 1;
+      if (colIndex >= col && colIndex < col + span) return cell;
+      col += span;
+    }
+    return null;
+  }
+
+  function normalizeSortText(text) {
+    return (text || '').replace(/\u00a0/g, ' ').trim();
+  }
+
+  function parseSortableNumber(text) {
+    if (!text) return null;
+    const cleaned = text.replace(/\s+/g, '').replace(/,/g, '').replace(/%/g, '');
+    if (!cleaned) return null;
+    if (!/^[-+]?\d*(?:\.\d+)?$/.test(cleaned)) return null;
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function detectNumericColumn(rows, colIndex) {
+    const sample = rows.slice(0, 25);
+    if (!sample.length) return false;
+    let numeric = 0;
+    sample.forEach((row) => {
+      const cell = getCellByColumn(row, colIndex);
+      const text = normalizeSortText(cell ? cell.textContent : '');
+      const num = parseSortableNumber(text);
+      if (num != null) numeric += 1;
+    });
+    return numeric / sample.length >= 0.6;
+  }
+
+  function refreshRowStriping(rows) {
+    rows.forEach((row, idx) => {
+      row.classList.remove('td0', 'td1');
+      row.classList.add(idx % 2 === 0 ? 'td1' : 'td0');
+    });
+  }
+
+  function makeTablesSortable(container) {
+    const tables = Array.from(container.querySelectorAll('table.mtc, table.log-table'));
+    tables.forEach((table) => {
+      const rows = Array.from(table.rows);
+      if (!rows.length) return;
+      let dataRowSeen = false;
+      let hasSectionHeaders = false;
+      const headerRows = [];
+      for (const row of rows) {
+        const hasTh = row.querySelector('th') != null;
+        const hasTd = row.querySelector('td') != null;
+        if (hasTh && !dataRowSeen) {
+          headerRows.push(row);
+        } else if (hasTd && !hasTh) {
+          dataRowSeen = true;
+        } else if (dataRowSeen && hasTh && !hasTd) {
+          hasSectionHeaders = true;
+          break;
+        }
+      }
+      if (!headerRows.length || hasSectionHeaders) return;
+
+      const grid = buildHeaderGrid(headerRows);
+      const headerCells = headerRows.flatMap((row) => Array.from(row.cells));
+      headerCells.forEach((th) => {
+        if (!(th instanceof HTMLTableCellElement)) return;
+        if (th.dataset.sortableReady === '1') return;
+        const colspan = th.colSpan || 1;
+        const label = normalizeSortText(th.textContent);
+        if (colspan > 1) return;
+        if (!label || SORT_HEADER_BLACKLIST.has(label)) return;
+        const colIndex = findHeaderColumnIndex(grid, th);
+        if (colIndex < 0) return;
+
+        th.dataset.sortableReady = '1';
+        th.dataset.sortCol = String(colIndex);
+        th.classList.add('sortable');
+        const inner = th.innerHTML;
+        th.innerHTML = `<button type="button" class="sort-link" aria-label="Sort by ${label}">${inner}<span class="sort-indicator"></span></button>`;
+      });
+
+      const handleSortClick = (evt) => {
+        const btn = evt.target instanceof HTMLElement ? evt.target.closest('.sort-link') : null;
+        if (!btn) return;
+        const th = btn.closest('th');
+        if (!th) return;
+        const colIndex = Number(th.dataset.sortCol);
+        if (!Number.isFinite(colIndex)) return;
+
+        const order = th.dataset.sortOrder === 'asc' ? 'desc' : 'asc';
+        headerCells.forEach((cell) => {
+          if (cell.dataset.sortOrder) delete cell.dataset.sortOrder;
+          cell.classList.remove('sorted-asc', 'sorted-desc');
+        });
+        th.dataset.sortOrder = order;
+        th.classList.toggle('sorted-asc', order === 'asc');
+        th.classList.toggle('sorted-desc', order === 'desc');
+
+        const dataRows = rows.filter((row) => row.querySelector('td') != null && row.querySelector('th') == null);
+        if (!dataRows.length) return;
+        const numeric = detectNumericColumn(dataRows, colIndex);
+        dataRows.sort((a, b) => {
+          const aCell = getCellByColumn(a, colIndex);
+          const bCell = getCellByColumn(b, colIndex);
+          const aText = normalizeSortText(aCell ? aCell.textContent : '');
+          const bText = normalizeSortText(bCell ? bCell.textContent : '');
+          if (numeric) {
+            const aNum = parseSortableNumber(aText);
+            const bNum = parseSortableNumber(bText);
+            const aVal = aNum == null ? -Infinity : aNum;
+            const bVal = bNum == null ? -Infinity : bNum;
+            return order === 'asc' ? aVal - bVal : bVal - aVal;
+          }
+          return order === 'asc'
+            ? aText.localeCompare(bText)
+            : bText.localeCompare(aText);
+        });
+        refreshRowStriping(dataRows);
+        const parent = table.tBodies[0] || table;
+        dataRows.forEach((row) => parent.appendChild(row));
+      };
+
+      table.addEventListener('click', handleSortClick);
+    });
   }
 
   const MODE_DIGITAL = new Set([
@@ -2698,37 +2862,92 @@
     `;
   }
 
-  function renderCountries() {
-    if (!state.derived) return renderPlaceholder({ id: 'countries', title: 'Countries' });
-    const totalQsos = state.qsoData?.qsos.length || 0;
+  const CONTINENT_ORDER = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
+
+  function continentOrderIndex(code) {
+    const key = (code || '').trim().toUpperCase();
+    const idx = CONTINENT_ORDER.indexOf(key);
+    return idx === -1 ? 99 : idx;
+  }
+
+  function buildCountryListFromDerived(derived) {
+    if (!derived || !derived.countrySummary) return [];
+    return derived.countrySummary.map((c) => ({
+      country: c.country,
+      continent: c.continent || '',
+      prefixCode: c.prefixCode || ''
+    }));
+  }
+
+  function mergeCountryLists(listA, listB) {
+    const map = new Map();
+    listA.forEach((c) => {
+      map.set(c.country, { ...c });
+    });
+    listB.forEach((c) => {
+      if (!map.has(c.country)) {
+        map.set(c.country, { ...c });
+      } else {
+        const existing = map.get(c.country);
+        if (!existing.continent) existing.continent = c.continent || '';
+        if (!existing.prefixCode) existing.prefixCode = c.prefixCode || '';
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => {
+      const ai = continentOrderIndex(a.continent);
+      const bi = continentOrderIndex(b.continent);
+      if (ai !== bi) return ai - bi;
+      const ap = a.prefixCode || a.country || '';
+      const bp = b.prefixCode || b.country || '';
+      return ap.localeCompare(bp);
+    });
+  }
+
+  function buildCountrySummaryMap(derived) {
+    const map = new Map();
+    if (!derived || !derived.countrySummary) return map;
+    derived.countrySummary.forEach((c) => map.set(c.country, c));
+    return map;
+  }
+
+  function renderCountryRowsFromList(list, derived, totalQsos) {
     const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const summaryMap = buildCountrySummaryMap(derived);
     const renderCount = (count, country, band, mode) => {
       if (!count) return '<td></td>';
       return `<td><a href="#" class="log-country-filter" data-country="${country}" data-band="${band || ''}" data-mode="${mode || ''}">${formatNumberSh6(count)}</a></td>`;
     };
-    const rows = state.derived.countrySummary.map((c, idx) => {
-      const pct = totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(1) : '0.0';
-      const bandCount = bandCols.filter((b) => c.bandCounts?.get(b)).length;
+    return list.map((info, idx) => {
+      const c = summaryMap.get(info.country);
+      const continent = c?.continent || info.continent || '';
+      const prefixCode = c?.prefixCode || info.prefixCode || '';
+      const pct = c && totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(1) : '';
+      const bandCount = c ? bandCols.filter((b) => c.bandCounts?.get(b)).length : 0;
       const bandClass = `q${Math.min(6, Math.max(1, bandCount || 1))}`;
-      const bandCells = bandCols.map((b) => renderCount(c.bandCounts?.get(b), c.country, b, ''));
+      const bandCells = bandCols.map((b) => renderCount(c?.bandCounts?.get(b), info.country, b, ''));
+      const mapLink = c ? `<a href="#" class="map-link" data-scope="country" data-key="${info.country}">map</a>` : '';
+      const countryLabel = c ? `<a href="#" class="log-country" data-country="${info.country}">${info.country}</a>` : info.country;
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${formatNumberSh6(idx + 1)}</td>
-        <td class="${continentClass(c.continent)}">${c.continent || ''}</td>
-        <td>${c.prefixCode || ''}</td>
-        <td class="tl"><a href="#" class="log-country" data-country="${c.country}">${c.country}</a></td>
-        <td>${c.distanceAvg ? formatNumberSh6(c.distanceAvg.toFixed(0)) : ''}</td>
-        ${renderCount(c.cw, c.country, '', 'CW')}
-        ${renderCount(c.digital, c.country, '', 'Digital')}
-        ${renderCount(c.phone, c.country, '', 'Phone')}
+        <td class="${continentClass(continent)}">${continent}</td>
+        <td>${prefixCode}</td>
+        <td class="tl">${countryLabel}</td>
+        <td>${c?.distanceAvg ? formatNumberSh6(c.distanceAvg.toFixed(0)) : ''}</td>
+        ${renderCount(c?.cw, info.country, '', 'CW')}
+        ${renderCount(c?.digital, info.country, '', 'Digital')}
+        ${renderCount(c?.phone, info.country, '', 'Phone')}
         ${bandCells.join('')}
-        ${renderCount(c.qsos, c.country, '', '')}
+        ${renderCount(c?.qsos, info.country, '', '')}
         <td><i>${pct}</i></td>
         <td class="${bandClass}">${bandCount || ''}</td>
-        <td class="tac"><a href="#" class="map-link" data-scope="country" data-key="${c.country}">map</a></td>
+        <td class="tac">${mapLink}</td>
       </tr>
     `;
     }).join('');
+  }
+
+  function renderCountriesTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <colgroup><col width="40px" span="3" align="center"/><col align="left"/><col span="12" width="40px" align="center"/></colgroup>
@@ -2751,23 +2970,59 @@
     `;
   }
 
-  function renderContinents() {
-    if (!state.derived) return renderPlaceholder({ id: 'continents', title: 'Continents' });
+  function renderCountries() {
+    if (!state.derived) return renderPlaceholder({ id: 'countries', title: 'Countries' });
+    const totalQsos = state.qsoData?.qsos.length || 0;
+    const list = buildCountryListFromDerived(state.derived);
+    const rows = renderCountryRowsFromList(list, state.derived, totalQsos);
+    return renderCountriesTable(rows);
+  }
+
+  function buildContinentListFromDerived(derived) {
+    if (!derived || !derived.continentSummary) return [];
+    return derived.continentSummary.map((c) => ({ continent: c.continent || '' }));
+  }
+
+  function mergeContinentLists(listA, listB) {
+    const map = new Map();
+    listA.forEach((c) => map.set(c.continent || 'Other', { ...c }));
+    listB.forEach((c) => {
+      const key = c.continent || 'Other';
+      if (!map.has(key)) map.set(key, { ...c });
+    });
+    return Array.from(map.values()).sort((a, b) => {
+      const ai = continentOrderIndex(a.continent);
+      const bi = continentOrderIndex(b.continent);
+      if (ai !== bi) return ai - bi;
+      return (a.continent || '').localeCompare(b.continent || '');
+    });
+  }
+
+  function buildContinentSummaryMap(derived) {
+    const map = new Map();
+    if (!derived || !derived.continentSummary) return map;
+    derived.continentSummary.forEach((c) => map.set(c.continent, c));
+    return map;
+  }
+
+  function renderContinentsRowsFromList(list, derived, totalQsos) {
     const bandCols = ['160', '80', '40', '20', '15', '10'];
-    const totalQs = state.qsoData?.qsos?.length || 0;
-    const rows = state.derived.continentSummary.map((c, idx) => {
-      const pct = totalQs ? ((c.qsos / totalQs) * 100).toFixed(1) : '';
+    const summaryMap = buildContinentSummaryMap(derived);
+    return list.map((info, idx) => {
+      const contKey = (info.continent || '').toUpperCase();
+      const c = summaryMap.get(contKey);
+      const pct = c && totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(1) : '';
       const bandCells = bandCols.map((b) => {
-        const count = c.bandCounts?.get(b) || 0;
+        const count = c?.bandCounts?.get(b) || 0;
         if (!count) return '<td></td>';
-        return `<td><a href="#" class="log-continent-band" data-continent="${c.continent}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
+        return `<td><a href="#" class="log-continent-band" data-continent="${contKey}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
       }).join('');
-      const allLink = `<a href="#" class="log-continent" data-continent="${c.continent}">${formatNumberSh6(c.qsos)}</a>`;
-      const cw = c.cw ? formatNumberSh6(c.cw) : '';
-      const digital = c.digital ? formatNumberSh6(c.digital) : '';
-      const phone = c.phone ? formatNumberSh6(c.phone) : '';
-      const contKey = (c.continent || '').toUpperCase();
+      const allLink = c ? `<a href="#" class="log-continent" data-continent="${contKey}">${formatNumberSh6(c.qsos)}</a>` : '';
+      const cw = c?.cw ? formatNumberSh6(c.cw) : '';
+      const digital = c?.digital ? formatNumberSh6(c.digital) : '';
+      const phone = c?.phone ? formatNumberSh6(c.phone) : '';
       const contClass = continentClass(contKey);
+      const mapLink = c ? `<a href="#" class="map-link" data-scope="continent" data-key="${contKey}">map</a>` : '';
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td class="${contClass}">${contKey}</td>
@@ -2778,10 +3033,13 @@
           <td>${cw}</td>
           <td>${digital}</td>
           <td>${phone}</td>
-          <td class="tac"><a href="#" class="map-link" data-scope="continent" data-key="${contKey}">map</a></td>
+          <td class="tac">${mapLink}</td>
         </tr>
       `;
     }).join('');
+  }
+
+  function renderContinentsTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <colgroup><col width="30px"/><col width="200px"/><col span="11" width="120px"/><col width="5%"/></colgroup>
@@ -2792,16 +3050,60 @@
     `;
   }
 
-  function renderCqZones() {
-    if (!state.derived) return renderPlaceholder({ id: 'zones_cq', title: 'CQ zones' });
-    const rows = state.derived.cqZoneSummary.map((z, idx) => `
+  function renderContinents() {
+    if (!state.derived) return renderPlaceholder({ id: 'continents', title: 'Continents' });
+    const totalQs = state.qsoData?.qsos?.length || 0;
+    const list = buildContinentListFromDerived(state.derived);
+    const rows = renderContinentsRowsFromList(list, state.derived, totalQs);
+    return renderContinentsTable(rows);
+  }
+
+  function buildZoneListFromDerived(derived, field) {
+    if (!derived) return [];
+    const source = field === 'itu' ? derived.ituZoneSummary : derived.cqZoneSummary;
+    if (!source) return [];
+    return source.map((z) => ({ zone: z[`${field}Zone`] }));
+  }
+
+  function mergeZoneLists(listA, listB) {
+    const map = new Map();
+    listA.forEach((z) => map.set(z.zone, z));
+    listB.forEach((z) => {
+      if (!map.has(z.zone)) map.set(z.zone, z);
+    });
+    return Array.from(map.values()).sort((a, b) => a.zone - b.zone);
+  }
+
+  function buildZoneSummaryMap(derived, field) {
+    const map = new Map();
+    if (!derived) return map;
+    const source = field === 'itu' ? derived.ituZoneSummary : derived.cqZoneSummary;
+    if (!source) return map;
+    source.forEach((z) => map.set(z[`${field}Zone`], z));
+    return map;
+  }
+
+  function renderZoneRowsFromList(list, derived, field) {
+    const summaryMap = buildZoneSummaryMap(derived, field);
+    const scope = field === 'itu' ? 'itu_zone' : 'cq_zone';
+    const dataAttr = field === 'itu' ? 'data-itu' : 'data-cq';
+    const linkClass = field === 'itu' ? 'log-itu' : 'log-cq';
+    return list.map((info, idx) => {
+      const z = summaryMap.get(info.zone);
+      const mapLink = z ? `<a href="#" class="map-link" data-scope="${scope}" data-key="${info.zone}">map</a>` : '';
+      const zoneLink = z ? `<a href="#" class="${linkClass}" ${dataAttr}="${info.zone}">${info.zone}</a>` : info.zone;
+      return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td><a href="#" class="log-cq" data-cq="${z.cqZone}">${z.cqZone}</a></td>
-        <td>${formatNumberSh6(z.countries)}</td>
-        <td>${formatNumberSh6(z.qsos)}</td>
-        <td class="tac"><a href="#" class="map-link" data-scope="cq_zone" data-key="${z.cqZone}">map</a></td>
+        <td>${zoneLink}</td>
+        <td>${z ? formatNumberSh6(z.countries) : ''}</td>
+        <td>${z ? formatNumberSh6(z.qsos) : ''}</td>
+        <td class="tac">${mapLink}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
+  }
+
+  function renderZonesTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map</th></tr>
@@ -2810,22 +3112,18 @@
     `;
   }
 
+  function renderCqZones() {
+    if (!state.derived) return renderPlaceholder({ id: 'zones_cq', title: 'CQ zones' });
+    const list = buildZoneListFromDerived(state.derived, 'cq');
+    const rows = renderZoneRowsFromList(list, state.derived, 'cq');
+    return renderZonesTable(rows);
+  }
+
   function renderItuZones() {
     if (!state.derived) return renderPlaceholder({ id: 'zones_itu', title: 'ITU zones' });
-    const rows = state.derived.ituZoneSummary.map((z, idx) => `
-      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td><a href="#" class="log-itu" data-itu="${z.ituZone}">${z.ituZone}</a></td>
-        <td>${formatNumberSh6(z.countries)}</td>
-        <td>${formatNumberSh6(z.qsos)}</td>
-        <td class="tac"><a href="#" class="map-link" data-scope="itu_zone" data-key="${z.ituZone}">map</a></td>
-      </tr>
-    `).join('');
-    return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map</th></tr>
-        ${rows}
-      </table>
-    `;
+    const list = buildZoneListFromDerived(state.derived, 'itu');
+    const rows = renderZoneRowsFromList(list, state.derived, 'itu');
+    return renderZonesTable(rows);
   }
 
   function renderQsByHourSheet() {
@@ -3161,13 +3459,11 @@
     `;
   }
 
-  function renderPrefixes() {
-    if (!state.derived) return renderPlaceholder({ id: 'prefixes', title: 'Prefixes' });
-    if (!state.ctyTable || !state.ctyTable.length) return '<p>cty.dat not loaded.</p>';
-    const totalPrefixes = state.derived.prefixSummary.length || 0;
-    const countryPrefixMap = buildCountryPrefixMap();
+  function buildPrefixGroups(derived) {
     const groups = new Map();
-    state.derived.prefixSummary.forEach((p) => {
+    if (!derived || !state.ctyTable || !state.ctyTable.length) return groups;
+    const countryPrefixMap = buildCountryPrefixMap();
+    derived.prefixSummary.forEach((p) => {
       const entry = state.ctyTable.find((e) => e.prefix === p.prefix);
       if (!entry || !entry.country) return;
       const key = entry.country;
@@ -3181,24 +3477,63 @@
       }
       groups.get(key).prefixes.push(p.prefix);
     });
-    const rows = Array.from(groups.values())
-      .sort((a, b) => a.id.localeCompare(b.id) || a.country.localeCompare(b.country))
-      .map((g, idx) => {
-        const count = g.prefixes.length;
-        const pct = totalPrefixes ? ((count / totalPrefixes) * 100).toFixed(1) : '0.0';
-        const list = g.prefixes.sort((a, b) => a.localeCompare(b)).join(' ');
-        return `
+    return groups;
+  }
+
+  function buildPrefixListFromGroups(groups) {
+    return Array.from(groups.values()).map((g) => ({
+      country: g.country,
+      continent: g.continent,
+      id: g.id
+    })).sort((a, b) => {
+      const ai = continentOrderIndex(a.continent);
+      const bi = continentOrderIndex(b.continent);
+      if (ai !== bi) return ai - bi;
+      return (a.id || '').localeCompare(b.id || '');
+    });
+  }
+
+  function mergePrefixLists(listA, listB) {
+    const map = new Map();
+    listA.forEach((g) => map.set(g.country, { ...g }));
+    listB.forEach((g) => {
+      if (!map.has(g.country)) {
+        map.set(g.country, { ...g });
+      } else {
+        const existing = map.get(g.country);
+        if (!existing.continent) existing.continent = g.continent || '';
+        if (!existing.id) existing.id = g.id || '';
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => {
+      const ai = continentOrderIndex(a.continent);
+      const bi = continentOrderIndex(b.continent);
+      if (ai !== bi) return ai - bi;
+      return (a.id || '').localeCompare(b.id || '');
+    });
+  }
+
+  function renderPrefixesRowsFromList(list, groups, totalPrefixes) {
+    return list.map((info, idx) => {
+      const g = groups.get(info.country);
+      const count = g ? g.prefixes.length : 0;
+      const pct = count && totalPrefixes ? ((count / totalPrefixes) * 100).toFixed(1) : '';
+      const listText = g ? g.prefixes.slice().sort((a, b) => a.localeCompare(b)).join(' ') : '';
+      return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td>${formatNumberSh6(idx + 1)}</td>
-          <td class="${continentClass(g.continent)}">${g.continent}</td>
-          <td>${g.id}</td>
-          <td class="tl">${g.country}</td>
-          <td><b>${formatNumberSh6(count)}</b></td>
+          <td class="${continentClass(info.continent)}">${info.continent || ''}</td>
+          <td>${info.id || ''}</td>
+          <td class="tl">${info.country || ''}</td>
+          <td><b>${count ? formatNumberSh6(count) : ''}</b></td>
           <td><i>${pct}</i></td>
-          <td class="tl">${list} </td>
+          <td class="tl">${listText} </td>
         </tr>
       `;
-      }).join('');
+    }).join('');
+  }
+
+  function renderPrefixesTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <colgroup><col width="40px" span="3" align="center"/><col width="200px" align="left"/><col span="2" width="40px" align="center"/></colgroup>
@@ -3208,25 +3543,116 @@
     `;
   }
 
+  function renderPrefixes() {
+    if (!state.derived) return renderPlaceholder({ id: 'prefixes', title: 'Prefixes' });
+    if (!state.ctyTable || !state.ctyTable.length) return '<p>cty.dat not loaded.</p>';
+    const totalPrefixes = state.derived.prefixSummary.length || 0;
+    const groups = buildPrefixGroups(state.derived);
+    const list = buildPrefixListFromGroups(groups);
+    const rows = renderPrefixesRowsFromList(list, groups, totalPrefixes);
+    return renderPrefixesTable(rows);
+  }
+
+  function buildCallsignLengthList(derived) {
+    if (!derived || !derived.callsignLengthSummary) return [];
+    return derived.callsignLengthSummary.map((c) => ({ len: c.len }));
+  }
+
+  function mergeCallsignLengthLists(listA, listB) {
+    const map = new Map();
+    listA.forEach((c) => map.set(c.len, c));
+    listB.forEach((c) => {
+      if (!map.has(c.len)) map.set(c.len, c);
+    });
+    return Array.from(map.values()).sort((a, b) => a.len - b.len);
+  }
+
+  function buildCallsignLengthMap(derived) {
+    const map = new Map();
+    if (!derived || !derived.callsignLengthSummary) return map;
+    derived.callsignLengthSummary.forEach((c) => map.set(c.len, c));
+    return map;
+  }
+
+  function renderCallsignLengthRowsFromList(list, derived, totalCalls, totalQsos) {
+    const map = buildCallsignLengthMap(derived);
+    return list.map((info, idx) => {
+      const c = map.get(info.len);
+      const callPct = c && totalCalls ? ((c.callsigns / totalCalls) * 100).toFixed(2) : '';
+      const qsoPct = c && totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(2) : '';
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${info.len}</td>
+        <td>${c ? formatNumberSh6(c.callsigns) : ''}</td>
+        <td>${callPct}</td>
+        <td>${c ? formatNumberSh6(c.qsos) : ''}</td>
+        <td>${qsoPct}</td>
+      </tr>
+    `}).join('');
+  }
+
+  function renderCallsignLengthTable(rows) {
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Length</th><th>Callsigns</th><th>%</th><th>QSOs</th><th>%</th></tr>
+        ${rows}
+      </table>
+    `;
+  }
+
   function renderCallsignLength() {
     if (!state.derived) return renderPlaceholder({ id: 'callsign_length', title: 'Callsign length' });
     const totalCalls = state.derived.uniqueCallsCount || 0;
     const totalQsos = state.qsoData?.qsos.length || 0;
-    const rows = state.derived.callsignLengthSummary.map((c, idx) => {
-      const callPct = totalCalls ? ((c.callsigns / totalCalls) * 100).toFixed(2) : '0.00';
-      const qsoPct = totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(2) : '0.00';
+    const list = buildCallsignLengthList(state.derived);
+    const rows = renderCallsignLengthRowsFromList(list, state.derived, totalCalls, totalQsos);
+    return renderCallsignLengthTable(rows);
+  }
+
+  function buildStructureList(derived) {
+    if (!derived || !derived.structureSummary) return [];
+    return derived.structureSummary.map((s) => ({ struct: s.struct }));
+  }
+
+  function mergeStructureLists(listA, listB) {
+    const map = new Map();
+    listA.forEach((s) => map.set(s.struct, s));
+    listB.forEach((s) => {
+      if (!map.has(s.struct)) map.set(s.struct, s);
+    });
+    return Array.from(map.values()).sort((a, b) => a.struct.localeCompare(b.struct));
+  }
+
+  function buildStructureMap(derived) {
+    const map = new Map();
+    if (!derived || !derived.structureSummary) return map;
+    derived.structureSummary.forEach((s) => map.set(s.struct, s));
+    return map;
+  }
+
+  function renderCallsignStructureRowsFromList(list, derived, totalCalls, totalQsos) {
+    const map = buildStructureMap(derived);
+    return list.map((info, idx) => {
+      const s = map.get(info.struct);
+      const callPct = s && totalCalls ? ((s.callsigns / totalCalls) * 100).toFixed(2) : '';
+      const qsoPct = s && totalQsos ? ((s.qsos / totalQsos) * 100).toFixed(2) : '';
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td>${c.len}</td>
-        <td>${formatNumberSh6(c.callsigns)}</td>
+        <td>${idx + 1}</td>
+        <td>${info.struct}</td>
+        <td>${s?.example || ''}</td>
+        <td>${s ? formatNumberSh6(s.callsigns) : ''}</td>
         <td>${callPct}</td>
-        <td>${formatNumberSh6(c.qsos)}</td>
+        <td>${s ? formatNumberSh6(s.qsos) : ''}</td>
         <td>${qsoPct}</td>
       </tr>
     `}).join('');
+  }
+
+  function renderCallsignStructureTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Length</th><th>Callsigns</th><th>%</th><th>QSOs</th><th>%</th></tr>
+        <tr class="thc"><th>#</th><th>Callsign structure, C - char, D - digit</th><th>Example</th><th>Callsigns</th><th>%</th><th>QSOs</th><th>%</th></tr>
         ${rows}
       </table>
     `;
@@ -3236,23 +3662,47 @@
     if (!state.derived) return renderPlaceholder({ id: 'callsign_structure', title: 'Callsign structure' });
     const totalCalls = state.derived.uniqueCallsCount || 0;
     const totalQsos = state.qsoData?.qsos.length || 0;
-    const rows = state.derived.structureSummary.map((s, idx) => {
-      const callPct = totalCalls ? ((s.callsigns / totalCalls) * 100).toFixed(2) : '0.00';
-      const qsoPct = totalQsos ? ((s.qsos / totalQsos) * 100).toFixed(2) : '0.00';
-      return `
-      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td>${idx + 1}</td>
-        <td>${s.struct}</td>
-        <td>${s.example || ''}</td>
-        <td>${formatNumberSh6(s.callsigns)}</td>
-        <td>${callPct}</td>
-        <td>${formatNumberSh6(s.qsos)}</td>
-        <td>${qsoPct}</td>
-      </tr>
-    `}).join('');
+    const list = buildStructureList(state.derived);
+    const rows = renderCallsignStructureRowsFromList(list, state.derived, totalCalls, totalQsos);
+    return renderCallsignStructureTable(rows);
+  }
+
+  function buildDistanceList(derived) {
+    if (!derived || !derived.distanceSummary || !derived.distanceSummary.buckets) return [];
+    return derived.distanceSummary.buckets.map((b) => ({ range: b.range }));
+  }
+
+  function mergeDistanceLists(listA, listB) {
+    const map = new Map();
+    listA.forEach((d) => map.set(d.range, d));
+    listB.forEach((d) => {
+      if (!map.has(d.range)) map.set(d.range, d);
+    });
+    return Array.from(map.values()).sort((a, b) => a.range - b.range);
+  }
+
+  function buildDistanceMap(derived) {
+    const map = new Map();
+    if (!derived || !derived.distanceSummary || !derived.distanceSummary.buckets) return map;
+    derived.distanceSummary.buckets.forEach((b) => map.set(b.range, b));
+    return map;
+  }
+
+  function renderDistanceRowsFromList(list, derived) {
+    const ds = derived?.distanceSummary;
+    const map = buildDistanceMap(derived);
+    return list.map((info, idx) => {
+      const b = map.get(info.range);
+      const pct = b && ds?.count ? ((b.count / ds.count) * 100).toFixed(2) : '';
+      const mapLink = b ? `<a href="#" class="map-link" data-scope="distance" data-key="${info.range}">map</a>` : '';
+      return `<tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${formatNumberSh6(info.range)} km</td><td>${b ? formatNumberSh6(b.count) : ''}</td><td>${pct}</td><td class="tac">${mapLink}</td></tr>`;
+    }).join('');
+  }
+
+  function renderDistanceTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Callsign structure, C - char, D - digit</th><th>Example</th><th>Callsigns</th><th>%</th><th>QSOs</th><th>%</th></tr>
+        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map</th></tr>
         ${rows}
       </table>
     `;
@@ -3262,49 +3712,66 @@
     if (!state.derived || !state.derived.distanceSummary) return renderPlaceholder({ id: 'distance', title: 'Distance' });
     const ds = state.derived.distanceSummary;
     if (!ds.count) return '<p>No distance data (station or remote locations missing).</p>';
-    const buckets = ds.buckets.map((b, idx) => {
-      const pct = ds.count ? ((b.count / ds.count) * 100).toFixed(2) : '0.00';
-      const cls = idx % 2 === 0 ? 'td1' : 'td0';
-      return `<tr class="${cls}"><td>${formatNumberSh6(b.range)} km</td><td>${formatNumberSh6(b.count)}</td><td>${pct}</td><td class="tac"><a href="#" class="map-link" data-scope="distance" data-key="${b.range}">map</a></td></tr>`;
-    }).join('');
-    return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map</th></tr>
-        ${buckets}
-      </table>
-    `;
+    const list = buildDistanceList(state.derived);
+    const rows = renderDistanceRowsFromList(list, state.derived);
+    return renderDistanceTable(rows);
   }
 
-  function renderBeamHeading() {
-    if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'beam_heading', title: 'Beam heading' });
+  function buildHeadingList(derived) {
+    if (!derived || !derived.headingSummary) return [];
+    return derived.headingSummary.map((h) => ({ start: h.start, sector: h.sector }));
+  }
+
+  function mergeHeadingLists(listA, listB) {
+    const map = new Map();
+    listA.forEach((h) => map.set(h.start, h));
+    listB.forEach((h) => {
+      if (!map.has(h.start)) map.set(h.start, h);
+    });
+    return Array.from(map.values()).sort((a, b) => a.start - b.start);
+  }
+
+  function buildHeadingMap(derived) {
+    const map = new Map();
+    if (!derived || !derived.headingSummary) return map;
+    derived.headingSummary.forEach((h) => map.set(h.start, h));
+    return map;
+  }
+
+  function renderHeadingRowsFromList(list, derived) {
     const bands = ['160', '80', '40', '20', '15', '10'];
-    const total = state.derived.headingSummary.reduce((sum, h) => sum + h.count, 0);
-    const maxCount = state.derived.headingSummary.reduce((max, h) => Math.max(max, h.count), 1);
+    const map = buildHeadingMap(derived);
+    const total = derived?.headingSummary?.reduce((sum, h) => sum + h.count, 0) || 0;
+    const maxCount = derived?.headingSummary?.reduce((max, h) => Math.max(max, h.count), 1) || 1;
     let rows = '';
-    state.derived.headingSummary.forEach((h, idx) => {
-      const pct = total ? ((h.count / total) * 100).toFixed(1) : '0.0';
-      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+    list.forEach((info, idx) => {
+      const h = map.get(info.start);
+      const pct = h && total ? ((h.count / total) * 100).toFixed(1) : '';
       const bandCells = bands.map((b) => {
-        const count = h.bands?.get(b) || 0;
+        const count = h?.bands?.get(b) || 0;
         if (!count) return '<td></td>';
-        return `<td><a href="#" class="log-heading-band" data-heading="${h.start}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
+        return `<td><a href="#" class="log-heading-band" data-heading="${info.start}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
       }).join('');
-      const barWidth = Math.round((h.count / maxCount) * 100);
+      const barWidth = h ? Math.round((h.count / maxCount) * 100) : 0;
+      const mapLink = h ? `<a href="#" class="map-link" data-scope="heading" data-key="${info.start}">map</a>` : '';
       rows += `
-        <tr class="${cls}">
-          <td>${h.sector}</td>
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td>${info.sector || ''}</td>
           ${bandCells}
-          <td><a href="#" class="log-heading" data-heading="${h.start}">${formatNumberSh6(h.count)}</a></td>
+          <td>${h ? `<a href="#" class="log-heading" data-heading="${info.start}">${formatNumberSh6(h.count)}</a>` : ''}</td>
           <td><i>${pct}</i></td>
           <td style="text-align:left"><div class="sum" style="width:${barWidth}%" /></td>
-          <td class="tac"><a href="#" class="map-link" data-scope="heading" data-key="${h.start}">map</a></td>
+          <td class="tac">${mapLink}</td>
         </tr>
       `;
-      if (h.start % 90 === 80) {
+      if (info.start % 90 === 80) {
         rows += '<tr><td colspan="11"><hr/></td></tr>';
       }
     });
-    if (!rows) return '<p>No heading data.</p>';
+    return rows;
+  }
+
+  function renderHeadingTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <colgroup><col width="100px" align="center"/><col span="9" width="60px"/><col width="5%"/></colgroup>
@@ -3313,6 +3780,14 @@
         ${rows}
       </table>
     `;
+  }
+
+  function renderBeamHeading() {
+    if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'beam_heading', title: 'Beam heading' });
+    const list = buildHeadingList(state.derived);
+    const rows = renderHeadingRowsFromList(list, state.derived);
+    if (!rows) return '<p>No heading data.</p>';
+    return renderHeadingTable(rows);
   }
 
   function renderMapView() {
@@ -3396,46 +3871,44 @@
     `;
   }
 
-  function renderCountriesByTime(bandFilter) {
-    if (!state.derived) return renderPlaceholder({ id: 'countries_by_time', title: 'Countries by time' });
-    const qsos = state.qsoData?.qsos || [];
-    const map = buildCountryTimeBuckets(qsos, bandFilter);
-    if (map.size === 0) return '<p>No data.</p>';
+  function renderCountriesByTimeRowsFromList(list, map, countryInfo, bandFilter) {
     const startHour = 0;
     const endHour = 23;
-    const countryInfo = new Map();
-    state.derived.countrySummary.forEach((c) => {
-      countryInfo.set(c.country, { continent: c.continent, prefixCode: c.prefixCode });
-    });
-    const continentsOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
     const groups = new Map();
-    Array.from(map.entries()).forEach(([country, data]) => {
-      const info = countryInfo.get(country) || {};
-      const code = (info.continent || data.continent || '').trim().toUpperCase();
-      const contKey = continentsOrder.includes(code) ? code : (code || 'Other');
-      const prefixCode = info.prefixCode || data.prefix || '';
+    list.forEach((info) => {
+      const entry = map.get(info.country);
+      const infoFromMap = entry || {};
+      const mergedCont = (info.continent || infoFromMap.continent || '').trim().toUpperCase();
+      const contKey = CONTINENT_ORDER.includes(mergedCont) ? mergedCont : (mergedCont || 'Other');
+      const prefix = info.prefixCode || infoFromMap.prefix || (countryInfo.get(info.country)?.prefixCode || '');
       const bucketsByHour = new Map();
-      data.buckets.forEach((counts, hourBucket) => {
-        const hourOfDay = hourBucket % 24;
-        if (!bucketsByHour.has(hourOfDay)) bucketsByHour.set(hourOfDay, [0, 0, 0, 0]);
-        const target = bucketsByHour.get(hourOfDay);
-        for (let i = 0; i < 4; i++) target[i] += counts[i] || 0;
-      });
-      const entry = { country, data: { ...data, continent: contKey, prefix: prefixCode } };
-      entry.data.buckets = bucketsByHour;
+      if (entry && entry.buckets) {
+        entry.buckets.forEach((counts, hourBucket) => {
+          const hourOfDay = hourBucket % 24;
+          if (!bucketsByHour.has(hourOfDay)) bucketsByHour.set(hourOfDay, [0, 0, 0, 0]);
+          const target = bucketsByHour.get(hourOfDay);
+          for (let i = 0; i < 4; i += 1) target[i] += counts[i] || 0;
+        });
+      }
+      const data = {
+        name: info.country,
+        prefix,
+        continent: contKey,
+        total: entry ? entry.total : 0,
+        buckets: bucketsByHour
+      };
       if (!groups.has(contKey)) groups.set(contKey, []);
-      groups.get(contKey).push(entry);
+      groups.get(contKey).push(data);
     });
     let rows = '';
-    let rowCount = 0;
-    continentsOrder.concat(['Other']).forEach((contKey) => {
-      const list = groups.get(contKey);
-      if (!list || list.length === 0) return;
+    CONTINENT_ORDER.concat(['Other']).forEach((contKey) => {
+      const listForCont = groups.get(contKey);
+      if (!listForCont || listForCont.length === 0) return;
       rows += `<tr class="thc"><th colspan="3" class="${continentClass(contKey)}"><a href="#" class="log-continent" data-continent="${contKey}">${continentLabel(contKey)}</a></th><th>${bandFilter ? `${bandFilter} m Qs` : 'All m Qs'}</th>${hourHeaders(startHour, endHour).join('')}</tr>`;
-      rows += list.sort((a, b) => a.country.localeCompare(b.country)).map((entry, idx) => {
+      rows += listForCont.map((entry, idx) => {
         let cells = '';
-        for (let h = startHour; h <= endHour; h++) {
-          const counts = entry.data.buckets.get(h) || [0, 0, 0, 0];
+        for (let h = startHour; h <= endHour; h += 1) {
+          const counts = entry.buckets.get(h) || [0, 0, 0, 0];
           counts.forEach((count, qi) => {
             const cls = minuteCountClass(count);
             const dal = qi === 0 ? 'dal' : '';
@@ -3443,18 +3916,23 @@
           });
         }
         const rowCls = idx % 2 === 0 ? 'td1' : 'td0';
-        rowCount += 1;
+        const totalCell = entry.total ? formatNumberSh6(entry.total) : '';
+        const countryLabel = entry.total ? `<a href=\"#\" class=\"log-country\" data-country=\"${entry.name}\">${entry.name}</a>` : entry.name;
         return `
           <tr class="${rowCls}">
             <td>${formatNumberSh6(idx + 1)}</td>
-            <td>${entry.data.prefix}</td>
-            <td><a href="#" class="log-country" data-country="${entry.data.name}">${entry.data.name}</a></td>
-            <td>${formatNumberSh6(entry.data.total)}</td>
+            <td>${entry.prefix}</td>
+            <td>${countryLabel}</td>
+            <td>${totalCell}</td>
             ${cells}
           </tr>
         `;
       }).join('');
     });
+    return rows;
+  }
+
+  function renderCountriesByTimeTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <tr><td colspan="4">Legend (QSOs per each 15 min. period) :</td>
@@ -3474,6 +3952,20 @@
         ${rows || '<tr><td colspan="100">No country rows available.</td></tr>'}
       </table>
     `;
+  }
+
+  function renderCountriesByTime(bandFilter) {
+    if (!state.derived) return renderPlaceholder({ id: 'countries_by_time', title: 'Countries by time' });
+    const qsos = state.qsoData?.qsos || [];
+    const map = buildCountryTimeBuckets(qsos, bandFilter);
+    if (map.size === 0) return '<p>No data.</p>';
+    const countryInfo = new Map();
+    state.derived.countrySummary.forEach((c) => {
+      countryInfo.set(c.country, { continent: c.continent, prefixCode: c.prefixCode });
+    });
+    const list = buildCountryListFromDerived(state.derived);
+    const rows = renderCountriesByTimeRowsFromList(list, map, countryInfo, bandFilter);
+    return renderCountriesByTimeTable(rows);
   }
 
   function hourHeaders(startHour, endHour) {
@@ -4135,21 +4627,7 @@
     }
   }
 
-  function renderReportCompare(report) {
-    if (report.id === 'log') {
-      return renderLogCompare();
-    }
-    if (report.id === 'qs_by_hour_sheet') {
-      return renderQsByHourSheetCompare();
-    }
-    if (report.id.startsWith('graphs_qs_by_hour')) {
-      let bandFilter = null;
-      if (report.id !== 'graphs_qs_by_hour') {
-        const parts = report.id.split('_');
-        bandFilter = parts[parts.length - 1];
-      }
-      return renderGraphsQsByHourCompare(bandFilter);
-    }
+  function getCompareSlots() {
     const slotA = {
       logFile: state.logFile,
       qsoData: state.qsoData,
@@ -4161,12 +4639,12 @@
       bandDerivedCache: state.bandDerivedCache
     };
     const slotB = state.compareB || {};
-    const aReady = !!slotA.qsoData;
-    const bReady = !!slotB.qsoData;
-    const aHtml = aReady ? withSlotState(slotA, () => renderReportSingle(report)) : `<p>No Log A loaded.</p>`;
-    const bHtml = bReady ? withSlotState(slotB, () => renderReportSingle(report)) : `<p>No Log B loaded.</p>`;
-    const aRows = estimateReportRows(report.id, slotA.derived);
-    const bRows = estimateReportRows(report.id, slotB.derived);
+    return { slotA, slotB, aReady: !!slotA.qsoData, bReady: !!slotB.qsoData };
+  }
+
+  function renderComparePanels(slotA, slotB, aHtml, bHtml, reportId) {
+    const aRows = estimateReportRows(reportId, slotA.derived);
+    const bRows = estimateReportRows(reportId, slotB.derived);
     const stack = Math.max(aRows, bRows) <= 10;
     const gridClass = stack ? 'compare-grid compare-stack' : 'compare-grid';
     return `
@@ -4183,6 +4661,193 @@
     `;
   }
 
+  function renderCountriesCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const list = mergeCountryLists(
+      buildCountryListFromDerived(slotA.derived),
+      buildCountryListFromDerived(slotB.derived)
+    );
+    const aHtml = aReady
+      ? renderCountriesTable(renderCountryRowsFromList(list, slotA.derived, slotA.qsoData?.qsos.length || 0))
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? renderCountriesTable(renderCountryRowsFromList(list, slotB.derived, slotB.qsoData?.qsos.length || 0))
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'countries');
+  }
+
+  function renderContinentsCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const list = mergeContinentLists(
+      buildContinentListFromDerived(slotA.derived),
+      buildContinentListFromDerived(slotB.derived)
+    );
+    const aHtml = aReady
+      ? renderContinentsTable(renderContinentsRowsFromList(list, slotA.derived, slotA.qsoData?.qsos.length || 0))
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? renderContinentsTable(renderContinentsRowsFromList(list, slotB.derived, slotB.qsoData?.qsos.length || 0))
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'continents');
+  }
+
+  function renderZoneCompareAligned(field) {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const list = mergeZoneLists(
+      buildZoneListFromDerived(slotA.derived, field),
+      buildZoneListFromDerived(slotB.derived, field)
+    );
+    const aHtml = aReady
+      ? renderZonesTable(renderZoneRowsFromList(list, slotA.derived, field))
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? renderZonesTable(renderZoneRowsFromList(list, slotB.derived, field))
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, field === 'itu' ? 'zones_itu' : 'zones_cq');
+  }
+
+  function renderPrefixesCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    if (!state.ctyTable || !state.ctyTable.length) {
+      const aHtml = aReady ? '<p>cty.dat not loaded.</p>' : '<p>No Log A loaded.</p>';
+      const bHtml = bReady ? '<p>cty.dat not loaded.</p>' : '<p>No Log B loaded.</p>';
+      return renderComparePanels(slotA, slotB, aHtml, bHtml, 'prefixes');
+    }
+    const aGroups = buildPrefixGroups(slotA.derived);
+    const bGroups = buildPrefixGroups(slotB.derived);
+    const list = mergePrefixLists(buildPrefixListFromGroups(aGroups), buildPrefixListFromGroups(bGroups));
+    const aHtml = aReady
+      ? renderPrefixesTable(renderPrefixesRowsFromList(list, aGroups, slotA.derived?.prefixSummary?.length || 0))
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? renderPrefixesTable(renderPrefixesRowsFromList(list, bGroups, slotB.derived?.prefixSummary?.length || 0))
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'prefixes');
+  }
+
+  function renderCallsignLengthCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const list = mergeCallsignLengthLists(
+      buildCallsignLengthList(slotA.derived),
+      buildCallsignLengthList(slotB.derived)
+    );
+    const aHtml = aReady
+      ? renderCallsignLengthTable(renderCallsignLengthRowsFromList(list, slotA.derived, slotA.derived?.uniqueCallsCount || 0, slotA.qsoData?.qsos.length || 0))
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? renderCallsignLengthTable(renderCallsignLengthRowsFromList(list, slotB.derived, slotB.derived?.uniqueCallsCount || 0, slotB.qsoData?.qsos.length || 0))
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'callsign_length');
+  }
+
+  function renderCallsignStructureCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const list = mergeStructureLists(
+      buildStructureList(slotA.derived),
+      buildStructureList(slotB.derived)
+    );
+    const aHtml = aReady
+      ? renderCallsignStructureTable(renderCallsignStructureRowsFromList(list, slotA.derived, slotA.derived?.uniqueCallsCount || 0, slotA.qsoData?.qsos.length || 0))
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? renderCallsignStructureTable(renderCallsignStructureRowsFromList(list, slotB.derived, slotB.derived?.uniqueCallsCount || 0, slotB.qsoData?.qsos.length || 0))
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'callsign_structure');
+  }
+
+  function renderDistanceCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const list = mergeDistanceLists(
+      buildDistanceList(slotA.derived),
+      buildDistanceList(slotB.derived)
+    );
+    const aHtml = aReady
+      ? (list.length ? renderDistanceTable(renderDistanceRowsFromList(list, slotA.derived)) : '<p>No distance data (station or remote locations missing).</p>')
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? (list.length ? renderDistanceTable(renderDistanceRowsFromList(list, slotB.derived)) : '<p>No distance data (station or remote locations missing).</p>')
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'distance');
+  }
+
+  function renderBeamHeadingCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const list = mergeHeadingLists(
+      buildHeadingList(slotA.derived),
+      buildHeadingList(slotB.derived)
+    );
+    const aRows = list.length ? renderHeadingRowsFromList(list, slotA.derived) : '';
+    const bRows = list.length ? renderHeadingRowsFromList(list, slotB.derived) : '';
+    const aHtml = aReady
+      ? (aRows ? renderHeadingTable(aRows) : '<p>No heading data.</p>')
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? (bRows ? renderHeadingTable(bRows) : '<p>No heading data.</p>')
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'beam_heading');
+  }
+
+  function renderCountriesByTimeCompareAligned(bandFilter) {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const list = mergeCountryLists(
+      buildCountryListFromDerived(slotA.derived),
+      buildCountryListFromDerived(slotB.derived)
+    );
+    const renderForSlot = (slot) => {
+      const qsos = slot.qsoData?.qsos || [];
+      const map = buildCountryTimeBuckets(qsos, bandFilter);
+      if (!list.length) return '<p>No data.</p>';
+      const countryInfo = new Map();
+      slot.derived?.countrySummary?.forEach((c) => {
+        countryInfo.set(c.country, { continent: c.continent, prefixCode: c.prefixCode });
+      });
+      const rows = renderCountriesByTimeRowsFromList(list, map, countryInfo, bandFilter);
+      return renderCountriesByTimeTable(rows);
+    };
+    const aHtml = aReady ? renderForSlot(slotA) : '<p>No Log A loaded.</p>';
+    const bHtml = bReady ? renderForSlot(slotB) : '<p>No Log B loaded.</p>';
+    const reportId = bandFilter ? `countries_by_time_${bandFilter}` : 'countries_by_time';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, reportId);
+  }
+
+  function renderReportCompare(report) {
+    if (report.id === 'log') {
+      return renderLogCompare();
+    }
+    if (report.id === 'qs_by_hour_sheet') {
+      return renderQsByHourSheetCompare();
+    }
+    if (report.id.startsWith('graphs_qs_by_hour')) {
+      let bandFilter = null;
+      if (report.id !== 'graphs_qs_by_hour') {
+        const parts = report.id.split('_');
+        bandFilter = parts[parts.length - 1];
+      }
+      return renderGraphsQsByHourCompare(bandFilter);
+    }
+    if (report.id === 'countries') return renderCountriesCompareAligned();
+    if (report.id === 'continents') return renderContinentsCompareAligned();
+    if (report.id === 'zones_cq') return renderZoneCompareAligned('cq');
+    if (report.id === 'zones_itu') return renderZoneCompareAligned('itu');
+    if (report.id === 'prefixes') return renderPrefixesCompareAligned();
+    if (report.id === 'callsign_length') return renderCallsignLengthCompareAligned();
+    if (report.id === 'callsign_structure') return renderCallsignStructureCompareAligned();
+    if (report.id === 'distance') return renderDistanceCompareAligned();
+    if (report.id === 'beam_heading') return renderBeamHeadingCompareAligned();
+    if (report.id.startsWith('countries_by_time')) {
+      let bandFilter = null;
+      if (report.id !== 'countries_by_time') {
+        const parts = report.id.split('_');
+        bandFilter = parts[parts.length - 1];
+      }
+      return renderCountriesByTimeCompareAligned(bandFilter);
+    }
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const aHtml = aReady ? withSlotState(slotA, () => renderReportSingle(report)) : `<p>No Log A loaded.</p>`;
+    const bHtml = bReady ? withSlotState(slotB, () => renderReportSingle(report)) : `<p>No Log B loaded.</p>`;
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, report.id);
+  }
+
   function renderReport(report) {
     if (state.compareEnabled) {
       return renderReportCompare(report);
@@ -4191,6 +4856,7 @@
   }
 
   function bindReportInteractions(reportId) {
+    makeTablesSortable(dom.viewContainer);
     if (reportId === 'log') {
       const prev = document.getElementById('logPrev');
       const next = document.getElementById('logNext');

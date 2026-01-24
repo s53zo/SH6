@@ -236,7 +236,6 @@
         const group = navGroups.find((g) => g.parentId === r.id);
         const details = document.createElement('details');
         details.classList.add('nav-group');
-        details.open = true;
         details.appendChild(makeSummary(idx, r.title, 'mli'));
         const sublist = document.createElement('ol');
         sublist.classList.add('nav-sublist');
@@ -278,7 +277,7 @@
       const base = el.dataset.baseClass;
       if (base) el.classList.add(base);
       el.classList.toggle('sli', isActive);
-      if (isActive) {
+      if (isActive && el.tagName.toLowerCase() === 'li') {
         const details = el.closest('details');
         if (details) details.open = true;
       }
@@ -4726,7 +4725,8 @@
   function renderComparePanels(slotA, slotB, aHtml, bHtml, reportId) {
     const aRows = estimateReportRows(reportId, slotA.derived);
     const bRows = estimateReportRows(reportId, slotB.derived);
-    const stack = Math.max(aRows, bRows) <= 10;
+    const forceStackReports = new Set(['one_minute_rates']);
+    const stack = forceStackReports.has(reportId) || Math.max(aRows, bRows) <= 10;
     const narrowReports = new Set([
       'summary',
       'operators',
@@ -4745,6 +4745,8 @@
       'all_callsigns'
     ]);
     const isNarrow = narrowReports.has(reportId);
+    const wrapReports = new Set(['one_minute_rates']);
+    const shouldWrap = wrapReports.has(reportId);
     const gridClass = stack
       ? `compare-grid compare-stack${isNarrow ? ' compare-narrow' : ''}`
       : `compare-grid${isNarrow ? ' compare-narrow' : ''}`;
@@ -4752,11 +4754,11 @@
       <div class="${gridClass}">
         <div class="compare-panel compare-a">
           <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
-          <div class="compare-scroll">${aHtml}</div>
+          <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}">${aHtml}</div>
         </div>
         <div class="compare-panel compare-b">
           <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
-          <div class="compare-scroll">${bHtml}</div>
+          <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}">${bHtml}</div>
         </div>
       </div>
     `;

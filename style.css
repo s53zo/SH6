@@ -185,6 +185,10 @@ a:hover {
   width: max-content;
 }
 
+.compare-scroll.compare-scroll-wrap table {
+  width: 100%;
+}
+
 .compare-panel .compare-head {
   font-weight: 700;
   margin-bottom: 6px;

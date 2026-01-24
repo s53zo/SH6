@@ -198,8 +198,10 @@
       li.addEventListener('click', () => setActiveReport(idx));
       if (childReportIds.has(r.id)) {
         li.classList.add('cli');
+        li.dataset.baseClass = 'cli';
       } else {
         li.classList.add('mli');
+        li.dataset.baseClass = 'mli';
       }
       dom.navList.appendChild(li);
     });
@@ -208,16 +210,15 @@
   }
 
   function updateNavHighlight() {
-    const children = dom.navList.querySelectorAll('li');
+    const children = dom.navList.querySelectorAll('li[data-index]');
     children.forEach((li, idx) => {
-      const isActive = idx === state.activeIndex;
+      const isActive = Number(li.dataset.index) === state.activeIndex;
       li.classList.toggle('active', isActive);
-      if (isActive) {
-        li.classList.remove('mli', 'cli');
-        li.classList.add('sli');
-      } else if (!li.classList.contains('mli') && !li.classList.contains('cli')) {
-        li.classList.add('mli');
+      const base = li.dataset.baseClass;
+      if (base) {
+        li.classList.add(base);
       }
+      li.classList.toggle('sli', isActive);
     });
   }
 

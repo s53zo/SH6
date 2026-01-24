@@ -191,7 +191,68 @@
       'charts_top_10_countries', 'charts_qs_by_band', 'charts_continents', 'charts_frequencies',
       'charts_beam_heading', 'charts_beam_heading_by_hour'
     ]);
+    const navGroups = [
+      {
+        parentId: 'countries_by_time',
+        childIds: ['countries_by_time_10', 'countries_by_time_15', 'countries_by_time_20', 'countries_by_time_40', 'countries_by_time_80', 'countries_by_time_160']
+      },
+      {
+        parentId: 'graphs_qs_by_hour',
+        childIds: ['graphs_qs_by_hour_10', 'graphs_qs_by_hour_15', 'graphs_qs_by_hour_20', 'graphs_qs_by_hour_40', 'graphs_qs_by_hour_80', 'graphs_qs_by_hour_160']
+      },
+      {
+        parentId: 'charts',
+        childIds: ['charts_top_10_countries', 'charts_qs_by_band', 'charts_continents', 'charts_frequencies', 'charts_beam_heading', 'charts_beam_heading_by_hour']
+      }
+    ];
+    const groupParentIds = new Set(navGroups.map((g) => g.parentId));
+    const childIdSet = new Set(navGroups.flatMap((g) => g.childIds));
+
+    const indexById = new Map(reports.map((r, idx) => [r.id, idx]));
+
+    const makeNavItem = (idx, title, baseClass) => {
+      const li = document.createElement('li');
+      li.textContent = title;
+      li.dataset.index = idx;
+      li.dataset.baseClass = baseClass;
+      li.classList.add(baseClass);
+      li.addEventListener('click', () => setActiveReport(idx));
+      return li;
+    };
+
+    const makeSummary = (idx, title, baseClass) => {
+      const summary = document.createElement('summary');
+      summary.textContent = title;
+      summary.dataset.index = idx;
+      summary.dataset.baseClass = baseClass;
+      summary.classList.add(baseClass, 'nav-summary');
+      summary.addEventListener('click', () => setActiveReport(idx));
+      return summary;
+    };
+
     reports.forEach((r, idx) => {
+      if (childIdSet.has(r.id)) return;
+      if (groupParentIds.has(r.id)) {
+        const group = navGroups.find((g) => g.parentId === r.id);
+        const details = document.createElement('details');
+        details.classList.add('nav-group');
+        details.open = true;
+        details.appendChild(makeSummary(idx, r.title, 'mli'));
+        const sublist = document.createElement('ol');
+        sublist.classList.add('nav-sublist');
+        (group?.childIds || []).forEach((childId) => {
+          const childIdx = indexById.get(childId);
+          const childReport = reports[childIdx];
+          if (childIdx == null || !childReport) return;
+          sublist.appendChild(makeNavItem(childIdx, childReport.title, 'cli'));
+        });
+        details.appendChild(sublist);
+        const wrapper = document.createElement('li');
+        wrapper.classList.add('nav-group-item');
+        wrapper.appendChild(details);
+        dom.navList.appendChild(wrapper);
+        return;
+      }
       const li = document.createElement('li');
       li.textContent = r.title;
       li.dataset.index = idx;
@@ -210,15 +271,17 @@
   }
 
   function updateNavHighlight() {
-    const children = dom.navList.querySelectorAll('li[data-index]');
-    children.forEach((li, idx) => {
-      const isActive = Number(li.dataset.index) === state.activeIndex;
-      li.classList.toggle('active', isActive);
-      const base = li.dataset.baseClass;
-      if (base) {
-        li.classList.add(base);
+    const items = dom.navList.querySelectorAll('[data-index]');
+    items.forEach((el) => {
+      const isActive = Number(el.dataset.index) === state.activeIndex;
+      el.classList.toggle('active', isActive);
+      const base = el.dataset.baseClass;
+      if (base) el.classList.add(base);
+      el.classList.toggle('sli', isActive);
+      if (isActive) {
+        const details = el.closest('details');
+        if (details) details.open = true;
       }
-      li.classList.toggle('sli', isActive);
     });
   }
 

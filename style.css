@@ -341,6 +341,29 @@ a:hover {
   cursor: pointer;
 }
 
+.nav-group-item {
+  list-style: none;
+  margin: 4px 0;
+}
+
+.nav-group {
+  margin: 0;
+}
+
+.nav-group summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.nav-group summary::marker {
+  color: #666666;
+}
+
+.nav-sublist {
+  padding-left: 16px;
+  margin: 4px 0 6px;
+}
+
 .sidebar li.active {
   font-weight: 700;
   color: #1c6dd0;
@@ -674,6 +697,10 @@ th {
 .cli {
   text-transform: none;
   margin-left: 14px;
+}
+
+.nav-sublist .cli {
+  margin-left: 0;
 }
 
 .dal {

@@ -170,6 +170,15 @@ a:hover {
   padding: 6px 8px;
 }
 
+.compare-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.compare-scroll table {
+  width: max-content;
+}
+
 .compare-panel .compare-head {
   font-weight: 700;
   margin-bottom: 6px;

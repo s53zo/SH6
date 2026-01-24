@@ -4668,11 +4668,11 @@
       <div class="${gridClass}">
         <div class="compare-panel compare-a">
           <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
-          ${aHtml}
+          <div class="compare-scroll">${aHtml}</div>
         </div>
         <div class="compare-panel compare-b">
           <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
-          ${bHtml}
+          <div class="compare-scroll">${bHtml}</div>
         </div>
       </div>
     `;

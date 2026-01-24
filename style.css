@@ -160,6 +160,12 @@ a:hover {
   gap: 12px;
 }
 
+.compare-grid.compare-narrow {
+  grid-template-columns: max-content max-content;
+  justify-content: start;
+  gap: 10px;
+}
+
 .compare-grid.compare-stack {
   grid-template-columns: 1fr;
 }

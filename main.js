@@ -4663,7 +4663,27 @@
     const aRows = estimateReportRows(reportId, slotA.derived);
     const bRows = estimateReportRows(reportId, slotB.derived);
     const stack = Math.max(aRows, bRows) <= 10;
-    const gridClass = stack ? 'compare-grid compare-stack' : 'compare-grid';
+    const narrowReports = new Set([
+      'summary',
+      'operators',
+      'dupes',
+      'qs_per_station',
+      'zones_cq',
+      'zones_itu',
+      'callsign_length',
+      'callsign_structure',
+      'distance',
+      'passed_qsos',
+      'possible_errors',
+      'not_in_master',
+      'one_minute_rates',
+      'rates',
+      'all_callsigns'
+    ]);
+    const isNarrow = narrowReports.has(reportId);
+    const gridClass = stack
+      ? `compare-grid compare-stack${isNarrow ? ' compare-narrow' : ''}`
+      : `compare-grid${isNarrow ? ' compare-narrow' : ''}`;
     return `
       <div class="${gridClass}">
         <div class="compare-panel compare-a">

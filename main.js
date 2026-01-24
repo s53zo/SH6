@@ -4857,6 +4857,139 @@
     return renderComparePanels(slotA, slotB, aHtml, bHtml, 'qs_by_minute');
   }
 
+  function buildFrequencyMapFromDerived(derived) {
+    const map = new Map();
+    if (!derived || !derived.frequencySummary) return map;
+    derived.frequencySummary.forEach((f) => {
+      const label = Number.isFinite(f.freq) ? f.freq.toFixed(1) : String(f.freq);
+      map.set(label, f.count);
+    });
+    return map;
+  }
+
+  function buildFrequencyOrder(mapA, mapB) {
+    const keys = new Set([...mapA.keys(), ...mapB.keys()]);
+    return Array.from(keys).sort((a, b) => {
+      const an = parseFloat(a);
+      const bn = parseFloat(b);
+      if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
+      return String(a).localeCompare(String(b));
+    });
+  }
+
+  function renderChartFrequenciesForSlot(slot, order) {
+    if (!slot.derived || !slot.derived.frequencySummary) {
+      return renderPlaceholder({ id: 'charts_frequencies', title: 'Frequencies' });
+    }
+    const map = buildFrequencyMapFromDerived(slot.derived);
+    const data = order.map((label) => ({ label, value: map.get(label) || 0 }));
+    return `<div class="mtc"><div class="gradient">&nbsp;Frequencies</div>${renderBars(data, 'label', 'value')}</div>`;
+  }
+
+  function renderChartFrequenciesCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const order = buildFrequencyOrder(
+      buildFrequencyMapFromDerived(slotA.derived),
+      buildFrequencyMapFromDerived(slotB.derived)
+    );
+    const aHtml = aReady ? renderChartFrequenciesForSlot(slotA, order) : '<p>No Log A loaded.</p>';
+    const bHtml = bReady ? renderChartFrequenciesForSlot(slotB, order) : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'charts_frequencies');
+  }
+
+  function buildHeadingChartMap(derived) {
+    const map = new Map();
+    if (!derived || !derived.headingSummary) return map;
+    derived.headingSummary.forEach((h) => map.set(h.start, { label: h.sector, value: h.count }));
+    return map;
+  }
+
+  function buildHeadingChartOrder(mapA, mapB) {
+    const starts = new Set([...mapA.keys(), ...mapB.keys()]);
+    return Array.from(starts).sort((a, b) => a - b);
+  }
+
+  function renderChartBeamHeadingForSlot(slot, order) {
+    if (!slot.derived || !slot.derived.headingSummary) {
+      return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
+    }
+    const map = buildHeadingChartMap(slot.derived);
+    const data = order.map((start) => {
+      const entry = map.get(start);
+      return {
+        label: entry ? entry.label : `${start}-${start + 29}`,
+        value: entry ? entry.value : 0
+      };
+    });
+    return `<div class="mtc"><div class="gradient">&nbsp;Beam heading</div>${renderBars(data, 'label', 'value')}</div>`;
+  }
+
+  function renderChartBeamHeadingCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const order = buildHeadingChartOrder(
+      buildHeadingChartMap(slotA.derived),
+      buildHeadingChartMap(slotB.derived)
+    );
+    const aHtml = aReady ? renderChartBeamHeadingForSlot(slotA, order) : '<p>No Log A loaded.</p>';
+    const bHtml = bReady ? renderChartBeamHeadingForSlot(slotB, order) : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'charts_beam_heading');
+  }
+
+  function buildHeadingByHourMap(derived) {
+    const map = new Map();
+    if (!derived || !derived.headingByHourSeries) return map;
+    derived.headingByHourSeries.forEach((h) => {
+      const sectorMap = new Map();
+      h.sectors.forEach((s) => sectorMap.set(s.sector, s.count));
+      map.set(h.hour, sectorMap);
+    });
+    return map;
+  }
+
+  function buildHeadingByHourOrder(mapA, mapB) {
+    const hours = new Set([...mapA.keys(), ...mapB.keys()]);
+    return Array.from(hours).sort((a, b) => a - b);
+  }
+
+  function buildHeadingByHourSectors(mapA, mapB) {
+    const sectors = new Set();
+    mapA.forEach((m) => m.forEach((_, s) => sectors.add(s)));
+    mapB.forEach((m) => m.forEach((_, s) => sectors.add(s)));
+    return Array.from(sectors).sort((a, b) => a - b);
+  }
+
+  function renderChartBeamHeadingByHourForSlot(slot, hours, sectors) {
+    if (!slot.derived || !slot.derived.headingByHourSeries) {
+      return renderPlaceholder({ id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' });
+    }
+    const map = buildHeadingByHourMap(slot.derived);
+    const header = sectors.map((s) => `<th>${s}-${s + 29}</th>`).join('');
+    const rows = hours.map((hour, idx) => {
+      const date = formatDateSh6(hour * 3600000);
+      const sectorMap = map.get(hour) || new Map();
+      const cells = sectors.map((s) => `<td>${sectorMap.get(s) || 0}</td>`).join('');
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `<tr class="${cls}"><td>${date}</td>${cells}</tr>`;
+    }).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Hour (UTC)</th>${header}</tr>
+        ${rows}
+      </table>
+    `;
+  }
+
+  function renderChartBeamHeadingByHourCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const mapA = buildHeadingByHourMap(slotA.derived);
+    const mapB = buildHeadingByHourMap(slotB.derived);
+    const hours = buildHeadingByHourOrder(mapA, mapB);
+    const sectors = buildHeadingByHourSectors(mapA, mapB);
+    const aHtml = aReady ? renderChartBeamHeadingByHourForSlot(slotA, hours, sectors) : '<p>No Log A loaded.</p>';
+    const bHtml = bReady ? renderChartBeamHeadingByHourForSlot(slotB, hours, sectors) : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'charts_beam_heading_by_hour');
+  }
+
   function renderReportCompare(report) {
     if (report.id === 'log') {
       return renderLogCompare();
@@ -4866,6 +4999,15 @@
     }
     if (report.id === 'qs_by_minute') {
       return renderQsByMinuteCompareAligned();
+    }
+    if (report.id === 'charts_frequencies') {
+      return renderChartFrequenciesCompareAligned();
+    }
+    if (report.id === 'charts_beam_heading') {
+      return renderChartBeamHeadingCompareAligned();
+    }
+    if (report.id === 'charts_beam_heading_by_hour') {
+      return renderChartBeamHeadingByHourCompareAligned();
     }
     if (report.id.startsWith('graphs_qs_by_hour')) {
       let bandFilter = null;

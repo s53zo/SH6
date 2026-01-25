@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.34';
+  const APP_VERSION = 'v1.1.35';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4704,7 +4704,7 @@
 
   function renderChartTop10Countries() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_top_10_countries', title: 'Top 10 countries' });
-    const top = state.derived.countrySummary.slice(0, 10);
+    const top = state.derived.countrySummary.slice().sort((a, b) => (b.qsos || 0) - (a.qsos || 0)).slice(0, 10);
     return `<div class="mtc"><div class="gradient">&nbsp;Top 10 countries</div>${renderBars(top, 'country', 'qsos')}</div>`;
   }
 
@@ -5370,8 +5370,7 @@
       if (prev) prev.addEventListener('click', () => {
         if (state.logPage > 0) {
           state.logPage -= 1;
-          dom.viewContainer.innerHTML = renderLog();
-          bindReportInteractions('log');
+          renderReportWithLoading(reports[state.activeIndex]);
         }
       });
       if (next) next.addEventListener('click', () => {
@@ -5423,8 +5422,7 @@
         const totalPages = Math.max(1, Math.ceil(filteredCount / state.logPageSize));
         if (state.logPage < totalPages - 1) {
           state.logPage += 1;
-          dom.viewContainer.innerHTML = renderLog();
-          bindReportInteractions('log');
+          renderReportWithLoading(reports[state.activeIndex]);
         }
       });
       pageLinks.forEach((link) => {
@@ -5433,8 +5431,7 @@
           const page = parseInt(link.dataset.page, 10);
           if (Number.isFinite(page)) {
             state.logPage = page;
-            dom.viewContainer.innerHTML = renderLog();
-            bindReportInteractions('log');
+            renderReportWithLoading(reports[state.activeIndex]);
           }
         });
       });
@@ -5453,8 +5450,7 @@
           state.logTimeRange = null;
           state.logHeadingRange = null;
           state.logPage = 0;
-          dom.viewContainer.innerHTML = renderLog();
-          bindReportInteractions('log');
+          renderReportWithLoading(reports[state.activeIndex]);
         });
       }
       if (searchClear) {
@@ -5471,8 +5467,7 @@
           state.logTimeRange = null;
           state.logHeadingRange = null;
           state.logPage = 0;
-          dom.viewContainer.innerHTML = renderLog();
-          bindReportInteractions('log');
+          renderReportWithLoading(reports[state.activeIndex]);
         });
       }
       if (clearFilters) {
@@ -5490,8 +5485,7 @@
           state.logTimeRange = null;
           state.logHeadingRange = null;
           state.logPage = 0;
-          dom.viewContainer.innerHTML = renderLog();
-          bindReportInteractions('log');
+          renderReportWithLoading(reports[state.activeIndex]);
         });
       }
     }
@@ -5514,8 +5508,8 @@
           state.logTimeRange = null;
           state.logHeadingRange = null;
           state.logPage = 0;
-          dom.viewContainer.innerHTML = renderLog();
-          bindReportInteractions('log');
+          const logIndex = reports.findIndex((r) => r.id === 'log');
+          if (logIndex >= 0) setActiveReport(logIndex);
         });
       });
     }

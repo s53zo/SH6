@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.44';
+  const APP_VERSION = 'v1.1.45';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -65,7 +65,7 @@
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SOLAR_KP_URL = 'https://www-app3.gfz-potsdam.de/kp_index/Kp_ap_since_1932.txt';
-  const SOLAR_SSN_URL = 'https://www.sidc.be/SILSO/INFO/sndtotcsv.php';
+  const SOLAR_SSN_URL = 'https://www.sidc.be/SILSO/DATA/SN_d_tot_V2.0.txt';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -797,13 +797,14 @@
     return { kp, ap };
   }
 
-  function parseSsnCsv(text, minKey, maxKey) {
+  function parseSsnTxt(text, minKey, maxKey) {
     const ssn = new Map();
     const lines = String(text || '').split(/\r?\n/);
     for (const line of lines) {
-      if (!line) continue;
-      const parts = line.split(';');
-      if (parts.length < 5) continue;
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const parts = trimmed.split(/\s+/);
+      if (parts.length < 4) continue;
       const year = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10);
       const day = parseInt(parts[2], 10);
@@ -811,7 +812,7 @@
       const key = year * 10000 + month * 100 + day;
       if (minKey && key < minKey) continue;
       if (maxKey && key > maxKey) continue;
-      const val = parseInt(parts[4], 10);
+      const val = parseInt(parts[4] ?? parts[3], 10);
       if (Number.isFinite(val) && val >= 0) {
         ssn.set(key, val);
       }
@@ -853,7 +854,7 @@
       return;
     }
     const kpAp = parseKpApText(kpText, range.minKey, range.maxKey);
-    const ssn = parseSsnCsv(ssnText, range.minKey, range.maxKey);
+    const ssn = parseSsnTxt(ssnText, range.minKey, range.maxKey);
     const data = {
       key: range.key,
       updatedAt: Date.now(),

@@ -141,13 +141,14 @@ function parseKpApText(text, minKey, maxKey) {
   return { kp, ap };
 }
 
-function parseSsnCsv(text, minKey, maxKey) {
+function parseSsnTxt(text, minKey, maxKey) {
   const ssn = [];
   const lines = String(text || '').split(/\r?\n/);
   for (const line of lines) {
-    if (!line) continue;
-    const parts = line.split(';');
-    if (parts.length < 5) continue;
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 4) continue;
     const year = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10);
     const day = parseInt(parts[2], 10);
@@ -155,7 +156,7 @@ function parseSsnCsv(text, minKey, maxKey) {
     const key = year * 10000 + month * 100 + day;
     if (minKey && key < minKey) continue;
     if (maxKey && key > maxKey) continue;
-    const val = parseInt(parts[4], 10);
+    const val = parseInt(parts[4] ?? parts[3], 10);
     if (Number.isFinite(val) && val >= 0) {
       ssn.push([key, val]);
     }
@@ -192,7 +193,7 @@ self.onmessage = (evt) => {
   }
   if (payload.type === 'parseSolar') {
     const kpAp = parseKpApText(payload.kpText, payload.minKey, payload.maxKey);
-    const ssn = parseSsnCsv(payload.ssnText, payload.minKey, payload.maxKey);
+    const ssn = parseSsnTxt(payload.ssnText, payload.minKey, payload.maxKey);
     self.postMessage({
       type: 'solarParsed',
       key: payload.key,

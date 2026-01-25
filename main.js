@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.45';
+  const APP_VERSION = 'v1.1.46';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -64,8 +64,7 @@
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
-  const SOLAR_KP_URL = 'https://www-app3.gfz-potsdam.de/kp_index/Kp_ap_since_1932.txt';
-  const SOLAR_SSN_URL = 'https://www.sidc.be/SILSO/DATA/SN_d_tot_V2.0.txt';
+  const SOLAR_SWL_BASE = 'https://www.spaceweatherlive.com/en/archive';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -755,69 +754,60 @@
     }
   }
 
-  function parseKpApText(text, minKey, maxKey) {
-    const sumKp = new Map();
-    const sumAp = new Map();
-    const countKp = new Map();
-    const countAp = new Map();
-    const lines = String(text || '').split(/\r?\n/);
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const parts = trimmed.split(/\s+/);
-      if (parts.length < 9) continue;
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10);
-      const day = parseInt(parts[2], 10);
-      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) continue;
-      const key = year * 10000 + month * 100 + day;
-      if (minKey && key < minKey) continue;
-      if (maxKey && key > maxKey) continue;
-      const kpVal = parseFloat(parts[7]);
-      const apVal = parseFloat(parts[8]);
-      if (Number.isFinite(kpVal) && kpVal >= 0) {
-        sumKp.set(key, (sumKp.get(key) || 0) + kpVal);
-        countKp.set(key, (countKp.get(key) || 0) + 1);
-      }
-      if (Number.isFinite(apVal) && apVal >= 0) {
-        sumAp.set(key, (sumAp.get(key) || 0) + apVal);
-        countAp.set(key, (countAp.get(key) || 0) + 1);
-      }
-    }
-    const kp = new Map();
-    const ap = new Map();
-    sumKp.forEach((sum, key) => {
-      const count = countKp.get(key) || 0;
-      if (count) kp.set(key, sum / count);
-    });
-    sumAp.forEach((sum, key) => {
-      const count = countAp.get(key) || 0;
-      if (count) ap.set(key, sum / count);
-    });
-    return { kp, ap };
+  const MONTH_MAP = {
+    Jan: 1,
+    Feb: 2,
+    Mar: 3,
+    Apr: 4,
+    May: 5,
+    Jun: 6,
+    Jul: 7,
+    Aug: 8,
+    Sep: 9,
+    Oct: 10,
+    Nov: 11,
+    Dec: 12
+  };
+
+  function dayKeyFromParts(year, month, day) {
+    return year * 10000 + month * 100 + day;
   }
 
-  function parseSsnTxt(text, minKey, maxKey) {
+  function buildSolarUrlForDate(date) {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${SOLAR_SWL_BASE}/${y}/${m}/${d}/rsga.html`;
+  }
+
+  function parseSpaceWeatherHtml(text, pageDate) {
     const ssn = new Map();
-    const lines = String(text || '').split(/\r?\n/);
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      const parts = trimmed.split(/\s+/);
-      if (parts.length < 4) continue;
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10);
-      const day = parseInt(parts[2], 10);
-      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) continue;
-      const key = year * 10000 + month * 100 + day;
-      if (minKey && key < minKey) continue;
-      if (maxKey && key > maxKey) continue;
-      const val = parseInt(parts[4] ?? parts[3], 10);
-      if (Number.isFinite(val) && val >= 0) {
-        ssn.set(key, val);
-      }
+    const ap = new Map();
+    const year = pageDate.getUTCFullYear();
+    const pageMonth = pageDate.getUTCMonth() + 1;
+    const ssnMatch = text.match(/Penticton 10\.7 cm Flux[\s\S]*?Observed\s+(\d{2})\s+([A-Za-z]{3})\s+(\d{2,3})/i);
+    if (ssnMatch) {
+      const day = parseInt(ssnMatch[1], 10);
+      const mon = MONTH_MAP[ssnMatch[2]] || pageMonth;
+      let y = year;
+      if (pageMonth === 1 && mon === 12) y = year - 1;
+      if (pageMonth === 12 && mon === 1) y = year + 1;
+      const key = dayKeyFromParts(y, mon, day);
+      const val = parseInt(ssnMatch[3], 10);
+      if (Number.isFinite(val)) ssn.set(key, val);
     }
-    return ssn;
+    const apMatch = text.match(/Geomagnetic A Indices[\s\S]*?Observed\s+Afr\/Ap\s+(\d{2})\s+([A-Za-z]{3})\s+\d+\/(\d{2,3})/i);
+    if (apMatch) {
+      const day = parseInt(apMatch[1], 10);
+      const mon = MONTH_MAP[apMatch[2]] || pageMonth;
+      let y = year;
+      if (pageMonth === 1 && mon === 12) y = year - 1;
+      if (pageMonth === 12 && mon === 1) y = year + 1;
+      const key = dayKeyFromParts(y, mon, day);
+      const val = parseInt(apMatch[3], 10);
+      if (Number.isFinite(val)) ap.set(key, val);
+    }
+    return { ssn, ap };
   }
 
   async function fetchSolarDataForRange(range) {
@@ -827,40 +817,26 @@
     state.solarError = null;
     state.solarPendingKey = range.key;
     updateDataStatus();
-    const kpUrls = buildFetchUrls([SOLAR_KP_URL]);
-    const ssnUrls = buildFetchUrls([SOLAR_SSN_URL]);
-    const [kpRes, ssnRes] = await Promise.all([
-      fetchWithFallback(kpUrls, () => {}),
-      fetchWithFallback(ssnUrls, () => {})
-    ]);
-    if (kpRes.error || ssnRes.error) {
-      state.solarStatus = 'error';
-      state.solarError = kpRes.error || ssnRes.error || 'Solar fetch failed';
-      state.solarPendingKey = null;
-      updateDataStatus();
-      return;
+    const ssn = new Map();
+    const ap = new Map();
+    const start = new Date(range.minTs);
+    const end = new Date(range.maxTs);
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+      const url = buildSolarUrlForDate(d);
+      const urls = buildFetchUrls([url]);
+      const res = await fetchWithFallback(urls, () => {});
+      if (res.error) continue;
+      const html = res.text || res;
+      const parsed = parseSpaceWeatherHtml(html, d);
+      parsed.ssn.forEach((val, key) => ssn.set(key, val));
+      parsed.ap.forEach((val, key) => ap.set(key, val));
     }
-    const kpText = kpRes.text || kpRes;
-    const ssnText = ssnRes.text || ssnRes;
-    if (ensureCompareWorker()) {
-      state.compareWorker.postMessage({
-        type: 'parseSolar',
-        key: range.key,
-        minKey: range.minKey,
-        maxKey: range.maxKey,
-        kpText,
-        ssnText
-      });
-      return;
-    }
-    const kpAp = parseKpApText(kpText, range.minKey, range.maxKey);
-    const ssn = parseSsnTxt(ssnText, range.minKey, range.maxKey);
     const data = {
       key: range.key,
       updatedAt: Date.now(),
       ssn,
-      kp: kpAp.kp,
-      ap: kpAp.ap
+      kp: new Map(),
+      ap
     };
     state.solarData = data;
     state.solarKey = range.key;
@@ -1023,11 +999,9 @@
     if (!solarData) return fallback;
     const key = dateKeyFromTs(hourTs);
     const ssn = solarData.ssn.get(key);
-    const kp = solarData.kp.get(key);
     const ap = solarData.ap.get(key);
     return {
       ssn: ssn ?? fallback.ssn,
-      kIndex: kp ?? fallback.kIndex,
       ap: ap ?? fallback.ap
     };
   }
@@ -3845,12 +3819,10 @@
       lastDay = day;
       const solar = getSolarForHour(solarData, h.hour * 3600000, {
         ssn: state.derived.contestMeta?.ssn || '',
-        kIndex: state.derived.contestMeta?.kIndex || '',
         ap: ''
       });
       const ssnText = escapeHtml(solar.ssn || '');
-      const kIndexText = escapeHtml(solar.kIndex || '');
-      const kDots = solar.kIndex ? '&#8226;'.repeat(Math.max(1, Math.min(5, Number(solar.kIndex)))) : '';
+      const aIndexText = escapeHtml(solar.ap || '');
       const cells = bandCols.map((b) => {
         const count = h.bands[b] || 0;
         if (!count) return '<td></td>';
@@ -3861,7 +3833,7 @@
       const avgPts = pts && h.qsos ? (pts / h.qsos).toFixed(1) : '';
       const cls = idx % 2 === 0 ? 'td1' : 'td0';
       const allLink = `<a href="#" class="log-hour" data-hour="${h.hour}"><b>${formatNumberSh6(h.qsos)}</b></a>`;
-      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}:00Z</b></td><td>${ssnText}</td><td>${kIndexText}</td><td align="left">${kDots}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}:00Z</b></td><td>${ssnText}</td><td>${aIndexText}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
@@ -3869,7 +3841,7 @@
           <th rowspan="2">Day</th>
           <th rowspan="2">Hour</th>
           <th rowspan="2">SSN</th>
-          <th colspan="2" rowspan="2">K<br/>index</th>
+          <th rowspan="2">A<br/>index</th>
           <th colspan="10">QSOs</th>
         </tr>
         <tr class="thc">
@@ -3943,25 +3915,14 @@
       const hour = entry ? entry.hour : Number(String(key).split('-')[1]);
       const dayLabel = day !== lastDay ? (WEEKDAY_LABELS[day] || '') : '';
       lastDay = day;
-      const kDots = entry && entry.sampleTs
-        ? (() => {
-          const solar = getSolarForHour(solarData, entry.sampleTs, {
-            ssn: slot.derived.contestMeta?.ssn || '',
-            kIndex: slot.derived.contestMeta?.kIndex || '',
-            ap: ''
-          });
-          return solar.kIndex ? '&#8226;'.repeat(Math.max(1, Math.min(5, Number(solar.kIndex)))) : '';
-        })()
-        : '';
       const solar = entry && entry.sampleTs
         ? getSolarForHour(solarData, entry.sampleTs, {
           ssn: slot.derived.contestMeta?.ssn || '',
-          kIndex: slot.derived.contestMeta?.kIndex || '',
           ap: ''
         })
-        : { ssn: '', kIndex: '', ap: '' };
+        : { ssn: '', ap: '' };
       const ssnText = escapeHtml(solar.ssn || '');
-      const kIndexText = escapeHtml(solar.kIndex || '');
+      const aIndexText = escapeHtml(solar.ap || '');
       const cells = bandCols.map((b) => {
         const count = entry ? (entry.bands.get(b) || 0) : 0;
         if (!count) return '<td></td>';
@@ -3980,7 +3941,7 @@
       const allLink = qsos && hourBucket != null
         ? `<a href="#" class="log-hour" data-hour="${hourBucket}"><b>${formatNumberSh6(qsos)}</b></a>`
         : (qsos ? `<b>${formatNumberSh6(qsos)}</b>` : '');
-      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hourLabel}</b></td><td>${ssnText}</td><td>${kIndexText}</td><td align="left">${kDots}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum || '')}</td><td>${formatNumberSh6(pts || '')}</td><td>${avgPts}</td></tr>`;
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hourLabel}</b></td><td>${ssnText}</td><td>${aIndexText}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum || '')}</td><td>${formatNumberSh6(pts || '')}</td><td>${avgPts}</td></tr>`;
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
@@ -3988,7 +3949,7 @@
           <th rowspan="2">Day</th>
           <th rowspan="2">Hour</th>
           <th rowspan="2">SSN</th>
-          <th colspan="2" rowspan="2">K<br/>index</th>
+          <th rowspan="2">A<br/>index</th>
           <th colspan="10">QSOs</th>
         </tr>
         <tr class="thc">
@@ -5103,20 +5064,18 @@
       for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
         const key = dateKeyFromTs(d.getTime());
         const ssn = solarData.ssn.get(key);
-        const kp = solarData.kp.get(key);
         const ap = solarData.ap.get(key);
         rows.push(`
           <tr class="${rows.length % 2 === 0 ? 'td1' : 'td0'}">
             <td>${formatDateKey(key)}</td>
             <td>${ssn != null ? formatNumberSh6(ssn) : ''}</td>
-            <td>${kp != null ? kp.toFixed(2) : ''}</td>
             <td>${ap != null ? ap.toFixed(0) : ''}</td>
           </tr>
         `);
       }
       table = `
         <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc"><th>Date (UTC)</th><th>SSN</th><th>Kp (mean)</th><th>ap (mean)</th></tr>
+          <tr class="thc"><th>Date (UTC)</th><th>SSN</th><th>A index (Ap)</th></tr>
           ${rows.join('')}
         </table>
       `;
@@ -5124,14 +5083,13 @@
       table = '<p>Loading solar data…</p>';
     }
     return `
-      <p>Solar data sources:</p>
+      <p>Solar data source:</p>
       <ul>
-        <li>GFZ Kp/ap: ${escapeHtml(SOLAR_KP_URL)}</li>
-        <li>SILSO SSN: ${escapeHtml(SOLAR_SSN_URL)}</li>
+        <li>SpaceWeatherLive daily archive (RSGA): ${escapeHtml(SOLAR_SWL_BASE)}</li>
       </ul>
       <p>Status: <b>${escapeHtml(status)}</b> | Range: <b>${rangeText}</b> | Updated: <b>${updated}</b></p>
       ${err}
-      <p>Data are fetched via proxy and cached locally for 7 days. Kp and ap are daily means from 3‑hour values; SSN uses daily total sunspot number. Range includes 10 days before and 2 days after the contest.</p>
+      <p>Data are fetched via proxy and cached locally for 7 days. SSN is taken from “IV. Penticton 10.7 cm Flux” Observed value; A index from “V. Geomagnetic A Indices” Observed Afr/Ap. Range includes 10 days before and 2 days after the contest.</p>
       ${table}
     `;
   }

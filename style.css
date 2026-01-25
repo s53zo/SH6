@@ -100,8 +100,14 @@ a:hover {
 
 .brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
+}
+
+.brand-logo {
+  height: 28px;
+  width: auto;
+  display: block;
 }
 
 .logo {

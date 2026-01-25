@@ -885,36 +885,33 @@ th {
   font-weight: 700;
 }
 
-.landing-hero h3 {
+.landing-intro h3 {
   margin: 6px 0 4px;
 }
 
-.landing-hero p {
-  margin: 0 0 8px;
+.landing-intro p {
+  margin: 0 0 10px;
 }
 
-.landing-callout {
+.landing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.landing-card {
   border: 1px solid #dddddd;
-  background: #f6f6f6;
-  padding: 8px 10px;
-  margin: 8px 0;
+  background: #f8f8f8;
+  padding: 10px 12px;
 }
 
-.landing-tip {
-  color: #555555;
-  font-size: 12px;
-}
-
-.landing-actions-title {
+.landing-title {
   font-weight: 700;
-  margin: 6px 0;
+  margin-bottom: 6px;
 }
 
-.landing-actions ol {
-  margin: 4px 0 6px 20px;
-}
-
-.landing-buttons {
+.landing-cta {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -927,11 +924,24 @@ th {
   color: #555555;
 }
 
-.landing-next ul {
-  margin: 4px 0 8px 20px;
+.landing-privacy {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #444444;
 }
 
-.landing-next li {
+.landing-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+}
+
+.landing-bullets {
+  margin: 4px 0 0 18px;
+}
+
+.landing-bullets li {
   margin: 4px 0;
 }
 

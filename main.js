@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.21';
+  const APP_VERSION = 'v2.1.22';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2878,37 +2878,37 @@
       ? `${bMeta?.stationCallsign || 'Log B'} · ${bMeta?.contestId || 'N/A'} · ${state.compareB.qsoData.qsos.length} QSOs`
       : 'No Log B loaded yet.';
     return `
-      <div class="mtc">
-        <div class="gradient">&nbsp;Welcome</div>
-        <div class="landing-hero">
-          <h3>SH6 — Contest log analyzer (runs in your browser)</h3>
-          <p>Upload a log or pick one from the archive. Explore Countries, Rates, Operators, Maps, and compare two logs side-by-side.</p>
+      <div class="mtc landing">
+        <div class="gradient">&nbsp;Start here</div>
+        <div class="landing-intro">
+          <h3>SH6 — Contest log analyzer</h3>
+          <p>Runs entirely in your browser. Load a log and explore countries, rates, operators, maps, and comparisons.</p>
         </div>
-        <div class="landing-callout">
-          <b>Privacy:</b> Your log is processed locally in your browser. Files are not uploaded to a server.<br/>
-          <span class="landing-tip">Tip: very large logs may take a moment to render.</span>
-        </div>
-        <div class="landing-actions">
-          <div class="landing-actions-title">Start here</div>
-          <ol>
-            <li>Load Log A (upload or pick from the archive above).</li>
-            <li>Optional: enable Compare mode and load Log B.</li>
-            <li>Open a report from the menu to explore the results.</li>
-          </ol>
-          <div class="landing-buttons">
-            <button type="button" class="button demo-log-btn">Try demo log</button>
-            <span class="landing-formats">Supported: Cabrillo (.log/.cbr), ADIF (.adi/.adif), CBF (.cbf).</span>
+        <div class="landing-grid">
+          <div class="landing-card">
+            <div class="landing-title">1) Load a log</div>
+            <p>Use the controls above to upload Log A or pick one from the archive. Enable Compare mode to add Log B.</p>
+            <div class="landing-cta">
+              <button type="button" class="button demo-log-btn">Try demo log</button>
+              <span class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif), CBF (.cbf).</span>
+            </div>
+            <div class="landing-privacy">Privacy: logs stay on your machine; nothing is uploaded to a server.</div>
           </div>
-        </div>
-        <div class="landing-next">
-          <div class="landing-actions-title">Recommended first clicks</div>
-          <ul>
-            <li><a href="#" class="report-shortcut" data-report="summary">Summary</a> — overview of totals and bands.</li>
-            <li><a href="#" class="report-shortcut" data-report="countries">Countries</a> — DX breakdown with map links.</li>
-            <li><a href="#" class="report-shortcut" data-report="operators">Operators</a> — operator list with QRZ photos.</li>
-            <li><a href="#" class="report-shortcut" data-map="all">Map</a> — visualize all QSOs.</li>
-            <li><a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a> — download for Google Earth.</li>
-          </ul>
+          <div class="landing-card">
+            <div class="landing-title">2) Explore results</div>
+            <div class="landing-links">
+              <a href="#" class="report-shortcut" data-report="summary">Summary</a>
+              <a href="#" class="report-shortcut" data-report="countries">Countries</a>
+              <a href="#" class="report-shortcut" data-report="operators">Operators</a>
+              <a href="#" class="report-shortcut" data-map="all">Map</a>
+              <a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a>
+            </div>
+            <ul class="landing-bullets">
+              <li>Click counts to filter the Log view.</li>
+              <li>Use Map and KMZ files for visualization.</li>
+              <li>Large logs may take a moment to render.</li>
+            </ul>
+          </div>
         </div>
         <table class="mtc landing-status">
           <tr class="thc"><th>Log A</th><th>Log B</th></tr>

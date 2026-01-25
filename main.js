@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.18';
+  const APP_VERSION = 'v2.1.19';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -732,8 +732,12 @@
     }
   }
 
-  function mapAllLink(label = 'all') {
+  function mapAllLink(label = 'Map all') {
     return `<a href="#" class="map-link map-all" data-scope="all" data-key="">${label}</a>`;
+  }
+
+  function mapAllFooter() {
+    return `<tr class="thc"><td colspan="100" class="tac">${mapAllLink()}</td></tr>`;
   }
 
   const dateFormatCache = new Map();
@@ -2826,7 +2830,7 @@
           <th colspan="3">All</th>
           <th rowspan="2">Countries</th>
           <th rowspan="2">Qs Pts</th>
-          <th rowspan="2">Map<br/>${mapAllLink()}</th>
+          <th rowspan="2">Map</th>
         </tr>
         <tr class="thc">
           <th>QSOs</th><th colspan="2">%</th>
@@ -2835,6 +2839,7 @@
           <th>QSOs</th><th colspan="2">%</th>
         </tr>
         ${rows}
+        ${mapAllFooter()}
       </table>
     `;
   }
@@ -3615,7 +3620,7 @@
           <th rowspan="2">Distance, km</th>
           <th colspan="11">QSOs</th>
           <th rowspan="2">Bands</th>
-          <th rowspan="2">Map<br/>${mapAllLink()}</th>
+          <th rowspan="2">Map</th>
         </tr>
         <tr class="thc">
           <th>CW</th><th>DIG</th><th>SSB</th>
@@ -3623,6 +3628,7 @@
           <th>All</th><th>%</th>
         </tr>
         ${rows}
+        ${mapAllFooter()}
       </table>
     `;
   }
@@ -3703,9 +3709,10 @@
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <colgroup><col width="30px"/><col width="200px"/><col span="11" width="120px"/><col width="5%"/></colgroup>
-        <tr class="thc"><th colspan="2" rowspan="2">Continent</th><th colspan="11">QSOs</th><th colspan="2" rowspan="2">Map<br/>${mapAllLink()}</th></tr>
+        <tr class="thc"><th colspan="2" rowspan="2">Continent</th><th colspan="11">QSOs</th><th colspan="2" rowspan="2">Map</th></tr>
         <tr class="thc"><th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th><th>All</th><th>%</th><th>CW</th><th>Digital</th><th>Phone</th></tr>
         ${rows}
+        ${mapAllFooter()}
       </table>
     `;
   }
@@ -3768,8 +3775,9 @@
   function renderZonesTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map<br/>${mapAllLink()}</th></tr>
+        <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map</th></tr>
         ${rows}
+        ${mapAllFooter()}
       </table>
     `;
   }
@@ -4370,8 +4378,9 @@
   function renderDistanceTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map<br/>${mapAllLink()}</th></tr>
+        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map</th></tr>
         ${rows}
+        ${mapAllFooter()}
       </table>
     `;
   }
@@ -4445,9 +4454,10 @@
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <colgroup><col width="100px" align="center"/><col span="9" width="60px"/><col width="5%"/></colgroup>
-        <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="7">QSOs</th><th colspan="2" rowspan="2">%</th><th colspan="2" rowspan="2">Map<br/>${mapAllLink()}</th></tr>
+        <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="7">QSOs</th><th colspan="2" rowspan="2">%</th><th colspan="2" rowspan="2">Map</th></tr>
         <tr class="thc"><th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th><th>All</th></tr>
         ${rows}
+        ${mapAllFooter()}
       </table>
     `;
   }

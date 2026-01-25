@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.29';
+  const APP_VERSION = 'v2.1.30';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2936,7 +2936,7 @@
         </section>
         <section class="landing-section landing-panel">
           <h3>Author</h3>
-          <p>Made by Simon, <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a>. Feedback and comments are welcome.</p>
+          <p>Made by Simon, <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a> based on a popular solution that is no longer available. Feedback and comments are welcome.</p>
         </section>
       </div>
     `;

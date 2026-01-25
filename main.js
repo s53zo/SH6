@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.27';
+  const APP_VERSION = 'v2.1.28';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2899,7 +2899,7 @@
             <button type="button" class="button landing-action" data-action="compare">Compare two logs</button>
             <button type="button" class="button demo-log-btn">Try demo log</button>
           </div>
-          <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif), CBF (.cbf).</div>
+          <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif).</div>
         </section>
         <section class="landing-section landing-panel">
           <h3>What you can explore</h3>

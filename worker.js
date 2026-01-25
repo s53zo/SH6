@@ -99,29 +99,109 @@ function buildOrderedKeys(aBuckets, bBuckets, aQsos, bQsos) {
   return hasUnknown ? numericSorted.concat(['unknown']) : numericSorted;
 }
 
+function parseKpApText(text, minKey, maxKey) {
+  const sumKp = new Map();
+  const sumAp = new Map();
+  const countKp = new Map();
+  const countAp = new Map();
+  const lines = String(text || '').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 9) continue;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) continue;
+    const key = year * 10000 + month * 100 + day;
+    if (minKey && key < minKey) continue;
+    if (maxKey && key > maxKey) continue;
+    const kpVal = parseFloat(parts[7]);
+    const apVal = parseFloat(parts[8]);
+    if (Number.isFinite(kpVal) && kpVal >= 0) {
+      sumKp.set(key, (sumKp.get(key) || 0) + kpVal);
+      countKp.set(key, (countKp.get(key) || 0) + 1);
+    }
+    if (Number.isFinite(apVal) && apVal >= 0) {
+      sumAp.set(key, (sumAp.get(key) || 0) + apVal);
+      countAp.set(key, (countAp.get(key) || 0) + 1);
+    }
+  }
+  const kp = [];
+  const ap = [];
+  sumKp.forEach((sum, key) => {
+    const count = countKp.get(key) || 0;
+    if (count) kp.push([key, sum / count]);
+  });
+  sumAp.forEach((sum, key) => {
+    const count = countAp.get(key) || 0;
+    if (count) ap.push([key, sum / count]);
+  });
+  return { kp, ap };
+}
+
+function parseSsnCsv(text, minKey, maxKey) {
+  const ssn = [];
+  const lines = String(text || '').split(/\r?\n/);
+  for (const line of lines) {
+    if (!line) continue;
+    const parts = line.split(';');
+    if (parts.length < 5) continue;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) continue;
+    const key = year * 10000 + month * 100 + day;
+    if (minKey && key < minKey) continue;
+    if (maxKey && key > maxKey) continue;
+    const val = parseInt(parts[4], 10);
+    if (Number.isFinite(val) && val >= 0) {
+      ssn.push([key, val]);
+    }
+  }
+  return ssn;
+}
+
 self.onmessage = (evt) => {
   const payload = evt.data || {};
-  if (payload.type !== 'compareBuckets') return;
-  const filters = payload.filters || {};
-  const aQsos = applyLogFilters(payload.aQsos || [], filters);
-  const bQsos = applyLogFilters(payload.bQsos || [], filters);
-  const aBuckets = buildTenMinuteBuckets(aQsos);
-  const bBuckets = buildTenMinuteBuckets(bQsos);
-  const orderedKeys = buildOrderedKeys(aBuckets, bBuckets, aQsos, bQsos);
-  const buckets = orderedKeys.map((key) => ({
-    key,
-    a: aBuckets.get(key) || [],
-    b: bBuckets.get(key) || []
-  }));
-  const totalRows = buckets.reduce((sum, bucket) => sum + Math.max(bucket.a.length, bucket.b.length, 1), 0);
-  self.postMessage({
-    type: 'compareBuckets',
-    key: payload.key,
-    data: {
-      aCount: aQsos.length,
-      bCount: bQsos.length,
-      totalRows,
-      buckets
-    }
-  });
+  if (payload.type === 'compareBuckets') {
+    const filters = payload.filters || {};
+    const aQsos = applyLogFilters(payload.aQsos || [], filters);
+    const bQsos = applyLogFilters(payload.bQsos || [], filters);
+    const aBuckets = buildTenMinuteBuckets(aQsos);
+    const bBuckets = buildTenMinuteBuckets(bQsos);
+    const orderedKeys = buildOrderedKeys(aBuckets, bBuckets, aQsos, bQsos);
+    const buckets = orderedKeys.map((key) => ({
+      key,
+      a: aBuckets.get(key) || [],
+      b: bBuckets.get(key) || []
+    }));
+    const totalRows = buckets.reduce((sum, bucket) => sum + Math.max(bucket.a.length, bucket.b.length, 1), 0);
+    self.postMessage({
+      type: 'compareBuckets',
+      key: payload.key,
+      data: {
+        aCount: aQsos.length,
+        bCount: bQsos.length,
+        totalRows,
+        buckets
+      }
+    });
+    return;
+  }
+  if (payload.type === 'parseSolar') {
+    const kpAp = parseKpApText(payload.kpText, payload.minKey, payload.maxKey);
+    const ssn = parseSsnCsv(payload.ssnText, payload.minKey, payload.maxKey);
+    self.postMessage({
+      type: 'solarParsed',
+      key: payload.key,
+      data: {
+        updatedAt: Date.now(),
+        kp: kpAp.kp,
+        ap: kpAp.ap,
+        ssn
+      }
+    });
+  }
 };

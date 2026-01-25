@@ -64,10 +64,13 @@
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
+  const SOLAR_KP_URL = 'https://www-app3.gfz-potsdam.de/kp_index/Kp_ap_since_1932.txt';
+  const SOLAR_SSN_URL = 'https://www.sidc.be/SILSO/INFO/sndtotcsv.php';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
   ];
+  const SOLAR_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const CTY_URLS = [
     'https://www.country-files.com/cty/cty.dat',
     'cty.dat',
@@ -144,6 +147,11 @@
     compareLogWindowStart: 0,
     compareLogWindowSize: 1000,
     logVersion: 0,
+    solarData: null,
+    solarStatus: 'idle',
+    solarError: null,
+    solarKey: null,
+    solarPendingKey: null,
     compareB: {
       logFile: null,
       qsoData: null,
@@ -342,6 +350,14 @@
     state.compareLogData = null;
     state.compareLogPendingKey = null;
     state.compareLogWindowStart = 0;
+  }
+
+  function invalidateSolarData() {
+    state.solarData = null;
+    state.solarStatus = 'idle';
+    state.solarError = null;
+    state.solarKey = null;
+    state.solarPendingKey = null;
   }
 
   function renderActiveReport() {
@@ -668,6 +684,173 @@
     return ok;
   }
 
+  function dateKeyFromTs(ts) {
+    const d = new Date(ts);
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    return y * 10000 + m * 100 + day;
+  }
+
+  function getActiveDateRangeKey() {
+    const keys = [];
+    if (state.derived?.timeRange?.minTs && state.derived?.timeRange?.maxTs) {
+      keys.push(dateKeyFromTs(state.derived.timeRange.minTs));
+      keys.push(dateKeyFromTs(state.derived.timeRange.maxTs));
+    }
+    if (state.compareB?.derived?.timeRange?.minTs && state.compareB?.derived?.timeRange?.maxTs) {
+      keys.push(dateKeyFromTs(state.compareB.derived.timeRange.minTs));
+      keys.push(dateKeyFromTs(state.compareB.derived.timeRange.maxTs));
+    }
+    if (!keys.length) return null;
+    const minKey = Math.min(...keys);
+    const maxKey = Math.max(...keys);
+    return { minKey, maxKey, key: `solar_${minKey}_${maxKey}` };
+  }
+
+  function loadSolarCache(rangeKey) {
+    if (!rangeKey) return null;
+    const raw = localStorage.getItem(rangeKey);
+    if (!raw) return null;
+    try {
+      const data = JSON.parse(raw);
+      if (!data || !data.updatedAt || (Date.now() - data.updatedAt > SOLAR_CACHE_TTL)) return null;
+      const ssn = new Map(data.ssn || []);
+      const kp = new Map(data.kp || []);
+      const ap = new Map(data.ap || []);
+      return { key: rangeKey, updatedAt: data.updatedAt, ssn, kp, ap };
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function storeSolarCache(rangeKey, data) {
+    if (!rangeKey || !data) return;
+    try {
+      const payload = {
+        updatedAt: data.updatedAt || Date.now(),
+        ssn: Array.from(data.ssn.entries()),
+        kp: Array.from(data.kp.entries()),
+        ap: Array.from(data.ap.entries())
+      };
+      localStorage.setItem(rangeKey, JSON.stringify(payload));
+    } catch (err) {
+      // ignore cache failures
+    }
+  }
+
+  function parseKpApText(text, minKey, maxKey) {
+    const sumKp = new Map();
+    const sumAp = new Map();
+    const countKp = new Map();
+    const countAp = new Map();
+    const lines = String(text || '').split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const parts = trimmed.split(/\s+/);
+      if (parts.length < 9) continue;
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const day = parseInt(parts[2], 10);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) continue;
+      const key = year * 10000 + month * 100 + day;
+      if (minKey && key < minKey) continue;
+      if (maxKey && key > maxKey) continue;
+      const kpVal = parseFloat(parts[7]);
+      const apVal = parseFloat(parts[8]);
+      if (Number.isFinite(kpVal) && kpVal >= 0) {
+        sumKp.set(key, (sumKp.get(key) || 0) + kpVal);
+        countKp.set(key, (countKp.get(key) || 0) + 1);
+      }
+      if (Number.isFinite(apVal) && apVal >= 0) {
+        sumAp.set(key, (sumAp.get(key) || 0) + apVal);
+        countAp.set(key, (countAp.get(key) || 0) + 1);
+      }
+    }
+    const kp = new Map();
+    const ap = new Map();
+    sumKp.forEach((sum, key) => {
+      const count = countKp.get(key) || 0;
+      if (count) kp.set(key, sum / count);
+    });
+    sumAp.forEach((sum, key) => {
+      const count = countAp.get(key) || 0;
+      if (count) ap.set(key, sum / count);
+    });
+    return { kp, ap };
+  }
+
+  function parseSsnCsv(text, minKey, maxKey) {
+    const ssn = new Map();
+    const lines = String(text || '').split(/\r?\n/);
+    for (const line of lines) {
+      if (!line) continue;
+      const parts = line.split(';');
+      if (parts.length < 5) continue;
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const day = parseInt(parts[2], 10);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) continue;
+      const key = year * 10000 + month * 100 + day;
+      if (minKey && key < minKey) continue;
+      if (maxKey && key > maxKey) continue;
+      const val = parseInt(parts[4], 10);
+      if (Number.isFinite(val) && val >= 0) {
+        ssn.set(key, val);
+      }
+    }
+    return ssn;
+  }
+
+  async function fetchSolarDataForRange(range) {
+    if (!range) return;
+    if (state.solarPendingKey === range.key || state.solarStatus === 'loading') return;
+    state.solarStatus = 'loading';
+    state.solarError = null;
+    state.solarPendingKey = range.key;
+    const kpUrls = buildFetchUrls([SOLAR_KP_URL]);
+    const ssnUrls = buildFetchUrls([SOLAR_SSN_URL]);
+    const [kpRes, ssnRes] = await Promise.all([
+      fetchWithFallback(kpUrls, () => {}),
+      fetchWithFallback(ssnUrls, () => {})
+    ]);
+    if (kpRes.error || ssnRes.error) {
+      state.solarStatus = 'error';
+      state.solarError = kpRes.error || ssnRes.error || 'Solar fetch failed';
+      state.solarPendingKey = null;
+      return;
+    }
+    const kpText = kpRes.text || kpRes;
+    const ssnText = ssnRes.text || ssnRes;
+    if (ensureCompareWorker()) {
+      state.compareWorker.postMessage({
+        type: 'parseSolar',
+        key: range.key,
+        minKey: range.minKey,
+        maxKey: range.maxKey,
+        kpText,
+        ssnText
+      });
+      return;
+    }
+    const kpAp = parseKpApText(kpText, range.minKey, range.maxKey);
+    const ssn = parseSsnCsv(ssnText, range.minKey, range.maxKey);
+    const data = {
+      key: range.key,
+      updatedAt: Date.now(),
+      ssn,
+      kp: kpAp.kp,
+      ap: kpAp.ap
+    };
+    state.solarData = data;
+    state.solarKey = range.key;
+    state.solarStatus = 'ok';
+    state.solarPendingKey = null;
+    storeSolarCache(range.key, data);
+    renderActiveReport();
+  }
+
   const BAND_CLASS_MAP = {
     '160': 'b160',
     '80': 'b80',
@@ -801,28 +984,31 @@
   }
 
   function loadSolarData() {
-    const raw = localStorage.getItem('sh6_solar_data');
-    if (!raw) return null;
-    try {
-      const data = JSON.parse(raw);
-      if (data && Array.isArray(data.hours)) return data;
-    } catch (e) {
-      return null;
+    const range = getActiveDateRangeKey();
+    if (!range) return null;
+    if (state.solarData && state.solarKey === range.key) return state.solarData;
+    const cached = loadSolarCache(range.key);
+    if (cached) {
+      state.solarData = cached;
+      state.solarKey = range.key;
+      state.solarStatus = 'ok';
+      return cached;
     }
+    fetchSolarDataForRange(range);
     return null;
   }
 
   function getSolarForHour(solarData, hourTs, fallback) {
-    if (!solarData || !Array.isArray(solarData.hours)) return fallback;
-    const hourKey = Math.floor(hourTs / 3600000);
-    const found = solarData.hours.find((h) => h.hour === hourKey);
-    if (found) {
-      return {
-        ssn: found.ssn ?? fallback.ssn,
-        kIndex: found.kIndex ?? fallback.kIndex
-      };
-    }
-    return fallback;
+    if (!solarData) return fallback;
+    const key = dateKeyFromTs(hourTs);
+    const ssn = solarData.ssn.get(key);
+    const kp = solarData.kp.get(key);
+    const ap = solarData.ap.get(key);
+    return {
+      ssn: ssn ?? fallback.ssn,
+      kIndex: kp ?? fallback.kIndex,
+      ap: ap ?? fallback.ap
+    };
   }
 
   function computeBreakSummary(minutesMap, threshold) {
@@ -1431,6 +1617,7 @@
       log_type: target.qsoData.type || ''
     });
     invalidateCompareLogData();
+    invalidateSolarData();
     setActiveReport(state.activeIndex);
   }
 
@@ -1505,6 +1692,7 @@
       state.fullQsoData = state.qsoData;
       state.fullDerived = state.derived;
       state.bandDerivedCache = new Map();
+      state.logVersion = (state.logVersion || 0) + 1;
     }
     if (state.compareB && state.compareB.qsoData) {
       state.compareB.derived = buildDerived(state.compareB.qsoData.qsos);
@@ -1512,9 +1700,11 @@
       state.compareB.fullQsoData = state.compareB.qsoData;
       state.compareB.fullDerived = state.compareB.derived;
       state.compareB.bandDerivedCache = new Map();
+      state.compareB.logVersion = (state.compareB.logVersion || 0) + 1;
     }
     if (!state.qsoData && !state.compareB?.qsoData) return;
     invalidateCompareLogData();
+    invalidateSolarData();
     renderActiveReport();
   }
 
@@ -2832,18 +3022,39 @@
       const worker = new Worker('worker.js');
       worker.onmessage = (evt) => {
         const payload = evt.data || {};
-        if (payload.type !== 'compareBuckets') return;
-        if (payload.key !== state.compareLogPendingKey) return;
-        state.compareLogPendingKey = null;
-        state.compareLogData = {
-          key: payload.key,
-          aCount: payload.data?.aCount || 0,
-          bCount: payload.data?.bCount || 0,
-          totalRows: payload.data?.totalRows || 0,
-          buckets: payload.data?.buckets || []
-        };
-        state.compareLogWindowStart = 0;
-        renderActiveReport();
+        if (payload.type === 'compareBuckets') {
+          if (payload.key !== state.compareLogPendingKey) return;
+          state.compareLogPendingKey = null;
+          state.compareLogData = {
+            key: payload.key,
+            aCount: payload.data?.aCount || 0,
+            bCount: payload.data?.bCount || 0,
+            totalRows: payload.data?.totalRows || 0,
+            buckets: payload.data?.buckets || []
+          };
+          state.compareLogWindowStart = 0;
+          renderActiveReport();
+          return;
+        }
+        if (payload.type === 'solarParsed') {
+          if (payload.key !== state.solarPendingKey) return;
+          state.solarPendingKey = null;
+          const ssn = new Map(payload.data?.ssn || []);
+          const kp = new Map(payload.data?.kp || []);
+          const ap = new Map(payload.data?.ap || []);
+          const data = {
+            key: payload.key,
+            updatedAt: payload.data?.updatedAt || Date.now(),
+            ssn,
+            kp,
+            ap
+          };
+          state.solarData = data;
+          state.solarKey = payload.key;
+          state.solarStatus = 'ok';
+          storeSolarCache(payload.key, data);
+          renderActiveReport();
+        }
       };
       worker.onerror = () => {
         state.compareWorker = null;
@@ -3610,7 +3821,8 @@
       lastDay = day;
       const solar = getSolarForHour(solarData, h.hour * 3600000, {
         ssn: state.derived.contestMeta?.ssn || '',
-        kIndex: state.derived.contestMeta?.kIndex || ''
+        kIndex: state.derived.contestMeta?.kIndex || '',
+        ap: ''
       });
       const ssnText = escapeHtml(solar.ssn || '');
       const kIndexText = escapeHtml(solar.kIndex || '');
@@ -3711,7 +3923,8 @@
         ? (() => {
           const solar = getSolarForHour(solarData, entry.sampleTs, {
             ssn: slot.derived.contestMeta?.ssn || '',
-            kIndex: slot.derived.contestMeta?.kIndex || ''
+            kIndex: slot.derived.contestMeta?.kIndex || '',
+            ap: ''
           });
           return solar.kIndex ? '&#8226;'.repeat(Math.max(1, Math.min(5, Number(solar.kIndex)))) : '';
         })()
@@ -3719,9 +3932,10 @@
       const solar = entry && entry.sampleTs
         ? getSolarForHour(solarData, entry.sampleTs, {
           ssn: slot.derived.contestMeta?.ssn || '',
-          kIndex: slot.derived.contestMeta?.kIndex || ''
+          kIndex: slot.derived.contestMeta?.kIndex || '',
+          ap: ''
         })
-        : { ssn: '', kIndex: '' };
+        : { ssn: '', kIndex: '', ap: '' };
       const ssnText = escapeHtml(solar.ssn || '');
       const kIndexText = escapeHtml(solar.kIndex || '');
       const cells = bandCols.map((b) => {
@@ -4851,16 +5065,20 @@
   }
 
   function renderSun() {
+    const range = getActiveDateRangeKey();
+    const status = state.solarStatus || 'idle';
+    const updated = state.solarData?.updatedAt ? formatDateSh6(state.solarData.updatedAt) : 'N/A';
+    const rangeText = range ? `${range.minKey} - ${range.maxKey}` : 'N/A';
+    const err = state.solarError ? `<p>Error: ${escapeHtml(state.solarError)}</p>` : '';
     return `
-      <p>Solar data (SSN/K-index) can be provided via localStorage.</p>
-      <p>Set <code>sh6_solar_data</code> to JSON like:</p>
-      <pre>{
-  "hours":[
-    {"hour": 482316, "ssn": 152, "kIndex": 3},
-    {"hour": 482317, "ssn": 152, "kIndex": 3}
-  ]
-}</pre>
-      <p>Hour value is <code>Math.floor(Date.UTC(...) / 3600000)</code>.</p>
+      <p>Solar data sources:</p>
+      <ul>
+        <li>GFZ Kp/ap: ${escapeHtml(SOLAR_KP_URL)}</li>
+        <li>SILSO SSN: ${escapeHtml(SOLAR_SSN_URL)}</li>
+      </ul>
+      <p>Status: <b>${escapeHtml(status)}</b> | Range: <b>${rangeText}</b> | Updated: <b>${updated}</b></p>
+      ${err}
+      <p>Data are fetched via proxy and cached locally for 7 days. Kp and ap are daily means from 3‑hour values; SSN uses daily total sunspot number.</p>
     `;
   }
 

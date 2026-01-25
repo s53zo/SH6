@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.32';
+  const APP_VERSION = 'v2.1.33';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -3548,17 +3548,38 @@
   }
 
   function stripLinks(html) {
-    return html.replace(/<a [^>]*>(.*?)<\/a>/g, '$1');
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    wrapper.querySelectorAll('a').forEach((link) => {
+      const span = document.createElement('span');
+      span.textContent = link.textContent || '';
+      const title = link.getAttribute('title');
+      if (title) span.setAttribute('title', title);
+      link.replaceWith(span);
+    });
+    return wrapper.innerHTML;
   }
 
   function renderReportExport(report) {
     if (report.id === 'log') return renderLogExport();
+    if (report.id === 'map_view') {
+      return '<p>Map view is interactive and not included in exports. Use the in-app map or KMZ files.</p>';
+    }
     const html = renderReport(report);
     return stripLinks(html);
   }
 
-  function buildExportHtmlSections() {
-    return reports.map((r) => `
+  function resolveExportReports(reportIds) {
+    if (!Array.isArray(reportIds) || reportIds.length === 0) return reports;
+    const map = new Map(reports.map((r) => [r.id, r]));
+    return reportIds.map((id) => map.get(id)).filter(Boolean);
+  }
+
+  function buildExportHtmlSections(reportList) {
+    if (!reportList || reportList.length === 0) {
+      return '<section class="export-section"><div class="export-header"><div class="export-title">No sections selected</div><div class="export-page"></div></div><p>No content selected for export.</p></section>';
+    }
+    return reportList.map((r) => `
       <section class="export-section">
         <div class="export-header">
           <div class="export-title">${r.title}</div>
@@ -3580,10 +3601,10 @@
     }
   }
 
-  async function exportHtmlFile() {
+  async function exportHtmlFile(reportIds) {
     if (!state.qsoData) return;
     const styleText = await getStyleText();
-    const body = `<div class="export-doc">${buildExportHtmlSections()}</div>`;
+    const body = `<div class="export-doc">${buildExportHtmlSections(resolveExportReports(reportIds))}</div>`;
     const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>SH6 Export</title><style>${styleText}</style></head><body>${body}</body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -3594,10 +3615,10 @@
     URL.revokeObjectURL(url);
   }
 
-  async function exportPdf() {
+  async function exportPdf(reportIds) {
     if (!state.qsoData) return;
     const styleText = await getStyleText();
-    const body = `<div class="export-doc">${buildExportHtmlSections()}</div>`;
+    const body = `<div class="export-doc">${buildExportHtmlSections(resolveExportReports(reportIds))}</div>`;
     const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>SH6 Export</title><style>${styleText}</style></head><body>${body}</body></html>`;
     const win = window.open('', '_blank');
     if (!win) return;
@@ -3605,8 +3626,93 @@
     win.document.write(html);
     win.document.close();
     win.document.title = buildExportFilename('pdf').replace(/\.pdf$/, '');
-    win.focus();
-    win.print();
+    const triggerPrint = () => {
+      win.focus();
+      win.print();
+    };
+    win.addEventListener('load', () => {
+      const fonts = win.document.fonts;
+      if (fonts && typeof fonts.ready?.then === 'function') {
+        fonts.ready.then(() => setTimeout(triggerPrint, 0));
+      } else {
+        setTimeout(triggerPrint, 0);
+      }
+    });
+  }
+
+  function openExportDialog(type) {
+    if (!state.qsoData) return;
+    const existing = document.getElementById('exportDialog');
+    if (existing) existing.remove();
+    const reportOptions = reports.map((r) => `
+      <label class="export-option">
+        <input type="checkbox" data-report-id="${escapeAttr(r.id)}" checked>
+        <span>${escapeHtml(r.title)}</span>
+      </label>
+    `).join('');
+    const overlay = document.createElement('div');
+    overlay.id = 'exportDialog';
+    overlay.className = 'export-dialog-overlay no-print';
+    overlay.innerHTML = `
+      <div class="export-dialog">
+        <div class="export-dialog-head">
+          <strong>Export ${type === 'pdf' ? 'PDF' : 'HTML'}</strong>
+        </div>
+        <p>Select sections to include.</p>
+        <div class="export-dialog-actions">
+          <button type="button" id="exportSelectAll">Select all</button>
+          <button type="button" id="exportSelectNone">Select none</button>
+          <button type="button" id="exportCurrent">Current report only</button>
+        </div>
+        <div class="export-dialog-list">
+          ${reportOptions}
+        </div>
+        <div class="export-dialog-footer">
+          <button type="button" id="exportDoIt">Export selected</button>
+          <button type="button" id="exportCancel">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const getChecks = () => Array.from(overlay.querySelectorAll('input[type="checkbox"][data-report-id]'));
+    const setAll = (checked) => getChecks().forEach((cb) => { cb.checked = checked; });
+    const close = () => overlay.remove();
+    const exportSelected = (reportIds) => {
+      if (type === 'pdf') {
+        exportPdf(reportIds);
+      } else {
+        exportHtmlFile(reportIds);
+      }
+      close();
+    };
+    overlay.addEventListener('click', (evt) => {
+      if (evt.target === overlay) close();
+    });
+    const selectAllBtn = overlay.querySelector('#exportSelectAll');
+    const selectNoneBtn = overlay.querySelector('#exportSelectNone');
+    const exportCurrentBtn = overlay.querySelector('#exportCurrent');
+    const exportBtn = overlay.querySelector('#exportDoIt');
+    const cancelBtn = overlay.querySelector('#exportCancel');
+    if (selectAllBtn) selectAllBtn.addEventListener('click', () => setAll(true));
+    if (selectNoneBtn) selectNoneBtn.addEventListener('click', () => setAll(false));
+    if (exportCurrentBtn) {
+      exportCurrentBtn.addEventListener('click', () => {
+        const report = reports[state.activeIndex];
+        if (!report) return;
+        exportSelected([report.id]);
+      });
+    }
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const selected = getChecks().filter((cb) => cb.checked).map((cb) => cb.dataset.reportId);
+        if (!selected.length) {
+          alert('Select at least one section to export.');
+          return;
+        }
+        exportSelected(selected);
+      });
+    }
+    if (cancelBtn) cancelBtn.addEventListener('click', close);
   }
 
   function renderDupes() {
@@ -7289,7 +7395,7 @@
           log_b: state.compareB?.derived?.contestMeta?.stationCallsign || '',
           compare: state.compareEnabled ? 'yes' : 'no'
         });
-        exportPdf();
+        openExportDialog('pdf');
       });
     }
     if (dom.exportHtmlBtn) {
@@ -7299,7 +7405,7 @@
           log_b: state.compareB?.derived?.contestMeta?.stationCallsign || '',
           compare: state.compareEnabled ? 'yes' : 'no'
         });
-        exportHtmlFile();
+        openExportDialog('html');
       });
     }
     setActiveReport(0);

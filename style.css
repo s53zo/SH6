@@ -529,12 +529,82 @@ a:hover {
   .export-hide {
     display: none !important;
   }
+  .export-doc th,
+  .export-doc td {
+    white-space: normal;
+  }
+  .export-section,
+  table,
+  tr,
+  td,
+  th {
+    page-break-inside: avoid;
+  }
   .export-section {
     page-break-before: always;
   }
   .export-section:first-child {
     page-break-before: avoid;
   }
+}
+
+.export-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.export-dialog {
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  padding: 14px 16px;
+  max-width: 520px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: auto;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.export-dialog-head {
+  margin-bottom: 6px;
+}
+
+.export-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.export-dialog-actions button,
+.export-dialog-footer button {
+  padding: 5px 10px;
+}
+
+.export-dialog-list {
+  border: 1px solid #eeeeee;
+  padding: 8px;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+.export-option {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.export-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .band-ribbon {

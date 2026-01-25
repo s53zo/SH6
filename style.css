@@ -885,6 +885,60 @@ th {
   font-weight: 700;
 }
 
+.landing-hero h3 {
+  margin: 6px 0 4px;
+}
+
+.landing-hero p {
+  margin: 0 0 8px;
+}
+
+.landing-callout {
+  border: 1px solid #dddddd;
+  background: #f6f6f6;
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+
+.landing-tip {
+  color: #555555;
+  font-size: 12px;
+}
+
+.landing-actions-title {
+  font-weight: 700;
+  margin: 6px 0;
+}
+
+.landing-actions ol {
+  margin: 4px 0 6px 20px;
+}
+
+.landing-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.landing-formats {
+  font-size: 12px;
+  color: #555555;
+}
+
+.landing-next ul {
+  margin: 4px 0 8px 20px;
+}
+
+.landing-next li {
+  margin: 4px 0;
+}
+
+.landing-status {
+  margin-top: 8px;
+}
+
 .np {
   width: 160px;
   height: 120px;

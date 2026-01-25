@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.20';
+  const APP_VERSION = 'v2.1.21';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -66,6 +66,30 @@
   const QRZ_BASE_URL = 'https://www.qrz.com/db';
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const QRZ_MAX_CONCURRENCY = 3;
+  const DEMO_LOG_TEXT = [
+    'START-OF-LOG: 3.0',
+    'CONTEST: CQ-WW-CW',
+    'CALLSIGN: S53DEMO',
+    'CATEGORY-OPERATOR: SINGLE-OP',
+    'CATEGORY-ASSISTED: NON-ASSISTED',
+    'CATEGORY-BAND: ALL',
+    'CATEGORY-POWER: LOW',
+    'CATEGORY-MODE: MIXED',
+    'CATEGORY-TRANSMITTER: ONE',
+    'CATEGORY-STATION: FIXED',
+    'GRID-LOCATOR: JN86CR',
+    'CLAIMED-SCORE: 12345',
+    'OPERATORS: S53DEMO',
+    'CLUB: DEMO CLUB',
+    'CREATED-BY: SH6 Demo',
+    'QSO: 14000 CW 20260101 0001 S53DEMO 599 001 K1ABC 599 001',
+    'QSO: 7000 CW 20260101 0003 S53DEMO 599 002 DL1ABC 599 002',
+    'QSO: 21000 SSB 20260101 0005 S53DEMO 59 003 JA1XYZ 59 003',
+    'QSO: 28000 CW 20260101 0010 S53DEMO 599 004 VK2ZZZ 599 004',
+    'QSO: 3500 CW 20260101 0015 S53DEMO 599 005 ZS1AAA 599 005',
+    'QSO: 14000 RTTY 20260101 0020 S53DEMO 599 006 LU1BBB 599 006',
+    'END-OF-LOG:'
+  ].join('\n');
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -2855,9 +2879,38 @@
       : 'No Log B loaded yet.';
     return `
       <div class="mtc">
-        <div class="gradient">&nbsp;Load logs</div>
-        <p>Use the controls above to upload or select logs from the archive. Once loaded, switch to any report in the menu.</p>
-        <table class="mtc" style="margin-top:6px;">
+        <div class="gradient">&nbsp;Welcome</div>
+        <div class="landing-hero">
+          <h3>SH6 — Contest log analyzer (runs in your browser)</h3>
+          <p>Upload a log or pick one from the archive. Explore Countries, Rates, Operators, Maps, and compare two logs side-by-side.</p>
+        </div>
+        <div class="landing-callout">
+          <b>Privacy:</b> Your log is processed locally in your browser. Files are not uploaded to a server.<br/>
+          <span class="landing-tip">Tip: very large logs may take a moment to render.</span>
+        </div>
+        <div class="landing-actions">
+          <div class="landing-actions-title">Start here</div>
+          <ol>
+            <li>Load Log A (upload or pick from the archive above).</li>
+            <li>Optional: enable Compare mode and load Log B.</li>
+            <li>Open a report from the menu to explore the results.</li>
+          </ol>
+          <div class="landing-buttons">
+            <button type="button" class="button demo-log-btn">Try demo log</button>
+            <span class="landing-formats">Supported: Cabrillo (.log/.cbr), ADIF (.adi/.adif), CBF (.cbf).</span>
+          </div>
+        </div>
+        <div class="landing-next">
+          <div class="landing-actions-title">Recommended first clicks</div>
+          <ul>
+            <li><a href="#" class="report-shortcut" data-report="summary">Summary</a> — overview of totals and bands.</li>
+            <li><a href="#" class="report-shortcut" data-report="countries">Countries</a> — DX breakdown with map links.</li>
+            <li><a href="#" class="report-shortcut" data-report="operators">Operators</a> — operator list with QRZ photos.</li>
+            <li><a href="#" class="report-shortcut" data-map="all">Map</a> — visualize all QSOs.</li>
+            <li><a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a> — download for Google Earth.</li>
+          </ul>
+        </div>
+        <table class="mtc landing-status">
           <tr class="thc"><th>Log A</th><th>Log B</th></tr>
           <tr><td>${escapeHtml(aText)}</td><td>${escapeHtml(bText)}</td></tr>
         </table>
@@ -2932,6 +2985,13 @@
       filtered = filtered.filter((q) => Number.isFinite(q.bearing) && q.bearing >= filters.headingRange.start && q.bearing <= filters.headingRange.end);
     }
     return filtered;
+  }
+
+  function loadDemoLog(slotId = 'A') {
+    const statusEl = slotId === 'B' ? dom.fileStatusB : dom.fileStatus;
+    applyLoadedLogToSlot(slotId, DEMO_LOG_TEXT, 'DEMO.log', DEMO_LOG_TEXT.length, 'Demo', statusEl);
+    const summaryIndex = reports.findIndex((r) => r.id === 'summary');
+    if (summaryIndex >= 0) setActiveReport(summaryIndex);
   }
 
   function renderLogCells(q, idx) {
@@ -5815,6 +5875,33 @@
     makeTablesSortable(dom.viewContainer);
     if (reportId === 'operators') {
       loadOperatorPhotos(dom.viewContainer);
+    }
+    if (reportId === 'load_logs') {
+      const demoButtons = document.querySelectorAll('.demo-log-btn');
+      demoButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          loadDemoLog('A');
+        });
+      });
+      const shortcuts = document.querySelectorAll('.report-shortcut');
+      shortcuts.forEach((link) => {
+        link.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const reportId = link.dataset.report;
+          const mapScope = link.dataset.map;
+          if (mapScope) {
+            state.mapContext = { scope: mapScope, key: '' };
+            dom.viewTitle.textContent = 'Map';
+            dom.viewContainer.innerHTML = renderMapView();
+            bindReportInteractions('map_view');
+            return;
+          }
+          if (!reportId) return;
+          const idx = reports.findIndex((r) => r.id === reportId);
+          if (idx >= 0) setActiveReport(idx);
+        });
+      });
     }
     if (reportId === 'log') {
       const prev = document.getElementById('logPrev');

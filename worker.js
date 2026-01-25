@@ -43,6 +43,8 @@ function applyLogFilters(qsos, filters) {
   const rangeFilter = filters.rangeFilter;
   const timeRange = filters.timeRange;
   const headingRange = filters.headingRange;
+  const stationQsoRange = filters.stationQsoRange;
+  const distanceRange = filters.distanceRange;
   for (const q of qsos || []) {
     if (search && (!q.call || !q.call.includes(search))) continue;
     if (fieldFilter && (!q.grid || !q.grid.startsWith(fieldFilter))) continue;
@@ -64,6 +66,12 @@ function applyLogFilters(qsos, filters) {
     }
     if (headingRange && Number.isFinite(headingRange.start) && Number.isFinite(headingRange.end)) {
       if (!Number.isFinite(q.bearing) || q.bearing < headingRange.start || q.bearing > headingRange.end) continue;
+    }
+    if (stationQsoRange && Number.isFinite(stationQsoRange.min) && Number.isFinite(stationQsoRange.max)) {
+      if (!Number.isFinite(q.callCount) || q.callCount < stationQsoRange.min || q.callCount > stationQsoRange.max) continue;
+    }
+    if (distanceRange && Number.isFinite(distanceRange.start) && Number.isFinite(distanceRange.end)) {
+      if (!Number.isFinite(q.distance) || q.distance < distanceRange.start || q.distance > distanceRange.end) continue;
     }
     out.push(q);
   }

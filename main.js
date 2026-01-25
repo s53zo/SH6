@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.17';
+  const APP_VERSION = 'v2.1.18';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4465,9 +4465,13 @@
     const title = ctx.scope === 'all'
       ? 'All QSOs'
       : (ctx.key ? `${ctx.scope}: ${ctx.key}` : ctx.scope || 'Map');
-    const kmzLinks = Object.entries(state.kmzUrls || {}).map(([band, url]) => {
-      return `<li><a href="${url}" class="kmz-link" data-band="${band}" download="qsos_${band}m.kmz">Download ${band}m KMZ</a></li>`;
-    }).join('');
+    const kmzLinks = KMZ_BANDS.map((band) => {
+      const url = state.kmzUrls?.[band];
+      if (!url) return '';
+      const label = band === 'All' ? 'all_qsos.kmz' : `qsos_${band}m.kmz`;
+      const title = band === 'All' ? 'All QSOs KMZ' : `${band}m KMZ`;
+      return `<li><a href="${url}" class="kmz-link" data-band="${band}" download="${label}">Download ${title}</a></li>`;
+    }).filter(Boolean).join('');
     const kmzBlock = kmzLinks
       ? `<ul>${kmzLinks}</ul>`
       : '<p>No KMZ files generated yet. Open the KMZ files report to generate them.</p>';
@@ -4724,16 +4728,17 @@
     `;
   }
 
+  const KMZ_BANDS = ['All', '160', '80', '40', '20', '15', '10'];
+
   function renderKmzFiles() {
-    const bands = ['160', '80', '40', '20', '15', '10'];
-    const urls = buildKmzUrls(bands);
-    const rows = bands.map((b, idx) => {
+    const urls = buildKmzUrls(KMZ_BANDS);
+    const rows = KMZ_BANDS.map((b, idx) => {
       const url = urls[b];
-      const label = url ? `${b}_kmz.kmz` : 'N/A';
+      const label = b === 'All' ? 'all_qsos.kmz' : `${b}_kmz.kmz`;
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td>${b}</td>
-          <td>${url ? `<a href="${url}" download="${b}_kmz.kmz">${label}</a>` : label}</td>
+          <td>${url ? `<a href="${url}" download="${label}">${label}</a>` : label}</td>
         </tr>
       `;
     }).join('');
@@ -4754,9 +4759,10 @@
         urls[band] = state.kmzUrls[band];
         return;
       }
-      const kml = buildKmlForBand(qsos, band);
+      const kml = buildKmlForBand(qsos, band === 'All' ? null : band);
       if (!kml) return;
-      const kmz = buildKmzFromKml(`${band}.kml`, kml);
+      const filename = band === 'All' ? 'all_qsos.kml' : `${band}.kml`;
+      const kmz = buildKmzFromKml(filename, kml);
       const blob = new Blob([kmz], { type: 'application/vnd.google-earth.kmz' });
       const url = URL.createObjectURL(blob);
       state.kmzUrls[band] = url;
@@ -4910,6 +4916,7 @@
 
   function buildKmlForBand(qsos, band) {
     if (!qsos || qsos.length === 0) return null;
+    const isAll = !band || String(band).toLowerCase() === 'all';
     const placemarks = [];
     const station = state.derived?.station;
     if (station && station.lat != null && station.lon != null) {
@@ -4921,7 +4928,7 @@
       `);
     }
     qsos.forEach((q) => {
-      if (band && q.band !== band) return;
+      if (!isAll && band && q.band !== band) return;
       const prefix = lookupPrefix(q.call);
       const remote = deriveRemoteLatLon(q, prefix);
       if (!remote) return;
@@ -4936,10 +4943,11 @@
       `);
     });
     if (!placemarks.length) return null;
+    const title = isAll ? 'All QSOs' : `${band}m QSOs`;
     return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>${escapeXml(band)}m QSOs</name>
+    <name>${escapeXml(title)}</name>
     ${placemarks.join('')}
   </Document>
 </kml>`;
@@ -6100,7 +6108,7 @@
         const mapSvg = document.getElementById('mapSvg');
         if (mapSvg) {
           const label = mapSvg.querySelector('text');
-          if (label) label.textContent = band ? `Map preview (KMZ ${band}m selected)` : 'Map preview (placeholder)';
+          if (label) label.textContent = band ? `Map preview (KMZ ${band === 'All' ? 'All QSOs' : `${band}m`} selected)` : 'Map preview (placeholder)';
         }
       });
     });

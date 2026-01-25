@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.33';
+  const APP_VERSION = 'v1.1.34';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -291,17 +291,54 @@
     dom.nextBtn.disabled = state.activeIndex === reports.length - 1;
   }
 
+  let renderSeq = 0;
+  function showLoadingState(message) {
+    if (!dom.viewContainer) return;
+    document.body.classList.add('is-loading');
+    dom.viewContainer.innerHTML = `
+      <div class="loading-state" role="status" aria-live="polite">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">${message}</div>
+      </div>
+    `;
+  }
+
+  function clearLoadingState() {
+    document.body.classList.remove('is-loading');
+  }
+
+  function renderReportWithLoading(report) {
+    const seq = ++renderSeq;
+    const title = report?.title || 'report';
+    showLoadingState(`Preparing ${title}...`);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (seq !== renderSeq) return;
+        const html = renderReport(report);
+        if (seq !== renderSeq) return;
+        dom.viewContainer.innerHTML = html;
+        bindReportInteractions(report.id);
+        if (dom.loadPanel) {
+          dom.loadPanel.style.display = report.id === 'load_logs' ? 'block' : 'none';
+        }
+        clearLoadingState();
+      }, 0);
+    });
+  }
+
+  function renderActiveReport() {
+    const report = reports[state.activeIndex];
+    if (!report) return;
+    renderReportWithLoading(report);
+  }
+
   function setActiveReport(idx) {
     state.activeIndex = idx;
     const report = reports[idx];
     dom.viewTitle.textContent = report.title;
-    dom.viewContainer.innerHTML = renderReport(report);
-    bindReportInteractions(report.id);
-    if (dom.loadPanel) {
-      dom.loadPanel.style.display = report.id === 'load_logs' ? 'block' : 'none';
-    }
     updateNavHighlight();
     updatePrevNextButtons();
+    renderReportWithLoading(report);
   }
 
   function renderPlaceholder(report) {
@@ -1395,8 +1432,7 @@
       state.compareB.bandDerivedCache = new Map();
     }
     if (!state.qsoData && !state.compareB?.qsoData) return;
-    dom.viewContainer.innerHTML = renderReport(reports[state.activeIndex]);
-    bindReportInteractions(reports[state.activeIndex].id);
+    renderActiveReport();
   }
 
   function shouldBandFilterReport(reportId) {
@@ -6229,8 +6265,7 @@
     const applyMode = (enabled) => {
       state.compareEnabled = enabled;
       document.body.classList.toggle('compare-mode', enabled);
-      dom.viewContainer.innerHTML = renderReport(reports[state.activeIndex]);
-      bindReportInteractions(reports[state.activeIndex].id);
+      renderActiveReport();
     };
     dom.compareModeRadios.forEach((radio) => {
       radio.addEventListener('change', () => {
@@ -6266,8 +6301,7 @@
         pills.forEach((pill) => {
           pill.classList.toggle('active', (pill.dataset.band || '').trim().toUpperCase() === band);
         });
-        dom.viewContainer.innerHTML = renderReport(reports[state.activeIndex]);
-        bindReportInteractions(reports[state.activeIndex].id);
+        renderActiveReport();
       });
     }
     if (dom.exportPdfBtn) {

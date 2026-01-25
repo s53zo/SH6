@@ -10,6 +10,35 @@ body {
   color: #000000;
 }
 
+body.is-loading,
+body.is-loading * {
+  cursor: progress;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 14px;
+  color: #444444;
+  font-size: 9pt;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #cccccc;
+  border-top-color: #555555;
+  animation: sh6-spin 0.8s linear infinite;
+}
+
+@keyframes sh6-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 a {
   color: #0000ff;
   text-decoration: underline;

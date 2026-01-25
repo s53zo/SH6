@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.40';
+  const APP_VERSION = 'v1.1.41';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5093,16 +5093,17 @@
     const updated = state.solarData?.updatedAt ? formatDateSh6(state.solarData.updatedAt) : 'N/A';
     const rangeText = range ? `${range.minKey} - ${range.maxKey}` : 'N/A';
     const err = state.solarError ? `<p>Error: ${escapeHtml(state.solarError)}</p>` : '';
+    const solarData = loadSolarData();
     let table = '<p>No range available. Load a log first.</p>';
-    if (range && state.solarData) {
+    if (range && solarData) {
       const rows = [];
       const start = new Date(range.minTs);
       const end = new Date(range.maxTs);
       for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
         const key = dateKeyFromTs(d.getTime());
-        const ssn = state.solarData.ssn.get(key);
-        const kp = state.solarData.kp.get(key);
-        const ap = state.solarData.ap.get(key);
+        const ssn = solarData.ssn.get(key);
+        const kp = solarData.kp.get(key);
+        const ap = solarData.ap.get(key);
         rows.push(`
           <tr class="${rows.length % 2 === 0 ? 'td1' : 'td0'}">
             <td>${formatDateKey(key)}</td>
@@ -5118,7 +5119,7 @@
           ${rows.join('')}
         </table>
       `;
-    } else if (range && state.solarStatus === 'loading') {
+    } else if (range) {
       table = '<p>Loading solar data…</p>';
     }
     return `

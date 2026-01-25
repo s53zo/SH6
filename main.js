@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.39';
+  const APP_VERSION = 'v1.1.40';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -188,6 +188,7 @@
     nextBtn: document.getElementById('nextBtn'),
     ctyStatus: document.getElementById('ctyStatus'),
     masterStatus: document.getElementById('masterStatus'),
+    solarStatus: document.getElementById('solarStatus'),
     appVersion: document.getElementById('appVersion'),
     exportPdfBtn: document.getElementById('exportPdfBtn'),
     exportHtmlBtn: document.getElementById('exportHtmlBtn'),
@@ -692,20 +693,35 @@
     return y * 10000 + m * 100 + day;
   }
 
+  function formatDateKey(key) {
+    const y = Math.floor(key / 10000);
+    const m = Math.floor((key % 10000) / 100);
+    const d = key % 100;
+    return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+
   function getActiveDateRangeKey() {
-    const keys = [];
+    const ranges = [];
     if (state.derived?.timeRange?.minTs && state.derived?.timeRange?.maxTs) {
-      keys.push(dateKeyFromTs(state.derived.timeRange.minTs));
-      keys.push(dateKeyFromTs(state.derived.timeRange.maxTs));
+      ranges.push([state.derived.timeRange.minTs, state.derived.timeRange.maxTs]);
     }
     if (state.compareB?.derived?.timeRange?.minTs && state.compareB?.derived?.timeRange?.maxTs) {
-      keys.push(dateKeyFromTs(state.compareB.derived.timeRange.minTs));
-      keys.push(dateKeyFromTs(state.compareB.derived.timeRange.maxTs));
+      ranges.push([state.compareB.derived.timeRange.minTs, state.compareB.derived.timeRange.maxTs]);
     }
-    if (!keys.length) return null;
-    const minKey = Math.min(...keys);
-    const maxKey = Math.max(...keys);
-    return { minKey, maxKey, key: `solar_${minKey}_${maxKey}` };
+    if (!ranges.length) return null;
+    const minTs = Math.min(...ranges.map((r) => r[0]));
+    const maxTs = Math.max(...ranges.map((r) => r[1]));
+    const minAdj = minTs - 10 * 86400000;
+    const maxAdj = maxTs + 2 * 86400000;
+    const minKey = dateKeyFromTs(minAdj);
+    const maxKey = dateKeyFromTs(maxAdj);
+    return {
+      minKey,
+      maxKey,
+      key: `solar_${minKey}_${maxKey}`,
+      minTs: minAdj,
+      maxTs: maxAdj
+    };
   }
 
   function loadSolarCache(rangeKey) {
@@ -809,6 +825,7 @@
     state.solarStatus = 'loading';
     state.solarError = null;
     state.solarPendingKey = range.key;
+    updateDataStatus();
     const kpUrls = buildFetchUrls([SOLAR_KP_URL]);
     const ssnUrls = buildFetchUrls([SOLAR_SSN_URL]);
     const [kpRes, ssnRes] = await Promise.all([
@@ -819,6 +836,7 @@
       state.solarStatus = 'error';
       state.solarError = kpRes.error || ssnRes.error || 'Solar fetch failed';
       state.solarPendingKey = null;
+      updateDataStatus();
       return;
     }
     const kpText = kpRes.text || kpRes;
@@ -848,6 +866,7 @@
     state.solarStatus = 'ok';
     state.solarPendingKey = null;
     storeSolarCache(range.key, data);
+    updateDataStatus();
     renderActiveReport();
   }
 
@@ -992,6 +1011,7 @@
       state.solarData = cached;
       state.solarKey = range.key;
       state.solarStatus = 'ok';
+      updateDataStatus();
       return cached;
     }
     fetchSolarDataForRange(range);
@@ -1533,16 +1553,18 @@
   function updateDataStatus() {
     const isProxy = (src) => /allorigins\.win|corsproxy\.io/i.test(src || '');
     const formatStatus = (status, src) => {
-      if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
-      if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
-      if (status === 'error') return 'error';
-      return status || '';
-    };
-    dom.ctyStatus.textContent = formatStatus(state.ctyStatus, state.ctySource);
-    dom.masterStatus.textContent = formatStatus(state.masterStatus, state.masterSource);
-    if (dom.ctyStatus) dom.ctyStatus.title = [state.ctySource, state.ctyError].filter(Boolean).join(' ');
-    if (dom.masterStatus) dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
-  }
+    if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
+    if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
+    if (status === 'error') return 'error';
+    return status || '';
+  };
+  dom.ctyStatus.textContent = formatStatus(state.ctyStatus, state.ctySource);
+  dom.masterStatus.textContent = formatStatus(state.masterStatus, state.masterSource);
+  if (dom.solarStatus) dom.solarStatus.textContent = formatStatus(state.solarStatus);
+  if (dom.ctyStatus) dom.ctyStatus.title = [state.ctySource, state.ctyError].filter(Boolean).join(' ');
+  if (dom.masterStatus) dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
+  if (dom.solarStatus) dom.solarStatus.title = [state.solarError].filter(Boolean).join(' ');
+}
 
   function setupFileInput(inputEl, statusEl, slotId) {
     if (!inputEl) return;
@@ -3053,6 +3075,7 @@
           state.solarKey = payload.key;
           state.solarStatus = 'ok';
           storeSolarCache(payload.key, data);
+          updateDataStatus();
           renderActiveReport();
         }
       };
@@ -5070,6 +5093,34 @@
     const updated = state.solarData?.updatedAt ? formatDateSh6(state.solarData.updatedAt) : 'N/A';
     const rangeText = range ? `${range.minKey} - ${range.maxKey}` : 'N/A';
     const err = state.solarError ? `<p>Error: ${escapeHtml(state.solarError)}</p>` : '';
+    let table = '<p>No range available. Load a log first.</p>';
+    if (range && state.solarData) {
+      const rows = [];
+      const start = new Date(range.minTs);
+      const end = new Date(range.maxTs);
+      for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+        const key = dateKeyFromTs(d.getTime());
+        const ssn = state.solarData.ssn.get(key);
+        const kp = state.solarData.kp.get(key);
+        const ap = state.solarData.ap.get(key);
+        rows.push(`
+          <tr class="${rows.length % 2 === 0 ? 'td1' : 'td0'}">
+            <td>${formatDateKey(key)}</td>
+            <td>${ssn != null ? formatNumberSh6(ssn) : ''}</td>
+            <td>${kp != null ? kp.toFixed(2) : ''}</td>
+            <td>${ap != null ? ap.toFixed(0) : ''}</td>
+          </tr>
+        `);
+      }
+      table = `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Date (UTC)</th><th>SSN</th><th>Kp (mean)</th><th>ap (mean)</th></tr>
+          ${rows.join('')}
+        </table>
+      `;
+    } else if (range && state.solarStatus === 'loading') {
+      table = '<p>Loading solar data…</p>';
+    }
     return `
       <p>Solar data sources:</p>
       <ul>
@@ -5078,7 +5129,8 @@
       </ul>
       <p>Status: <b>${escapeHtml(status)}</b> | Range: <b>${rangeText}</b> | Updated: <b>${updated}</b></p>
       ${err}
-      <p>Data are fetched via proxy and cached locally for 7 days. Kp and ap are daily means from 3‑hour values; SSN uses daily total sunspot number.</p>
+      <p>Data are fetched via proxy and cached locally for 7 days. Kp and ap are daily means from 3‑hour values; SSN uses daily total sunspot number. Range includes 10 days before and 2 days after the contest.</p>
+      ${table}
     `;
   }
 

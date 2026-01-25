@@ -885,8 +885,6 @@ th {
   font-weight: 700;
 }
 
-body.landing-only .sidebar,
-body.landing-only #loadPanel,
 body.landing-only #bandRibbon,
 body.landing-only .nav-buttons,
 body.landing-only #viewTitle {
@@ -901,14 +899,21 @@ body.landing-only .view-container {
 }
 
 body.landing-only .content {
-  padding: 24px 28px;
+  padding: 20px 24px;
 }
 
 .landing-page {
-  max-width: 960px;
-  margin: 0 auto;
+  max-width: 980px;
+  margin: 0;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  align-items: start;
 }
 
 .landing-hero h1 {
@@ -937,12 +942,34 @@ body.landing-only .content {
   color: #555555;
 }
 
+.landing-card {
+  border: 1px solid #dddddd;
+  background: #f8f8f8;
+  padding: 14px 16px;
+}
+
+.landing-card h3 {
+  margin-top: 0;
+}
+
 .landing-section {
-  margin-top: 18px;
+  margin-top: 20px;
 }
 
 .landing-steps {
-  margin: 6px 0 0 20px;
+  margin: 6px 0 10px 20px;
+}
+
+.landing-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.landing-panel {
+  border: 1px solid #eeeeee;
+  background: #ffffff;
+  padding: 12px 14px;
 }
 
 .landing-links {

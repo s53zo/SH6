@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.23';
+  const APP_VERSION = 'v2.1.24';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -166,6 +166,7 @@
     masterError: null,
     ctySource: null,
     masterSource: null,
+    showLoadPanel: false,
     compareEnabled: false,
     compareWorker: null,
     compareLogData: null,
@@ -362,12 +363,17 @@
         dom.viewContainer.innerHTML = html;
         bindReportInteractions(report.id);
         if (dom.loadPanel) {
-          dom.loadPanel.style.display = report.id === 'load_logs' ? 'block' : 'none';
+          if (report.id === 'load_logs') {
+            dom.loadPanel.style.display = state.showLoadPanel ? 'block' : 'none';
+          } else {
+            dom.loadPanel.style.display = 'none';
+            state.showLoadPanel = false;
+          }
         }
         if (dom.bandRibbon) {
           dom.bandRibbon.style.display = report.id === 'load_logs' ? 'none' : '';
         }
-        document.body.classList.toggle('landing-only', report.id === 'load_logs');
+        document.body.classList.toggle('landing-only', report.id === 'load_logs' && !state.showLoadPanel);
         clearLoadingState();
       }, 0);
     });
@@ -2884,45 +2890,52 @@
     return `
       <div class="landing-page">
         <section class="landing-hero">
-          <div class="landing-kicker">Start here</div>
-          <h1>SH6 — Contest log analyzer</h1>
-          <p>Runs entirely in your browser. Load a log and explore countries, rates, operators, maps, and comparisons.</p>
-          <div class="landing-actions">
-            <button type="button" class="button landing-action" data-action="upload-a">Upload Log A</button>
-            <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
-            <button type="button" class="button landing-action" data-action="compare">Compare two logs</button>
-            <button type="button" class="button demo-log-btn">Try demo log</button>
+          <div class="landing-hero-text">
+            <div class="landing-kicker">Welcome</div>
+            <h1>SH6 — Contest log analyzer</h1>
+            <p>Analyze contest logs in your browser: countries, rates, operators, maps, and side-by-side comparisons.</p>
+            <div class="landing-actions">
+              <button type="button" class="button landing-action" data-action="upload-a">Upload Log A</button>
+              <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
+              <button type="button" class="button landing-action" data-action="compare">Compare two logs</button>
+              <button type="button" class="button demo-log-btn">Try demo log</button>
+            </div>
+            <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif), CBF (.cbf).</div>
           </div>
-          <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif), CBF (.cbf).</div>
+          <div class="landing-card">
+            <h3>Quick start</h3>
+            <ol class="landing-steps">
+              <li>Load Log A (upload or pick from the archive).</li>
+              <li>Optional: enable Compare mode and load Log B.</li>
+              <li>Open a report from the menu to explore results.</li>
+            </ol>
+            <div class="landing-links">
+              <a href="#" class="report-shortcut" data-report="summary">Summary</a>
+              <a href="#" class="report-shortcut" data-report="countries">Countries</a>
+              <a href="#" class="report-shortcut" data-report="operators">Operators</a>
+              <a href="#" class="report-shortcut" data-map="all">Map</a>
+              <a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a>
+            </div>
+          </div>
         </section>
         <section class="landing-section">
-          <h3>Start in 3 steps</h3>
-          <ol class="landing-steps">
-            <li>Load Log A (upload or pick from the archive).</li>
-            <li>Optional: enable Compare mode and load Log B.</li>
-            <li>Open a report from the menu to explore the results.</li>
-          </ol>
+          <div class="landing-columns">
+            <div class="landing-panel">
+              <h3>What you can explore</h3>
+              <ul class="landing-bullets">
+                <li>Summary totals and band breakdowns.</li>
+                <li>Countries, zones, and continent analysis.</li>
+                <li>Rates, graphs, beam headings, and maps.</li>
+              </ul>
+            </div>
+            <div class="landing-panel">
+              <h3>Privacy</h3>
+              <p>Your log is processed locally in your browser. Files are not uploaded to a server.</p>
+              <p>Large logs may take a moment to render.</p>
+            </div>
+          </div>
         </section>
         <section class="landing-section">
-          <h3>Recommended first clicks</h3>
-          <div class="landing-links">
-            <a href="#" class="report-shortcut" data-report="summary">Summary</a>
-            <a href="#" class="report-shortcut" data-report="countries">Countries</a>
-            <a href="#" class="report-shortcut" data-report="operators">Operators</a>
-            <a href="#" class="report-shortcut" data-map="all">Map</a>
-            <a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a>
-          </div>
-          <ul class="landing-bullets">
-            <li>Click counts to filter the Log view.</li>
-            <li>Use Map and KMZ files for visualization.</li>
-            <li>Large logs may take a moment to render.</li>
-          </ul>
-        </section>
-        <section class="landing-section landing-privacy">
-          <h3>Privacy</h3>
-          <p>Your log is processed locally in your browser. Files are not uploaded to a server.</p>
-        </section>
-        <section class="landing-section landing-status">
           <h3>Loaded logs</h3>
           <div class="landing-status-grid">
             <div>
@@ -5906,6 +5919,7 @@
         });
       });
       const revealLoadPanel = () => {
+        state.showLoadPanel = true;
         document.body.classList.remove('landing-only');
         if (dom.loadPanel) dom.loadPanel.style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });

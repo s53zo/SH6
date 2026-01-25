@@ -929,9 +929,9 @@ body.landing-only .content {
 
 .landing-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 10px;
-  margin: 12px 0 6px;
+  margin: 12px 0 10px;
 }
 
 .landing-actions .button {
@@ -942,6 +942,7 @@ body.landing-only .content {
   padding: 8px 14px;
   border-radius: 4px;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  min-width: 160px;
 }
 
 .landing-actions .button:hover {
@@ -952,6 +953,18 @@ body.landing-only .content {
 .landing-actions .button:active {
   transform: translateY(1px);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.14);
+}
+
+.landing-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.landing-action-note {
+  font-size: 12px;
+  color: #555555;
 }
 
 .landing-formats {

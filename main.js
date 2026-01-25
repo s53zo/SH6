@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.28';
+  const APP_VERSION = 'v2.1.29';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2894,10 +2894,22 @@
           <h1>SH6 — Hamradio log analyzer</h1>
           <p>Analyze hamradio logs in your browser: countries, rates, operators, maps, and side-by-side comparisons.</p>
           <div class="landing-actions">
-            <button type="button" class="button landing-action" data-action="upload-a">Upload Log A</button>
-            <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
-            <button type="button" class="button landing-action" data-action="compare">Compare two logs</button>
-            <button type="button" class="button demo-log-btn">Try demo log</button>
+            <div class="landing-action-row">
+              <button type="button" class="button landing-action" data-action="upload-a">Upload log</button>
+              <span class="landing-action-note">upload your own log</span>
+            </div>
+            <div class="landing-action-row">
+              <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
+              <span class="landing-action-note">Public archive of over 1 million contest logs at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a> as a searchable database</span>
+            </div>
+            <div class="landing-action-row">
+              <button type="button" class="button landing-action" data-action="compare">Compare two logs</button>
+              <span class="landing-action-note">compare two logs from your computer or public archive</span>
+            </div>
+            <div class="landing-action-row">
+              <button type="button" class="button demo-log-btn">Demo log</button>
+              <span class="landing-action-note">just a simple demo log to see possibilities</span>
+            </div>
           </div>
           <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif).</div>
         </section>
@@ -2921,6 +2933,10 @@
           <h3>Privacy</h3>
           <p>Your log is processed locally in your browser. Files are not uploaded to a server.</p>
           <p>Large logs may take a moment to render.</p>
+        </section>
+        <section class="landing-section landing-panel">
+          <h3>Author</h3>
+          <p>Made by Simon, <a href="https://www.qrz.com/db/S53ZO" target="_blank" rel="noopener noreferrer">S53ZO</a>. Feedback and comments are welcome.</p>
         </section>
       </div>
     `;

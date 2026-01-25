@@ -50,10 +50,11 @@
     { id: 'charts_beam_heading', title: 'Beam heading' },
     { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' },
     { id: 'comments', title: 'Comments' },
+    { id: 'export', title: 'Export' },
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.33';
+  const APP_VERSION = 'v2.1.35';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -217,8 +218,6 @@
     ctyStatus: document.getElementById('ctyStatus'),
     masterStatus: document.getElementById('masterStatus'),
     appVersion: document.getElementById('appVersion'),
-    exportPdfBtn: document.getElementById('exportPdfBtn'),
-    exportHtmlBtn: document.getElementById('exportHtmlBtn'),
     bandRibbon: document.getElementById('bandRibbon'),
     repoSearch: document.getElementById('repoSearch'),
     repoStatus: document.getElementById('repoStatus'),
@@ -3569,9 +3568,12 @@
     return stripLinks(html);
   }
 
+  const EXPORT_EXCLUDE_IDS = new Set(['load_logs', 'export']);
+
   function resolveExportReports(reportIds) {
-    if (!Array.isArray(reportIds) || reportIds.length === 0) return reports;
-    const map = new Map(reports.map((r) => [r.id, r]));
+    const allowed = reports.filter((r) => !EXPORT_EXCLUDE_IDS.has(r.id));
+    if (!Array.isArray(reportIds) || reportIds.length === 0) return allowed;
+    const map = new Map(allowed.map((r) => [r.id, r]));
     return reportIds.map((id) => map.get(id)).filter(Boolean);
   }
 
@@ -3644,7 +3646,7 @@
     if (!state.qsoData) return;
     const existing = document.getElementById('exportDialog');
     if (existing) existing.remove();
-    const reportOptions = reports.map((r) => `
+    const reportOptions = resolveExportReports().map((r) => `
       <label class="export-option">
         <input type="checkbox" data-report-id="${escapeAttr(r.id)}" checked>
         <span>${escapeHtml(r.title)}</span>
@@ -3678,6 +3680,11 @@
     const setAll = (checked) => getChecks().forEach((cb) => { cb.checked = checked; });
     const close = () => overlay.remove();
     const exportSelected = (reportIds) => {
+      trackEvent(type === 'pdf' ? 'download_pdf' : 'download_html', {
+        log_a: state.derived?.contestMeta?.stationCallsign || '',
+        log_b: state.compareB?.derived?.contestMeta?.stationCallsign || '',
+        compare: state.compareEnabled ? 'yes' : 'no'
+      });
       if (type === 'pdf') {
         exportPdf(reportIds);
       } else {
@@ -3699,6 +3706,10 @@
       exportCurrentBtn.addEventListener('click', () => {
         const report = reports[state.activeIndex];
         if (!report) return;
+        if (EXPORT_EXCLUDE_IDS.has(report.id)) {
+          alert('The current view cannot be exported. Please select sections manually.');
+          return;
+        }
         exportSelected([report.id]);
       });
     }
@@ -3740,6 +3751,32 @@
         <tr class="thc"><th>Time</th><th>Band</th><th>Mode</th><th>Call</th></tr>
         ${rows}
       </table>
+    `;
+  }
+
+  function renderExportPage() {
+    if (!state.qsoData) {
+      return '<p>No log loaded yet. Load a log to enable exports.</p>';
+    }
+    return `
+      <div class="mtc export-panel">
+        <div class="gradient">&nbsp;Export</div>
+        <p>Export your reports to a standalone HTML file or a PDF via the browser print dialog. You can choose which sections to include to keep exports fast.</p>
+        <div class="export-actions">
+          <button type="button" class="button export-action" data-export="pdf">Export PDF</button>
+          <span>Choose sections and open the print dialog.</span>
+        </div>
+        <div class="export-actions">
+          <button type="button" class="button export-action" data-export="html">Export HTML</button>
+          <span>Generate a self-contained HTML report.</span>
+        </div>
+        <div class="export-actions export-note">
+          <span>Note: Interactive maps are not included in exports. Use KMZ files or the in-app map view.</span>
+        </div>
+        <div class="export-actions export-note">
+          <span>Tip: For large logs, export fewer sections to improve speed.</span>
+        </div>
+      </div>
     `;
   }
 
@@ -5533,6 +5570,7 @@
         case 'countries_by_time_160': return renderCountriesByTime('160');
         case 'possible_errors': return renderPossibleErrors();
         case 'comments': return renderComments();
+        case 'export': return renderExportPage();
         case 'charts': return renderChartsIndex();
         case 'charts_qs_by_band': return renderChartQsByBand();
         case 'charts_top_10_countries': return renderChartTop10Countries();
@@ -6049,6 +6087,7 @@
   }
 
   function renderReport(report) {
+    if (report.id === 'export') return renderReportSingle(report);
     if (state.compareEnabled) {
       return renderReportCompare(report);
     }
@@ -6082,6 +6121,18 @@
           }
         });
       }
+    }
+    if (reportId === 'export') {
+      const exportButtons = document.querySelectorAll('.export-action');
+      exportButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const mode = btn.dataset.export;
+          if (mode === 'pdf' || mode === 'html') {
+            openExportDialog(mode);
+          }
+        });
+      });
     }
     if (reportId === 'load_logs') {
       const demoButtons = document.querySelectorAll('.demo-log-btn');
@@ -7388,26 +7439,7 @@
         renderActiveReport();
       });
     }
-    if (dom.exportPdfBtn) {
-      dom.exportPdfBtn.addEventListener('click', () => {
-        trackEvent('download_pdf', {
-          log_a: state.derived?.contestMeta?.stationCallsign || '',
-          log_b: state.compareB?.derived?.contestMeta?.stationCallsign || '',
-          compare: state.compareEnabled ? 'yes' : 'no'
-        });
-        openExportDialog('pdf');
-      });
-    }
-    if (dom.exportHtmlBtn) {
-      dom.exportHtmlBtn.addEventListener('click', () => {
-        trackEvent('download_html', {
-          log_a: state.derived?.contestMeta?.stationCallsign || '',
-          log_b: state.compareB?.derived?.contestMeta?.stationCallsign || '',
-          compare: state.compareEnabled ? 'yes' : 'no'
-        });
-        openExportDialog('html');
-      });
-    }
+    // Export actions are handled in the Export report page.
     setActiveReport(0);
   }
 

@@ -607,6 +607,31 @@ a:hover {
   margin-top: 10px;
 }
 
+.export-panel {
+  padding: 0 0 8px;
+}
+
+.export-panel > p {
+  margin: 10px 8px;
+}
+
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px;
+}
+
+.export-actions .button {
+  padding: 6px 12px;
+}
+
+.export-note {
+  font-size: 12px;
+  color: #555555;
+}
+
 .band-ribbon {
   margin: 6px 0 8px;
   padding: 4px 0;

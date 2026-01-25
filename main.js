@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.32';
+  const APP_VERSION = 'v1.1.33';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -105,6 +105,7 @@
     masterDta: null,
     ctyTable: null,
     masterSet: null,
+    prefixCache: new Map(),
     derived: null,
     logPage: 0,
     logPageSize: 500,
@@ -124,6 +125,7 @@
     fullQsoData: null,
     fullDerived: null,
     bandDerivedCache: new Map(),
+    leafletMap: null,
     mapContext: null,
     kmzUrls: {},
     ctyStatus: 'pending',
@@ -348,11 +350,16 @@
     return (mode || '').trim().toUpperCase();
   }
 
+  const numberFormatCache = new Map();
   function formatNumberSh6(value) {
     if (value == null || value === '') return '';
     const num = Number(value);
     if (!Number.isFinite(num)) return String(value);
-    return num.toLocaleString('en-US');
+    if (numberFormatCache.has(num)) return numberFormatCache.get(num);
+    const formatted = num.toLocaleString('en-US');
+    if (numberFormatCache.size > 5000) numberFormatCache.clear();
+    numberFormatCache.set(num, formatted);
+    return formatted;
   }
 
   const SORT_HEADER_BLACKLIST = new Set(['Map', 'KMZ file']);
@@ -547,6 +554,24 @@
     });
   }
 
+  function escapeAttr(value) {
+    return escapeHtml(value);
+  }
+
+  function escapeXml(value) {
+    if (value == null) return '';
+    return String(value).replace(/[&<>'"]/g, (ch) => {
+      switch (ch) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&apos;';
+        default: return ch;
+      }
+    });
+  }
+
   const BAND_CLASS_MAP = {
     '160': 'b160',
     '80': 'b80',
@@ -580,15 +605,20 @@
     }
   }
 
+  const dateFormatCache = new Map();
   function formatDateSh6(ts) {
     if (ts == null) return 'N/A';
+    if (dateFormatCache.has(ts)) return dateFormatCache.get(ts);
     const d = new Date(ts);
     const day = String(d.getUTCDate()).padStart(2, '0');
     const month = String(d.getUTCMonth() + 1).padStart(2, '0');
     const year = d.getUTCFullYear();
     const hh = String(d.getUTCHours()).padStart(2, '0');
     const mm = String(d.getUTCMinutes()).padStart(2, '0');
-    return `${day}-${month}_${year} ${hh}:${mm}Z`;
+    const formatted = `${day}-${month}_${year} ${hh}:${mm}Z`;
+    if (dateFormatCache.size > 5000) dateFormatCache.clear();
+    dateFormatCache.set(ts, formatted);
+    return formatted;
   }
 
   function formatDaySh6(ts) {
@@ -1260,6 +1290,18 @@
     target.fullQsoData = target.qsoData;
     target.fullDerived = target.derived;
     target.bandDerivedCache = new Map();
+    if (target === state) {
+      if (state.kmzUrls) {
+        Object.values(state.kmzUrls).forEach((url) => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch (err) {
+            /* ignore revoke failures */
+          }
+        });
+      }
+      state.kmzUrls = {};
+    }
     if (!target.qsoData.qsos.length) {
       if (statusEl) statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs. Check file format.`;
     } else if (statusEl) {
@@ -1285,12 +1327,14 @@
           const table = parseCtyDat(text);
           if (!table || !table.length) {
             state.ctyTable = null;
+            state.prefixCache = new Map();
             state.ctyStatus = 'error';
             state.ctyError = 'Parsed 0 prefixes from cty.dat';
             state.ctySource = 'local upload';
           } else {
             state.ctyDat = text;
             state.ctyTable = table;
+            state.prefixCache = new Map();
             state.ctyStatus = 'ok';
             state.ctyError = null;
             state.ctySource = 'local upload';
@@ -1298,6 +1342,7 @@
           }
         } catch (err) {
           state.ctyTable = null;
+          state.prefixCache = new Map();
           state.ctyStatus = 'error';
           state.ctyError = err && err.message ? err.message : 'Load failed';
           state.ctySource = 'local upload';
@@ -1461,6 +1506,7 @@
     }).then((res) => {
       if (res.error) {
         state.ctyError = res.error;
+        state.prefixCache = new Map();
         updateDataStatus();
         return;
       }
@@ -1471,11 +1517,13 @@
         const table = parseCtyDat(text);
         if (table && table.length > 0) {
           state.ctyTable = table;
+          state.prefixCache = new Map();
           state.ctyError = null;
           state.ctyStatus = 'ok';
           recomputeDerived('cty');
         } else {
           state.ctyTable = null;
+          state.prefixCache = new Map();
           state.ctyError = 'Parsed 0 prefixes from cty.dat';
           state.ctyStatus = 'error';
         }
@@ -1701,14 +1749,24 @@
 
   function lookupPrefix(call) {
     if (!state.ctyTable || !call) return null;
+    const key = normalizeCall(call);
+    if (!key) return null;
+    if (state.prefixCache.has(key)) return state.prefixCache.get(key);
+    let found = null;
     for (const entry of state.ctyTable) {
       if (entry.exact) {
-        if (call === entry.prefix) return entry;
-      } else if (call.startsWith(entry.prefix)) {
-        return entry;
+        if (key === entry.prefix) {
+          found = entry;
+          break;
+        }
+      } else if (key.startsWith(entry.prefix)) {
+        found = entry;
+        break;
       }
     }
-    return null;
+    if (state.prefixCache.size > 10000) state.prefixCache.clear();
+    state.prefixCache.set(key, found);
+    return found;
   }
 
   function buildCountryPrefixMap() {
@@ -2068,7 +2126,16 @@
         uniques: v.uniques.size
       });
     });
-    bandSummary.sort((a, b) => a.band.localeCompare(b.band));
+    bandSummary.sort((a, b) => {
+      const na = parseFloat(a.band);
+      const nb = parseFloat(b.band);
+      const hasNa = Number.isFinite(na);
+      const hasNb = Number.isFinite(nb);
+      if (hasNa && hasNb) return nb - na;
+      if (hasNa) return -1;
+      if (hasNb) return 1;
+      return (a.band || '').localeCompare(b.band || '');
+    });
 
     const bandModeSummary = Array.from(bandModes.values()).map((b) => ({
       band: b.band,
@@ -2292,21 +2359,22 @@
     const notInMaster = state.derived.notInMasterList?.length || 0;
     const notInMasterPct = uniques ? ((notInMaster / uniques) * 100).toFixed(2) : '0.00';
     const prefixes = state.derived.prefixSummary?.length || 0;
-    const stationCall = state.derived.contestMeta?.stationCallsign || '';
-    const stationPrefix = stationCall ? lookupPrefix(stationCall) : null;
-    const stationCountry = stationPrefix?.country || 'N/A';
-    const locator = state.derived.station?.source === 'grid' ? state.derived.station.value : 'N/A';
-    const operators = state.derived.operatorsSummary?.map((o) => o.op).join(' ') || 'N/A';
-    const contest = state.derived.contestMeta?.contestId || 'N/A';
-    const category = state.derived.contestMeta?.category || 'N/A';
+    const stationCallRaw = state.derived.contestMeta?.stationCallsign || '';
+    const stationPrefix = stationCallRaw ? lookupPrefix(stationCallRaw) : null;
+    const stationCountry = escapeHtml(stationPrefix?.country || 'N/A');
+    const locator = escapeHtml(state.derived.station?.source === 'grid' ? state.derived.station.value : 'N/A');
+    const operators = escapeHtml(state.derived.operatorsSummary?.map((o) => o.op).join(' ') || 'N/A');
+    const contest = escapeHtml(state.derived.contestMeta?.contestId || 'N/A');
+    const category = escapeHtml(state.derived.contestMeta?.category || 'N/A');
     const claimedScore = Number.isFinite(state.derived.totalPoints) && state.derived.totalPoints > 0
       ? state.derived.totalPoints
       : (state.derived.contestMeta?.claimedScore || '0');
-    const software = state.derived.contestMeta?.software || 'N/A';
-    const club = state.derived.contestMeta?.club || 'N/A';
+    const software = escapeHtml(state.derived.contestMeta?.software || 'N/A');
+    const club = escapeHtml(state.derived.contestMeta?.club || 'N/A');
+    const stationCall = stationCallRaw ? escapeHtml(stationCallRaw) : 'N/A';
 
     const rows = [
-      ['Callsign', `<strong>${stationCall || 'N/A'}</strong>`],
+      ['Callsign', `<strong>${stationCall}</strong>`],
       ['Country', stationCountry],
       ['Locator', locator],
       ['Sunrise', 'N/A'],
@@ -2349,14 +2417,18 @@
     if (!state.derived) return renderPlaceholder({ id: 'operators', title: 'Operators' });
     if (!state.derived.operatorsSummary || state.derived.operatorsSummary.length === 0) return '<p>No operator data in log.</p>';
     const cards = state.derived.operatorsSummary.map((o) => {
-      const call = escapeHtml(o.op);
-      const urlCall = encodeURIComponent(o.op || '');
+      const callRaw = o.op || '';
+      const call = escapeHtml(callRaw);
+      const callAttr = escapeAttr(callRaw);
+      const callLower = escapeAttr(callRaw.toLowerCase());
+      const urlCall = encodeURIComponent(callRaw);
+      const titleAttr = escapeAttr(`${callRaw} at QRZ.COM`);
       return `
         <div class="operator-card">
           <div class="np"></div>
-          <i style="border-bottom:1px dashed" title="No file ${call.toLowerCase()}.jpg in 'images' folder.">(No photo)</i>
+          <i style="border-bottom:1px dashed" title="No file ${callLower}.jpg in 'images' folder.">(No photo)</i>
           <br/><br/>
-          <b><a rel="nofollow" title="${call} at QRZ.COM" target="_blank" href="http://www.qrz.com/db/${urlCall}">${call}</a></b>
+          <b><a rel="noopener noreferrer nofollow" title="${titleAttr}" target="_blank" href="https://www.qrz.com/db/${urlCall}">${call}</a></b>
           <br/>&nbsp;<br/><br/>
         </div>
       `;
@@ -2380,7 +2452,8 @@
       const total = stations * qsos;
       const callLinks = calls.map((call) => {
         const safe = escapeHtml(call);
-        return `<a href="#" class="log-call" data-call="${safe}">${safe}</a>`;
+        const safeAttr = escapeAttr(call);
+        return `<a href="#" class="log-call" data-call="${safeAttr}">${safe}</a>`;
       }).join(' ');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
@@ -2419,7 +2492,9 @@
       if (!count) return '<td colspan="3"></td>';
       const pctText = pct.toFixed(1);
       const title = `${formatNumberSh6(count)} Qs - ${pctText}%`;
-      const link = `<a href="#" class="log-filter" data-band="${band}" data-mode="${mode}">${formatNumberSh6(count)}</a>`;
+      const bandAttr = escapeAttr(band || '');
+      const modeAttr = escapeAttr(mode || '');
+      const link = `<a href="#" class="log-filter" data-band="${bandAttr}" data-mode="${modeAttr}">${formatNumberSh6(count)}</a>`;
       return `
         <td>${link}</td>
         <td><i>${pctText}</i></td>
@@ -2431,16 +2506,18 @@
       const digPct = totalQsos ? (b.digital / totalQsos) * 100 : 0;
       const phonePct = totalQsos ? (b.phone / totalQsos) * 100 : 0;
       const allPct = totalQsos ? (b.all / totalQsos) * 100 : 0;
+      const bandText = escapeHtml(b.band || '');
+      const bandAttr = escapeAttr(b.band || '');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td class="${bandClass(b.band)}"><b>${b.band}</b></td>
+        <td class="${bandClass(b.band)}"><b>${bandText}</b></td>
         ${renderModeCells(b.cw, cwPct, b.band, 'CW')}
         ${renderModeCells(b.digital, digPct, b.band, 'Digital')}
         ${renderModeCells(b.phone, phonePct, b.band, 'Phone')}
         ${renderModeCells(b.all, allPct, b.band, 'All')}
         <td>${formatNumberSh6(b.countries ?? '')}</td>
         <td>${formatNumberSh6(b.points ?? '')}</td>
-        <td class="tac"><a href="#" class="map-link" data-scope="summary" data-key="${b.band}">map</a></td>
+        <td class="tac"><a href="#" class="map-link" data-scope="summary" data-key="${bandAttr}">map</a></td>
       </tr>
     `;
     }).join('');
@@ -2558,12 +2635,16 @@
     const band = escapeHtml(q.band || '');
     const cont = escapeHtml(q.continent || '');
     const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
+    const time = escapeHtml(q.time || '');
+    const freq = escapeHtml(q.freq ?? '');
+    const cq = escapeHtml(q.cqZone || '');
+    const itu = escapeHtml(q.ituZone || '');
     return `
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
-        <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
+        <td>${q.ts ? formatDateSh6(q.ts) : time}</td>
         <td class="${bandClass(q.band)}">${band}</td>
         <td class="${modeClass(q.mode)}">${mode}</td>
-        <td class="${bandClass(q.band)}">${q.freq ?? ''}</td>
+        <td class="${bandClass(q.band)}">${freq}</td>
         <td class="tl">${call}</td>
         <td>${formatNumberSh6(q.rstSent || '')}</td>
         <td>${formatNumberSh6(q.rstRcvd || '')}</td>
@@ -2572,8 +2653,8 @@
         <td>${op}</td>
         <td class="tl">${country}</td>
         <td class="tac ${continentClass(q.continent)}">${cont}</td>
-        <td>${q.cqZone || ''}</td>
-        <td>${q.ituZone || ''}</td>
+        <td>${cq}</td>
+        <td>${itu}</td>
         <td class="tl">${grid}</td>
         <td class="tl">${flags}</td>
     `;
@@ -2644,6 +2725,8 @@
       const aList = aBuckets.get(key) || [];
       const bList = bBuckets.get(key) || [];
       const max = Math.max(aList.length, bList.length, 1);
+      let aIndex = 0;
+      let bIndex = 0;
       const bucketLabel = key === 'unknown'
         ? 'Unknown time bucket'
         : (() => {
@@ -2655,8 +2738,8 @@
         })();
       const bucketRow = `<tr class="compare-bucket"><td colspan="34">${bucketLabel}</td></tr>`;
       const dataRows = Array.from({ length: max }, () => {
-        const a = aList.shift() || null;
-        const b = bList.shift() || null;
+        const a = aList[aIndex++] || null;
+        const b = bList[bIndex++] || null;
         const cls = rowIndex % 2 === 0 ? 'td1' : 'td0';
         rowIndex += 1;
         return `<tr class="${cls}">${renderLogCells(a, rowIndex)}${renderLogCells(b, rowIndex)}</tr>`;
@@ -2664,8 +2747,14 @@
       return bucketRow + dataRows;
     }).join('');
     const dataNote = `<p>${(state.ctyTable && state.ctyTable.length) ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${(state.masterSet && state.masterSet.size) ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
+    const safeBand = escapeHtml(filters.bandFilter || 'All bands');
+    const safeMode = escapeHtml(filters.modeFilter || '');
+    const safeCountry = escapeHtml(filters.countryFilter || '');
+    const safeContinent = escapeHtml(filters.continentFilter || '');
+    const safeCq = escapeHtml(filters.cqFilter || '');
+    const safeItu = escapeHtml(filters.ituFilter || '');
     const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange
-      ? `<p class="log-filter-note">Filter applied to both logs: ${filters.bandFilter || 'All bands'} ${filters.modeFilter ? `/${filters.modeFilter}` : ''} ${filters.countryFilter ? ` ${filters.countryFilter}` : ''} ${filters.continentFilter ? ` ${filters.continentFilter}` : ''} ${filters.cqFilter ? ` CQ${filters.cqFilter}` : ''} ${filters.ituFilter ? ` ITU${filters.ituFilter}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+      ? `<p class="log-filter-note">Filter applied to both logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const aCount = aQsos.length;
     const bCount = bQsos.length;
@@ -2683,7 +2772,7 @@
       <div class="log-controls">
         <form id="logSearchForm" class="no-print log-search">
           Callsign:
-          <input id="logSearchInput" type="text" value="${filters.search}">
+          <input id="logSearchInput" type="text" value="${escapeAttr(filters.search || '')}">
           <input type="submit" value="Search">
           <button type="button" id="logSearchClear">Clear</button>
         </form>
@@ -2738,13 +2827,17 @@
       const band = escapeHtml(q.band || '');
       const cont = escapeHtml(q.continent || '');
       const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
+      const time = escapeHtml(q.time || '');
+      const freq = escapeHtml(q.freq ?? '');
+      const cq = escapeHtml(q.cqZone || '');
+      const itu = escapeHtml(q.ituZone || '');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
-        <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
+        <td>${q.ts ? formatDateSh6(q.ts) : time}</td>
         <td class="${bandClass(q.band)}">${band}</td>
         <td class="${modeClass(q.mode)}">${mode}</td>
-        <td class="${bandClass(q.band)}">${q.freq ?? ''}</td>
+        <td class="${bandClass(q.band)}">${freq}</td>
         <td class="tl">${call}</td>
         <td>${formatNumberSh6(q.rstSent || '')}</td>
         <td>${formatNumberSh6(q.rstRcvd || '')}</td>
@@ -2753,8 +2846,8 @@
         <td>${op}</td>
         <td class="tl">${country}</td>
         <td class="tac ${continentClass(q.continent)}">${cont}</td>
-        <td>${q.cqZone || ''}</td>
-        <td>${q.ituZone || ''}</td>
+        <td>${cq}</td>
+        <td>${itu}</td>
         <td class="tl">${grid}</td>
         <td class="tl">${flags}</td>
       </tr>
@@ -2763,8 +2856,14 @@
     const note = `<p>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(Math.min(end, filtered.length))} of ${formatNumberSh6(filtered.length)} QSOs (page ${page + 1} / ${totalPages}).</p>`;
     const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const emptyNote = filtered.length ? '' : '<p>No QSOs match current filter.</p>';
+    const safeBand = escapeHtml(bandFilter || 'All bands');
+    const safeMode = escapeHtml(modeFilter || '');
+    const safeCountry = escapeHtml(countryFilter || '');
+    const safeContinent = escapeHtml(continentFilter || '');
+    const safeCq = escapeHtml(cqFilter || '');
+    const safeItu = escapeHtml(ituFilter || '');
     const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter || headingRange
-      ? `<p class="log-filter-note">Filter: ${bandFilter || 'All bands'} ${modeFilter ? `/${modeFilter}` : ''} ${countryFilter ? ` ${countryFilter}` : ''} ${continentFilter ? ` ${continentFilter}` : ''} ${cqFilter ? ` CQ${cqFilter}` : ''} ${ituFilter ? ` ITU${ituFilter}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+      ? `<p class="log-filter-note">Filter: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const pageLinks = Array.from({ length: totalPages }, (_, i) => {
       const from = i * state.logPageSize + 1;
@@ -2780,7 +2879,7 @@
       <div class="log-controls">
         <form id="logSearchForm" class="no-print log-search">
           Callsign:
-          <input id="logSearchInput" type="text" value="${search}">
+          <input id="logSearchInput" type="text" value="${escapeAttr(search || '')}">
           <input type="submit" value="Search">
           <button type="button" id="logSearchClear">Clear</button>
         </form>
@@ -2804,13 +2903,17 @@
       const band = escapeHtml(q.band || '');
       const cont = escapeHtml(q.continent || '');
       const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
+      const time = escapeHtml(q.time || '');
+      const freq = escapeHtml(q.freq ?? '');
+      const cq = escapeHtml(q.cqZone || '');
+      const itu = escapeHtml(q.ituZone || '');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
-        <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
+        <td>${q.ts ? formatDateSh6(q.ts) : time}</td>
         <td class="${bandClass(q.band)}">${band}</td>
         <td class="${modeClass(q.mode)}">${mode}</td>
-        <td class="${bandClass(q.band)}">${q.freq ?? ''}</td>
+        <td class="${bandClass(q.band)}">${freq}</td>
         <td class="tl">${call}</td>
         <td>${formatNumberSh6(q.rstSent || '')}</td>
         <td>${formatNumberSh6(q.rstRcvd || '')}</td>
@@ -2819,8 +2922,8 @@
         <td>${op}</td>
         <td class="tl">${country}</td>
         <td class="tac ${continentClass(q.continent)}">${cont}</td>
-        <td>${q.cqZone || ''}</td>
-        <td>${q.ituZone || ''}</td>
+        <td>${cq}</td>
+        <td>${itu}</td>
         <td class="tl">${grid}</td>
         <td class="tl">${flags}</td>
       </tr>
@@ -2906,14 +3009,21 @@
 
   function renderDupes() {
     if (!state.derived) return renderPlaceholder({ id: 'dupes', title: 'Dupes' });
-    const rows = state.derived.dupes.map((q, idx) => `
+    const rows = state.derived.dupes.map((q, idx) => {
+      const time = escapeHtml(q.time || '');
+      const band = escapeHtml(q.band || '');
+      const mode = escapeHtml(q.mode || '');
+      const call = escapeHtml(q.call || '');
+      const callAttr = escapeAttr(q.call || '');
+      return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td>${q.time}</td>
-        <td class="${bandClass(q.band)}">${q.band}</td>
-        <td class="${modeClass(q.mode)}">${q.mode}</td>
-        <td><a href="#" class="log-call" data-call="${q.call}">${q.call}</a></td>
+        <td>${time}</td>
+        <td class="${bandClass(q.band)}">${band}</td>
+        <td class="${modeClass(q.mode)}">${mode}</td>
+        <td><a href="#" class="log-call" data-call="${callAttr}">${call}</a></td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     const count = state.derived.dupes.length;
     if (!count) return '<p>No duplicate QSOs detected.</p>';
     return `
@@ -2978,7 +3088,10 @@
     const summaryMap = buildCountrySummaryMap(derived);
     const renderCount = (count, country, band, mode) => {
       if (!count) return '<td></td>';
-      return `<td><a href="#" class="log-country-filter" data-country="${country}" data-band="${band || ''}" data-mode="${mode || ''}">${formatNumberSh6(count)}</a></td>`;
+      const countryAttr = escapeAttr(country || '');
+      const bandAttr = escapeAttr(band || '');
+      const modeAttr = escapeAttr(mode || '');
+      return `<td><a href="#" class="log-country-filter" data-country="${countryAttr}" data-band="${bandAttr}" data-mode="${modeAttr}">${formatNumberSh6(count)}</a></td>`;
     };
     return list.map((info, idx) => {
       const c = summaryMap.get(info.country);
@@ -2988,13 +3101,17 @@
       const bandCount = c ? bandCols.filter((b) => c.bandCounts?.get(b)).length : 0;
       const bandClass = `q${Math.min(6, Math.max(1, bandCount || 1))}`;
       const bandCells = bandCols.map((b) => renderCount(c?.bandCounts?.get(b), info.country, b, ''));
-      const mapLink = c ? `<a href="#" class="map-link" data-scope="country" data-key="${info.country}">map</a>` : '';
-      const countryLabel = c ? `<a href="#" class="log-country" data-country="${info.country}">${info.country}</a>` : info.country;
+      const countryText = escapeHtml(info.country || '');
+      const countryAttr = escapeAttr(info.country || '');
+      const mapLink = c ? `<a href="#" class="map-link" data-scope="country" data-key="${countryAttr}">map</a>` : '';
+      const countryLabel = c ? `<a href="#" class="log-country" data-country="${countryAttr}">${countryText}</a>` : countryText;
+      const continentText = escapeHtml(continent);
+      const prefixText = escapeHtml(prefixCode);
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${formatNumberSh6(idx + 1)}</td>
-        <td class="${continentClass(continent)}">${continent}</td>
-        <td>${prefixCode}</td>
+        <td class="${continentClass(continent)}">${continentText}</td>
+        <td>${prefixText}</td>
         <td class="tl">${countryLabel}</td>
         <td>${c?.distanceAvg ? formatNumberSh6(c.distanceAvg.toFixed(0)) : ''}</td>
         ${renderCount(c?.cw, info.country, '', 'CW')}
@@ -3075,21 +3192,24 @@
       const contKey = (info.continent || '').toUpperCase();
       const c = summaryMap.get(contKey);
       const pct = c && totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(1) : '';
+      const contText = escapeHtml(contKey);
+      const contAttr = escapeAttr(contKey);
+      const contLabel = escapeHtml(continentLabel(contKey));
       const bandCells = bandCols.map((b) => {
         const count = c?.bandCounts?.get(b) || 0;
         if (!count) return '<td></td>';
-        return `<td><a href="#" class="log-continent-band" data-continent="${contKey}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
+        return `<td><a href="#" class="log-continent-band" data-continent="${contAttr}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
       }).join('');
-      const allLink = c ? `<a href="#" class="log-continent" data-continent="${contKey}">${formatNumberSh6(c.qsos)}</a>` : '';
+      const allLink = c ? `<a href="#" class="log-continent" data-continent="${contAttr}">${formatNumberSh6(c.qsos)}</a>` : '';
       const cw = c?.cw ? formatNumberSh6(c.cw) : '';
       const digital = c?.digital ? formatNumberSh6(c.digital) : '';
       const phone = c?.phone ? formatNumberSh6(c.phone) : '';
       const contClass = continentClass(contKey);
-      const mapLink = c ? `<a href="#" class="map-link" data-scope="continent" data-key="${contKey}">map</a>` : '';
+      const mapLink = c ? `<a href="#" class="map-link" data-scope="continent" data-key="${contAttr}">map</a>` : '';
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-          <td class="${contClass}">${contKey}</td>
-          <td style="text-align:left">${continentLabel(contKey)}</td>
+          <td class="${contClass}">${contText}</td>
+          <td style="text-align:left">${contLabel}</td>
           ${bandCells}
           <td>${allLink}</td>
           <td><i>${pct}</i></td>
@@ -3153,8 +3273,10 @@
     const linkClass = field === 'itu' ? 'log-itu' : 'log-cq';
     return list.map((info, idx) => {
       const z = summaryMap.get(info.zone);
-      const mapLink = z ? `<a href="#" class="map-link" data-scope="${scope}" data-key="${info.zone}">map</a>` : '';
-      const zoneLink = z ? `<a href="#" class="${linkClass}" ${dataAttr}="${info.zone}">${info.zone}</a>` : info.zone;
+      const zoneText = escapeHtml(info.zone ?? '');
+      const zoneAttr = escapeAttr(info.zone ?? '');
+      const mapLink = z ? `<a href="#" class="map-link" data-scope="${scope}" data-key="${zoneAttr}">map</a>` : '';
+      const zoneLink = z ? `<a href="#" class="${linkClass}" ${dataAttr}="${zoneAttr}">${zoneText}</a>` : zoneText;
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${zoneLink}</td>
@@ -3211,6 +3333,8 @@
         ssn: state.derived.contestMeta?.ssn || '',
         kIndex: state.derived.contestMeta?.kIndex || ''
       });
+      const ssnText = escapeHtml(solar.ssn || '');
+      const kIndexText = escapeHtml(solar.kIndex || '');
       const kDots = solar.kIndex ? '&#8226;'.repeat(Math.max(1, Math.min(5, Number(solar.kIndex)))) : '';
       const cells = bandCols.map((b) => {
         const count = h.bands[b] || 0;
@@ -3222,7 +3346,7 @@
       const avgPts = pts && h.qsos ? (pts / h.qsos).toFixed(1) : '';
       const cls = idx % 2 === 0 ? 'td1' : 'td0';
       const allLink = `<a href="#" class="log-hour" data-hour="${h.hour}"><b>${formatNumberSh6(h.qsos)}</b></a>`;
-      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}:00Z</b></td><td>${solar.ssn || ''}</td><td>${solar.kIndex || ''}</td><td align="left">${kDots}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hour}:00Z</b></td><td>${ssnText}</td><td>${kIndexText}</td><td align="left">${kDots}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum)}</td><td>${formatNumberSh6(pts)}</td><td>${avgPts}</td></tr>`;
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
@@ -3319,6 +3443,8 @@
           kIndex: slot.derived.contestMeta?.kIndex || ''
         })
         : { ssn: '', kIndex: '' };
+      const ssnText = escapeHtml(solar.ssn || '');
+      const kIndexText = escapeHtml(solar.kIndex || '');
       const cells = bandCols.map((b) => {
         const count = entry ? (entry.bands.get(b) || 0) : 0;
         if (!count) return '<td></td>';
@@ -3337,7 +3463,7 @@
       const allLink = qsos && hourBucket != null
         ? `<a href="#" class="log-hour" data-hour="${hourBucket}"><b>${formatNumberSh6(qsos)}</b></a>`
         : (qsos ? `<b>${formatNumberSh6(qsos)}</b>` : '');
-      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hourLabel}</b></td><td>${solar.ssn || ''}</td><td>${solar.kIndex || ''}</td><td align="left">${kDots}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum || '')}</td><td>${formatNumberSh6(pts || '')}</td><td>${avgPts}</td></tr>`;
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hourLabel}</b></td><td>${ssnText}</td><td>${kIndexText}</td><td align="left">${kDots}</td>${cells}<td>${allLink}</td><td>${formatNumberSh6(accum || '')}</td><td>${formatNumberSh6(pts || '')}</td><td>${avgPts}</td></tr>`;
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
@@ -3390,8 +3516,10 @@
       const perHour = peak.count ? Math.round((peak.count * 60) / mins) : 0;
       const fromTime = peak.startTs ? formatDateSh6(peak.startTs) : 'N/A';
       const toTime = peak.endTs ? formatDateSh6(peak.endTs) : 'N/A';
+      const startAttr = escapeAttr(peak.startQso ?? '');
+      const endAttr = escapeAttr(peak.endQso ?? '');
       const rangeLink = (peak.startQso != null && peak.endQso != null)
-        ? `<a href="#" class="log-range" data-start="${peak.startQso}" data-end="${peak.endQso}">${formatNumberSh6(peak.count)}</a>`
+        ? `<a href="#" class="log-range" data-start="${startAttr}" data-end="${endAttr}">${formatNumberSh6(peak.count)}</a>`
         : `${formatNumberSh6(peak.count)}`;
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
@@ -3599,15 +3727,19 @@
       const count = g ? g.prefixes.length : 0;
       const pct = count && totalPrefixes ? ((count / totalPrefixes) * 100).toFixed(1) : '';
       const listText = g ? g.prefixes.slice().sort((a, b) => a.localeCompare(b)).join(' ') : '';
+      const contText = escapeHtml(info.continent || '');
+      const idText = escapeHtml(info.id || '');
+      const countryText = escapeHtml(info.country || '');
+      const listSafe = escapeHtml(listText);
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td>${formatNumberSh6(idx + 1)}</td>
-          <td class="${continentClass(info.continent)}">${info.continent || ''}</td>
-          <td>${info.id || ''}</td>
-          <td class="tl">${info.country || ''}</td>
+          <td class="${continentClass(info.continent)}">${contText}</td>
+          <td>${idText}</td>
+          <td class="tl">${countryText}</td>
           <td><b>${count ? formatNumberSh6(count) : ''}</b></td>
           <td><i>${pct}</i></td>
-          <td class="tl">${listText} </td>
+          <td class="tl">${listSafe} </td>
         </tr>
       `;
     }).join('');
@@ -3716,11 +3848,13 @@
       const s = map.get(info.struct);
       const callPct = s && totalCalls ? ((s.callsigns / totalCalls) * 100).toFixed(2) : '';
       const qsoPct = s && totalQsos ? ((s.qsos / totalQsos) * 100).toFixed(2) : '';
+      const structText = escapeHtml(info.struct || '');
+      const exampleText = escapeHtml(s?.example || '');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${idx + 1}</td>
-        <td>${info.struct}</td>
-        <td>${s?.example || ''}</td>
+        <td>${structText}</td>
+        <td>${exampleText}</td>
         <td>${s ? formatNumberSh6(s.callsigns) : ''}</td>
         <td>${callPct}</td>
         <td>${s ? formatNumberSh6(s.qsos) : ''}</td>
@@ -3774,7 +3908,8 @@
     return list.map((info, idx) => {
       const b = map.get(info.range);
       const pct = b && ds?.count ? ((b.count / ds.count) * 100).toFixed(2) : '';
-      const mapLink = b ? `<a href="#" class="map-link" data-scope="distance" data-key="${info.range}">map</a>` : '';
+      const rangeAttr = escapeAttr(info.range);
+      const mapLink = b ? `<a href="#" class="map-link" data-scope="distance" data-key="${rangeAttr}">map</a>` : '';
       return `<tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${formatNumberSh6(info.range)} km</td><td>${b ? formatNumberSh6(b.count) : ''}</td><td>${pct}</td><td class="tac">${mapLink}</td></tr>`;
     }).join('');
   }
@@ -3827,18 +3962,20 @@
     list.forEach((info, idx) => {
       const h = map.get(info.start);
       const pct = h && total ? ((h.count / total) * 100).toFixed(1) : '';
+      const headingAttr = escapeAttr(info.start);
+      const sectorText = escapeHtml(info.sector || '');
       const bandCells = bands.map((b) => {
         const count = h?.bands?.get(b) || 0;
         if (!count) return '<td></td>';
-        return `<td><a href="#" class="log-heading-band" data-heading="${info.start}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
+        return `<td><a href="#" class="log-heading-band" data-heading="${headingAttr}" data-band="${b}">${formatNumberSh6(count)}</a></td>`;
       }).join('');
       const barWidth = h ? Math.round((h.count / maxCount) * 100) : 0;
-      const mapLink = h ? `<a href="#" class="map-link" data-scope="heading" data-key="${info.start}">map</a>` : '';
+      const mapLink = h ? `<a href="#" class="map-link" data-scope="heading" data-key="${headingAttr}">map</a>` : '';
       rows += `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-          <td>${info.sector || ''}</td>
+          <td>${sectorText}</td>
           ${bandCells}
-          <td>${h ? `<a href="#" class="log-heading" data-heading="${info.start}">${formatNumberSh6(h.count)}</a>` : ''}</td>
+          <td>${h ? `<a href="#" class="log-heading" data-heading="${headingAttr}">${formatNumberSh6(h.count)}</a>` : ''}</td>
           <td><i>${pct}</i></td>
           <td style="text-align:left"><div class="sum" style="width:${barWidth}%" /></td>
           <td class="tac">${mapLink}</td>
@@ -3904,13 +4041,17 @@
 
   function renderAllCallsigns() {
     if (!state.derived) return renderPlaceholder({ id: 'all_callsigns', title: 'All callsigns' });
-    const rows = state.derived.allCallsList.slice(0, 2000).map((c, idx) => `
+    const rows = state.derived.allCallsList.slice(0, 2000).map((c, idx) => {
+      const call = escapeHtml(c.call || '');
+      const callAttr = escapeAttr(c.call || '');
+      return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${formatNumberSh6(idx + 1)}</td>
-        <td><a href="#" class="log-call" data-call="${c.call}">${c.call}</a></td>
+        <td><a href="#" class="log-call" data-call="${callAttr}">${call}</a></td>
         <td>${formatNumberSh6(c.qsos)}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     const note = state.derived.allCallsList.length > 2000 ? `<p>Showing first 2000 of ${state.derived.allCallsList.length} calls.</p>` : '';
     return `
       ${note}
@@ -3932,7 +4073,11 @@
       grouped.get(c.qsos).push(c.call);
     });
     const rows = Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]).map(([qsos, calls], idx) => {
-      const callLinks = calls.map((call) => `<a href="#" class="log-call" data-call="${call}">${call}</a>`).join(' ');
+      const callLinks = calls.map((call) => {
+        const safeCall = escapeHtml(call);
+        const safeAttr = escapeAttr(call);
+        return `<a href="#" class="log-call" data-call="${safeAttr}">${safeCall}</a>`;
+      }).join(' ');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td><b>${formatNumberSh6(qsos)}</b></td>
@@ -3984,7 +4129,9 @@
     CONTINENT_ORDER.concat(['Other']).forEach((contKey) => {
       const listForCont = groups.get(contKey);
       if (!listForCont || listForCont.length === 0) return;
-      rows += `<tr class="thc"><th colspan="3" class="${continentClass(contKey)}"><a href="#" class="log-continent" data-continent="${contKey}">${continentLabel(contKey)}</a></th><th>${bandFilter ? `${bandFilter} m Qs` : 'All m Qs'}</th>${hourHeaders(startHour, endHour).join('')}</tr>`;
+      const contAttr = escapeAttr(contKey);
+      const contLabel = escapeHtml(continentLabel(contKey));
+      rows += `<tr class="thc"><th colspan="3" class="${continentClass(contKey)}"><a href="#" class="log-continent" data-continent="${contAttr}">${contLabel}</a></th><th>${bandFilter ? `${bandFilter} m Qs` : 'All m Qs'}</th>${hourHeaders(startHour, endHour).join('')}</tr>`;
       rows += listForCont.map((entry, idx) => {
         let cells = '';
         for (let h = startHour; h <= endHour; h += 1) {
@@ -3997,11 +4144,14 @@
         }
         const rowCls = idx % 2 === 0 ? 'td1' : 'td0';
         const totalCell = entry.total ? formatNumberSh6(entry.total) : '';
-        const countryLabel = entry.total ? `<a href=\"#\" class=\"log-country\" data-country=\"${entry.name}\">${entry.name}</a>` : entry.name;
+        const prefixText = escapeHtml(entry.prefix || '');
+        const countryText = escapeHtml(entry.name || '');
+        const countryAttr = escapeAttr(entry.name || '');
+        const countryLabel = entry.total ? `<a href=\"#\" class=\"log-country\" data-country=\"${countryAttr}\">${countryText}</a>` : countryText;
         return `
           <tr class="${rowCls}">
             <td>${formatNumberSh6(idx + 1)}</td>
-            <td>${entry.prefix}</td>
+            <td>${prefixText}</td>
             <td>${countryLabel}</td>
             <td>${totalCell}</td>
             ${cells}
@@ -4061,12 +4211,15 @@
     if (!state.derived) return renderPlaceholder({ id: 'possible_errors', title: 'Possible errors' });
     if (!state.derived.possibleErrors || !state.derived.possibleErrors.length) return '<p>No possible errors detected.</p>';
     const rows = state.derived.possibleErrors.map((e, idx) => {
-      const call = e.q.call || '';
-      const sugg = call ? suggestMasterMatches(call, state.masterSet, 5).join(' ') : e.reason;
+      const callRaw = e.q.call || '';
+      const suggRaw = callRaw ? suggestMasterMatches(callRaw, state.masterSet, 5).join(' ') : e.reason;
+      const call = escapeHtml(callRaw);
+      const callAttr = escapeAttr(callRaw);
+      const sugg = escapeHtml(suggRaw || '');
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td>${idx + 1}</td>
-          <td>${call ? `<a href="#" class="log-call" data-call="${call}">${call}</a>` : ''}</td>
+          <td>${call ? `<a href="#" class="log-call" data-call="${callAttr}">${call}</a>` : ''}</td>
           <td>${sugg}</td>
         </tr>
       `;
@@ -4082,7 +4235,7 @@
   function renderComments() {
     if (!state.derived) return renderPlaceholder({ id: 'comments', title: 'Comments' });
     if (!state.derived.comments || !state.derived.comments.length) return '<p>No comments found in log.</p>';
-    const items = state.derived.comments.map((c) => `<li>${c}</li>`).join('');
+    const items = state.derived.comments.map((c) => `<li>${escapeHtml(c)}</li>`).join('');
     return `<ul>${items}</ul>`;
   }
 
@@ -4194,8 +4347,13 @@
     if (!window.L) return;
     const mapEl = document.getElementById('map');
     if (!mapEl) return;
+    if (state.leafletMap) {
+      state.leafletMap.remove();
+      state.leafletMap = null;
+    }
     mapEl.innerHTML = '';
     const map = L.map(mapEl, { worldCopyJump: true });
+    state.leafletMap = map;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 6,
       attribution: '&copy; OpenStreetMap contributors'
@@ -4216,9 +4374,21 @@
         { label: '', color: '#cc0000', state: state }
       ];
 
+    const MAX_MAP_POINTS = 2500;
+    const MAX_MAP_LINES = 1500;
+    const sampleArray = (arr, max) => {
+      if (arr.length <= max) return arr;
+      const step = Math.ceil(arr.length / max);
+      const out = [];
+      for (let i = 0; i < arr.length; i += step) out.push(arr[i]);
+      return out;
+    };
+
     slots.forEach((slot) => {
       const station = slot.state.derived?.station;
       const qsos = filterQsosForMap(ctx, slot.state);
+      const pointQsos = sampleArray(qsos, MAX_MAP_POINTS);
+      const lineQsos = sampleArray(qsos, MAX_MAP_LINES);
       if (station && station.lat != null && station.lon != null) {
         const stationLabel = slot.label ? ` ${slot.label}` : '';
         const stationMarker = L.circleMarker([station.lat, station.lon], {
@@ -4231,7 +4401,7 @@
         markerLayer.addLayer(stationMarker);
         allLatLngs.push(stationMarker.getLatLng());
       }
-      qsos.forEach((q) => {
+      pointQsos.forEach((q) => {
         const prefix = lookupPrefix(q.call);
         const remote = deriveRemoteLatLon(q, prefix);
         if (!remote) return;
@@ -4239,6 +4409,12 @@
         marker.bindPopup(`${escapeHtml(q.call || '')} ${escapeHtml(q.band || '')} ${escapeHtml(q.mode || '')}`);
         markerLayer.addLayer(marker);
         allLatLngs.push(marker.getLatLng());
+      });
+      lineQsos.forEach((q) => {
+        if (!station || station.lat == null || station.lon == null) return;
+        const prefix = lookupPrefix(q.call);
+        const remote = deriveRemoteLatLon(q, prefix);
+        if (!remote) return;
         if (station && station.lat != null && station.lon != null) {
           const distance = haversineKm(station.lat, station.lon, remote.lat, remote.lon);
           const segments = Math.min(64, Math.max(8, Math.round(distance / 400)));
@@ -4260,17 +4436,20 @@
     }
 
     if (showPoints) {
-      showPoints.addEventListener('change', () => {
+      showPoints.onchange = () => {
         if (showPoints.checked) markerLayer.addTo(map);
         else map.removeLayer(markerLayer);
-      });
+      };
     }
     if (showLines) {
-      showLines.addEventListener('change', () => {
+      showLines.onchange = () => {
         if (showLines.checked) lineLayer.addTo(map);
         else map.removeLayer(lineLayer);
-      });
+      };
     }
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 0);
   }
 
   function buildKmlForBand(qsos, band) {
@@ -4290,8 +4469,8 @@
       const prefix = lookupPrefix(q.call);
       const remote = deriveRemoteLatLon(q, prefix);
       if (!remote) return;
-      const name = q.call || 'QSO';
-      const desc = `${q.ts ? formatDateSh6(q.ts) : q.time} ${q.band || ''} ${q.mode || ''}`;
+      const name = escapeXml(q.call || 'QSO');
+      const desc = escapeXml(`${q.ts ? formatDateSh6(q.ts) : q.time} ${q.band || ''} ${q.mode || ''}`);
       placemarks.push(`
         <Placemark>
           <name>${name}</name>
@@ -4304,7 +4483,7 @@
     return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>${band}m QSOs</name>
+    <name>${escapeXml(band)}m QSOs</name>
     ${placemarks.join('')}
   </Document>
 </kml>`;
@@ -4412,14 +4591,20 @@
     if (!passed.length) return '<p>No passed QSOs detected.</p>';
     const rows = passed.map((q, idx) => {
       const number = q.qsoNumber || '';
-      const numberCell = number ? `<a href="#" class="log-range" data-start="${number}" data-end="${number}">${formatNumberSh6(number)}</a>` : '';
+      const numberAttr = escapeAttr(number);
+      const numberCell = number ? `<a href="#" class="log-range" data-start="${numberAttr}" data-end="${numberAttr}">${formatNumberSh6(number)}</a>` : '';
+      const time = escapeHtml(q.time || '');
+      const call = escapeHtml(q.call || '');
+      const callAttr = escapeAttr(q.call || '');
+      const band = escapeHtml(q.band || '');
+      const mode = escapeHtml(q.mode || '');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${numberCell}</td>
-        <td>${q.ts ? formatDateSh6(q.ts) : q.time}</td>
-        <td><a href="#" class="log-call" data-call="${q.call}">${q.call}</a></td>
-        <td class="${bandClass(q.band)}">${q.band}</td>
-        <td class="${modeClass(q.mode)}">${q.mode}</td>
+        <td>${q.ts ? formatDateSh6(q.ts) : time}</td>
+        <td><a href="#" class="log-call" data-call="${callAttr}">${call}</a></td>
+        <td class="${bandClass(q.band)}">${band}</td>
+        <td class="${modeClass(q.mode)}">${mode}</td>
       </tr>
     `;
     }).join('');
@@ -4435,12 +4620,12 @@
     const rows = [
       ['Report generator', `SH6 ${APP_VERSION}`],
       ['Generated', formatDateSh6(Date.now())],
-      ['Log file', state.logFile ? state.logFile.name : 'N/A'],
+      ['Log file', escapeHtml(state.logFile ? state.logFile.name : 'N/A')],
       ['QSOs parsed', state.qsoData ? formatNumberSh6(state.qsoData.qsos.length) : '0'],
-      ['Contest', state.derived?.contestMeta?.contestId || 'N/A'],
-      ['Station callsign', state.derived?.contestMeta?.stationCallsign || 'N/A'],
-      ['cty.dat', state.ctyStatus || 'pending'],
-      ['MASTER.DTA', state.masterStatus || 'pending']
+      ['Contest', escapeHtml(state.derived?.contestMeta?.contestId || 'N/A')],
+      ['Station callsign', escapeHtml(state.derived?.contestMeta?.stationCallsign || 'N/A')],
+      ['cty.dat', escapeHtml(state.ctyStatus || 'pending')],
+      ['MASTER.DTA', escapeHtml(state.masterStatus || 'pending')]
     ];
     const rowHtml = rows.map(([label, value], idx) => `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
@@ -4457,11 +4642,14 @@
     const max = Math.max(...data.map((d) => d[valueField] || 0), 1);
     return data.map((d) => {
       const w = Math.max(4, (d[valueField] / max) * 200);
+      const label = escapeHtml(d[labelField] ?? '');
+      const labelAttr = escapeAttr(d[labelField] ?? '');
+      const valueText = escapeHtml(d[valueField] ?? '');
       return `
         <div class="bar-row">
-          <div class="bar-label" title="${d[labelField]}">${d[labelField]}</div>
+          <div class="bar-label" title="${labelAttr}">${label}</div>
           <div class="bar" style="width:${w}px"></div>
-          <div>${d[valueField]}</div>
+          <div>${valueText}</div>
         </div>
       `;
     }).join('');
@@ -4675,8 +4863,8 @@
   }
 
   function formatCompareHeader(slot, label) {
-    const call = slot.derived?.contestMeta?.stationCallsign || 'N/A';
-    const contest = slot.derived?.contestMeta?.contestId || 'N/A';
+    const call = escapeHtml(slot.derived?.contestMeta?.stationCallsign || 'N/A');
+    const contest = escapeHtml(slot.derived?.contestMeta?.contestId || 'N/A');
     const year = slot.derived?.timeRange?.minTs ? new Date(slot.derived.timeRange.minTs).getUTCFullYear() : 'N/A';
     const qsos = slot.qsoData?.qsos?.length ? formatNumberSh6(slot.qsoData.qsos.length) : '0';
     return `${label}: ${call} · ${contest} · ${year} · ${qsos} QSOs`;
@@ -5904,16 +6092,21 @@
       statusEl.textContent = `Select a log to load. Found ${archiveRows.length} logs in ${contestCount} contests.`;
       tree.forEach((yearMap, contest) => {
         const hasContest = Boolean(contest);
-        if (hasContest) chunks.push(`<details class="repo-contest"><summary>${contest}</summary>`);
+        const contestLabel = escapeHtml(contest);
+        if (hasContest) chunks.push(`<details class="repo-contest"><summary>${contestLabel}</summary>`);
         yearMap.forEach((modeMap, year) => {
           const hasYear = Boolean(year);
-          if (hasYear) chunks.push(`<details class="repo-year"><summary>${year}</summary>`);
+          const yearLabel = escapeHtml(year);
+          if (hasYear) chunks.push(`<details class="repo-year"><summary>${yearLabel}</summary>`);
           modeMap.forEach((rows, subKey) => {
             const hasSub = Boolean(subKey);
-            if (hasSub) chunks.push(`<details class="repo-subcat"><summary>${subKey}</summary>`);
+            const subLabel = escapeHtml(subKey);
+            if (hasSub) chunks.push(`<details class="repo-subcat"><summary>${subLabel}</summary>`);
             rows.forEach((row) => {
               const label = row.path.split('/').pop();
-              chunks.push(`<button type="button" class="repo-leaf" data-path="${row.path}">${label}</button>`);
+              const pathAttr = escapeAttr(row.path || '');
+              const labelText = escapeHtml(label || '');
+              chunks.push(`<button type="button" class="repo-leaf" data-path="${pathAttr}">${labelText}</button>`);
             });
             if (hasSub) chunks.push(`</details>`);
           });

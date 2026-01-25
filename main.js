@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.51';
+  const APP_VERSION = 'v2.1.15';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -397,8 +397,14 @@
   function normalizeBand(rawBand, freq) {
     const band = (rawBand || '').trim();
     if (band) {
-      const cleaned = band.replace(/m$/i, '').trim();
-      return cleaned || band;
+      const lower = band.toLowerCase();
+      const cmMatch = lower.match(/^(\d+(?:\.\d+)?)\s*cm$/);
+      if (cmMatch) return cmMatch[1];
+      const meterMatch = lower.match(/^(\d+(?:\.\d+)?)\s*m(?:eters?)?$/);
+      if (meterMatch) return meterMatch[1];
+      const cleaned = band.replace(/\s*(cm|m)$/i, '').trim();
+      if (cleaned) return cleaned;
+      return band;
     }
     return parseBandFromFreq(freq);
   }

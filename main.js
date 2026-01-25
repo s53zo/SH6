@@ -364,6 +364,9 @@
         if (dom.loadPanel) {
           dom.loadPanel.style.display = report.id === 'load_logs' ? 'block' : 'none';
         }
+        if (dom.bandRibbon) {
+          dom.bandRibbon.style.display = report.id === 'load_logs' ? 'none' : '';
+        }
         clearLoadingState();
       }, 0);
     });
@@ -2903,12 +2906,14 @@
               <a href="#" class="report-shortcut" data-map="all">Map</a>
               <a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a>
             </div>
-            <ul class="landing-bullets">
-              <li>Click counts to filter the Log view.</li>
-              <li>Use Map and KMZ files for visualization.</li>
-              <li>Large logs may take a moment to render.</li>
-            </ul>
           </div>
+        </div>
+        <div class="landing-notes">
+          <ul class="landing-bullets">
+            <li>Click counts to filter the Log view.</li>
+            <li>Use Map and KMZ files for visualization.</li>
+            <li>Large logs may take a moment to render.</li>
+          </ul>
         </div>
         <table class="mtc landing-status">
           <tr class="thc"><th>Log A</th><th>Log B</th></tr>

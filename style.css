@@ -910,10 +910,7 @@ body.landing-only .content {
 }
 
 .landing-hero {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-  align-items: start;
+  margin-bottom: 18px;
 }
 
 .landing-hero h1 {
@@ -942,34 +939,24 @@ body.landing-only .content {
   color: #555555;
 }
 
-.landing-card {
+.landing-card,
+.landing-panel {
   border: 1px solid #dddddd;
   background: #f8f8f8;
   padding: 14px 16px;
 }
 
-.landing-card h3 {
+.landing-card h3,
+.landing-panel h3 {
   margin-top: 0;
 }
 
 .landing-section {
-  margin-top: 20px;
+  margin-top: 18px;
 }
 
 .landing-steps {
   margin: 6px 0 10px 20px;
-}
-
-.landing-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-}
-
-.landing-panel {
-  border: 1px solid #eeeeee;
-  background: #ffffff;
-  padding: 12px 14px;
 }
 
 .landing-links {

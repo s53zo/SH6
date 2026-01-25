@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.48';
+  const APP_VERSION = 'v1.1.49';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2571,33 +2571,53 @@
     `;
   }
 
+  const QS_PER_STATION_BUCKETS = [
+    ...Array.from({ length: 12 }, (_, i) => ({ min: i + 1, max: i + 1, label: String(i + 1) })),
+    { min: 13, max: 20, label: '13-20' },
+    { min: 21, max: 50, label: '21-50' },
+    { min: 51, max: 100, label: '51-100' },
+    { min: 101, max: 200, label: '101-200' },
+    { min: 201, max: 500, label: '201-500' },
+    { min: 501, max: Infinity, label: '501+' }
+  ];
+
+  function buildQsPerStationBuckets(derived) {
+    const buckets = QS_PER_STATION_BUCKETS.map((b) => ({ ...b, stations: 0, qsos: 0 }));
+    if (!derived?.allCallsList) return buckets;
+    derived.allCallsList.forEach((entry) => {
+      const count = Number(entry.qsos) || 0;
+      if (!count) return;
+      const bucket = buckets.find((b) => count >= b.min && count <= b.max);
+      if (!bucket) return;
+      bucket.stations += 1;
+      bucket.qsos += count;
+    });
+    return buckets;
+  }
+
   function renderQsPerStation() {
     if (!state.derived) return renderPlaceholder({ id: 'qs_per_station', title: 'Qs per station' });
-    const grouped = new Map();
-    state.derived.allCallsList.forEach((c) => {
-      if (!grouped.has(c.qsos)) grouped.set(c.qsos, []);
-      grouped.get(c.qsos).push(c.call);
-    });
-    const rows = Array.from(grouped.entries()).sort((a, b) => b[0] - a[0]).map(([qsos, calls], idx) => {
-      const stations = calls.length;
-      const total = stations * qsos;
-      const callLinks = calls.map((call) => {
-        const safe = escapeHtml(call);
-        const safeAttr = escapeAttr(call);
-        return `<a href="#" class="log-call" data-call="${safeAttr}">${safe}</a>`;
-      }).join(' ');
+    const buckets = buildQsPerStationBuckets(state.derived);
+    const totalStations = state.derived.allCallsList?.length || 0;
+    const totalQsos = state.qsoData?.qsos?.length || 0;
+    const rows = buckets.map((b, idx) => {
+      const stationsText = b.stations ? formatNumberSh6(b.stations) : '';
+      const qsosText = b.qsos ? formatNumberSh6(b.qsos) : '';
+      const pctStations = totalStations ? ((b.stations / totalStations) * 100).toFixed(1) : '';
+      const pctQsos = totalQsos ? ((b.qsos / totalQsos) * 100).toFixed(1) : '';
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td><b>${formatNumberSh6(qsos)}</b></td>
-        <td>${callLinks}</td>
-        <td><b>${formatNumberSh6(stations)}</b></td>
-        <td><b>${formatNumberSh6(total)}</b></td>
+        <td><b>${b.label}</b></td>
+        <td>${stationsText}</td>
+        <td>${pctStations ? `${pctStations}%` : ''}</td>
+        <td>${qsosText}</td>
+        <td>${pctQsos ? `${pctQsos}%` : ''}</td>
       </tr>
     `;
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>QSOs</th><th>Callsigns</th><th>Stations</th><th>Total QSOs</th></tr>
+        <tr class="thc"><th>QSOs per station</th><th>Stations</th><th>% Stations</th><th>QSOs</th><th>% QSOs</th></tr>
         ${rows}
       </table>
     `;
@@ -5129,6 +5149,7 @@
       case 'summary': return derived.bandModeSummary?.length || 0;
       case 'operators': return derived.operatorsSummary?.length || 0;
       case 'dupes': return derived.dupes?.length || 0;
+      case 'qs_per_station': return QS_PER_STATION_BUCKETS.length;
       case 'qs_by_hour_sheet': return derived.hourSeries?.length || 0;
       case 'qs_by_minute': return derived.minuteSeries?.length || 0;
       case 'one_minute_rates': return derived.minuteSeries?.length || 0;

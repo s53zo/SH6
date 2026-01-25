@@ -843,6 +843,10 @@ th {
   text-align: center;
 }
 
+.tar {
+  text-align: right;
+}
+
 .tl {
   text-align: left;
 }
@@ -871,6 +875,14 @@ th {
   background: #fcfcfc;
   text-align: center;
   padding: 6px;
+}
+
+.map-all-row td {
+  background: #f2f2f2;
+}
+
+.map-all-row a {
+  font-weight: 700;
 }
 
 .np {

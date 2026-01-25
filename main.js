@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.19';
+  const APP_VERSION = 'v2.1.20';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -737,7 +737,7 @@
   }
 
   function mapAllFooter() {
-    return `<tr class="thc"><td colspan="100" class="tac">${mapAllLink()}</td></tr>`;
+    return `<tr class="map-all-row"><td colspan="100" class="tar">${mapAllLink()}</td></tr>`;
   }
 
   const dateFormatCache = new Map();

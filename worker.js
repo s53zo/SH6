@@ -16,12 +16,26 @@ function modeBucket(mode) {
   return 'Digital';
 }
 
+function classifyCallStructure(call) {
+  const m = String(call || '').toUpperCase().match(/^([A-Z]+)(\d+)([A-Z]+)$/);
+  if (!m) return 'other';
+  const pre = m[1].length;
+  const digits = m[2].length;
+  const suf = m[3].length;
+  return `${pre}x${suf}d${digits}`;
+}
+
 function applyLogFilters(qsos, filters) {
   const out = [];
   const search = filters.search || '';
   const fieldFilter = filters.fieldFilter || '';
   const bandFilter = filters.bandFilter || '';
   const modeFilter = filters.modeFilter || '';
+  const opFilter = filters.opFilter || '';
+  const callLenFilter = Number.isFinite(filters.callLenFilter)
+    ? filters.callLenFilter
+    : (filters.callLenFilter != null ? Number(filters.callLenFilter) : null);
+  const callStructFilter = filters.callStructFilter || '';
   const countryFilter = filters.countryFilter || '';
   const continentFilter = filters.continentFilter || '';
   const cqFilter = filters.cqFilter || '';
@@ -34,6 +48,9 @@ function applyLogFilters(qsos, filters) {
     if (fieldFilter && (!q.grid || !q.grid.startsWith(fieldFilter))) continue;
     if (bandFilter && (!q.band || q.band.toUpperCase() !== bandFilter)) continue;
     if (modeFilter && modeFilter !== 'All' && modeBucket(q.mode) !== modeFilter) continue;
+    if (opFilter && (!q.op || q.op.toUpperCase() !== opFilter)) continue;
+    if (Number.isFinite(callLenFilter) && (!q.call || q.call.length !== callLenFilter)) continue;
+    if (callStructFilter && (!q.call || classifyCallStructure(q.call) !== callStructFilter)) continue;
     if (countryFilter && (!q.country || q.country.toUpperCase() !== countryFilter)) continue;
     if (continentFilter && (!q.continent || q.continent.toUpperCase() !== continentFilter)) continue;
     if (cqFilter && String(q.cqZone || '') !== cqFilter) continue;

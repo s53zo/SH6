@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.16';
+  const APP_VERSION = 'v2.1.17';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -118,6 +118,9 @@
     logFieldFilter: '',
     logBandFilter: '',
     logModeFilter: '',
+    logOpFilter: '',
+    logCallLenFilter: null,
+    logCallStructFilter: '',
     logCountryFilter: '',
     logContinentFilter: '',
     logCqFilter: '',
@@ -727,6 +730,10 @@
       case 'OC': return 'c7';
       default: return '';
     }
+  }
+
+  function mapAllLink(label = 'all') {
+    return `<a href="#" class="map-link map-all" data-scope="all" data-key="">${label}</a>`;
   }
 
   const dateFormatCache = new Map();
@@ -2675,12 +2682,14 @@
       const callAttr = escapeAttr(callKey);
       const urlCall = encodeURIComponent(callKey);
       const titleAttr = escapeAttr(`${callKey} at QRZ.COM`);
+      const qsoCount = Number.isFinite(o.qsos) ? o.qsos : 0;
+      const qsoLink = `<a href="#" class="log-op" data-op="${callAttr}">${formatNumberSh6(qsoCount)}</a>`;
       return `
         <div class="operator-card">
           <div class="np op-photo op-photo-loading" data-qrz-call="${callAttr}">(Loading)</div>
           <br/><br/>
           <b><a rel="noopener noreferrer nofollow" title="${titleAttr}" target="_blank" href="https://www.qrz.com/db/${urlCall}">${call}</a></b>
-          <br/>&nbsp;<br/><br/>
+          <br/><span>QSOs: ${qsoLink}</span><br/>&nbsp;<br/><br/>
         </div>
       `;
     }).join('');
@@ -2817,7 +2826,7 @@
           <th colspan="3">All</th>
           <th rowspan="2">Countries</th>
           <th rowspan="2">Qs Pts</th>
-          <th rowspan="2">Map</th>
+          <th rowspan="2">Map<br/>${mapAllLink()}</th>
         </tr>
         <tr class="thc">
           <th>QSOs</th><th colspan="2">%</th>
@@ -2857,6 +2866,9 @@
       fieldFilter: (state.logFieldFilter || '').trim().toUpperCase(),
       bandFilter: (state.logBandFilter || '').trim().toUpperCase(),
       modeFilter: (state.logModeFilter || '').trim(),
+      opFilter: (state.logOpFilter || '').trim().toUpperCase(),
+      callLenFilter: Number.isFinite(state.logCallLenFilter) ? state.logCallLenFilter : (state.logCallLenFilter != null ? Number(state.logCallLenFilter) : null),
+      callStructFilter: (state.logCallStructFilter || '').trim(),
       countryFilter: (state.logCountryFilter || '').trim().toUpperCase(),
       continentFilter: (state.logContinentFilter || '').trim().toUpperCase(),
       cqFilter: (state.logCqFilter || '').trim(),
@@ -2880,6 +2892,15 @@
     }
     if (filters.modeFilter && filters.modeFilter !== 'All') {
       filtered = filtered.filter((q) => modeBucket(q.mode) === filters.modeFilter);
+    }
+    if (filters.opFilter) {
+      filtered = filtered.filter((q) => q.op && q.op.toUpperCase() === filters.opFilter);
+    }
+    if (Number.isFinite(filters.callLenFilter)) {
+      filtered = filtered.filter((q) => q.call && q.call.length === filters.callLenFilter);
+    }
+    if (filters.callStructFilter) {
+      filtered = filtered.filter((q) => q.call && classifyCallStructure(q.call) === filters.callStructFilter);
     }
     if (filters.countryFilter) {
       filtered = filtered.filter((q) => q.country && q.country.toUpperCase() === filters.countryFilter);
@@ -2981,6 +3002,9 @@
       filters.fieldFilter || '',
       filters.bandFilter || '',
       filters.modeFilter || '',
+      filters.opFilter || '',
+      Number.isFinite(filters.callLenFilter) ? filters.callLenFilter : '',
+      filters.callStructFilter || '',
       filters.countryFilter || '',
       filters.continentFilter || '',
       filters.cqFilter || '',
@@ -3157,12 +3181,15 @@
     const dataNote = `<p>${(state.ctyTable && state.ctyTable.length) ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${(state.masterSet && state.masterSet.size) ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const safeBand = escapeHtml(filters.bandFilter || 'All bands');
     const safeMode = escapeHtml(filters.modeFilter || '');
+    const safeOp = escapeHtml(filters.opFilter || '');
+    const safeLen = Number.isFinite(filters.callLenFilter) ? formatNumberSh6(filters.callLenFilter) : '';
+    const safeStruct = escapeHtml(filters.callStructFilter || '');
     const safeCountry = escapeHtml(filters.countryFilter || '');
     const safeContinent = escapeHtml(filters.continentFilter || '');
     const safeCq = escapeHtml(filters.cqFilter || '');
     const safeItu = escapeHtml(filters.ituFilter || '');
-    const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange
-      ? `<p class="log-filter-note">Filter applied to both logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+    const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange
+      ? `<p class="log-filter-note">Filter applied to both logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const note = `<p>Log A: ${formatNumberSh6(aCount)} QSOs. Log B: ${formatNumberSh6(bCount)} QSOs.</p>`;
     const missingNote = (!state.qsoData || !state.compareB.qsoData)
@@ -3282,12 +3309,15 @@
     const emptyNote = filtered.length ? '' : '<p>No QSOs match current filter.</p>';
     const safeBand = escapeHtml(bandFilter || 'All bands');
     const safeMode = escapeHtml(modeFilter || '');
+    const safeOp = escapeHtml(filters.opFilter || '');
+    const safeLen = Number.isFinite(filters.callLenFilter) ? formatNumberSh6(filters.callLenFilter) : '';
+    const safeStruct = escapeHtml(filters.callStructFilter || '');
     const safeCountry = escapeHtml(countryFilter || '');
     const safeContinent = escapeHtml(continentFilter || '');
     const safeCq = escapeHtml(cqFilter || '');
     const safeItu = escapeHtml(ituFilter || '');
-    const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter || headingRange
-      ? `<p class="log-filter-note">Filter: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+    const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter || headingRange || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter
+      ? `<p class="log-filter-note">Filter: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const pageLinks = Array.from({ length: totalPages }, (_, i) => {
       const from = i * state.logPageSize + 1;
@@ -3585,7 +3615,7 @@
           <th rowspan="2">Distance, km</th>
           <th colspan="11">QSOs</th>
           <th rowspan="2">Bands</th>
-          <th rowspan="2">Map</th>
+          <th rowspan="2">Map<br/>${mapAllLink()}</th>
         </tr>
         <tr class="thc">
           <th>CW</th><th>DIG</th><th>SSB</th>
@@ -3673,7 +3703,7 @@
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <colgroup><col width="30px"/><col width="200px"/><col span="11" width="120px"/><col width="5%"/></colgroup>
-        <tr class="thc"><th colspan="2" rowspan="2">Continent</th><th colspan="11">QSOs</th><th colspan="2" rowspan="2">Map</th></tr>
+        <tr class="thc"><th colspan="2" rowspan="2">Continent</th><th colspan="11">QSOs</th><th colspan="2" rowspan="2">Map<br/>${mapAllLink()}</th></tr>
         <tr class="thc"><th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th><th>All</th><th>%</th><th>CW</th><th>Digital</th><th>Phone</th></tr>
         ${rows}
       </table>
@@ -3738,7 +3768,7 @@
   function renderZonesTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map</th></tr>
+        <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map<br/>${mapAllLink()}</th></tr>
         ${rows}
       </table>
     `;
@@ -4209,12 +4239,15 @@
       const c = map.get(info.len);
       const callPct = c && totalCalls ? ((c.callsigns / totalCalls) * 100).toFixed(2) : '';
       const qsoPct = c && totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(2) : '';
+      const lenAttr = escapeAttr(info.len);
+      const callsignLink = c ? `<a href="#" class="log-call-len" data-len="${lenAttr}">${formatNumberSh6(c.callsigns)}</a>` : '';
+      const qsoLink = c ? `<a href="#" class="log-call-len" data-len="${lenAttr}">${formatNumberSh6(c.qsos)}</a>` : '';
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${info.len}</td>
-        <td>${c ? formatNumberSh6(c.callsigns) : ''}</td>
+        <td>${callsignLink}</td>
         <td>${callPct}</td>
-        <td>${c ? formatNumberSh6(c.qsos) : ''}</td>
+        <td>${qsoLink}</td>
         <td>${qsoPct}</td>
       </tr>
     `}).join('');
@@ -4266,15 +4299,18 @@
       const callPct = s && totalCalls ? ((s.callsigns / totalCalls) * 100).toFixed(2) : '';
       const qsoPct = s && totalQsos ? ((s.qsos / totalQsos) * 100).toFixed(2) : '';
       const structText = escapeHtml(info.struct || '');
+      const structAttr = escapeAttr(info.struct || '');
       const exampleText = escapeHtml(s?.example || '');
+      const callsignLink = s ? `<a href="#" class="log-call-struct" data-struct="${structAttr}">${formatNumberSh6(s.callsigns)}</a>` : '';
+      const qsoLink = s ? `<a href="#" class="log-call-struct" data-struct="${structAttr}">${formatNumberSh6(s.qsos)}</a>` : '';
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${idx + 1}</td>
         <td>${structText}</td>
         <td>${exampleText}</td>
-        <td>${s ? formatNumberSh6(s.callsigns) : ''}</td>
+        <td>${callsignLink}</td>
         <td>${callPct}</td>
-        <td>${s ? formatNumberSh6(s.qsos) : ''}</td>
+        <td>${qsoLink}</td>
         <td>${qsoPct}</td>
       </tr>
     `}).join('');
@@ -4334,7 +4370,7 @@
   function renderDistanceTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map</th></tr>
+        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map<br/>${mapAllLink()}</th></tr>
         ${rows}
       </table>
     `;
@@ -4409,7 +4445,7 @@
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <colgroup><col width="100px" align="center"/><col span="9" width="60px"/><col width="5%"/></colgroup>
-        <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="7">QSOs</th><th colspan="2" rowspan="2">%</th><th colspan="2" rowspan="2">Map</th></tr>
+        <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="7">QSOs</th><th colspan="2" rowspan="2">%</th><th colspan="2" rowspan="2">Map<br/>${mapAllLink()}</th></tr>
         <tr class="thc"><th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th><th>All</th></tr>
         ${rows}
       </table>
@@ -4426,7 +4462,9 @@
 
   function renderMapView() {
     const ctx = state.mapContext || { scope: '', key: '' };
-    const title = ctx.key ? `${ctx.scope}: ${ctx.key}` : ctx.scope || 'Map';
+    const title = ctx.scope === 'all'
+      ? 'All QSOs'
+      : (ctx.key ? `${ctx.scope}: ${ctx.key}` : ctx.scope || 'Map');
     const kmzLinks = Object.entries(state.kmzUrls || {}).map(([band, url]) => {
       return `<li><a href="${url}" class="kmz-link" data-band="${band}" download="qsos_${band}m.kmz">Download ${band}m KMZ</a></li>`;
     }).join('');
@@ -4732,6 +4770,7 @@
     if (!ctx) return qsos;
     const scope = ctx.scope || '';
     const key = ctx.key || '';
+    if (scope === 'all') return qsos;
     if (scope === 'country' && key) {
       qsos = qsos.filter((q) => q.country === key);
     } else if (scope === 'continent' && key) {
@@ -5778,6 +5817,11 @@
         const fieldFilter = (state.logFieldFilter || '').trim().toUpperCase();
         const bandFilter = (state.logBandFilter || '').trim().toUpperCase();
         const modeFilter = (state.logModeFilter || '').trim();
+        const opFilter = (state.logOpFilter || '').trim().toUpperCase();
+        const callLenFilter = Number.isFinite(state.logCallLenFilter)
+          ? state.logCallLenFilter
+          : (state.logCallLenFilter != null ? Number(state.logCallLenFilter) : null);
+        const callStructFilter = (state.logCallStructFilter || '').trim();
         const countryFilter = (state.logCountryFilter || '').trim().toUpperCase();
         const continentFilter = (state.logContinentFilter || '').trim().toUpperCase();
         const cqFilter = (state.logCqFilter || '').trim();
@@ -5796,6 +5840,15 @@
         }
         if (modeFilter && modeFilter !== 'All') {
           filtered = filtered.filter((q) => modeBucket(q.mode) === modeFilter);
+        }
+        if (opFilter) {
+          filtered = filtered.filter((q) => q.op && q.op.toUpperCase() === opFilter);
+        }
+        if (Number.isFinite(callLenFilter)) {
+          filtered = filtered.filter((q) => q.call && q.call.length === callLenFilter);
+        }
+        if (callStructFilter) {
+          filtered = filtered.filter((q) => q.call && classifyCallStructure(q.call) === callStructFilter);
         }
         if (countryFilter) {
           filtered = filtered.filter((q) => q.country && q.country.toUpperCase() === countryFilter);
@@ -5842,6 +5895,9 @@
           state.logFieldFilter = '';
           state.logBandFilter = '';
           state.logModeFilter = '';
+          state.logOpFilter = '';
+          state.logCallLenFilter = null;
+          state.logCallStructFilter = '';
           state.logCountryFilter = '';
           state.logContinentFilter = '';
           state.logCqFilter = '';
@@ -5859,6 +5915,9 @@
           state.logFieldFilter = '';
           state.logBandFilter = '';
           state.logModeFilter = '';
+          state.logOpFilter = '';
+          state.logCallLenFilter = null;
+          state.logCallStructFilter = '';
           state.logCountryFilter = '';
           state.logContinentFilter = '';
           state.logCqFilter = '';
@@ -5877,6 +5936,9 @@
           state.logFieldFilter = '';
           state.logBandFilter = '';
           state.logModeFilter = '';
+          state.logOpFilter = '';
+          state.logCallLenFilter = null;
+          state.logCallStructFilter = '';
           state.logCountryFilter = '';
           state.logContinentFilter = '';
           state.logCqFilter = '';
@@ -5948,6 +6010,9 @@
           state.logFieldFilter = field;
           state.logBandFilter = '';
           state.logModeFilter = '';
+          state.logOpFilter = '';
+          state.logCallLenFilter = null;
+          state.logCallStructFilter = '';
           state.logCountryFilter = '';
           state.logContinentFilter = '';
           state.logCqFilter = '';
@@ -5974,6 +6039,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -5997,6 +6065,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = band === 'ALL' ? '' : band;
         state.logModeFilter = mode === 'All' ? '' : (mode || '');
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6045,6 +6116,87 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logHeadingRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const opLinks = document.querySelectorAll('.log-op');
+    opLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const op = (link.dataset.op || '').trim().toUpperCase();
+        if (!op) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logOpFilter = op;
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logHeadingRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const callLenLinks = document.querySelectorAll('.log-call-len');
+    callLenLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const len = Number(link.dataset.len);
+        if (!Number.isFinite(len)) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = len;
+        state.logCallStructFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logHeadingRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const callStructLinks = document.querySelectorAll('.log-call-struct');
+    callStructLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const struct = (link.dataset.struct || '').trim();
+        if (!struct) return;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = struct;
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6068,6 +6220,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = country;
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6091,6 +6246,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = continent;
         state.logCqFilter = '';
@@ -6115,6 +6273,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = band;
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = continent;
         state.logCqFilter = '';
@@ -6138,6 +6299,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6163,6 +6327,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = band;
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6189,6 +6356,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6215,6 +6385,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = band;
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6240,6 +6413,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6264,6 +6440,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = band;
         state.logModeFilter = mode || '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = country;
         state.logContinentFilter = '';
         state.logCqFilter = '';
@@ -6287,6 +6466,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = cq;
@@ -6310,6 +6492,9 @@
         state.logFieldFilter = '';
         state.logBandFilter = '';
         state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
         state.logCqFilter = '';

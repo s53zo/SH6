@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.43';
+  const APP_VERSION = 'v1.1.44';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -66,13 +66,7 @@
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SOLAR_KP_URL = 'https://www-app3.gfz-potsdam.de/kp_index/Kp_ap_since_1932.txt';
   const SOLAR_SSN_URL = 'https://www.sidc.be/SILSO/INFO/sndtotcsv.php';
-  const buildJinaUrl = (url) => {
-    const stripped = url.replace(/^https?:\/\//i, '');
-    return `https://r.jina.ai/http://${stripped}`;
-  };
   const CORS_PROXIES = [
-    (url) => buildJinaUrl(url),
-    (url) => `https://every-origin.vercel.app/api?url=${encodeURIComponent(url)}`,
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
   ];
@@ -1784,17 +1778,6 @@
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
-      if (text && text.trim().startsWith('{') && text.includes('contents')) {
-        try {
-          const json = JSON.parse(text);
-          if (json && typeof json.contents === 'string') {
-            onStatus('ok');
-            return json.contents;
-          }
-        } catch (err) {
-          // fall through to raw text
-        }
-      }
       onStatus('ok');
       return text;
     } catch (err) {

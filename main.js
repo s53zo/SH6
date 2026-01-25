@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.47';
+  const APP_VERSION = 'v1.1.48';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -796,8 +796,7 @@
       claimedScore: null,
       club: null,
       software: null,
-      ssn: null,
-      kIndex: null
+      operators: null
     };
     for (const q of qsos) {
       const r = q.raw || {};
@@ -807,6 +806,7 @@
       if (meta.claimedScore == null) meta.claimedScore = firstNonNull(r.CLAIMED_SCORE, r.CLAIMED, r.APP_N1MM_CLAIMED_SCORE);
       if (!meta.club) meta.club = firstNonNull(r.CLUB, r.APP_N1MM_CLUB);
       if (!meta.software) meta.software = firstNonNull(r.APP_N1MM_N1MMVERSION, r.SW_VERSION, r.SOFTWARE);
+      if (!meta.operators) meta.operators = firstNonNull(r.OPERATORS);
       if (meta.stationCallsign && meta.contestId && meta.category) break;
     }
     return meta;
@@ -930,6 +930,24 @@
     const digits = m[2].length;
     const suf = m[3].length;
     return `${pre}x${suf}d${digits}`;
+  }
+
+  function parseOperatorsList(raw) {
+    if (!raw) return [];
+    const tokens = String(raw)
+      .split(/[,;]+/)
+      .flatMap((chunk) => chunk.split(/\s+/))
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const out = [];
+    const seen = new Set();
+    tokens.forEach((t) => {
+      const norm = normalizeCall(t);
+      if (!norm || seen.has(norm)) return;
+      seen.add(norm);
+      out.push(norm);
+    });
+    return out;
   }
 
   function deriveStation(qsos) {
@@ -2379,11 +2397,20 @@
       lastTs: info.lastTs
     })).sort((a, b) => a.call.localeCompare(b.call));
 
-    const operatorsSummary = Array.from(ops.entries()).map(([op, info]) => ({
+    let operatorsSummary = Array.from(ops.entries()).map(([op, info]) => ({
       op,
       qsos: info.qsos,
       uniques: info.uniques.size
     })).sort((a, b) => b.qsos - a.qsos || a.op.localeCompare(b.op));
+    const headerOperators = parseOperatorsList(contestMeta?.operators);
+    if (headerOperators.length) {
+      const stationNorm = normalizeCall(contestMeta?.stationCallsign || '');
+      const opKeys = Array.from(ops.keys()).map((op) => normalizeCall(op)).filter(Boolean);
+      const onlyStation = opKeys.length === 0 || (opKeys.length === 1 && stationNorm && opKeys[0] === stationNorm);
+      if (onlyStation) {
+        operatorsSummary = headerOperators.map((op) => ({ op, qsos: 0, uniques: 0 }));
+      }
+    }
 
     const structureSummary = Array.from(structures.entries()).map(([struct, info]) => ({
       struct,

@@ -44,6 +44,28 @@ body.is-loading * {
   max-height: 70vh;
 }
 
+.compare-window-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  background: #eef5ff;
+  border: 1px solid #aac3e8;
+  font-size: 10pt;
+}
+
+.compare-window-text {
+  font-weight: bold;
+}
+
+.compare-window-actions button {
+  font-size: 10pt;
+  padding: 4px 10px;
+  margin-left: 6px;
+}
+
 @keyframes sh6-spin {
   to {
     transform: rotate(360deg);

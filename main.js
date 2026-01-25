@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.36';
+  const APP_VERSION = 'v1.1.37';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2979,10 +2979,20 @@
       : '';
     const emptyNote = compareData && (aCount + bCount) === 0 ? '<p>No QSOs match current filter.</p>' : '';
     const pendingNote = compareData ? '' : '<p>Preparing compare log...</p>';
-    const prevDisabled = start <= 0 ? '1' : '';
-    const nextDisabled = end >= totalRows ? '1' : '';
+    const prevDisabled = start <= 0;
+    const nextDisabled = end >= totalRows;
     const windowNote = compareData && totalRows > 0
-      ? `<p class="log-filter-note">Showing rows ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(totalRows)} (window ${formatNumberSh6(windowSize)}). <a href="#" id="comparePrev" data-disabled="${prevDisabled}">Prev</a> <a href="#" id="compareNext" data-disabled="${nextDisabled}">Next</a></p>`
+      ? `
+      <div class="compare-window-controls">
+        <div class="compare-window-text">
+          Showing rows ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(totalRows)} (window ${formatNumberSh6(windowSize)}).
+        </div>
+        <div class="compare-window-actions">
+          <button type="button" id="comparePrev" ${prevDisabled ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(windowSize)}</button>
+          <button type="button" id="compareNext" ${nextDisabled ? 'disabled' : ''}>Next ${formatNumberSh6(windowSize)} &#9654;</button>
+        </div>
+      </div>
+      `
       : '';
     return `
       ${note}
@@ -5714,7 +5724,7 @@
       if (comparePrev) {
         comparePrev.addEventListener('click', (evt) => {
           evt.preventDefault();
-          if (comparePrev.dataset.disabled === '1') return;
+          if (comparePrev.disabled) return;
           const size = state.compareLogWindowSize || 1000;
           state.compareLogWindowStart = Math.max(0, (state.compareLogWindowStart || 0) - size);
           renderReportWithLoading(reports[state.activeIndex]);
@@ -5723,7 +5733,7 @@
       if (compareNext) {
         compareNext.addEventListener('click', (evt) => {
           evt.preventDefault();
-          if (compareNext.dataset.disabled === '1') return;
+          if (compareNext.disabled) return;
           const size = state.compareLogWindowSize || 1000;
           state.compareLogWindowStart = (state.compareLogWindowStart || 0) + size;
           renderReportWithLoading(reports[state.activeIndex]);

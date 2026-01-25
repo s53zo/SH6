@@ -4,6 +4,7 @@
     { id: 'main', title: 'Main' },
     { id: 'summary', title: 'Summary' },
     { id: 'log', title: 'Log' },
+    { id: 'raw_log', title: 'Raw log' },
     { id: 'operators', title: 'Operators' },
     { id: 'all_callsigns', title: 'All callsigns' },
     { id: 'rates', title: 'Rates' },
@@ -53,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.35';
+  const APP_VERSION = 'v1.1.36';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -101,6 +102,8 @@
     activeIndex: 0,
     logFile: null,
     qsoData: null,
+    qsoLite: null,
+    rawLogText: '',
     ctyDat: null,
     masterDta: null,
     ctyTable: null,
@@ -108,7 +111,7 @@
     prefixCache: new Map(),
     derived: null,
     logPage: 0,
-    logPageSize: 500,
+    logPageSize: 1000,
     logSearch: '',
     logFieldFilter: '',
     logBandFilter: '',
@@ -135,15 +138,24 @@
     ctySource: null,
     masterSource: null,
     compareEnabled: false,
+    compareWorker: null,
+    compareLogData: null,
+    compareLogPendingKey: null,
+    compareLogWindowStart: 0,
+    compareLogWindowSize: 1000,
+    logVersion: 0,
     compareB: {
       logFile: null,
       qsoData: null,
+      qsoLite: null,
+      rawLogText: '',
       derived: null,
       logPage: 0,
-      logPageSize: 500,
+      logPageSize: 1000,
       fullQsoData: null,
       fullDerived: null,
-      bandDerivedCache: new Map()
+      bandDerivedCache: new Map(),
+      logVersion: 0
     }
   };
 
@@ -324,6 +336,12 @@
         clearLoadingState();
       }, 0);
     });
+  }
+
+  function invalidateCompareLogData() {
+    state.compareLogData = null;
+    state.compareLogPendingKey = null;
+    state.compareLogWindowStart = 0;
   }
 
   function renderActiveReport() {
@@ -607,6 +625,24 @@
         default: return ch;
       }
     });
+  }
+
+  const escapeCallCache = new Map();
+  const escapeCountryCache = new Map();
+  function escapeMemo(value, cache) {
+    if (value == null) return '';
+    const key = String(value);
+    if (cache.has(key)) return cache.get(key);
+    const escaped = escapeHtml(key);
+    if (cache.size > 50000) cache.clear();
+    cache.set(key, escaped);
+    return escaped;
+  }
+  function escapeCall(value) {
+    return escapeMemo(value, escapeCallCache);
+  }
+  function escapeCountry(value) {
+    return escapeMemo(value, escapeCountryCache);
   }
 
   const BAND_CLASS_MAP = {
@@ -1316,17 +1352,37 @@
     });
   }
 
+  function buildQsoLiteArray(qsos) {
+    return (qsos || []).map((q, idx) => ({
+      i: idx,
+      call: q.call || '',
+      grid: q.grid || '',
+      band: q.band || '',
+      mode: q.mode || '',
+      country: q.country || '',
+      continent: q.continent || '',
+      cqZone: q.cqZone,
+      ituZone: q.ituZone,
+      qsoNumber: q.qsoNumber,
+      ts: q.ts,
+      bearing: q.bearing
+    }));
+  }
+
   function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl) {
     const safeSize = Number.isFinite(size) ? size : text.length;
     const target = slotId === 'B' ? state.compareB : state;
     target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
     target.logPage = 0;
     if (statusEl) statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
+    target.rawLogText = text;
     target.qsoData = parseLogFile(text, filename);
     target.derived = buildDerived(target.qsoData.qsos);
+    target.qsoLite = buildQsoLiteArray(target.qsoData.qsos);
     target.fullQsoData = target.qsoData;
     target.fullDerived = target.derived;
     target.bandDerivedCache = new Map();
+    target.logVersion = (target.logVersion || 0) + 1;
     if (target === state) {
       if (state.kmzUrls) {
         Object.values(state.kmzUrls).forEach((url) => {
@@ -1351,6 +1407,7 @@
       qso_count: target.qsoData.qsos.length || 0,
       log_type: target.qsoData.type || ''
     });
+    invalidateCompareLogData();
     setActiveReport(state.activeIndex);
   }
 
@@ -1421,17 +1478,20 @@
   function recomputeDerived(reason) {
     if (state.qsoData) {
       state.derived = buildDerived(state.qsoData.qsos);
+      state.qsoLite = buildQsoLiteArray(state.qsoData.qsos);
       state.fullQsoData = state.qsoData;
       state.fullDerived = state.derived;
       state.bandDerivedCache = new Map();
     }
     if (state.compareB && state.compareB.qsoData) {
       state.compareB.derived = buildDerived(state.compareB.qsoData.qsos);
+      state.compareB.qsoLite = buildQsoLiteArray(state.compareB.qsoData.qsos);
       state.compareB.fullQsoData = state.compareB.qsoData;
       state.compareB.fullDerived = state.compareB.derived;
       state.compareB.bandDerivedCache = new Map();
     }
     if (!state.qsoData && !state.compareB?.qsoData) return;
+    invalidateCompareLogData();
     renderActiveReport();
   }
 
@@ -2663,9 +2723,9 @@
     if (!q) {
       return '<td></td>'.repeat(17);
     }
-    const call = escapeHtml(q.call || '');
+    const call = escapeCall(q.call || '');
     const op = escapeHtml(q.op || '');
-    const country = escapeHtml(q.country || '');
+    const country = escapeCountry(q.country || '');
     const grid = escapeHtml(q.grid || '');
     const mode = escapeHtml(q.mode || '');
     const band = escapeHtml(q.band || '');
@@ -2715,16 +2775,67 @@
         key = `${day}-${Math.floor(minOfDay / 10)}`;
       }
       if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key).push(q);
+      const idx = Number.isFinite(q.id) ? q.id : (Number.isFinite(q.qsoNumber) ? q.qsoNumber - 1 : null);
+      if (idx != null) buckets.get(key).push(idx);
     });
     return buckets;
   }
 
-  function renderLogCompare() {
-    if (!state.qsoData && !state.compareB.qsoData) {
-      return '<p>No logs loaded for comparison yet.</p>';
+  function buildCompareLogKey(filters) {
+    const rangeKey = filters.rangeFilter ? `${filters.rangeFilter.start}-${filters.rangeFilter.end}` : '';
+    const timeKey = filters.timeRange ? `${filters.timeRange.startTs}-${filters.timeRange.endTs}` : '';
+    const headingKey = filters.headingRange ? `${filters.headingRange.start}-${filters.headingRange.end}` : '';
+    return [
+      state.logVersion || 0,
+      state.compareB?.logVersion || 0,
+      filters.search || '',
+      filters.fieldFilter || '',
+      filters.bandFilter || '',
+      filters.modeFilter || '',
+      filters.countryFilter || '',
+      filters.continentFilter || '',
+      filters.cqFilter || '',
+      filters.ituFilter || '',
+      rangeKey,
+      timeKey,
+      headingKey
+    ].join('|');
+  }
+
+  function ensureCompareWorker() {
+    if (state.compareWorker) return true;
+    if (typeof Worker === 'undefined') return false;
+    try {
+      const worker = new Worker('worker.js');
+      worker.onmessage = (evt) => {
+        const payload = evt.data || {};
+        if (payload.type !== 'compareBuckets') return;
+        if (payload.key !== state.compareLogPendingKey) return;
+        state.compareLogPendingKey = null;
+        state.compareLogData = {
+          key: payload.key,
+          aCount: payload.data?.aCount || 0,
+          bCount: payload.data?.bCount || 0,
+          totalRows: payload.data?.totalRows || 0,
+          buckets: payload.data?.buckets || []
+        };
+        state.compareLogWindowStart = 0;
+        renderActiveReport();
+      };
+      worker.onerror = () => {
+        state.compareWorker = null;
+        state.compareLogPendingKey = null;
+      };
+      state.compareWorker = worker;
+      return true;
+    } catch (err) {
+      console.warn('Compare worker failed to start:', err);
+      state.compareWorker = null;
+      return false;
     }
-    const filters = getLogFilters();
+  }
+
+  function buildCompareLogDataSync(filters) {
     const aQsos = state.qsoData ? applyLogFilters(state.qsoData.qsos, filters) : [];
     const bQsos = state.compareB.qsoData ? applyLogFilters(state.compareB.qsoData.qsos, filters) : [];
     const aBuckets = buildTenMinuteBuckets(aQsos);
@@ -2756,13 +2867,57 @@
     });
     const hasUnknown = allKeys.has('unknown');
     const orderedKeys = hasUnknown ? numericSorted.concat(['unknown']) : numericSorted;
-    let rowIndex = 0;
-    const rows = orderedKeys.map((key) => {
-      const aList = aBuckets.get(key) || [];
-      const bList = bBuckets.get(key) || [];
+    const buckets = orderedKeys.map((key) => ({
+      key,
+      a: aBuckets.get(key) || [],
+      b: bBuckets.get(key) || []
+    }));
+    const totalRows = buckets.reduce((sum, bucket) => sum + Math.max(bucket.a.length, bucket.b.length, 1), 0);
+    return {
+      aCount: aQsos.length,
+      bCount: bQsos.length,
+      totalRows,
+      buckets
+    };
+  }
+
+  function requestCompareLogData(compareKey, filters) {
+    if (!ensureCompareWorker()) {
+      const data = buildCompareLogDataSync(filters);
+      state.compareLogData = { key: compareKey, ...data };
+      state.compareLogPendingKey = null;
+      state.compareLogWindowStart = 0;
+      return;
+    }
+    if (state.compareLogPendingKey === compareKey) return;
+    state.compareLogPendingKey = compareKey;
+    state.compareLogData = null;
+    const aLite = state.qsoLite || [];
+    const bLite = state.compareB.qsoLite || [];
+    state.compareWorker.postMessage({
+      type: 'compareBuckets',
+      key: compareKey,
+      filters,
+      aQsos: aLite,
+      bQsos: bLite
+    });
+  }
+
+  function renderCompareLogRows(buckets, start, end) {
+    let rows = '';
+    let globalIndex = 0;
+    for (const bucket of buckets) {
+      const aList = bucket.a || [];
+      const bList = bucket.b || [];
       const max = Math.max(aList.length, bList.length, 1);
-      let aIndex = 0;
-      let bIndex = 0;
+      const bucketStart = globalIndex;
+      const bucketEnd = globalIndex + max;
+      if (bucketEnd <= start) {
+        globalIndex = bucketEnd;
+        continue;
+      }
+      if (bucketStart >= end) break;
+      const key = bucket.key;
       const bucketLabel = key === 'unknown'
         ? 'Unknown time bucket'
         : (() => {
@@ -2772,16 +2927,42 @@
           const dayLabel = WEEKDAY_LABELS[Number.isFinite(day) ? day : 0] || '';
           return `${dayLabel} ${formatTimeOfDay(slot * 10)} - ${formatTimeOfDay(slot * 10 + 9)}`;
         })();
-      const bucketRow = `<tr class="compare-bucket"><td colspan="34">${bucketLabel}</td></tr>`;
-      const dataRows = Array.from({ length: max }, () => {
-        const a = aList[aIndex++] || null;
-        const b = bList[bIndex++] || null;
+      rows += `<tr class="compare-bucket"><td colspan="34">${bucketLabel}</td></tr>`;
+      const from = Math.max(0, start - bucketStart);
+      const to = Math.min(max, end - bucketStart);
+      for (let i = from; i < to; i += 1) {
+        const rowIndex = bucketStart + i + 1;
         const cls = rowIndex % 2 === 0 ? 'td1' : 'td0';
-        rowIndex += 1;
-        return `<tr class="${cls}">${renderLogCells(a, rowIndex)}${renderLogCells(b, rowIndex)}</tr>`;
-      }).join('');
-      return bucketRow + dataRows;
-    }).join('');
+        const aIdx = aList[i];
+        const bIdx = bList[i];
+        const a = (aIdx != null && state.qsoData?.qsos) ? state.qsoData.qsos[aIdx] : null;
+        const b = (bIdx != null && state.compareB?.qsoData?.qsos) ? state.compareB.qsoData.qsos[bIdx] : null;
+        rows += `<tr class="${cls}">${renderLogCells(a, rowIndex)}${renderLogCells(b, rowIndex)}</tr>`;
+      }
+      globalIndex = bucketEnd;
+    }
+    return rows;
+  }
+
+  function renderLogCompare() {
+    if (!state.qsoData && !state.compareB.qsoData) {
+      return '<p>No logs loaded for comparison yet.</p>';
+    }
+    const filters = getLogFilters();
+    const compareKey = buildCompareLogKey(filters);
+    if (!state.compareLogData || state.compareLogData.key !== compareKey) {
+      requestCompareLogData(compareKey, filters);
+    }
+    const compareData = state.compareLogData && state.compareLogData.key === compareKey ? state.compareLogData : null;
+    const aCount = compareData ? compareData.aCount : 0;
+    const bCount = compareData ? compareData.bCount : 0;
+    const totalRows = compareData ? compareData.totalRows : 0;
+    const windowSize = state.compareLogWindowSize || 1000;
+    const maxStart = Math.max(0, totalRows - windowSize);
+    const start = Math.min(Math.max(0, state.compareLogWindowStart || 0), maxStart);
+    const end = Math.min(totalRows, start + windowSize);
+    state.compareLogWindowStart = start;
+    const rows = compareData ? renderCompareLogRows(compareData.buckets, start, end) : '';
     const dataNote = `<p>${(state.ctyTable && state.ctyTable.length) ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${(state.masterSet && state.masterSet.size) ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const safeBand = escapeHtml(filters.bandFilter || 'All bands');
     const safeMode = escapeHtml(filters.modeFilter || '');
@@ -2792,19 +2973,25 @@
     const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange
       ? `<p class="log-filter-note">Filter applied to both logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
-    const aCount = aQsos.length;
-    const bCount = bQsos.length;
     const note = `<p>Log A: ${formatNumberSh6(aCount)} QSOs. Log B: ${formatNumberSh6(bCount)} QSOs.</p>`;
     const missingNote = (!state.qsoData || !state.compareB.qsoData)
       ? `<p class="log-filter-note">Load ${!state.qsoData ? 'Log A' : 'Log B'} to enable full comparison.</p>`
       : '';
-    const emptyNote = (aCount + bCount) === 0 ? '<p>No QSOs match current filter.</p>' : '';
+    const emptyNote = compareData && (aCount + bCount) === 0 ? '<p>No QSOs match current filter.</p>' : '';
+    const pendingNote = compareData ? '' : '<p>Preparing compare log...</p>';
+    const prevDisabled = start <= 0 ? '1' : '';
+    const nextDisabled = end >= totalRows ? '1' : '';
+    const windowNote = compareData && totalRows > 0
+      ? `<p class="log-filter-note">Showing rows ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(totalRows)} (window ${formatNumberSh6(windowSize)}). <a href="#" id="comparePrev" data-disabled="${prevDisabled}">Prev</a> <a href="#" id="compareNext" data-disabled="${nextDisabled}">Next</a></p>`
+      : '';
     return `
       ${note}
       ${missingNote}
       ${dataNote}
       ${filterNote}
       ${emptyNote}
+      ${pendingNote}
+      ${windowNote}
       <div class="log-controls">
         <form id="logSearchForm" class="no-print log-search">
           Callsign:
@@ -2823,7 +3010,7 @@
             <th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>
             <th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>
           </tr>
-          ${rows}
+          ${rows || ''}
         </table>
       </div>
     `;
@@ -2855,9 +3042,9 @@
     const start = page * state.logPageSize;
     const end = start + state.logPageSize;
     const rows = filtered.slice(start, end).map((q, idx) => {
-      const call = escapeHtml(q.call || '');
+      const call = escapeCall(q.call || '');
       const op = escapeHtml(q.op || '');
-      const country = escapeHtml(q.country || '');
+      const country = escapeCountry(q.country || '');
       const grid = escapeHtml(q.grid || '');
       const mode = escapeHtml(q.mode || '');
       const band = escapeHtml(q.band || '');
@@ -2928,12 +3115,32 @@
     `;
   }
 
+  function renderRawLogPanel(slotLabel, rawText, filename, slotKey) {
+    if (!rawText) return `<p>No ${slotLabel} loaded.</p>`;
+    const safeText = escapeHtml(rawText);
+    const safeName = escapeHtml(filename || `${slotLabel} log`);
+    return `
+      <div class="raw-log-panel">
+        <p><b>${slotLabel}:</b> ${safeName}</p>
+        <p><button type="button" class="raw-log-console" data-slot="${slotKey}">Print ${slotLabel} to console</button></p>
+        <pre class="raw-log">${safeText}</pre>
+      </div>
+    `;
+  }
+
+  function renderRawLog() {
+    if (!state.logFile || !state.rawLogText) {
+      return '<p>No log loaded yet.</p>';
+    }
+    return renderRawLogPanel('Log A', state.rawLogText, state.logFile?.name, 'A');
+  }
+
   function renderLogExport() {
     if (!state.qsoData) return renderPlaceholder({ id: 'log', title: 'Log' });
     const rows = state.qsoData.qsos.map((q, idx) => {
-      const call = escapeHtml(q.call || '');
+      const call = escapeCall(q.call || '');
       const op = escapeHtml(q.op || '');
-      const country = escapeHtml(q.country || '');
+      const country = escapeCountry(q.country || '');
       const grid = escapeHtml(q.grid || '');
       const mode = escapeHtml(q.mode || '');
       const band = escapeHtml(q.band || '');
@@ -4829,6 +5036,7 @@
         case 'main': return renderMain();
         case 'summary': return renderSummary();
         case 'log': return renderLog();
+        case 'raw_log': return renderRawLog();
         case 'dupes': return renderDupes();
         case 'operators': return renderOperators();
         case 'qs_per_station': return renderQsPerStation();
@@ -4885,12 +5093,15 @@
     const snapshot = {
       logFile: state.logFile,
       qsoData: state.qsoData,
+      qsoLite: state.qsoLite,
+      rawLogText: state.rawLogText,
       derived: state.derived,
       logPage: state.logPage,
       logPageSize: state.logPageSize,
       fullQsoData: state.fullQsoData,
       fullDerived: state.fullDerived,
-      bandDerivedCache: state.bandDerivedCache
+      bandDerivedCache: state.bandDerivedCache,
+      logVersion: state.logVersion
     };
     Object.assign(state, slot);
     const result = fn();
@@ -4935,12 +5146,15 @@
     const slotA = {
       logFile: state.logFile,
       qsoData: state.qsoData,
+      qsoLite: state.qsoLite,
+      rawLogText: state.rawLogText,
       derived: state.derived,
       logPage: state.logPage,
       logPageSize: state.logPageSize,
       fullQsoData: state.fullQsoData,
       fullDerived: state.fullDerived,
-      bandDerivedCache: state.bandDerivedCache
+      bandDerivedCache: state.bandDerivedCache,
+      logVersion: state.logVersion
     };
     const slotB = state.compareB || {};
     return { slotA, slotB, aReady: !!slotA.qsoData, bReady: !!slotB.qsoData };
@@ -5304,6 +5518,13 @@
     if (report.id === 'log') {
       return renderLogCompare();
     }
+    if (report.id === 'raw_log') {
+      const slotA = { logFile: state.logFile, rawLogText: state.rawLogText };
+      const slotB = state.compareB || {};
+      const aHtml = slotA.rawLogText ? renderRawLogPanel('Log A', slotA.rawLogText, slotA.logFile?.name, 'A') : '<p>No Log A loaded.</p>';
+      const bHtml = slotB.rawLogText ? renderRawLogPanel('Log B', slotB.rawLogText, slotB.logFile?.name, 'B') : '<p>No Log B loaded.</p>';
+      return renderComparePanels(slotA, slotB, aHtml, bHtml, 'raw_log');
+    }
     if (report.id === 'qs_by_hour_sheet') {
       return renderQsByHourSheetCompare();
     }
@@ -5488,6 +5709,40 @@
           renderReportWithLoading(reports[state.activeIndex]);
         });
       }
+      const comparePrev = document.getElementById('comparePrev');
+      const compareNext = document.getElementById('compareNext');
+      if (comparePrev) {
+        comparePrev.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          if (comparePrev.dataset.disabled === '1') return;
+          const size = state.compareLogWindowSize || 1000;
+          state.compareLogWindowStart = Math.max(0, (state.compareLogWindowStart || 0) - size);
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      }
+      if (compareNext) {
+        compareNext.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          if (compareNext.dataset.disabled === '1') return;
+          const size = state.compareLogWindowSize || 1000;
+          state.compareLogWindowStart = (state.compareLogWindowStart || 0) + size;
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      }
+    }
+    if (reportId === 'raw_log') {
+      const buttons = document.querySelectorAll('.raw-log-console');
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const slot = btn.dataset.slot;
+          const text = slot === 'B' ? (state.compareB?.rawLogText || '') : (state.rawLogText || '');
+          if (text) {
+            console.log(text);
+          } else {
+            console.log('No raw log text available.');
+          }
+        });
+      });
     }
     if (reportId === 'fields_map') {
       const cells = document.querySelectorAll('.field-cell');

@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.31';
+  const APP_VERSION = 'v2.1.32';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -138,6 +138,8 @@
     derived: null,
     logPage: 0,
     logPageSize: 1000,
+    notInMasterPage: 0,
+    notInMasterPageSize: 500,
     logSearch: '',
     logFieldFilter: '',
     logBandFilter: '',
@@ -1465,6 +1467,9 @@
     const target = slotId === 'B' ? state.compareB : state;
     target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
     target.logPage = 0;
+    if (target === state) {
+      state.notInMasterPage = 0;
+    }
     if (statusEl) statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
     target.rawLogText = text;
     target.qsoData = parseLogFile(text, filename);
@@ -4657,30 +4662,42 @@
     if (!state.masterSet || state.masterSet.size === 0) return '<p>Master file not loaded.</p>';
     const count = state.derived.notInMasterList.length;
     const note = count === 0 ? '<p>All calls found in master.</p>' : '';
-    const grouped = new Map();
-    state.derived.notInMasterList.forEach((c) => {
-      if (!grouped.has(c.qsos)) grouped.set(c.qsos, []);
-      grouped.get(c.qsos).push(c.call);
-    });
-    const rows = Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]).map(([qsos, calls], idx) => {
-      const callLinks = calls.map((call) => {
-        const safeCall = escapeHtml(call);
-        const safeAttr = escapeAttr(call);
-        return `<a href="#" class="log-call" data-call="${safeAttr}">${safeCall}</a>`;
-      }).join(' ');
+    const list = state.derived.notInMasterList || [];
+    const pageSize = state.notInMasterPageSize || 500;
+    const totalPages = Math.max(1, Math.ceil(list.length / pageSize));
+    const page = Math.min(Math.max(0, state.notInMasterPage || 0), totalPages - 1);
+    if (page !== state.notInMasterPage) state.notInMasterPage = page;
+    const start = page * pageSize;
+    const end = Math.min(start + pageSize, list.length);
+    const rows = list.slice(start, end).map((c, idx) => {
+      const call = escapeHtml(c.call || '');
+      const callAttr = escapeAttr(c.call || '');
+      const qsos = formatNumberSh6(c.qsos || 0);
+      const first = c.firstTs ? formatDateSh6(c.firstTs) : '';
+      const last = c.lastTs ? formatDateSh6(c.lastTs) : '';
       return `
-      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td><b>${formatNumberSh6(qsos)}</b></td>
-        <td>${callLinks}</td>
-        <td><b>${formatNumberSh6(calls.length)}</b></td>
+      <tr class="${(start + idx) % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${formatNumberSh6(start + idx + 1)}</td>
+        <td><a href="#" class="log-call" data-call="${callAttr}">${call}</a></td>
+        <td>${qsos}</td>
+        <td>${first}</td>
+        <td>${last}</td>
       </tr>
     `;
     }).join('');
+    const nav = list.length > pageSize ? `
+      <div class="not-master-controls">
+        <button type="button" id="notMasterPrev" ${page <= 0 ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(pageSize)}</button>
+        <span>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(list.length)}</span>
+        <button type="button" id="notMasterNext" ${page >= totalPages - 1 ? 'disabled' : ''}>Next ${formatNumberSh6(pageSize)} &#9654;</button>
+      </div>
+    ` : '';
     return `
       <p>Calls not found in MASTER.DTA: ${formatNumberSh6(count)}</p>
       ${note}
+      ${nav}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>QSOs</th><th>Callsigns</th><th>Total</th></tr>
+        <tr class="thc"><th>#</th><th>Callsign</th><th>QSOs</th><th>First</th><th>Last</th></tr>
         ${rows}
       </table>
     `;
@@ -5936,6 +5953,29 @@
     makeTablesSortable(dom.viewContainer);
     if (reportId === 'operators') {
       loadOperatorPhotos(dom.viewContainer);
+    }
+    if (reportId === 'not_in_master') {
+      const prev = document.getElementById('notMasterPrev');
+      const next = document.getElementById('notMasterNext');
+      if (prev) {
+        prev.addEventListener('click', () => {
+          if (state.notInMasterPage > 0) {
+            state.notInMasterPage -= 1;
+            renderReportWithLoading(reports[state.activeIndex]);
+          }
+        });
+      }
+      if (next) {
+        next.addEventListener('click', () => {
+          const list = state.derived?.notInMasterList || [];
+          const pageSize = state.notInMasterPageSize || 500;
+          const totalPages = Math.max(1, Math.ceil(list.length / pageSize));
+          if (state.notInMasterPage < totalPages - 1) {
+            state.notInMasterPage += 1;
+            renderReportWithLoading(reports[state.activeIndex]);
+          }
+        });
+      }
     }
     if (reportId === 'load_logs') {
       const demoButtons = document.querySelectorAll('.demo-log-btn');

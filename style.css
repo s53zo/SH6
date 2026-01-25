@@ -1027,6 +1027,18 @@ body.landing-only .content {
   color: #444444;
 }
 
+.not-master-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 6px 0 8px;
+}
+
+.not-master-controls button {
+  padding: 4px 10px;
+}
+
 .np {
   width: 160px;
   height: 120px;

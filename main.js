@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.22';
+  const APP_VERSION = 'v2.1.23';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -367,6 +367,7 @@
         if (dom.bandRibbon) {
           dom.bandRibbon.style.display = report.id === 'load_logs' ? 'none' : '';
         }
+        document.body.classList.toggle('landing-only', report.id === 'load_logs');
         clearLoadingState();
       }, 0);
     });
@@ -2881,44 +2882,59 @@
       ? `${bMeta?.stationCallsign || 'Log B'} · ${bMeta?.contestId || 'N/A'} · ${state.compareB.qsoData.qsos.length} QSOs`
       : 'No Log B loaded yet.';
     return `
-      <div class="mtc landing">
-        <div class="gradient">&nbsp;Start here</div>
-        <div class="landing-intro">
-          <h3>SH6 — Contest log analyzer</h3>
+      <div class="landing-page">
+        <section class="landing-hero">
+          <div class="landing-kicker">Start here</div>
+          <h1>SH6 — Contest log analyzer</h1>
           <p>Runs entirely in your browser. Load a log and explore countries, rates, operators, maps, and comparisons.</p>
-        </div>
-        <div class="landing-grid">
-          <div class="landing-card">
-            <div class="landing-title">1) Load a log</div>
-            <p>Use the controls above to upload Log A or pick one from the archive. Enable Compare mode to add Log B.</p>
-            <div class="landing-cta">
-              <button type="button" class="button demo-log-btn">Try demo log</button>
-              <span class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif), CBF (.cbf).</span>
-            </div>
-            <div class="landing-privacy">Privacy: logs stay on your machine; nothing is uploaded to a server.</div>
+          <div class="landing-actions">
+            <button type="button" class="button landing-action" data-action="upload-a">Upload Log A</button>
+            <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
+            <button type="button" class="button landing-action" data-action="compare">Compare two logs</button>
+            <button type="button" class="button demo-log-btn">Try demo log</button>
           </div>
-          <div class="landing-card">
-            <div class="landing-title">2) Explore results</div>
-            <div class="landing-links">
-              <a href="#" class="report-shortcut" data-report="summary">Summary</a>
-              <a href="#" class="report-shortcut" data-report="countries">Countries</a>
-              <a href="#" class="report-shortcut" data-report="operators">Operators</a>
-              <a href="#" class="report-shortcut" data-map="all">Map</a>
-              <a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a>
-            </div>
+          <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif), CBF (.cbf).</div>
+        </section>
+        <section class="landing-section">
+          <h3>Start in 3 steps</h3>
+          <ol class="landing-steps">
+            <li>Load Log A (upload or pick from the archive).</li>
+            <li>Optional: enable Compare mode and load Log B.</li>
+            <li>Open a report from the menu to explore the results.</li>
+          </ol>
+        </section>
+        <section class="landing-section">
+          <h3>Recommended first clicks</h3>
+          <div class="landing-links">
+            <a href="#" class="report-shortcut" data-report="summary">Summary</a>
+            <a href="#" class="report-shortcut" data-report="countries">Countries</a>
+            <a href="#" class="report-shortcut" data-report="operators">Operators</a>
+            <a href="#" class="report-shortcut" data-map="all">Map</a>
+            <a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a>
           </div>
-        </div>
-        <div class="landing-notes">
           <ul class="landing-bullets">
             <li>Click counts to filter the Log view.</li>
             <li>Use Map and KMZ files for visualization.</li>
             <li>Large logs may take a moment to render.</li>
           </ul>
-        </div>
-        <table class="mtc landing-status">
-          <tr class="thc"><th>Log A</th><th>Log B</th></tr>
-          <tr><td>${escapeHtml(aText)}</td><td>${escapeHtml(bText)}</td></tr>
-        </table>
+        </section>
+        <section class="landing-section landing-privacy">
+          <h3>Privacy</h3>
+          <p>Your log is processed locally in your browser. Files are not uploaded to a server.</p>
+        </section>
+        <section class="landing-section landing-status">
+          <h3>Loaded logs</h3>
+          <div class="landing-status-grid">
+            <div>
+              <div class="landing-status-label">Log A</div>
+              <div class="landing-status-text">${escapeHtml(aText)}</div>
+            </div>
+            <div>
+              <div class="landing-status-label">Log B</div>
+              <div class="landing-status-text">${escapeHtml(bText)}</div>
+            </div>
+          </div>
+        </section>
       </div>
     `;
   }
@@ -5887,6 +5903,44 @@
         btn.addEventListener('click', (evt) => {
           evt.preventDefault();
           loadDemoLog('A');
+        });
+      });
+      const revealLoadPanel = () => {
+        document.body.classList.remove('landing-only');
+        if (dom.loadPanel) dom.loadPanel.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      const setCompareMode = (enabled) => {
+        if (!dom.compareModeRadios || !dom.compareModeRadios.length) return;
+        const targetValue = enabled ? 'compare' : 'single';
+        const radio = Array.from(dom.compareModeRadios).find((r) => r.value === targetValue);
+        if (!radio) return;
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      const landingActions = document.querySelectorAll('.landing-action');
+      landingActions.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const action = btn.dataset.action || '';
+          if (action === 'upload-a') {
+            revealLoadPanel();
+            if (dom.fileInput) dom.fileInput.click();
+          } else if (action === 'archive-a') {
+            revealLoadPanel();
+            const search = document.getElementById('repoSearch');
+            if (search) {
+              search.focus();
+              search.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          } else if (action === 'compare') {
+            revealLoadPanel();
+            setCompareMode(true);
+            const inputB = document.getElementById('fileInputB');
+            if (inputB) {
+              inputB.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
         });
       });
       const shortcuts = document.querySelectorAll('.report-shortcut');

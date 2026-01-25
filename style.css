@@ -885,38 +885,51 @@ th {
   font-weight: 700;
 }
 
-.landing-intro h3 {
-  margin: 6px 0 4px;
+body.landing-only .sidebar,
+body.landing-only #loadPanel,
+body.landing-only #bandRibbon,
+body.landing-only .nav-buttons,
+body.landing-only #viewTitle {
+  display: none;
 }
 
-.landing-intro p {
-  margin: 0 0 10px;
+body.landing-only .view-container {
+  border: none;
+  padding: 0;
+  min-height: 0;
+  background: transparent;
 }
 
-.landing-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
-  margin-bottom: 8px;
+body.landing-only .content {
+  padding: 24px 28px;
 }
 
-.landing-card {
-  border: 1px solid #dddddd;
-  background: #f8f8f8;
-  padding: 10px 12px;
+.landing-page {
+  max-width: 960px;
+  margin: 0 auto;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
-.landing-title {
-  font-weight: 700;
+.landing-hero h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+
+.landing-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5266df;
   margin-bottom: 6px;
+  font-weight: 700;
 }
 
-.landing-cta {
+.landing-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  align-items: center;
-  margin-top: 6px;
+  margin: 12px 0 6px;
 }
 
 .landing-formats {
@@ -924,10 +937,12 @@ th {
   color: #555555;
 }
 
-.landing-privacy {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #444444;
+.landing-section {
+  margin-top: 18px;
+}
+
+.landing-steps {
+  margin: 6px 0 0 20px;
 }
 
 .landing-links {
@@ -937,20 +952,32 @@ th {
   margin-bottom: 6px;
 }
 
-.landing-notes {
-  margin-bottom: 8px;
-}
-
 .landing-bullets {
-  margin: 4px 0 0 18px;
+  margin: 6px 0 0 20px;
 }
 
 .landing-bullets li {
   margin: 4px 0;
 }
 
-.landing-status {
+.landing-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
   margin-top: 8px;
+}
+
+.landing-status-label {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.landing-status-text {
+  border: 1px solid #dddddd;
+  background: #f8f8f8;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #444444;
 }
 
 .np {

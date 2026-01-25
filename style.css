@@ -880,6 +880,30 @@ th {
   border: 1px dashed #cccccc;
 }
 
+.op-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #777777;
+  overflow: hidden;
+}
+
+.op-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.op-photo-loading {
+  background: #f6f6f6;
+}
+
+.op-photo-missing {
+  color: #999999;
+}
+
 .map-preview {
   margin: 8px 0;
   border: 1px solid #cccccc;

@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.15';
+  const APP_VERSION = 'v2.1.16';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -63,6 +63,9 @@
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
+  const QRZ_BASE_URL = 'https://www.qrz.com/db';
+  const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
+  const QRZ_MAX_CONCURRENCY = 3;
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -157,6 +160,8 @@
       logVersion: 0
     }
   };
+
+  const qrzPhotoInFlight = new Map();
 
   function trackEvent(name, params) {
     if (typeof window.gtag === 'function') {
@@ -1603,6 +1608,113 @@
     return { error: lastError || 'All sources failed' };
   }
 
+  function getQrzPhotoCache(call) {
+    if (!call) return { hit: false, url: null };
+    try {
+      const raw = localStorage.getItem(`qrz_photo_${call}`);
+      if (!raw) return { hit: false, url: null };
+      const data = JSON.parse(raw);
+      if (!data || !data.updatedAt) return { hit: false, url: null };
+      if (Date.now() - data.updatedAt > QRZ_CACHE_TTL) return { hit: false, url: null };
+      return { hit: true, url: data.url || null };
+    } catch (err) {
+      return { hit: false, url: null };
+    }
+  }
+
+  function setQrzPhotoCache(call, url) {
+    if (!call) return;
+    try {
+      const payload = { updatedAt: Date.now(), url: url || null };
+      localStorage.setItem(`qrz_photo_${call}`, JSON.stringify(payload));
+    } catch (err) {
+      // ignore cache failures
+    }
+  }
+
+  function parseQrzPhotoUrl(html) {
+    const text = String(html || '');
+    const match = text.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i);
+    if (match) return match[1];
+    const secure = text.match(/<meta\s+property=["']og:image:secure_url["']\s+content=["']([^"']+)["']/i);
+    return secure ? secure[1] : null;
+  }
+
+  async function fetchQrzPhoto(call) {
+    const cached = getQrzPhotoCache(call);
+    if (cached.hit) return cached.url;
+    if (qrzPhotoInFlight.has(call)) return qrzPhotoInFlight.get(call);
+    const task = (async () => {
+      const url = `${QRZ_BASE_URL}/${encodeURIComponent(call)}`;
+      const res = await fetchWithFallback(buildFetchUrls([url]), () => {});
+      if (res && res.error) {
+        setQrzPhotoCache(call, null);
+        return null;
+      }
+      const photoUrl = parseQrzPhotoUrl(res.text || '');
+      setQrzPhotoCache(call, photoUrl);
+      return photoUrl;
+    })();
+    qrzPhotoInFlight.set(call, task);
+    try {
+      return await task;
+    } finally {
+      qrzPhotoInFlight.delete(call);
+    }
+  }
+
+  function updateOperatorPhoto(call, url) {
+    const items = document.querySelectorAll('.op-photo[data-qrz-call]');
+    items.forEach((el) => {
+      if (el.dataset.qrzCall !== call) return;
+      el.classList.remove('op-photo-loading');
+      el.classList.toggle('op-photo-missing', !url);
+      el.textContent = '';
+      if (url) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = `${call} photo`;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.addEventListener('error', () => {
+          el.textContent = '(No photo)';
+          el.classList.add('op-photo-missing');
+        }, { once: true });
+        el.appendChild(img);
+      } else {
+        el.textContent = '(No photo)';
+      }
+    });
+  }
+
+  async function loadOperatorPhotos(root) {
+    const scope = root || document;
+    const elements = Array.from(scope.querySelectorAll('.op-photo[data-qrz-call]'));
+    const calls = Array.from(new Set(elements.map((el) => (el.dataset.qrzCall || '').trim()).filter(Boolean)));
+    if (!calls.length) return;
+    const tasks = calls.map((call) => async () => {
+      const cached = getQrzPhotoCache(call);
+      if (cached.hit) {
+        updateOperatorPhoto(call, cached.url);
+        return;
+      }
+      const url = await fetchQrzPhoto(call);
+      updateOperatorPhoto(call, url);
+    });
+    const executing = new Set();
+    for (const task of tasks) {
+      const promise = Promise.resolve().then(task);
+      executing.add(promise);
+      const cleanup = () => executing.delete(promise);
+      promise.then(cleanup, cleanup);
+      if (executing.size >= QRZ_MAX_CONCURRENCY) {
+        await Promise.race(executing);
+      }
+    }
+    await Promise.allSettled(executing);
+  }
+
   function handleFetchResult(res, target) {
     if (res && typeof res === 'object' && res.error) {
       state[target + 'Error'] = res.error;
@@ -2558,15 +2670,14 @@
     if (!state.derived.operatorsSummary || state.derived.operatorsSummary.length === 0) return '<p>No operator data in log.</p>';
     const cards = state.derived.operatorsSummary.map((o) => {
       const callRaw = o.op || '';
-      const call = escapeHtml(callRaw);
-      const callAttr = escapeAttr(callRaw);
-      const callLower = escapeAttr(callRaw.toLowerCase());
-      const urlCall = encodeURIComponent(callRaw);
-      const titleAttr = escapeAttr(`${callRaw} at QRZ.COM`);
+      const callKey = normalizeCall(callRaw) || callRaw;
+      const call = escapeHtml(callKey);
+      const callAttr = escapeAttr(callKey);
+      const urlCall = encodeURIComponent(callKey);
+      const titleAttr = escapeAttr(`${callKey} at QRZ.COM`);
       return `
         <div class="operator-card">
-          <div class="np"></div>
-          <i style="border-bottom:1px dashed" title="No file ${callLower}.jpg in 'images' folder.">(No photo)</i>
+          <div class="np op-photo op-photo-loading" data-qrz-call="${callAttr}">(Loading)</div>
           <br/><br/>
           <b><a rel="noopener noreferrer nofollow" title="${titleAttr}" target="_blank" href="https://www.qrz.com/db/${urlCall}">${call}</a></b>
           <br/>&nbsp;<br/><br/>
@@ -5645,6 +5756,9 @@
 
   function bindReportInteractions(reportId) {
     makeTablesSortable(dom.viewContainer);
+    if (reportId === 'operators') {
+      loadOperatorPhotos(dom.viewContainer);
+    }
     if (reportId === 'log') {
       const prev = document.getElementById('logPrev');
       const next = document.getElementById('logNext');

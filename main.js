@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.49';
+  const APP_VERSION = 'v1.1.50';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2571,18 +2571,24 @@
     `;
   }
 
-  const QS_PER_STATION_BUCKETS = [
-    ...Array.from({ length: 12 }, (_, i) => ({ min: i + 1, max: i + 1, label: String(i + 1) })),
-    { min: 13, max: 20, label: '13-20' },
-    { min: 21, max: 50, label: '21-50' },
-    { min: 51, max: 100, label: '51-100' },
-    { min: 101, max: 200, label: '101-200' },
-    { min: 201, max: 500, label: '201-500' },
-    { min: 501, max: Infinity, label: '501+' }
-  ];
+  function getMaxQsosPerStation(derived) {
+    if (!derived?.allCallsList?.length) return 0;
+    return derived.allCallsList.reduce((max, entry) => {
+      const val = Number(entry.qsos) || 0;
+      return val > max ? val : max;
+    }, 0);
+  }
 
-  function buildQsPerStationBuckets(derived) {
-    const buckets = QS_PER_STATION_BUCKETS.map((b) => ({ ...b, stations: 0, qsos: 0 }));
+  function buildQsPerStationBuckets(derived, maxQso) {
+    const maxVal = Number.isFinite(maxQso) ? maxQso : getMaxQsosPerStation(derived);
+    if (!maxVal || maxVal <= 0) return [];
+    const buckets = Array.from({ length: maxVal }, (_, i) => ({
+      min: i + 1,
+      max: i + 1,
+      label: String(i + 1),
+      stations: 0,
+      qsos: 0
+    }));
     if (!derived?.allCallsList) return buckets;
     derived.allCallsList.forEach((entry) => {
       const count = Number(entry.qsos) || 0;
@@ -2595,16 +2601,19 @@
     return buckets;
   }
 
-  function renderQsPerStation() {
-    if (!state.derived) return renderPlaceholder({ id: 'qs_per_station', title: 'Qs per station' });
-    const buckets = buildQsPerStationBuckets(state.derived);
-    const totalStations = state.derived.allCallsList?.length || 0;
-    const totalQsos = state.qsoData?.qsos?.length || 0;
+  function renderQsPerStationTable(derived, totalQsos, maxQso) {
+    if (!derived) return '<p>No data.</p>';
+    const buckets = buildQsPerStationBuckets(derived, maxQso);
+    if (!buckets.length) return '<p>No data.</p>';
+    const totalStations = derived.allCallsList?.length || 0;
+    const total = Number(totalQsos) || 0;
     const rows = buckets.map((b, idx) => {
-      const stationsText = b.stations ? formatNumberSh6(b.stations) : '';
-      const qsosText = b.qsos ? formatNumberSh6(b.qsos) : '';
-      const pctStations = totalStations ? ((b.stations / totalStations) * 100).toFixed(1) : '';
-      const pctQsos = totalQsos ? ((b.qsos / totalQsos) * 100).toFixed(1) : '';
+      const stationsCount = b.stations || 0;
+      const qsosCount = b.qsos || 0;
+      const stationsText = formatNumberSh6(stationsCount);
+      const qsosText = formatNumberSh6(qsosCount);
+      const pctStations = totalStations ? ((stationsCount / totalStations) * 100).toFixed(1) : '';
+      const pctQsos = total ? ((qsosCount / total) * 100).toFixed(1) : '';
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td><b>${b.label}</b></td>
@@ -2621,6 +2630,11 @@
         ${rows}
       </table>
     `;
+  }
+
+  function renderQsPerStation() {
+    if (!state.derived) return renderPlaceholder({ id: 'qs_per_station', title: 'Qs per station' });
+    return renderQsPerStationTable(state.derived, state.qsoData?.qsos?.length || 0);
   }
 
   function renderSummary() {
@@ -5149,7 +5163,7 @@
       case 'summary': return derived.bandModeSummary?.length || 0;
       case 'operators': return derived.operatorsSummary?.length || 0;
       case 'dupes': return derived.dupes?.length || 0;
-      case 'qs_per_station': return QS_PER_STATION_BUCKETS.length;
+      case 'qs_per_station': return getMaxQsosPerStation(derived) || 0;
       case 'qs_by_hour_sheet': return derived.hourSeries?.length || 0;
       case 'qs_by_minute': return derived.minuteSeries?.length || 0;
       case 'one_minute_rates': return derived.minuteSeries?.length || 0;
@@ -5377,6 +5391,21 @@
     return renderComparePanels(slotA, slotB, aHtml, bHtml, reportId);
   }
 
+  function renderQsPerStationCompareAligned() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const maxQso = Math.max(
+      getMaxQsosPerStation(slotA.derived),
+      getMaxQsosPerStation(slotB.derived)
+    );
+    const aHtml = aReady
+      ? renderQsPerStationTable(slotA.derived, slotA.qsoData?.qsos?.length || 0, maxQso)
+      : '<p>No Log A loaded.</p>';
+    const bHtml = bReady
+      ? renderQsPerStationTable(slotB.derived, slotB.qsoData?.qsos?.length || 0, maxQso)
+      : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'qs_per_station');
+  }
+
   function renderQsByMinuteCompareAligned() {
     const { slotA, slotB, aReady, bReady } = getCompareSlots();
     const mapA = buildMinuteMapFromDerived(slotA.derived);
@@ -5583,6 +5612,7 @@
     if (report.id === 'callsign_structure') return renderCallsignStructureCompareAligned();
     if (report.id === 'distance') return renderDistanceCompareAligned();
     if (report.id === 'beam_heading') return renderBeamHeadingCompareAligned();
+    if (report.id === 'qs_per_station') return renderQsPerStationCompareAligned();
     if (report.id.startsWith('countries_by_time')) {
       let bandFilter = null;
       if (report.id !== 'countries_by_time') {

@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.41';
+  const APP_VERSION = 'v1.1.42';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -67,6 +67,7 @@
   const SOLAR_KP_URL = 'https://www-app3.gfz-potsdam.de/kp_index/Kp_ap_since_1932.txt';
   const SOLAR_SSN_URL = 'https://www.sidc.be/SILSO/INFO/sndtotcsv.php';
   const CORS_PROXIES = [
+    (url) => `https://r.jina.ai/http://${url}`,
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
   ];

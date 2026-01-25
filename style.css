@@ -1028,6 +1028,12 @@ body.landing-only .content {
   font-weight: 700;
 }
 
+.landing-logo {
+  height: 44px;
+  width: auto;
+  display: block;
+}
+
 .landing-actions {
   display: flex;
   flex-direction: column;

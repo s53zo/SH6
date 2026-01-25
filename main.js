@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.36';
+  const APP_VERSION = 'v2.1.37';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2909,7 +2909,7 @@
     return `
       <div class="landing-page">
         <section class="landing-hero">
-          <div class="landing-kicker">Welcome</div>
+          <div class="landing-kicker"><img class="landing-logo" src="SH6_logo.png" alt="SH6" decoding="async"></div>
           <h1>SH6 — Hamradio log analyzer</h1>
           <p>Analyze hamradio logs in your browser: countries, rates, operators, maps, and side-by-side comparisons.</p>
           <div class="landing-actions">

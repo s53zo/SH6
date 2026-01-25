@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v1.1.38';
+  const APP_VERSION = 'v1.1.39';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -643,6 +643,29 @@
   }
   function escapeCountry(value) {
     return escapeMemo(value, escapeCountryCache);
+  }
+
+  async function copyToClipboard(text) {
+    if (!text) return false;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (err) {
+      ok = false;
+    }
+    document.body.removeChild(textarea);
+    return ok;
   }
 
   const BAND_CLASS_MAP = {
@@ -3132,7 +3155,10 @@
     return `
       <div class="raw-log-panel">
         <p><b>${slotLabel}:</b> ${safeName}</p>
-        <p><button type="button" class="raw-log-console" data-slot="${slotKey}">Print ${slotLabel} to console</button></p>
+        <p>
+          <button type="button" class="raw-log-console" data-slot="${slotKey}">Print ${slotLabel} to console</button>
+          <button type="button" class="raw-log-copy" data-slot="${slotKey}">Copy ${slotLabel} to clipboard</button>
+        </p>
         <pre class="raw-log">${safeText}</pre>
       </div>
     `;
@@ -5742,6 +5768,7 @@
     }
     if (reportId === 'raw_log') {
       const buttons = document.querySelectorAll('.raw-log-console');
+      const copyButtons = document.querySelectorAll('.raw-log-copy');
       buttons.forEach((btn) => {
         btn.addEventListener('click', () => {
           const slot = btn.dataset.slot;
@@ -5751,6 +5778,19 @@
           } else {
             console.log('No raw log text available.');
           }
+        });
+      });
+      copyButtons.forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const slot = btn.dataset.slot;
+          const text = slot === 'B' ? (state.compareB?.rawLogText || '') : (state.rawLogText || '');
+          if (!text) return;
+          const original = btn.textContent;
+          const ok = await copyToClipboard(text);
+          btn.textContent = ok ? 'Copied!' : 'Copy failed';
+          setTimeout(() => {
+            btn.textContent = original;
+          }, 1200);
         });
       });
     }

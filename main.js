@@ -53,7 +53,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.25';
+  const APP_VERSION = 'v2.1.26';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2677,7 +2677,7 @@
       ['Callsign', `<strong>${stationCall}</strong>`],
       ['Country', stationCountry],
       ['Locator', locator],
-      ['Contest', contest],
+      ['Event', contest],
       ['Category', category],
       ['Operators', operators],
       ['Start date', formatDateSh6(state.derived.timeRange.minTs)],
@@ -2891,8 +2891,8 @@
       <div class="landing-page">
         <section class="landing-hero">
           <div class="landing-kicker">Welcome</div>
-          <h1>SH6 — Contest log analyzer</h1>
-          <p>Analyze contest logs in your browser: countries, rates, operators, maps, and side-by-side comparisons.</p>
+          <h1>SH6 — Hamradio log analyzer</h1>
+          <p>Analyze hamradio logs in your browser: countries, rates, operators, maps, and side-by-side comparisons.</p>
           <div class="landing-actions">
             <button type="button" class="button landing-action" data-action="upload-a">Upload Log A</button>
             <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
@@ -2916,13 +2916,6 @@
             <li>Optional: enable Compare mode and load Log B.</li>
             <li>Open a report from the menu to explore results.</li>
           </ol>
-          <div class="landing-links">
-            <a href="#" class="report-shortcut" data-report="summary">Summary</a>
-            <a href="#" class="report-shortcut" data-report="countries">Countries</a>
-            <a href="#" class="report-shortcut" data-report="operators">Operators</a>
-            <a href="#" class="report-shortcut" data-map="all">Map</a>
-            <a href="#" class="report-shortcut" data-report="kmz_files">KMZ files</a>
-          </div>
         </section>
         <section class="landing-section landing-panel">
           <h3>Privacy</h3>
@@ -5157,7 +5150,7 @@
       ['Generated', formatDateSh6(Date.now())],
       ['Log file', escapeHtml(state.logFile ? state.logFile.name : 'N/A')],
       ['QSOs parsed', state.qsoData ? formatNumberSh6(state.qsoData.qsos.length) : '0'],
-      ['Contest', escapeHtml(state.derived?.contestMeta?.contestId || 'N/A')],
+      ['Event', escapeHtml(state.derived?.contestMeta?.contestId || 'N/A')],
       ['Station callsign', escapeHtml(state.derived?.contestMeta?.stationCallsign || 'N/A')],
       ['cty.dat', escapeHtml(state.ctyStatus || 'pending')],
       ['MASTER.DTA', escapeHtml(state.masterStatus || 'pending')]
@@ -6911,7 +6904,7 @@
       });
       const chunks = ['<div class="repo-tree">'];
       const contestCount = tree.size;
-      statusEl.textContent = `Select a log to load. Found ${archiveRows.length} logs in ${contestCount} contests.`;
+      statusEl.textContent = `Select a log to load. Found ${archiveRows.length} logs in ${contestCount} hamradio events.`;
       tree.forEach((yearMap, contest) => {
         const hasContest = Boolean(contest);
         const contestLabel = escapeHtml(contest);

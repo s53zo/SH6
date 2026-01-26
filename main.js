@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.39';
+  const APP_VERSION = 'v2.1.40';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1578,6 +1578,14 @@
     };
     const show = () => dom.dragOverlay.classList.add('active');
     const hide = () => dom.dragOverlay.classList.remove('active');
+    const maybeRevealLoadPanel = () => {
+      const active = reports[state.activeIndex];
+      if (active && active.id === 'load_logs') {
+        state.showLoadPanel = true;
+        document.body.classList.remove('landing-only');
+        if (dom.loadPanel) dom.loadPanel.style.display = 'block';
+      }
+    };
 
     document.addEventListener('dragenter', (evt) => {
       if (!hasFiles(evt)) return;
@@ -1600,6 +1608,10 @@
       evt.preventDefault();
       depth = 0;
       hide();
+      const [file] = evt.dataTransfer?.files || [];
+      if (!file) return;
+      maybeRevealLoadPanel();
+      loadLogFile(file, 'A', dom.fileStatus, 'Dropped');
     });
   }
 
@@ -3028,7 +3040,7 @@
           <div class="landing-actions">
             <div class="landing-action-row">
               <button type="button" class="button landing-action" data-action="upload-a">Upload log</button>
-              <span class="landing-action-note">upload your own log</span>
+              <span class="landing-action-note">Upload your own log or Drag &amp; Drop it to this window</span>
             </div>
             <div class="landing-action-row">
               <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>

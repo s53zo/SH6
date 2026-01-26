@@ -110,6 +110,8 @@
     './MASTER.DTA',
     '/MASTER.DTA'
   ];
+  const LOG_EXTENSIONS = new Set(['adi', 'adif', 'cbf', 'cbr', 'log']);
+  const LOG_EXTENSIONS_LABEL = '.adi, .adif, .cbf, .cbr, .log';
 
   function buildFetchUrls(urls) {
     const remotes = [];
@@ -227,7 +229,8 @@
     repoStatusB: document.getElementById('repoStatusB'),
     repoResultsB: document.getElementById('repoResultsB'),
     repoAutoCloseB: document.getElementById('repoAutoCloseB'),
-    compareModeRadios: document.querySelectorAll('input[name="compareMode"]')
+    compareModeRadios: document.querySelectorAll('input[name="compareMode"]'),
+    dragOverlay: document.getElementById('dragOverlay')
   };
 
   const renderers = {};
@@ -1425,16 +1428,37 @@
     if (dom.masterStatus) dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
   }
 
+  function isSupportedLogFile(file) {
+    const name = (file && file.name) ? file.name.toLowerCase() : '';
+    const ext = name.includes('.') ? name.split('.').pop() : '';
+    return LOG_EXTENSIONS.has(ext);
+  }
+
+  function showInvalidFileAlert(message) {
+    window.alert(message);
+  }
+
   async function loadLogFile(file, slotId, statusEl, sourceLabel) {
     if (!file) return;
+    if (!isSupportedLogFile(file)) {
+      if (statusEl) statusEl.textContent = `Unsupported file type. Please use ${LOG_EXTENSIONS_LABEL}.`;
+      showInvalidFileAlert(`Invalid file type. Please upload ${LOG_EXTENSIONS_LABEL}.`);
+      return;
+    }
     try {
       const text = await file.text();
-      applyLoadedLogToSlot(slotId, text, file.name, file.size, sourceLabel || 'Uploaded', statusEl);
+      const parsed = applyLoadedLogToSlot(slotId, text, file.name, file.size, sourceLabel || 'Uploaded', statusEl);
+      if (parsed && parsed.type === 'unknown') {
+        showInvalidFileAlert('Invalid log file. The format could not be recognized.');
+      } else if (parsed && parsed.qsos && parsed.qsos.length === 0) {
+        showInvalidFileAlert('No QSOs parsed. Check that the file is a valid ADIF or CBF log.');
+      }
     } catch (err) {
       console.error('File parse failed:', err);
       if (statusEl) {
         statusEl.textContent = `Failed to parse ${file.name}: ${err && err.message ? err.message : 'unknown error'}`;
       }
+      showInvalidFileAlert('Failed to read the log file. Please try a different file.');
     }
   }
 
@@ -1476,7 +1500,7 @@
       if (!file) return;
       await loadLogFile(file, slotId, statusEl, 'Uploaded');
     });
-    const dropEl = inputEl.closest('.file-label');
+    const dropEl = inputEl.closest('.drop-zone');
     if (dropEl) setupFileDropZone(dropEl, statusEl, slotId);
   }
 
@@ -1542,6 +1566,41 @@
     });
     invalidateCompareLogData();
     setActiveReport(state.activeIndex);
+    return target.qsoData;
+  }
+
+  function setupGlobalDragOverlay() {
+    if (!dom.dragOverlay) return;
+    let depth = 0;
+    const hasFiles = (evt) => {
+      const types = evt.dataTransfer && evt.dataTransfer.types;
+      return types ? Array.from(types).includes('Files') : false;
+    };
+    const show = () => dom.dragOverlay.classList.add('active');
+    const hide = () => dom.dragOverlay.classList.remove('active');
+
+    document.addEventListener('dragenter', (evt) => {
+      if (!hasFiles(evt)) return;
+      depth += 1;
+      show();
+    });
+    document.addEventListener('dragover', (evt) => {
+      if (!hasFiles(evt)) return;
+      evt.preventDefault();
+      if (evt.dataTransfer) evt.dataTransfer.dropEffect = 'copy';
+      show();
+    });
+    document.addEventListener('dragleave', (evt) => {
+      if (!hasFiles(evt)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) hide();
+    });
+    document.addEventListener('drop', (evt) => {
+      if (!hasFiles(evt)) return;
+      evt.preventDefault();
+      depth = 0;
+      hide();
+    });
   }
 
   function setupDataFileInputs() {
@@ -7472,6 +7531,7 @@
     initNavigation();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
+    setupGlobalDragOverlay();
     setupRepoSearch('A');
     setupRepoSearch('B');
     setupCompareToggle();

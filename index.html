@@ -53,10 +53,12 @@
             <div class="log-panel log-a">
               <div class="log-panel-title">Log A</div>
               <div class="controls">
-                <label class="file-label">
+                <label class="drop-zone" id="dropZoneA">
                   <input type="file" id="fileInput" accept=".adi,.adif,.cbf,.cbr,.log,.CBF,.ADI,.ADIF,.CBR,.LOG" hidden>
-                  <span class="button">Upload Log A</span>
-                  <span class="drop-hint">or drag &amp; drop</span>
+                  <span class="drop-zone-inner">
+                    <span class="button">Upload Log A</span>
+                    <span class="drop-hint">Drag &amp; Drop log to load</span>
+                  </span>
                 </label>
                 <div class="status" id="fileStatus">No log loaded</div>
               </div>
@@ -74,10 +76,12 @@
             <div class="log-panel log-b compare-only">
               <div class="log-panel-title">Log B</div>
               <div class="controls">
-                <label class="file-label">
+                <label class="drop-zone" id="dropZoneB">
                   <input type="file" id="fileInputB" accept=".adi,.adif,.cbf,.cbr,.log,.CBF,.ADI,.ADIF,.CBR,.LOG" hidden>
-                  <span class="button">Upload Log B</span>
-                  <span class="drop-hint">or drag &amp; drop</span>
+                  <span class="drop-zone-inner">
+                    <span class="button">Upload Log B</span>
+                    <span class="drop-hint">Drag &amp; Drop log to load</span>
+                  </span>
                 </label>
                 <div class="status" id="fileStatusB">No log loaded</div>
               </div>
@@ -111,6 +115,10 @@
       </td>
     </tr>
   </table>
+
+  <div class="drag-overlay" id="dragOverlay" aria-hidden="true">
+    <div class="drag-overlay-message">Drag &amp; Drop log to load</div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js"></script>

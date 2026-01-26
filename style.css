@@ -133,9 +133,9 @@ a:hover {
 
 .controls {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 
 .compare-toggle {
@@ -358,39 +358,81 @@ a:hover {
   display: block;
 }
 
-.file-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  border: 1px dashed #b0b0b0;
-  border-radius: 4px;
-  background: #f6f6f6;
+.drop-zone {
+  width: 100%;
+  min-height: 7.5rem;
+  border: 2px dashed #b0b0b0;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #f9f9f9 0%, #f1f1f1 100%);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
 }
 
-.file-label.drag-over {
+.drop-zone.drag-over {
   border-color: #1f6feb;
   background: #eaf2ff;
 }
 
-.file-label .drop-hint {
-  font-size: 12px;
-  color: #666666;
+.drop-zone:focus-within {
+  border-color: #1f6feb;
+  box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.25);
 }
 
-.file-label .button {
+.drop-zone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.drop-zone .drop-hint {
+  font-size: 0.9rem;
+  color: #4a4a4a;
+}
+
+.drop-zone .button {
   background: #dddddd;
   color: #000;
-  padding: 8px 12px;
+  padding: 0.65rem 1rem;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
+  min-width: 10rem;
 }
 
-.file-label input:focus + .button,
-.file-label .button:hover {
+.drop-zone input:focus + .drop-zone-inner .button,
+.drop-zone .button:hover {
   background: #cccccc;
+}
+
+.drag-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 15, 15, 0.55);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.drag-overlay.active {
+  display: flex;
+}
+
+.drag-overlay-message {
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px dashed #1f6feb;
+  color: #1f3e74;
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 1.2rem 1.6rem;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .status {

@@ -358,6 +358,27 @@ a:hover {
   display: block;
 }
 
+.file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px dashed #b0b0b0;
+  border-radius: 4px;
+  background: #f6f6f6;
+  cursor: pointer;
+}
+
+.file-label.drag-over {
+  border-color: #1f6feb;
+  background: #eaf2ff;
+}
+
+.file-label .drop-hint {
+  font-size: 12px;
+  color: #666666;
+}
+
 .file-label .button {
   background: #dddddd;
   color: #000;

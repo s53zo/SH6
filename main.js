@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.37';
+  const APP_VERSION = 'v2.1.38';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1425,21 +1425,59 @@
     if (dom.masterStatus) dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
   }
 
+  async function loadLogFile(file, slotId, statusEl, sourceLabel) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      applyLoadedLogToSlot(slotId, text, file.name, file.size, sourceLabel || 'Uploaded', statusEl);
+    } catch (err) {
+      console.error('File parse failed:', err);
+      if (statusEl) {
+        statusEl.textContent = `Failed to parse ${file.name}: ${err && err.message ? err.message : 'unknown error'}`;
+      }
+    }
+  }
+
+  function setupFileDropZone(dropEl, statusEl, slotId) {
+    if (!dropEl) return;
+    const prevent = (evt) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+    };
+    const highlight = () => dropEl.classList.add('drag-over');
+    const unhighlight = () => dropEl.classList.remove('drag-over');
+    ['dragenter', 'dragover'].forEach((evtName) => {
+      dropEl.addEventListener(evtName, (evt) => {
+        prevent(evt);
+        highlight();
+        if (evt.dataTransfer) evt.dataTransfer.dropEffect = 'copy';
+      });
+    });
+    ['dragleave', 'dragend'].forEach((evtName) => {
+      dropEl.addEventListener(evtName, (evt) => {
+        prevent(evt);
+        unhighlight();
+      });
+    });
+    dropEl.addEventListener('drop', async (evt) => {
+      prevent(evt);
+      unhighlight();
+      const [file] = evt.dataTransfer?.files || [];
+      if (!file) return;
+      if (statusEl) statusEl.textContent = `Loading ${file.name}...`;
+      await loadLogFile(file, slotId, statusEl, 'Dropped');
+    });
+  }
+
   function setupFileInput(inputEl, statusEl, slotId) {
     if (!inputEl) return;
     inputEl.addEventListener('change', async (evt) => {
       const [file] = evt.target.files || [];
       if (!file) return;
-      try {
-        const text = await file.text();
-        applyLoadedLogToSlot(slotId, text, file.name, file.size, 'Uploaded', statusEl);
-      } catch (err) {
-        console.error('File parse failed:', err);
-        if (statusEl) {
-          statusEl.textContent = `Failed to parse ${file.name}: ${err && err.message ? err.message : 'unknown error'}`;
-        }
-      }
+      await loadLogFile(file, slotId, statusEl, 'Uploaded');
     });
+    const dropEl = inputEl.closest('.file-label');
+    if (dropEl) setupFileDropZone(dropEl, statusEl, slotId);
   }
 
   function buildQsoLiteArray(qsos) {
@@ -1867,14 +1905,17 @@
     if (!text || /<html|<body/i.test(text)) return [];
     const lines = text.split(/\r?\n/);
     const entries = [];
-    const parseToken = (tok, base) => {
+    const parseToken = (tok, base, isPrimary) => {
       const cleaned = tok.replace(/[:\s]+$/g, '');
       const m = cleaned.match(/^(=)?([^(\[\s]+)(?:\((\d+)\))?(?:\[(\d+)\])?$/);
       if (!m) return null;
-      const [, exactMark, body, cqOverride, ituOverride] = m;
+      const [, exactMark, bodyRaw, cqOverride, ituOverride] = m;
+      const body = bodyRaw.replace(/^\*+/, '');
+      if (!body) return null;
       return {
         prefix: body.toUpperCase(),
         exact: exactMark === '=',
+        primary: Boolean(isPrimary),
         country: base.country,
         cqZone: cqOverride ? parseInt(cqOverride, 10) : base.cqZone,
         ituZone: ituOverride ? parseInt(ituOverride, 10) : base.ituZone,
@@ -1912,9 +1953,13 @@
           lon: Number.isFinite(lonVal) ? -lonVal : null,
           tz: parseFloat(tz) || null
         };
+        let primarySet = false;
         for (const p of prefixes) {
-          const parsed = parseToken(p.trim(), base);
-          if (parsed) entries.push(parsed);
+          const parsed = parseToken(p.trim(), base, !primarySet);
+          if (parsed) {
+            entries.push(parsed);
+            if (!primarySet) primarySet = true;
+          }
         }
       }
     }
@@ -1947,9 +1992,13 @@
         lon: Number.isFinite(lonVal) ? -lonVal : null,
         tz: parseFloat(tz) || null
       };
+      let primarySet = false;
       for (const t of suffix) {
-        const parsed = parseToken(t.trim(), base);
-        if (parsed) looseEntries.push(parsed);
+        const parsed = parseToken(t.trim(), base, !primarySet);
+        if (parsed) {
+          looseEntries.push(parsed);
+          if (!primarySet) primarySet = true;
+        }
       }
     }
     return looseEntries.sort((a, b) => {
@@ -2072,7 +2121,12 @@
     const map = new Map();
     if (!state.ctyTable) return map;
     for (const entry of state.ctyTable) {
+      if (!entry.country || !entry.prefix || !entry.primary) continue;
+      if (!map.has(entry.country)) map.set(entry.country, entry.prefix);
+    }
+    for (const entry of state.ctyTable) {
       if (!entry.country || !entry.prefix) continue;
+      if (map.has(entry.country)) continue;
       const current = map.get(entry.country);
       if (!current || entry.prefix.length < current.length) {
         map.set(entry.country, entry.prefix);

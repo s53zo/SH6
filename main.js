@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.50';
+  const APP_VERSION = 'v2.1.51';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -656,6 +656,24 @@
       };
 
       table.addEventListener('click', handleSortClick);
+    });
+  }
+
+  function wrapWideTables(container) {
+    if (!container) return;
+    const tables = Array.from(container.querySelectorAll('table.mtc, table.log-table'));
+    tables.forEach((table) => {
+      if (!(table instanceof HTMLTableElement)) return;
+      table.classList.add('sticky-first');
+      if (table.closest('.table-wrap') || table.closest('.compare-scroll') || table.closest('.compare-log-wrap')) {
+        return;
+      }
+      const parent = table.parentNode;
+      if (!parent) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
+      parent.insertBefore(wrap, table);
+      wrap.appendChild(table);
     });
   }
 
@@ -4679,7 +4697,7 @@
           <td class="tl">${countryText}</td>
           <td><b>${count ? formatNumberSh6(count) : ''}</b></td>
           <td><i>${pct}</i></td>
-          <td class="tl">${listSafe} </td>
+          <td class="tl wrap-cell">${listSafe} </td>
         </tr>
       `;
     }).join('');
@@ -5231,7 +5249,7 @@
           <td>${idx + 1}</td>
           <td>${call ? `<a href="#" class="log-call" data-call="${callAttr}">${call}</a>` : ''}</td>
           <td>${callCount}</td>
-          <td>${sugg}</td>
+          <td class="wrap-cell">${sugg}</td>
         </tr>
       `;
     }).join('');
@@ -6370,6 +6388,7 @@
   }
 
   function bindReportInteractions(reportId) {
+    wrapWideTables(dom.viewContainer);
     makeTablesSortable(dom.viewContainer);
     if (reportId === 'operators') {
       loadOperatorPhotos(dom.viewContainer);

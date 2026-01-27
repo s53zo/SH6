@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.47';
+  const APP_VERSION = 'v2.1.48';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2182,7 +2182,13 @@
     const text = normalizeCall(part).replace(/[^A-Z0-9]/g, '');
     if (!text) return '';
     const lastDigitIndex = text.search(/\d(?!.*\d)/);
-    if (lastDigitIndex >= 0) return text.slice(0, lastDigitIndex + 1);
+    if (lastDigitIndex >= 0) {
+      if (lastDigitIndex === 0) {
+        const leading = text.match(/^(\d+[A-Z]+)/);
+        if (leading) return leading[1];
+      }
+      return text.slice(0, lastDigitIndex + 1);
+    }
     const letters = text.replace(/[^A-Z]/g, '');
     if (!letters) return '';
     if (letters.length >= 2) return `${letters.slice(0, 2)}0`;

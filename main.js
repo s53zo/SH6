@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.46';
+  const APP_VERSION = 'v2.1.47';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2175,6 +2175,41 @@
     return cand || call;
   }
 
+  const WPX_IGNORE_SUFFIXES = new Set(['A', 'E', 'J', 'P', 'M', 'MM', 'AM', 'QRP', 'QRPP']);
+
+  function extractWpxPrefix(part) {
+    if (!part) return '';
+    const text = normalizeCall(part).replace(/[^A-Z0-9]/g, '');
+    if (!text) return '';
+    const lastDigitIndex = text.search(/\d(?!.*\d)/);
+    if (lastDigitIndex >= 0) return text.slice(0, lastDigitIndex + 1);
+    const letters = text.replace(/[^A-Z]/g, '');
+    if (!letters) return '';
+    if (letters.length >= 2) return `${letters.slice(0, 2)}0`;
+    return `${letters[0]}0`;
+  }
+
+  function wpxPrefix(call) {
+    const norm = normalizeCall(call);
+    if (!norm) return '';
+    const parts = norm.split('/').filter(Boolean);
+    const base = baseCall(norm) || norm;
+    let candidate = '';
+    let candidateHasDigit = false;
+    for (const part of parts) {
+      if (!part || part === base) continue;
+      if (WPX_IGNORE_SUFFIXES.has(part)) continue;
+      if (!/[A-Z]/.test(part)) continue;
+      const hasDigit = /\d/.test(part);
+      if (!candidate || (hasDigit && !candidateHasDigit)) {
+        candidate = part;
+        candidateHasDigit = hasDigit;
+        if (candidateHasDigit) break;
+      }
+    }
+    return extractWpxPrefix(candidate || base || parts[0] || norm);
+  }
+
   function setupPrevNext() {
     dom.prevBtn.addEventListener('click', () => {
       if (state.activeIndex > 0) setActiveReport(state.activeIndex - 1);
@@ -2264,7 +2299,8 @@
     const hours = new Map(); // hour bucket (UTC) -> stats
     const minutes = new Map(); // minute bucket (UTC) -> stats
     const tenMinutes = new Map(); // 10-minute buckets
-    const prefixes = new Map();
+    const wpxPrefixes = new Map();
+    const wpxPrefixGroups = new Map();
     const callsignLengths = new Map(); // len -> {callsigns:Set, qsos}
     const notInMasterCalls = new Map(); // call -> {qsos, firstTs, lastTs}
     const allCalls = new Map(); // call -> {qsos, bands:Set, firstTs, lastTs}
@@ -2319,6 +2355,8 @@
 
       // Prefix/country enrich
       const prefix = lookupPrefix(q.call);
+      const wpx = wpxPrefix(q.call);
+      if (wpx) q.wpxPrefix = wpx;
       if (prefix) {
         q.country = prefix.country;
         q.cqZone = prefix.cqZone;
@@ -2437,12 +2475,23 @@
         }
       }
 
-      // Prefixes
-      if (prefix && prefix.prefix) {
-        if (!prefixes.has(prefix.prefix)) prefixes.set(prefix.prefix, { qsos: 0, uniques: new Set() });
-        const p = prefixes.get(prefix.prefix);
+      // WPX prefixes
+      if (wpx) {
+        if (!wpxPrefixes.has(wpx)) wpxPrefixes.set(wpx, { qsos: 0, uniques: new Set() });
+        const p = wpxPrefixes.get(wpx);
         p.qsos += 1;
         if (q.call) p.uniques.add(q.call);
+
+        const countryKey = prefix?.country || 'Unknown';
+        if (!wpxPrefixGroups.has(countryKey)) {
+          wpxPrefixGroups.set(countryKey, {
+            country: countryKey,
+            continent: prefix?.continent || '',
+            id: prefix?.country ? (countryPrefixMap.get(prefix.country) || '') : '',
+            prefixes: new Set()
+          });
+        }
+        wpxPrefixGroups.get(countryKey).prefixes.add(wpx);
       }
 
       // Callsign lengths
@@ -2681,7 +2730,7 @@
 
     // Prefix summary
     const prefixSummary = [];
-    prefixes.forEach((v, k) => {
+    wpxPrefixes.forEach((v, k) => {
       prefixSummary.push({
         prefix: k,
         qsos: v.qsos,
@@ -2769,6 +2818,7 @@
       minuteSeries,
       tenMinuteSeries,
       prefixSummary,
+      prefixGroups: wpxPrefixGroups,
       callsignLengthSummary,
       notInMasterList,
       allCallsList,
@@ -4530,22 +4580,20 @@
 
   function buildPrefixGroups(derived) {
     const groups = new Map();
-    if (!derived || !state.ctyTable || !state.ctyTable.length) return groups;
-    const countryPrefixMap = buildCountryPrefixMap();
-    derived.prefixSummary.forEach((p) => {
-      const entry = state.ctyTable.find((e) => e.prefix === p.prefix);
-      if (!entry || !entry.country) return;
-      const key = entry.country;
-      if (!groups.has(key)) {
-        groups.set(key, {
-          country: entry.country,
-          continent: entry.continent || '',
-          id: countryPrefixMap.get(entry.country) || entry.prefix,
-          prefixes: []
-        });
-      }
-      groups.get(key).prefixes.push(p.prefix);
-    });
+    if (!derived || !derived.prefixGroups) return groups;
+    if (derived.prefixGroups instanceof Map) {
+      derived.prefixGroups.forEach((entry, key) => {
+        const prefixes = Array.isArray(entry.prefixes) ? entry.prefixes : Array.from(entry.prefixes || []);
+        groups.set(key, { ...entry, prefixes });
+      });
+      return groups;
+    }
+    if (Array.isArray(derived.prefixGroups)) {
+      derived.prefixGroups.forEach((entry) => {
+        const prefixes = Array.isArray(entry.prefixes) ? entry.prefixes : Array.from(entry.prefixes || []);
+        groups.set(entry.country, { ...entry, prefixes });
+      });
+    }
     return groups;
   }
 
@@ -4588,7 +4636,6 @@
       const count = g ? g.prefixes.length : 0;
       const pct = count && totalPrefixes ? ((count / totalPrefixes) * 100).toFixed(1) : '';
       const listText = g ? g.prefixes
-        .filter((p) => p && /^[A-Z0-9]{2,}$/.test(p) && !/^\d+$/.test(p))
         .slice()
         .sort((a, b) => a.localeCompare(b))
         .join(' ') : '';

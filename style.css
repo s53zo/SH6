@@ -825,7 +825,6 @@ th, td {
 }
 
 .table-wrap table {
-  min-width: 100%;
   width: max-content;
 }
 
@@ -843,6 +842,12 @@ th, td {
   background: #5266df;
   color: #ffffff;
   z-index: 3;
+}
+
+.sticky-first tr.thc th:first-child[colspan],
+.sticky-first tr.thc td:first-child[colspan] {
+  position: static;
+  box-shadow: none;
 }
 
 .sticky-first tr.td0 td:first-child {
@@ -876,7 +881,7 @@ th {
 
 .mtc {
   border: 1px dotted #cccccc;
-  width: auto;
+  width: max-content;
   max-width: 100%;
   table-layout: auto;
 }

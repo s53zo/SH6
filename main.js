@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.51';
+  const APP_VERSION = 'v2.1.52';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -659,12 +659,31 @@
     });
   }
 
-  function wrapWideTables(container) {
+  function getTableColumnCount(table) {
+    const rows = Array.from(table.rows);
+    for (const row of rows) {
+      if (!row || !row.cells || row.cells.length === 0) continue;
+      return Array.from(row.cells).reduce((sum, cell) => sum + (cell.colSpan || 1), 0);
+    }
+    return 0;
+  }
+
+  function shouldStickyTable(table, reportId) {
+    if (reportId === 'one_minute_rates') return true;
+    const colCount = getTableColumnCount(table);
+    return colCount >= 8;
+  }
+
+  function wrapWideTables(container, reportId) {
     if (!container) return;
     const tables = Array.from(container.querySelectorAll('table.mtc, table.log-table'));
     tables.forEach((table) => {
       if (!(table instanceof HTMLTableElement)) return;
-      table.classList.add('sticky-first');
+      if (shouldStickyTable(table, reportId)) {
+        table.classList.add('sticky-first');
+      } else {
+        table.classList.remove('sticky-first');
+      }
       if (table.closest('.table-wrap') || table.closest('.compare-scroll') || table.closest('.compare-log-wrap')) {
         return;
       }
@@ -6388,7 +6407,7 @@
   }
 
   function bindReportInteractions(reportId) {
-    wrapWideTables(dom.viewContainer);
+    wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
     if (reportId === 'operators') {
       loadOperatorPhotos(dom.viewContainer);

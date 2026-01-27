@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.40';
+  const APP_VERSION = 'v2.1.41';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5082,10 +5082,30 @@
     return headers;
   }
 
-  function renderPossibleErrors() {
-    if (!state.derived) return renderPlaceholder({ id: 'possible_errors', title: 'Possible errors' });
-    if (!state.derived.possibleErrors || !state.derived.possibleErrors.length) return '<p>No possible errors detected.</p>';
-    const rows = state.derived.possibleErrors.map((e, idx) => {
+  function buildCallSet(qsos) {
+    const set = new Set();
+    (qsos || []).forEach((q) => {
+      const call = normalizeCall(q.call || '');
+      if (call) set.add(call);
+    });
+    return set;
+  }
+
+  function filterPossibleErrors(list, excludeSet) {
+    if (!excludeSet || excludeSet.size === 0) return list;
+    return list.filter((e) => {
+      const call = normalizeCall(e.q?.call || '');
+      if (!call) return true;
+      return !excludeSet.has(call);
+    });
+  }
+
+  function renderPossibleErrorsFrom(derived, excludeSet) {
+    if (!derived) return renderPlaceholder({ id: 'possible_errors', title: 'Possible errors' });
+    if (!derived.possibleErrors || !derived.possibleErrors.length) return '<p>No possible errors detected.</p>';
+    const filtered = filterPossibleErrors(derived.possibleErrors, excludeSet);
+    if (!filtered.length) return '<p>No possible errors detected.</p>';
+    const rows = filtered.map((e, idx) => {
       const callRaw = e.q.call || '';
       const suggRaw = callRaw ? suggestMasterMatches(callRaw, state.masterSet, 5).join(' ') : e.reason;
       const call = escapeHtml(callRaw);
@@ -5105,6 +5125,10 @@
         ${rows}
       </table>
     `;
+  }
+
+  function renderPossibleErrors() {
+    return renderPossibleErrorsFrom(state.derived, null);
   }
 
   function renderComments() {
@@ -6178,6 +6202,14 @@
     }
     if (report.id === 'charts_beam_heading_by_hour') {
       return renderChartBeamHeadingByHourCompareAligned();
+    }
+    if (report.id === 'possible_errors') {
+      const { slotA, slotB, aReady, bReady } = getCompareSlots();
+      const callsA = aReady ? buildCallSet(slotA.qsoData?.qsos || []) : new Set();
+      const callsB = bReady ? buildCallSet(slotB.qsoData?.qsos || []) : new Set();
+      const aHtml = aReady ? renderPossibleErrorsFrom(slotA.derived, callsB) : '<p>No Log A loaded.</p>';
+      const bHtml = bReady ? renderPossibleErrorsFrom(slotB.derived, callsA) : '<p>No Log B loaded.</p>';
+      return renderComparePanels(slotA, slotB, aHtml, bHtml, 'possible_errors');
     }
     if (report.id.startsWith('graphs_qs_by_hour')) {
       let bandFilter = null;

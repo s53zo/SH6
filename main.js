@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.44';
+  const APP_VERSION = 'v2.1.45';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4569,7 +4569,11 @@
       const g = groups.get(info.country);
       const count = g ? g.prefixes.length : 0;
       const pct = count && totalPrefixes ? ((count / totalPrefixes) * 100).toFixed(1) : '';
-      const listText = g ? g.prefixes.slice().sort((a, b) => a.localeCompare(b)).join(' ') : '';
+      const listText = g ? g.prefixes
+        .filter((p) => p && /^[A-Z0-9]{2,}$/.test(p) && !/^\d+$/.test(p))
+        .slice()
+        .sort((a, b) => a.localeCompare(b))
+        .join(' ') : '';
       const contText = escapeHtml(info.continent || '');
       const idText = escapeHtml(info.id || '');
       const countryText = escapeHtml(info.country || '');
@@ -4592,7 +4596,7 @@
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <colgroup><col width="40px" span="3" align="center"/><col width="200px" align="left"/><col span="2" width="40px" align="center"/></colgroup>
-        <tr class="thc"><th>#</th><th>Cont.</th><th>ID</th><th>Country</th><th colspan="3">Prefixes</th></tr>
+        <tr class="thc"><th>#</th><th>Cont.</th><th>ID</th><th>Country</th><th>Prefix count</th><th>% of prefixes</th><th>Prefixes</th></tr>
         ${rows}
       </table>
     `;

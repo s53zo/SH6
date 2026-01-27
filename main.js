@@ -3321,7 +3321,7 @@
       const name = DEMO_ARCHIVE_PATH.split('/').pop() || 'demo.log';
       applyLoadedLogToSlot(slotId, result.text, name, result.text.length, 'Demo', statusEl);
       if (statusEl && result.source) statusEl.title = result.source;
-      showOverlayNotice('Demo log loaded! Explore the reports using the menu on the left.');
+      showOverlayNotice('Demo log loaded! Explore the reports using the menu on the left.', 2250);
     };
     startDemo();
   }

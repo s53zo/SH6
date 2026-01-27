@@ -4726,7 +4726,7 @@
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <colgroup><col width="40px" span="3" align="center"/><col width="200px" align="left"/><col span="2" width="40px" align="center"/></colgroup>
-        <tr class="thc"><th>#</th><th>Cont.</th><th>ID</th><th>Country</th><th>Prefix count</th><th>% of prefixes</th><th>Prefixes</th></tr>
+        <tr class="thc"><th>#</th><th>Cont.</th><th>ID</th><th>Country</th><th>Count</th><th>% of pfx</th><th>Worked pfx</th></tr>
         ${rows}
       </table>
     `;

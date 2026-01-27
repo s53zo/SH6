@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.48';
+  const APP_VERSION = 'v2.1.49';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -268,7 +268,14 @@
       li.dataset.index = idx;
       li.dataset.baseClass = baseClass;
       li.classList.add(baseClass);
-      li.addEventListener('click', () => setActiveReport(idx));
+      li.addEventListener('click', () => {
+        const report = reports[idx];
+        trackEvent('menu_click', {
+          report_id: report?.id || '',
+          report_title: report?.title || title || ''
+        });
+        setActiveReport(idx);
+      });
       return li;
     };
 
@@ -278,7 +285,15 @@
       summary.dataset.index = idx;
       summary.dataset.baseClass = baseClass;
       summary.classList.add(baseClass, 'nav-summary');
-      summary.addEventListener('click', () => setActiveReport(idx));
+      summary.addEventListener('click', () => {
+        const report = reports[idx];
+        trackEvent('menu_click', {
+          report_id: report?.id || '',
+          report_title: report?.title || title || '',
+          group: 'summary'
+        });
+        setActiveReport(idx);
+      });
       return summary;
     };
 
@@ -307,7 +322,14 @@
       const li = document.createElement('li');
       li.textContent = r.title;
       li.dataset.index = idx;
-      li.addEventListener('click', () => setActiveReport(idx));
+      li.addEventListener('click', () => {
+        const report = reports[idx];
+        trackEvent('menu_click', {
+          report_id: report?.id || '',
+          report_title: report?.title || ''
+        });
+        setActiveReport(idx);
+      });
       if (childReportIds.has(r.id)) {
         li.classList.add('cli');
         li.dataset.baseClass = 'cli';
@@ -7554,6 +7576,10 @@
         statusEl.textContent = '';
         return;
       }
+      trackEvent('archive_search', {
+        slot: slotId || 'A',
+        callsign
+      });
       const seq = ++searchSeq;
       statusEl.textContent = `Searching archive for ${callsign}...`;
       const shardUrls = getShardUrls(callsign);
@@ -7584,6 +7610,11 @@
     const fetchFromArchive = async (path) => {
       if (!path) return;
       const name = path.split('/').pop();
+      trackEvent('archive_log_select', {
+        slot: slotId || 'A',
+        path,
+        name: name || ''
+      });
       statusEl.textContent = `Downloading ${name}...`;
       resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = true);
       let text = null;

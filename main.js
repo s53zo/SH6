@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.52';
+  const APP_VERSION = 'v2.2.15';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -67,30 +67,8 @@
   const QRZ_BASE_URL = 'https://www.qrz.com/db';
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const QRZ_MAX_CONCURRENCY = 3;
-  const DEMO_LOG_TEXT = [
-    'START-OF-LOG: 3.0',
-    'CONTEST: CQ-WW-CW',
-    'CALLSIGN: S53DEMO',
-    'CATEGORY-OPERATOR: SINGLE-OP',
-    'CATEGORY-ASSISTED: NON-ASSISTED',
-    'CATEGORY-BAND: ALL',
-    'CATEGORY-POWER: LOW',
-    'CATEGORY-MODE: MIXED',
-    'CATEGORY-TRANSMITTER: ONE',
-    'CATEGORY-STATION: FIXED',
-    'GRID-LOCATOR: JN86CR',
-    'CLAIMED-SCORE: 12345',
-    'OPERATORS: S53DEMO',
-    'CLUB: DEMO CLUB',
-    'CREATED-BY: SH6 Demo',
-    'QSO: 14000 CW 20260101 0001 S53DEMO 599 001 K1ABC 599 001',
-    'QSO: 7000 CW 20260101 0003 S53DEMO 599 002 DL1ABC 599 002',
-    'QSO: 21000 SSB 20260101 0005 S53DEMO 59 003 JA1XYZ 59 003',
-    'QSO: 28000 CW 20260101 0010 S53DEMO 599 004 VK2ZZZ 599 004',
-    'QSO: 3500 CW 20260101 0015 S53DEMO 599 005 ZS1AAA 599 005',
-    'QSO: 14000 RTTY 20260101 0020 S53DEMO 599 006 LU1BBB 599 006',
-    'END-OF-LOG:'
-  ].join('\n');
+  const DEMO_ARCHIVE_PATH = 'CQWW/cw/2025/tk0c.log';
+  const DEMO_ARCHIVE_LABEL = 'TK0C CQWW CW 2025';
   const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
@@ -1847,6 +1825,29 @@
     return { error: lastError || 'All sources failed' };
   }
 
+  async function fetchArchiveLogText(path) {
+    if (!path) return null;
+    const urls = [];
+    const primary = `${ARCHIVE_BASE_URL}/${path}`;
+    urls.push(primary);
+    ARCHIVE_BRANCHES.forEach((branch) => {
+      const rawUrl = `https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/${branch}/${path}`;
+      if (!urls.includes(rawUrl)) urls.push(rawUrl);
+    });
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const text = await res.text();
+          return { text, source: url };
+        }
+      } catch (err) {
+        /* ignore and try next */
+      }
+    }
+    return null;
+  }
+
   function getQrzPhotoCache(call) {
     if (!call) return { hit: false, url: null };
     try {
@@ -3298,9 +3299,20 @@
 
   function loadDemoLog(slotId = 'A') {
     const statusEl = slotId === 'B' ? dom.fileStatusB : dom.fileStatus;
-    applyLoadedLogToSlot(slotId, DEMO_LOG_TEXT, 'DEMO.log', DEMO_LOG_TEXT.length, 'Demo', statusEl);
-    const summaryIndex = reports.findIndex((r) => r.id === 'summary');
-    if (summaryIndex >= 0) setActiveReport(summaryIndex);
+    const startDemo = async () => {
+      if (statusEl) statusEl.textContent = `Loading demo log (${DEMO_ARCHIVE_LABEL})...`;
+      const result = await fetchArchiveLogText(DEMO_ARCHIVE_PATH);
+      if (!result || !result.text) {
+        if (statusEl) statusEl.textContent = 'Demo log download failed.';
+        return;
+      }
+      const name = DEMO_ARCHIVE_PATH.split('/').pop() || 'demo.log';
+      applyLoadedLogToSlot(slotId, result.text, name, result.text.length, 'Demo', statusEl);
+      if (statusEl && result.source) statusEl.title = result.source;
+      const summaryIndex = reports.findIndex((r) => r.id === 'summary');
+      if (summaryIndex >= 0) setActiveReport(summaryIndex);
+    };
+    startDemo();
   }
 
   function renderLogCells(q, idx) {

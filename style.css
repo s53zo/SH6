@@ -514,6 +514,30 @@ a:hover {
   padding-top: 8px;
 }
 
+.status-indicator {
+  font-weight: 700;
+}
+
+.status-ok {
+  color: #2e7d32;
+}
+
+.status-error {
+  color: #c62828;
+}
+
+.status-loading,
+.status-proxy-loading {
+  color: #c62828;
+  animation: statusPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0% { opacity: 0.35; }
+  50% { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+
 .content {
   padding: 16px;
 }

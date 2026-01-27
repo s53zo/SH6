@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.45';
+  const APP_VERSION = 'v2.1.46';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1422,10 +1422,28 @@
       if (status === 'error') return 'error';
       return status || '';
     };
-    dom.ctyStatus.textContent = formatStatus(state.ctyStatus, state.ctySource);
-    dom.masterStatus.textContent = formatStatus(state.masterStatus, state.masterSource);
-    if (dom.ctyStatus) dom.ctyStatus.title = [state.ctySource, state.ctyError].filter(Boolean).join(' ');
-    if (dom.masterStatus) dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
+    if (dom.ctyStatus) {
+      dom.ctyStatus.textContent = formatStatus(state.ctyStatus, state.ctySource);
+      dom.ctyStatus.title = [state.ctySource, state.ctyError].filter(Boolean).join(' ');
+      const proxy = isProxy(state.ctySource);
+      dom.ctyStatus.className = [
+        'status-indicator',
+        state.ctyStatus === 'ok' ? 'status-ok' : '',
+        state.ctyStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        state.ctyStatus === 'error' ? 'status-error' : ''
+      ].filter(Boolean).join(' ');
+    }
+    if (dom.masterStatus) {
+      dom.masterStatus.textContent = formatStatus(state.masterStatus, state.masterSource);
+      dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
+      const proxy = isProxy(state.masterSource);
+      dom.masterStatus.className = [
+        'status-indicator',
+        state.masterStatus === 'ok' ? 'status-ok' : '',
+        state.masterStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        state.masterStatus === 'error' ? 'status-error' : ''
+      ].filter(Boolean).join(' ');
+    }
   }
 
   function isSupportedLogFile(file) {

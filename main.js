@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.43';
+  const APP_VERSION = 'v2.1.44';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5106,9 +5106,25 @@
     const filtered = filterPossibleErrors(derived.possibleErrors, excludeSet);
     const note = noteText ? `<p class="log-filter-note">${escapeHtml(noteText)}</p>` : '';
     if (!filtered.length) return `${note}<p>No possible errors detected.</p>`;
-    const rows = filtered.map((e, idx) => {
-      const callRaw = e.q.call || '';
-      const callCount = Number.isFinite(e.q.callCount) ? formatNumberSh6(e.q.callCount) : '';
+    const byCall = new Map();
+    filtered.forEach((e) => {
+      const callRaw = e.q?.call || '';
+      const key = normalizeCall(callRaw) || '__missing__';
+      if (!byCall.has(key)) {
+        byCall.set(key, { callRaw, q: e.q, reason: e.reason });
+      }
+    });
+    const rowsData = Array.from(byCall.values()).map((entry) => {
+      const callCount = Number.isFinite(entry.q?.callCount) ? entry.q.callCount : 0;
+      return { ...entry, callCount };
+    }).sort((a, b) => {
+      if (b.callCount !== a.callCount) return b.callCount - a.callCount;
+      return String(a.callRaw || '').localeCompare(String(b.callRaw || ''));
+    });
+    if (!rowsData.length) return `${note}<p>No possible errors detected.</p>`;
+    const rows = rowsData.map((e, idx) => {
+      const callRaw = e.callRaw || '';
+      const callCount = Number.isFinite(e.callCount) && e.callCount > 0 ? formatNumberSh6(e.callCount) : '';
       const suggRaw = callRaw ? suggestMasterMatches(callRaw, state.masterSet, 5).join(' ') : e.reason;
       const call = escapeHtml(callRaw);
       const callAttr = escapeAttr(callRaw);

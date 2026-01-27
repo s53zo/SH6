@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.41';
+  const APP_VERSION = 'v2.1.43';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5100,13 +5100,15 @@
     });
   }
 
-  function renderPossibleErrorsFrom(derived, excludeSet) {
+  function renderPossibleErrorsFrom(derived, excludeSet, noteText) {
     if (!derived) return renderPlaceholder({ id: 'possible_errors', title: 'Possible errors' });
     if (!derived.possibleErrors || !derived.possibleErrors.length) return '<p>No possible errors detected.</p>';
     const filtered = filterPossibleErrors(derived.possibleErrors, excludeSet);
-    if (!filtered.length) return '<p>No possible errors detected.</p>';
+    const note = noteText ? `<p class="log-filter-note">${escapeHtml(noteText)}</p>` : '';
+    if (!filtered.length) return `${note}<p>No possible errors detected.</p>`;
     const rows = filtered.map((e, idx) => {
       const callRaw = e.q.call || '';
+      const callCount = Number.isFinite(e.q.callCount) ? formatNumberSh6(e.q.callCount) : '';
       const suggRaw = callRaw ? suggestMasterMatches(callRaw, state.masterSet, 5).join(' ') : e.reason;
       const call = escapeHtml(callRaw);
       const callAttr = escapeAttr(callRaw);
@@ -5115,20 +5117,22 @@
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
           <td>${idx + 1}</td>
           <td>${call ? `<a href="#" class="log-call" data-call="${callAttr}">${call}</a>` : ''}</td>
+          <td>${callCount}</td>
           <td>${sugg}</td>
         </tr>
       `;
     }).join('');
     return `
+      ${note}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Callsign in log</th><th>Callsign(s) in master database</th></tr>
+        <tr class="thc"><th>#</th><th>Callsign in log</th><th>QSOs</th><th>Callsign(s) in master database</th></tr>
         ${rows}
       </table>
     `;
   }
 
   function renderPossibleErrors() {
-    return renderPossibleErrorsFrom(state.derived, null);
+    return renderPossibleErrorsFrom(state.derived, null, '');
   }
 
   function renderComments() {
@@ -6207,8 +6211,9 @@
       const { slotA, slotB, aReady, bReady } = getCompareSlots();
       const callsA = aReady ? buildCallSet(slotA.qsoData?.qsos || []) : new Set();
       const callsB = bReady ? buildCallSet(slotB.qsoData?.qsos || []) : new Set();
-      const aHtml = aReady ? renderPossibleErrorsFrom(slotA.derived, callsB) : '<p>No Log A loaded.</p>';
-      const bHtml = bReady ? renderPossibleErrorsFrom(slotB.derived, callsA) : '<p>No Log B loaded.</p>';
+      const note = 'Compare mode: callsigns appearing in both logs are omitted from Possible errors for each log.';
+      const aHtml = aReady ? renderPossibleErrorsFrom(slotA.derived, callsB, note) : '<p>No Log A loaded.</p>';
+      const bHtml = bReady ? renderPossibleErrorsFrom(slotB.derived, callsA, note) : '<p>No Log B loaded.</p>';
       return renderComparePanels(slotA, slotB, aHtml, bHtml, 'possible_errors');
     }
     if (report.id.startsWith('graphs_qs_by_hour')) {

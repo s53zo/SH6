@@ -4296,7 +4296,7 @@
   function renderZonesTable(rows) {
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Zone</th><th>Number of countries in this zone</th><th>QSOs</th><th>Map</th></tr>
+        <tr class="thc"><th>Zone</th><th>DXCC</th><th>QSOs</th><th>Map</th></tr>
         ${rows}
         ${mapAllFooter()}
       </table>

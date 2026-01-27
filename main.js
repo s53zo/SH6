@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.1.49';
+  const APP_VERSION = 'v2.1.50';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -7602,6 +7602,11 @@
       } catch (err) {
         if (seq !== searchSeq) return;
         console.error('Archive search failed:', err);
+        trackEvent('archive_shard_error', {
+          slot: slotId || 'A',
+          callsign,
+          message: err && err.message ? err.message : 'unknown error'
+        });
         resultsEl.innerHTML = '';
         statusEl.textContent = `Archive search failed: ${err && err.message ? err.message : 'unknown error'}`;
       }

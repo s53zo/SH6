@@ -424,6 +424,10 @@ a:hover {
   display: flex;
 }
 
+.drag-overlay.notice {
+  display: flex;
+}
+
 .drag-overlay-message {
   background: rgba(255, 255, 255, 0.95);
   border: 2px dashed #1f6feb;

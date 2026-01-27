@@ -212,6 +212,7 @@
   };
 
   const renderers = {};
+  let overlayNoticeTimer = null;
 
   function initNavigation() {
     const childReportIds = new Set([
@@ -355,6 +356,17 @@
 
   function clearLoadingState() {
     document.body.classList.remove('is-loading');
+  }
+
+  function showOverlayNotice(message, duration = 4500) {
+    if (!dom.dragOverlay) return;
+    const msgEl = dom.dragOverlay.querySelector('.drag-overlay-message');
+    if (msgEl) msgEl.textContent = message;
+    dom.dragOverlay.classList.add('notice');
+    if (overlayNoticeTimer) clearTimeout(overlayNoticeTimer);
+    overlayNoticeTimer = setTimeout(() => {
+      dom.dragOverlay.classList.remove('notice');
+    }, duration);
   }
 
   function renderReportWithLoading(report) {
@@ -3309,8 +3321,7 @@
       const name = DEMO_ARCHIVE_PATH.split('/').pop() || 'demo.log';
       applyLoadedLogToSlot(slotId, result.text, name, result.text.length, 'Demo', statusEl);
       if (statusEl && result.source) statusEl.title = result.source;
-      const summaryIndex = reports.findIndex((r) => r.id === 'summary');
-      if (summaryIndex >= 0) setActiveReport(summaryIndex);
+      showOverlayNotice('Demo log loaded! Explore the reports using the menu on the left.');
     };
     startDemo();
   }

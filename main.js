@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.2.20';
+  const APP_VERSION = 'v2.2.21';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1339,19 +1339,55 @@
     const header = {};
     const qsos = [];
     const parseQsoTokens = (tokens, isQtc) => {
-      if (tokens.length < 9) return;
+      if (tokens.length < 8) return;
       const freqInfo = parseCabrilloFreqToken(tokens[0]);
       const freqMHz = freqInfo.freqMHz;
       const mode = normalizeCabrilloMode(tokens[1]);
       const date = tokens[2] || '';
       const time = tokens[3] || '';
       const myCall = tokens[4] || '';
-      const rstSent = tokens[5] || '';
-      let rest = tokens.slice(6);
       let txId = null;
-      if (rest.length && /^\d$/.test(rest[rest.length - 1]) && shouldParseCabrilloTxId(header)) {
-        txId = rest.pop();
+      const working = tokens.slice();
+      if (working.length >= 9 && /^\d$/.test(working[working.length - 1]) && shouldParseCabrilloTxId(header)) {
+        txId = working.pop();
       }
+
+      const isVhfGrid =
+        working.length >= 8 &&
+        isMaidenheadGrid(working[5]) &&
+        isCallsignToken(working[6]) &&
+        isMaidenheadGrid(working[7]);
+
+      if (isVhfGrid) {
+        const sentGrid = working[5] || '';
+        const call = working[6] || '';
+        const rcvdTokens = working.slice(7).map((t) => t.trim()).filter(Boolean);
+        const exchSent = sentGrid;
+        const exchRcvd = rcvdTokens.join(' ').trim();
+        const rcvdGrid = rcvdTokens.find((t) => isMaidenheadGrid(t));
+        qsos.push({
+          QSO_DATE: date,
+          TIME_ON: time,
+          BAND: freqInfo.band || (freqMHz ? parseBandFromFreq(freqMHz) : ''),
+          MODE: mode,
+          CALL: call,
+          FREQ: freqMHz,
+          RST_SENT: '',
+          RST_RCVD: '',
+          STX_STRING: exchSent,
+          SRX_STRING: exchRcvd,
+          MY_GRIDSQUARE: sentGrid,
+          GRIDSQUARE: rcvdGrid,
+          OPERATOR: myCall,
+          IS_QTC: isQtc,
+          TX_ID: txId
+        });
+        return;
+      }
+
+      if (working.length < 9) return;
+      const rstSent = working[5] || '';
+      const rest = working.slice(6);
       let dxIndex = -1;
       for (let i = 0; i < rest.length; i += 1) {
         if (isCallsignToken(rest[i])) {

@@ -1849,7 +1849,6 @@
     if (!state.globalBandFilter) return false;
     const excluded = new Set([
       'kmz_files',
-      'charts_beam_heading_by_hour',
       'comments',
       'sh6_info'
     ]);

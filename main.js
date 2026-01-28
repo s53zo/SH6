@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.2.15';
+  const APP_VERSION = 'v2.2.16';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -483,6 +483,13 @@
     if (numberFormatCache.size > 5000) numberFormatCache.clear();
     numberFormatCache.set(num, formatted);
     return formatted;
+  }
+
+  function formatFrequency(freq) {
+    if (freq == null || freq === '') return '';
+    const num = Number(freq);
+    if (!Number.isFinite(num)) return String(freq);
+    return num.toFixed(3);
   }
 
   const SORT_HEADER_BLACKLIST = new Set(['Map', 'KMZ file']);
@@ -3339,7 +3346,7 @@
     const cont = escapeHtml(q.continent || '');
     const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
     const time = escapeHtml(q.time || '');
-    const freq = escapeHtml(q.freq ?? '');
+    const freq = escapeHtml(formatFrequency(q.freq));
     const cq = escapeHtml(q.cqZone || '');
     const itu = escapeHtml(q.ituZone || '');
     return `
@@ -3682,7 +3689,7 @@
       const cont = escapeHtml(q.continent || '');
       const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       const time = escapeHtml(q.time || '');
-      const freq = escapeHtml(q.freq ?? '');
+      const freq = escapeHtml(formatFrequency(q.freq));
       const cq = escapeHtml(q.cqZone || '');
       const itu = escapeHtml(q.ituZone || '');
       return `
@@ -3786,7 +3793,7 @@
       const cont = escapeHtml(q.continent || '');
       const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       const time = escapeHtml(q.time || '');
-      const freq = escapeHtml(q.freq ?? '');
+      const freq = escapeHtml(formatFrequency(q.freq));
       const cq = escapeHtml(q.cqZone || '');
       const itu = escapeHtml(q.ituZone || '');
       return `

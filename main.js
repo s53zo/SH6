@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.2.18';
+  const APP_VERSION = 'v2.2.19';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1849,7 +1849,6 @@
     if (!state.globalBandFilter) return false;
     const excluded = new Set([
       'kmz_files',
-      'charts_frequencies',
       'charts_beam_heading_by_hour',
       'comments',
       'sh6_info'

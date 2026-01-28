@@ -67,6 +67,7 @@
   const QRZ_BASE_URL = 'https://www.qrz.com/db';
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const QRZ_MAX_CONCURRENCY = 3;
+  const RECONSTRUCTED_NOTICE = 'For contests where not all stations submitted logs, the repo can generate reconstructed mock logs. These are built by inferring QSOs for missing stations from logs that were submitted. They are not official submissions and are stored separately under RECONSTRUCTED_LOGS/ with the same contest/year structure as the original logs.';
   const DEMO_ARCHIVE_PATH = 'CQWW/cw/2025/tk0c.log';
   const DEMO_ARCHIVE_LABEL = 'TK0C CQWW CW 2025';
   const CORS_PROXIES = [
@@ -1770,10 +1771,13 @@
     }));
   }
 
-  function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl) {
+  function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl, sourcePath) {
     const safeSize = Number.isFinite(size) ? size : text.length;
     const target = slotId === 'B' ? state.compareB : state;
+    const reconstructed = typeof sourcePath === 'string' && sourcePath.startsWith('RECONSTRUCTED_LOGS/');
     target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
+    if (sourcePath) target.logFile.path = sourcePath;
+    if (reconstructed) target.logFile.reconstructed = true;
     target.logPage = 0;
     if (target === state) {
       state.notInMasterPage = 0;
@@ -3137,6 +3141,9 @@
     const club = escapeHtml(state.derived.contestMeta?.club || 'N/A');
     const stationCall = stationCallRaw ? escapeHtml(stationCallRaw) : 'N/A';
 
+    const reconNote = state.logFile?.reconstructed
+      ? `<div class="recon-note">${escapeHtml(RECONSTRUCTED_NOTICE)}</div>`
+      : '';
     const rows = [
       ['Callsign', `<strong>${stationCall}</strong>`],
       ['Country', stationCountry],
@@ -3167,6 +3174,7 @@
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
       `).join('');
     return `
+      ${reconNote}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <tr class="thc"><th>Parameter</th><th>Value</th></tr>
         ${rowHtml}
@@ -3497,7 +3505,7 @@
         return;
       }
       const name = DEMO_ARCHIVE_PATH.split('/').pop() || 'demo.log';
-      applyLoadedLogToSlot(slotId, result.text, name, result.text.length, 'Demo', statusEl);
+      applyLoadedLogToSlot(slotId, result.text, name, result.text.length, 'Demo', statusEl, DEMO_ARCHIVE_PATH);
       if (statusEl && result.source) statusEl.title = result.source;
       showOverlayNotice('Demo log loaded! Explore the reports using the menu on the left.', 2250);
     };
@@ -7840,9 +7848,12 @@
             const subLabel = escapeHtml(subKey);
             if (hasSub) chunks.push(`<details class="repo-subcat"><summary>${subLabel}</summary>`);
             rows.forEach((row) => {
-              const label = row.path.split('/').pop();
-              const pathAttr = escapeAttr(row.path || '');
-              const labelText = escapeHtml(label || '');
+              const path = row.path || '';
+              const label = path.split('/').pop();
+              const isReconstructed = path.startsWith('RECONSTRUCTED_LOGS/');
+              const suffix = isReconstructed ? ' (reconstructed log)' : '';
+              const pathAttr = escapeAttr(path);
+              const labelText = escapeHtml((label || '') + suffix);
               chunks.push(`<button type="button" class="repo-leaf" data-path="${pathAttr}">${labelText}</button>`);
             });
             if (hasSub) chunks.push(`</details>`);
@@ -7946,7 +7957,7 @@
         return;
       }
       try {
-        applyLoadedLogToSlot(slotId, text, name, text.length, 'Archive', statusTarget);
+        applyLoadedLogToSlot(slotId, text, name, text.length, 'Archive', statusTarget, path);
         statusEl.textContent = `Loaded ${name} from archive.`;
         resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = false);
         if (source) statusEl.title = source;

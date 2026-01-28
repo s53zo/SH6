@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.2.16';
+  const APP_VERSION = 'v2.2.17';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -490,6 +490,57 @@
     const num = Number(freq);
     if (!Number.isFinite(num)) return String(freq);
     return num.toFixed(3);
+  }
+
+  function getFrequencyScatterRange(qsos) {
+    let minTs = Infinity;
+    let maxTs = -Infinity;
+    let minFreq = Infinity;
+    let maxFreq = -Infinity;
+    let count = 0;
+    (qsos || []).forEach((q) => {
+      if (!Number.isFinite(q.ts) || !Number.isFinite(q.freq)) return;
+      count += 1;
+      if (q.ts < minTs) minTs = q.ts;
+      if (q.ts > maxTs) maxTs = q.ts;
+      if (q.freq < minFreq) minFreq = q.freq;
+      if (q.freq > maxFreq) maxFreq = q.freq;
+    });
+    if (!count) return null;
+    return { minTs, maxTs, minFreq, maxFreq, count };
+  }
+
+  function mergeFrequencyScatterRanges(rangeA, rangeB) {
+    if (!rangeA && !rangeB) return null;
+    if (!rangeA) return { ...rangeB };
+    if (!rangeB) return { ...rangeA };
+    return {
+      minTs: Math.min(rangeA.minTs, rangeB.minTs),
+      maxTs: Math.max(rangeA.maxTs, rangeB.maxTs),
+      minFreq: Math.min(rangeA.minFreq, rangeB.minFreq),
+      maxFreq: Math.max(rangeA.maxFreq, rangeB.maxFreq),
+      count: (rangeA.count || 0) + (rangeB.count || 0)
+    };
+  }
+
+  function sampleFrequencyScatterPoints(qsos, maxPoints = 6000) {
+    const all = [];
+    (qsos || []).forEach((q) => {
+      if (!Number.isFinite(q.ts) || !Number.isFinite(q.freq)) return;
+      all.push({ ts: q.ts, freq: q.freq });
+    });
+    if (!all.length) return { points: [], total: 0 };
+    const step = Math.ceil(all.length / maxPoints);
+    if (step <= 1) return { points: all, total: all.length };
+    const sampled = all.filter((_, idx) => idx % step === 0);
+    return { points: sampled, total: all.length };
+  }
+
+  function applyRangePadding(min, max, padRatio, fallbackSpan) {
+    let span = max - min;
+    if (!Number.isFinite(span) || span <= 0) span = fallbackSpan;
+    const pad = span * padRatio;
+    return { min: min - pad, max: max + pad };
   }
 
   const SORT_HEADER_BLACKLIST = new Set(['Map', 'KMZ file']);
@@ -5751,10 +5802,82 @@
     return `<div class="mtc"><div class="gradient">&nbsp;Continents</div>${renderBars(state.derived.continentSummary, 'continent', 'qsos')}</div>`;
   }
 
+  function renderFrequencyScatterChart(qsos, rangeOverride, title) {
+    const range = rangeOverride || getFrequencyScatterRange(qsos);
+    if (!range) {
+      return `<div class="mtc"><div class="gradient">&nbsp;${escapeHtml(title || 'Frequencies')}</div><p>No frequency/time data available.</p></div>`;
+    }
+    const { points, total } = sampleFrequencyScatterPoints(qsos, 6000);
+    if (!points.length) {
+      return `<div class="mtc"><div class="gradient">&nbsp;${escapeHtml(title || 'Frequencies')}</div><p>No frequency/time data available.</p></div>`;
+    }
+    const paddedTime = applyRangePadding(range.minTs, range.maxTs, 0.02, 60 * 60 * 1000);
+    const paddedFreq = applyRangePadding(range.minFreq, range.maxFreq, 0.05, 0.1);
+    const minTs = paddedTime.min;
+    const maxTs = paddedTime.max;
+    const minFreq = paddedFreq.min;
+    const maxFreq = paddedFreq.max;
+    const width = 900;
+    const height = 320;
+    const margin = { left: 70, right: 20, top: 20, bottom: 55 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = (ts) => margin.left + ((ts - minTs) / (maxTs - minTs)) * plotW;
+    const yScale = (freq) => margin.top + (1 - (freq - minFreq) / (maxFreq - minFreq)) * plotH;
+    const xTicks = 5;
+    const yTicks = 5;
+    const xGrid = [];
+    const xLabels = [];
+    for (let i = 0; i < xTicks; i += 1) {
+      const t = minTs + ((maxTs - minTs) * i) / (xTicks - 1);
+      const x = xScale(t);
+      xGrid.push(`<line class="freq-grid" x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}"></line>`);
+      const label = formatDateSh6(t);
+      xLabels.push(`<text class="freq-axis-text" x="${x}" y="${height - margin.bottom + 18}" transform="rotate(-35 ${x} ${height - margin.bottom + 18})" text-anchor="end">${escapeHtml(label)}</text>`);
+    }
+    const yGrid = [];
+    const yLabels = [];
+    for (let i = 0; i < yTicks; i += 1) {
+      const f = minFreq + ((maxFreq - minFreq) * i) / (yTicks - 1);
+      const y = yScale(f);
+      yGrid.push(`<line class="freq-grid" x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}"></line>`);
+      const label = formatFrequency(f);
+      yLabels.push(`<text class="freq-axis-text" x="${margin.left - 8}" y="${y + 4}" text-anchor="end">${escapeHtml(label)}</text>`);
+    }
+    const dots = points.map((p) => {
+      const x = xScale(p.ts);
+      const y = yScale(p.freq);
+      return `<circle class="freq-dot" cx="${x}" cy="${y}" r="2"></circle>`;
+    }).join('');
+    const note = total > points.length
+      ? `<div class="freq-scatter-note">Showing ${formatNumberSh6(points.length)} of ${formatNumberSh6(total)} QSOs with frequency.</div>`
+      : '';
+    return `
+      <div class="mtc">
+        <div class="gradient">&nbsp;${escapeHtml(title || 'Frequencies')}</div>
+        <div class="freq-scatter-wrap">
+          <svg class="freq-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="Frequency timeline scatter plot">
+            <rect class="freq-plot-bg" x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}"></rect>
+            ${xGrid.join('')}
+            ${yGrid.join('')}
+            <line class="freq-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>
+            <line class="freq-axis" x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}"></line>
+            ${dots}
+            ${xLabels.join('')}
+            ${yLabels.join('')}
+            <text class="freq-axis-title" x="${width / 2}" y="${height - 8}" text-anchor="middle">Time (UTC)</text>
+            <text class="freq-axis-title" x="14" y="${height / 2}" transform="rotate(-90 14 ${height / 2})" text-anchor="middle">Frequency (MHz)</text>
+          </svg>
+        </div>
+        ${note}
+      </div>
+    `;
+  }
+
   function renderChartFrequencies() {
-    if (!state.derived || !state.derived.frequencySummary) return renderPlaceholder({ id: 'charts_frequencies', title: 'Frequencies' });
-    const data = state.derived.frequencySummary.map((f) => ({ label: f.freq.toFixed(1), value: f.count }));
-    return `<div class="mtc"><div class="gradient">&nbsp;Frequencies</div>${renderBars(data, 'label', 'value')}</div>`;
+    if (!state.qsoData) return renderPlaceholder({ id: 'charts_frequencies', title: 'Frequencies' });
+    const qsos = state.qsoData.qsos || [];
+    return renderFrequencyScatterChart(qsos, null, 'Frequencies');
   }
 
   function renderChartBeamHeading() {
@@ -6228,43 +6351,21 @@
     return renderComparePanels(slotA, slotB, aHtml, bHtml, 'qs_by_minute');
   }
 
-  function buildFrequencyMapFromDerived(derived) {
-    const map = new Map();
-    if (!derived || !derived.frequencySummary) return map;
-    derived.frequencySummary.forEach((f) => {
-      const label = Number.isFinite(f.freq) ? f.freq.toFixed(1) : String(f.freq);
-      map.set(label, f.count);
-    });
-    return map;
-  }
-
-  function buildFrequencyOrder(mapA, mapB) {
-    const keys = new Set([...mapA.keys(), ...mapB.keys()]);
-    return Array.from(keys).sort((a, b) => {
-      const an = parseFloat(a);
-      const bn = parseFloat(b);
-      if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
-      return String(a).localeCompare(String(b));
-    });
-  }
-
-  function renderChartFrequenciesForSlot(slot, order) {
-    if (!slot.derived || !slot.derived.frequencySummary) {
+  function renderChartFrequenciesForSlot(slot, rangeOverride) {
+    if (!slot.qsoData) {
       return renderPlaceholder({ id: 'charts_frequencies', title: 'Frequencies' });
     }
-    const map = buildFrequencyMapFromDerived(slot.derived);
-    const data = order.map((label) => ({ label, value: map.get(label) || 0 }));
-    return `<div class="mtc"><div class="gradient">&nbsp;Frequencies</div>${renderBars(data, 'label', 'value')}</div>`;
+    return renderFrequencyScatterChart(slot.qsoData.qsos || [], rangeOverride, 'Frequencies');
   }
 
   function renderChartFrequenciesCompareAligned() {
     const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const order = buildFrequencyOrder(
-      buildFrequencyMapFromDerived(slotA.derived),
-      buildFrequencyMapFromDerived(slotB.derived)
+    const range = mergeFrequencyScatterRanges(
+      getFrequencyScatterRange(slotA.qsoData?.qsos || []),
+      getFrequencyScatterRange(slotB.qsoData?.qsos || [])
     );
-    const aHtml = aReady ? renderChartFrequenciesForSlot(slotA, order) : '<p>No Log A loaded.</p>';
-    const bHtml = bReady ? renderChartFrequenciesForSlot(slotB, order) : '<p>No Log B loaded.</p>';
+    const aHtml = aReady ? renderChartFrequenciesForSlot(slotA, range) : '<p>No Log A loaded.</p>';
+    const bHtml = bReady ? renderChartFrequenciesForSlot(slotB, range) : '<p>No Log B loaded.</p>';
     return renderComparePanels(slotA, slotB, aHtml, bHtml, 'charts_frequencies');
   }
 

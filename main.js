@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.2.19';
+  const APP_VERSION = 'v2.2.20';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1279,20 +1279,79 @@
     return /[A-Z]/.test(t) && /\d/.test(t);
   }
 
+  function parseCabrilloFreqToken(token) {
+    const raw = (token || '').trim();
+    if (!raw) return { freqMHz: null, band: '' };
+    const upper = raw.toUpperCase();
+    if (upper === 'LIGHT') return { freqMHz: null, band: 'LIGHT' };
+
+    const ghzMatch = upper.match(/^(\d+(?:\.\d+)?)\s*G(?:HZ)?$/);
+    if (ghzMatch) {
+      const ghz = parseFloat(ghzMatch[1]);
+      if (Number.isFinite(ghz)) {
+        const mhz = ghz * 1000;
+        const band = parseBandFromFreq(mhz) || upper;
+        return { freqMHz: mhz, band };
+      }
+    }
+
+    const mhzMatch = upper.match(/^(\d+(?:\.\d+)?)\s*M(?:HZ)?$/);
+    if (mhzMatch) {
+      const mhz = parseFloat(mhzMatch[1]);
+      if (Number.isFinite(mhz)) {
+        const band = parseBandFromFreq(mhz) || raw;
+        return { freqMHz: mhz, band };
+      }
+    }
+
+    if (/^\d+(\.\d+)?$/.test(upper)) {
+      const num = parseFloat(upper);
+      if (!Number.isFinite(num)) return { freqMHz: null, band: '' };
+      const bandToken = Number.isInteger(num) ? String(num) : null;
+      if (bandToken && SUPPORTED_BANDS.has(bandToken)) {
+        return { freqMHz: null, band: bandToken };
+      }
+      if (num >= 1000) {
+        const mhz = num / 1000;
+        return { freqMHz: mhz, band: parseBandFromFreq(mhz) };
+      }
+      return { freqMHz: num, band: parseBandFromFreq(num) || String(num) };
+    }
+
+    return { freqMHz: null, band: raw };
+  }
+
+  function normalizeCabrilloHeaderValue(value) {
+    if (Array.isArray(value)) return value.join(' ');
+    return value;
+  }
+
+  function shouldParseCabrilloTxId(header) {
+    const tx = String(normalizeCabrilloHeaderValue(header?.['CATEGORY-TRANSMITTER'] || '') || '').toUpperCase();
+    const op = String(normalizeCabrilloHeaderValue(header?.['CATEGORY-OPERATOR'] || '') || '').toUpperCase();
+    if (tx && tx !== 'ONE' && tx !== 'SINGLE') return true;
+    if (op.includes('MULTI')) return true;
+    return false;
+  }
+
   function parseCabrillo(text) {
     const lines = text.split(/\r?\n/);
     const header = {};
     const qsos = [];
     const parseQsoTokens = (tokens, isQtc) => {
       if (tokens.length < 9) return;
-      const freqKHz = parseInt(tokens[0], 10);
-      const freqMHz = Number.isFinite(freqKHz) ? freqKHz / 1000 : null;
+      const freqInfo = parseCabrilloFreqToken(tokens[0]);
+      const freqMHz = freqInfo.freqMHz;
       const mode = normalizeCabrilloMode(tokens[1]);
       const date = tokens[2] || '';
       const time = tokens[3] || '';
       const myCall = tokens[4] || '';
       const rstSent = tokens[5] || '';
-      const rest = tokens.slice(6);
+      let rest = tokens.slice(6);
+      let txId = null;
+      if (rest.length && /^\d$/.test(rest[rest.length - 1]) && shouldParseCabrilloTxId(header)) {
+        txId = rest.pop();
+      }
       let dxIndex = -1;
       for (let i = 0; i < rest.length; i += 1) {
         if (isCallsignToken(rest[i])) {
@@ -1314,7 +1373,7 @@
       qsos.push({
         QSO_DATE: date,
         TIME_ON: time,
-        BAND: freqMHz ? parseBandFromFreq(freqMHz) : '',
+        BAND: freqInfo.band || (freqMHz ? parseBandFromFreq(freqMHz) : ''),
         MODE: mode,
         CALL: call,
         FREQ: freqMHz,
@@ -1325,7 +1384,8 @@
         MY_GRIDSQUARE: sentGrid,
         GRIDSQUARE: rcvdGrid,
         OPERATOR: myCall,
-        IS_QTC: isQtc
+        IS_QTC: isQtc,
+        TX_ID: txId
       });
     };
     lines.forEach((line) => {
@@ -1342,7 +1402,10 @@
         if (idx === -1) return;
         const key = trimmed.slice(0, idx).trim().toUpperCase();
         const value = trimmed.slice(idx + 1).trim();
-        if (key) header[key] = value;
+        if (!key) return;
+        if (header[key] == null) header[key] = value;
+        else if (Array.isArray(header[key])) header[key].push(value);
+        else header[key] = [header[key], value];
       }
     });
     return { header, qsos };
@@ -1423,7 +1486,11 @@
     const lower = (filename || '').toLowerCase();
     if (lower.endsWith('.log') || lower.endsWith('.cbr') || /START-OF-LOG:/i.test(text) || /^QSO:/im.test(text)) {
       const cab = parseCabrillo(text);
-      const meta = cab.header || {};
+      const metaRaw = cab.header || {};
+      const meta = {};
+      Object.keys(metaRaw).forEach((key) => {
+        meta[key] = normalizeCabrilloHeaderValue(metaRaw[key]);
+      });
       const sharedRaw = {
         STATION_CALLSIGN: meta.CALLSIGN || meta.CALL || null,
         CONTEST: meta.CONTEST || null,

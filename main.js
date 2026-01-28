@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.2.17';
+  const APP_VERSION = 'v2.2.18';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -541,6 +541,25 @@
     if (!Number.isFinite(span) || span <= 0) span = fallbackSpan;
     const pad = span * padRatio;
     return { min: min - pad, max: max + pad };
+  }
+
+  function getWeekendKeyFromRange(range) {
+    if (!range || !Number.isFinite(range.minTs) || !Number.isFinite(range.maxTs)) return null;
+    const midTs = (range.minTs + range.maxTs) / 2;
+    const base = new Date(midTs);
+    const baseUtc = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate()));
+    const day = baseUtc.getUTCDay();
+    const prevOffset = -((day + 1) % 7);
+    const nextOffset = prevOffset === 0 ? 0 : prevOffset + 7;
+    const prevSat = new Date(baseUtc);
+    prevSat.setUTCDate(prevSat.getUTCDate() + prevOffset);
+    const nextSat = new Date(baseUtc);
+    nextSat.setUTCDate(nextSat.getUTCDate() + nextOffset);
+    const pick = Math.abs(midTs - prevSat.getTime()) <= Math.abs(midTs - nextSat.getTime()) ? prevSat : nextSat;
+    const year = pick.getUTCFullYear();
+    const month = String(pick.getUTCMonth() + 1).padStart(2, '0');
+    const date = String(pick.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${date}`;
   }
 
   const SORT_HEADER_BLACKLIST = new Set(['Map', 'KMZ file']);
@@ -6360,12 +6379,14 @@
 
   function renderChartFrequenciesCompareAligned() {
     const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const range = mergeFrequencyScatterRanges(
-      getFrequencyScatterRange(slotA.qsoData?.qsos || []),
-      getFrequencyScatterRange(slotB.qsoData?.qsos || [])
-    );
-    const aHtml = aReady ? renderChartFrequenciesForSlot(slotA, range) : '<p>No Log A loaded.</p>';
-    const bHtml = bReady ? renderChartFrequenciesForSlot(slotB, range) : '<p>No Log B loaded.</p>';
+    const rangeA = getFrequencyScatterRange(slotA.qsoData?.qsos || []);
+    const rangeB = getFrequencyScatterRange(slotB.qsoData?.qsos || []);
+    const keyA = getWeekendKeyFromRange(rangeA);
+    const keyB = getWeekendKeyFromRange(rangeB);
+    const shareAxis = keyA && keyB && keyA === keyB;
+    const sharedRange = shareAxis ? mergeFrequencyScatterRanges(rangeA, rangeB) : null;
+    const aHtml = aReady ? renderChartFrequenciesForSlot(slotA, shareAxis ? sharedRange : rangeA) : '<p>No Log A loaded.</p>';
+    const bHtml = bReady ? renderChartFrequenciesForSlot(slotB, shareAxis ? sharedRange : rangeB) : '<p>No Log B loaded.</p>';
     return renderComparePanels(slotA, slotB, aHtml, bHtml, 'charts_frequencies');
   }
 

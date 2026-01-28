@@ -468,6 +468,8 @@ a:hover {
   padding: 8px 10px;
   margin: 6px 0 10px;
   line-height: 1.3;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .layout {

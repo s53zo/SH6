@@ -67,7 +67,7 @@
   const QRZ_BASE_URL = 'https://www.qrz.com/db';
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const QRZ_MAX_CONCURRENCY = 3;
-  const RECONSTRUCTED_NOTICE = 'For contests where not all stations submitted logs, the repo can generate reconstructed mock logs. These are built by inferring QSOs for missing stations from logs that were submitted. They are not official submissions and are not complete logs.';
+  const RECONSTRUCTED_NOTICE = 'THIS LOG IS RECONSTRUCTED. For contests where not all stations submitted logs, the repo can generate reconstructed mock logs. These are built by inferring QSOs for missing stations from logs that were submitted. They are not official submissions and are not complete logs.';
   const DEMO_ARCHIVE_PATH = 'CQWW/cw/2025/tk0c.log';
   const DEMO_ARCHIVE_LABEL = 'TK0C CQWW CW 2025';
   const CORS_PROXIES = [

@@ -1,16 +1,32 @@
+ # SH6 Contest Report (client-side)
 
-# SH6 Contest Report (client-side)
+  Use it online: https://s53zo.github.io/SH6/
 
-Static HTML/JS app that parses ADIF/CBF contest logs in the browser, fetches `cty.dat` and `MASTER.DTA` at runtime, and renders SH6-style reports (Main, Summary, Log, Dupes, Countries, Continents, Zones, Rates, etc.). No server-side code.
+  Static HTML/JS app that parses contest logs in your browser, fetches `cty.dat` and `MASTER.DTA` at runtime, and renders SH6-style reports. No server-side code.
 
-## Usage
-- Serve or open `index.html` via HTTP/HTTPS.
-- Upload an ADIF/CBF log; the app fetches the latest `cty.dat` and `MASTER.DTA` automatically.
-- Reports populate in the browser; no server code required.
-- Opening via `file://` may block network fetches in some browsers.
+  ## Quick start
+  - Open the web app: https://s53zo.github.io/SH6/
+  - Load a log:
+    - Upload (or drag & drop) a file, or
+    - Load from the public archive, or
+    - Use the built-in “Demo log”
+  - Optional: switch to Compare mode to load Log A + Log B side-by-side.
 
-## Status
-- Parsing: ADIF, basic CBF (semicolon/comma/tab separated; band inference; operator/exchange/grid/CQ/ITU capture; tolerant of comma decimal separators).
-- Derived: dupes, band summary, countries/continents/zones, prefixes, callsign length/structure, operators, per-hour/minute, countries-by-time, not-in-master, distance/heading (if station/location data present), breaks, comments, possible errors (heuristic).
-- Reports implemented: Main, Summary, Log (paged 200 rows), Dupes, Operators/QS per station, Countries (with bands/first/last), Continents, CQ/ITU zones, Qs by hour sheet, Rates, Qs by minute, One-minute rates, Prefixes, Callsign length, Callsign structure, All callsigns, Not in master, Countries by time (overall + per band), Distance, Beam heading, Breaks, Possible errors, Comments, simple charts (Qs by band, Top 10 countries, Continents), Fields map (table), Beam heading by hour (sector table), KMZ/Sun placeholders.
+  ## Supported formats
+  - Cabrillo: `.log`, `.cbr`
+  - ADIF: `.adi`, `.adif`
 
+  ## Features / status
+  - Single + Compare mode (many reports render side-by-side)
+  - Archive search: load logs from the public contest log archive (GitHub)
+  - Reports include: Main, Summary, Log, Raw log, Operators, Dupes, Countries/Continents, CQ/ITU zones, rates/graphs, prefixes, callsign analysis, distance/heading, breaks, possible errors, comments, charts,
+  fields map
+  - Map view (Leaflet/OpenStreetMap) and KMZ downloads
+  - Export: standalone HTML and PDF via browser print dialog (maps excluded)
+
+  ## Running locally
+  - Serve or open `index.html` via HTTP/HTTPS.
+
+  ## Privacy / network
+  Logs are processed locally in your browser (not uploaded).
+  The app may fetch `cty.dat`, `MASTER.DTA`, and optional remote data when you use archive loading / lookups.

@@ -54,7 +54,7 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.2.22';
+  const APP_VERSION = 'v2.2.23';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1143,11 +1143,17 @@
   }
 
   function deriveStation(qsos) {
-    // Try to find station lat/lon from ADIF fields: MY_GRIDSQUARE, STATION_LOC, MY_LAT/LON.
+    // Try to find station lat/lon from ADIF/Cabrillo fields: MY_GRIDSQUARE, STATION_LOC, GRID, MY_LAT/LON.
     for (const q of qsos) {
       const r = q.raw || {};
-      if (r.MY_GRIDSQUARE || r.STATION_LOC) {
-        const g = r.MY_GRIDSQUARE || r.STATION_LOC;
+      const grids = [
+        r.MY_GRIDSQUARE,
+        r.STATION_LOC,
+        r.GRID,
+        r['GRID-LOCATOR'],
+        r['HQ-GRID-LOCATOR']
+      ].filter((g) => g !== undefined && g !== null && g !== '');
+      for (const g of grids) {
         const loc = gridToLatLon(g);
         if (loc) return { lat: loc.lat, lon: loc.lon, source: 'grid', value: g };
       }
@@ -6618,6 +6624,9 @@
     if (report.id === 'charts_beam_heading_by_hour') {
       return renderChartBeamHeadingByHourCompareAligned();
     }
+    if (report.id === 'breaks') {
+      return renderBreaksCompare();
+    }
     if (report.id === 'possible_errors') {
       const { slotA, slotB, aReady, bReady } = getCompareSlots();
       const callsA = aReady ? buildCallSet(slotA.qsoData?.qsos || []) : new Set();
@@ -7599,31 +7608,39 @@
       initLeafletMap(state.mapContext);
     }
     if (reportId === 'breaks') {
-      const slider = document.getElementById('breakThreshold');
-      const value = document.getElementById('breakThresholdValue');
-      if (slider && value) {
+      const sliders = dom.viewContainer.querySelectorAll('.break-threshold');
+      const values = dom.viewContainer.querySelectorAll('.break-threshold-value');
+      const updateDisplay = (next) => {
+        const text = String(next);
+        values.forEach((el) => { el.textContent = text; });
+        sliders.forEach((el) => {
+          if (Number(el.value) !== next) el.value = text;
+        });
+      };
+      sliders.forEach((slider) => {
         slider.addEventListener('input', () => {
-          state.breakThreshold = Number(slider.value) || 60;
-          value.textContent = String(state.breakThreshold);
+          const next = Number(slider.value) || 60;
+          state.breakThreshold = next;
+          updateDisplay(next);
         });
         slider.addEventListener('change', () => {
-          dom.viewContainer.innerHTML = renderBreaks();
-          bindReportInteractions('breaks');
+          renderReportWithLoading(reports[state.activeIndex]);
         });
-      }
+      });
     }
   }
 
-  function renderBreaks() {
-    if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'breaks', title: 'Break time' });
+  function renderBreaksForDerived(derived, slotLabel) {
+    if (!derived || !derived.minuteSeries) return renderPlaceholder({ id: 'breaks', title: 'Break time' });
     const threshold = state.breakThreshold || 60;
-    const minutesMap = new Map(state.derived.minuteSeries.map((m) => [m.minute, m.qsos]));
+    const minutesMap = new Map(derived.minuteSeries.map((m) => [m.minute, m.qsos]));
     const breakSummary = computeBreakSummary(minutesMap, threshold);
+    const slotAttr = slotLabel ? ` data-break-slot="${slotLabel}"` : '';
     const slider = `
-      <div class="break-controls">
+      <div class="break-controls"${slotAttr}>
         Break threshold (minutes):
-        <input type="range" id="breakThreshold" min="10" max="60" step="1" value="${threshold}">
-        <span id="breakThresholdValue">${threshold}</span>
+        <input type="range" class="break-threshold"${slotAttr} min="10" max="60" step="1" value="${threshold}">
+        <span class="break-threshold-value"${slotAttr}>${threshold}</span>
       </div>
     `;
     if (!breakSummary.breaks.length) return `${slider}<p>No breaks detected.</p>`;
@@ -7646,6 +7663,17 @@
         ${rows}
       </table>
     `;
+  }
+
+  function renderBreaks() {
+    return renderBreaksForDerived(state.derived, 'A');
+  }
+
+  function renderBreaksCompare() {
+    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const aHtml = aReady ? renderBreaksForDerived(slotA.derived, 'A') : '<p>No Log A loaded.</p>';
+    const bHtml = bReady ? renderBreaksForDerived(slotB.derived, 'B') : '<p>No Log B loaded.</p>';
+    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'breaks');
   }
 
   function setupRepoSearch(slotId) {

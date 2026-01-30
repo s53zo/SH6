@@ -1,5 +1,5 @@
 (() => {
-  const reports = [
+  const BASE_REPORTS = [
     { id: 'load_logs', title: 'Load logs' },
     { id: 'main', title: 'Main' },
     { id: 'summary', title: 'Summary' },
@@ -10,23 +10,11 @@
     { id: 'rates', title: 'Rates' },
     { id: 'countries', title: 'Countries' },
     { id: 'countries_by_time', title: 'Countries by time' },
-    { id: 'countries_by_time_10', title: 'Countries by time - 10' },
-    { id: 'countries_by_time_15', title: 'Countries by time - 15' },
-    { id: 'countries_by_time_20', title: 'Countries by time - 20' },
-    { id: 'countries_by_time_40', title: 'Countries by time - 40' },
-    { id: 'countries_by_time_80', title: 'Countries by time - 80' },
-    { id: 'countries_by_time_160', title: 'Countries by time - 160' },
     { id: 'qs_per_station', title: 'Qs per station' },
     { id: 'passed_qsos', title: 'Passed QSOs' },
     { id: 'dupes', title: 'Dupes' },
     { id: 'qs_by_hour_sheet', title: 'Qs by hour sheet' },
     { id: 'graphs_qs_by_hour', title: 'Qs by hour' },
-    { id: 'graphs_qs_by_hour_10', title: 'Qs by hour - 10' },
-    { id: 'graphs_qs_by_hour_15', title: 'Qs by hour - 15' },
-    { id: 'graphs_qs_by_hour_20', title: 'Qs by hour - 20' },
-    { id: 'graphs_qs_by_hour_40', title: 'Qs by hour - 40' },
-    { id: 'graphs_qs_by_hour_80', title: 'Qs by hour - 80' },
-    { id: 'graphs_qs_by_hour_160', title: 'Qs by hour - 160' },
     { id: 'qs_by_minute', title: 'Qs by minute' },
     { id: 'one_minute_rates', title: 'One minute rates' },
     { id: 'prefixes', title: 'Prefixes' },
@@ -43,18 +31,20 @@
     { id: 'not_in_master', title: 'Not in master' },
     { id: 'possible_errors', title: 'Possible errors' },
     { id: 'charts', title: 'Charts' },
-    { id: 'charts_top_10_countries', title: 'Top 10 countries' },
-    { id: 'charts_qs_by_band', title: 'Qs by band' },
-    { id: 'charts_continents', title: 'Continents' },
-    { id: 'charts_frequencies', title: 'Frequencies' },
-    { id: 'charts_beam_heading', title: 'Beam heading' },
-    { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' },
+    { id: 'charts_top_10_countries', title: 'Top 10 countries', parentId: 'charts' },
+    { id: 'charts_qs_by_band', title: 'Qs by band', parentId: 'charts' },
+    { id: 'charts_continents', title: 'Continents', parentId: 'charts' },
+    { id: 'charts_frequencies', title: 'Frequencies', parentId: 'charts' },
+    { id: 'charts_beam_heading', title: 'Beam heading', parentId: 'charts' },
+    { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour', parentId: 'charts' },
     { id: 'comments', title: 'Comments' },
     { id: 'export', title: 'Export' },
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
-  const APP_VERSION = 'v2.2.23';
+  let reports = [];
+
+  const APP_VERSION = 'v2.2.25';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -216,31 +206,15 @@
   let overlayNoticeTimer = null;
 
   function initNavigation() {
-    const childReportIds = new Set([
-      'countries_by_time_10', 'countries_by_time_15', 'countries_by_time_20', 'countries_by_time_40',
-      'countries_by_time_80', 'countries_by_time_160', 'graphs_qs_by_hour_10', 'graphs_qs_by_hour_15',
-      'graphs_qs_by_hour_20', 'graphs_qs_by_hour_40', 'graphs_qs_by_hour_80', 'graphs_qs_by_hour_160',
-      'charts_top_10_countries', 'charts_qs_by_band', 'charts_continents', 'charts_frequencies',
-      'charts_beam_heading', 'charts_beam_heading_by_hour'
-    ]);
-    const navGroups = [
-      {
-        parentId: 'countries_by_time',
-        childIds: ['countries_by_time_10', 'countries_by_time_15', 'countries_by_time_20', 'countries_by_time_40', 'countries_by_time_80', 'countries_by_time_160']
-      },
-      {
-        parentId: 'graphs_qs_by_hour',
-        childIds: ['graphs_qs_by_hour_10', 'graphs_qs_by_hour_15', 'graphs_qs_by_hour_20', 'graphs_qs_by_hour_40', 'graphs_qs_by_hour_80', 'graphs_qs_by_hour_160']
-      },
-      {
-        parentId: 'charts',
-        childIds: ['charts_top_10_countries', 'charts_qs_by_band', 'charts_continents', 'charts_frequencies', 'charts_beam_heading', 'charts_beam_heading_by_hour']
-      }
-    ];
-    const groupParentIds = new Set(navGroups.map((g) => g.parentId));
-    const childIdSet = new Set(navGroups.flatMap((g) => g.childIds));
-
-    const indexById = new Map(reports.map((r, idx) => [r.id, idx]));
+    if (!dom.navList) return;
+    dom.navList.innerHTML = '';
+    const groups = new Map();
+    reports.forEach((r, idx) => {
+      if (!r.parentId) return;
+      if (!groups.has(r.parentId)) groups.set(r.parentId, []);
+      groups.get(r.parentId).push({ report: r, index: idx });
+    });
+    const groupParentIds = new Set(groups.keys());
 
     const makeNavItem = (idx, title, baseClass) => {
       const li = document.createElement('li');
@@ -278,19 +252,17 @@
     };
 
     reports.forEach((r, idx) => {
-      if (childIdSet.has(r.id)) return;
+      if (r.parentId) return;
       if (groupParentIds.has(r.id)) {
-        const group = navGroups.find((g) => g.parentId === r.id);
+        const group = groups.get(r.id) || [];
         const details = document.createElement('details');
         details.classList.add('nav-group');
         details.appendChild(makeSummary(idx, r.title, 'mli'));
         const sublist = document.createElement('ol');
         sublist.classList.add('nav-sublist');
-        (group?.childIds || []).forEach((childId) => {
-          const childIdx = indexById.get(childId);
-          const childReport = reports[childIdx];
-          if (childIdx == null || !childReport) return;
-          sublist.appendChild(makeNavItem(childIdx, childReport.title, 'cli'));
+        group.forEach((child) => {
+          if (!child || child.index == null) return;
+          sublist.appendChild(makeNavItem(child.index, child.report.title, 'cli'));
         });
         details.appendChild(sublist);
         const wrapper = document.createElement('li');
@@ -310,13 +282,8 @@
         });
         setActiveReport(idx);
       });
-      if (childReportIds.has(r.id)) {
-        li.classList.add('cli');
-        li.dataset.baseClass = 'cli';
-      } else {
-        li.classList.add('mli');
-        li.dataset.baseClass = 'mli';
-      }
+      li.classList.add('mli');
+      li.dataset.baseClass = 'mli';
       dom.navList.appendChild(li);
     });
     updateNavHighlight();
@@ -331,7 +298,7 @@
       const base = el.dataset.baseClass;
       if (base) el.classList.add(base);
       el.classList.toggle('sli', isActive);
-      if (isActive && el.tagName.toLowerCase() === 'li') {
+      if (isActive) {
         const details = el.closest('details');
         if (details) details.open = true;
       }
@@ -404,6 +371,24 @@
     state.compareLogWindowStart = 0;
   }
 
+  function updateBandRibbon() {
+    if (!dom.bandRibbon) return;
+    const bands = getAvailableBands(state.compareEnabled);
+    const active = (state.globalBandFilter || '').trim();
+    const hasActive = active && bands.some((b) => String(b).toUpperCase() === active.toUpperCase());
+    if (active && !hasActive) state.globalBandFilter = '';
+    const selected = (state.globalBandFilter || '').trim();
+    let html = '<span class="band-label">Band:</span>';
+    html += `<a href="#" class="band-pill${selected ? '' : ' active'}" data-band="">All</a>`;
+    bands.forEach((band) => {
+      const isActive = selected && String(band).toUpperCase() === selected.toUpperCase();
+      const label = escapeHtml(formatBandLabel(band));
+      const bandAttr = escapeAttr(band);
+      html += `<a href="#" class="band-pill${isActive ? ' active' : ''}" data-band="${bandAttr}">${label}</a>`;
+    });
+    dom.bandRibbon.innerHTML = html;
+  }
+
   function renderActiveReport() {
     const report = reports[state.activeIndex];
     if (!report) return;
@@ -431,43 +416,143 @@
     `;
   }
 
-  const SUPPORTED_BANDS = new Set(['160', '80', '60', '40', '30', '20', '17', '15', '12', '10', '6', '2', '70']);
+  const BAND_DEFS = [
+    { label: '2190M', min: 0.1357, max: 0.1378 },
+    { label: '630M', min: 0.472, max: 0.479 },
+    { label: '560M', min: 0.5, max: 0.51 },
+    { label: '160M', min: 1.8, max: 2.0 },
+    { label: '80M', min: 3.4, max: 4.0 },
+    { label: '60M', min: 5.0, max: 5.5 },
+    { label: '40M', min: 6.9, max: 7.5 },
+    { label: '30M', min: 10.0, max: 10.2 },
+    { label: '20M', min: 13.9, max: 15.0 },
+    { label: '17M', min: 18.0, max: 18.2 },
+    { label: '15M', min: 20.8, max: 22.0 },
+    { label: '12M', min: 24.8, max: 25.0 },
+    { label: '10M', min: 27.9, max: 29.8 },
+    { label: '8M', min: 40.0, max: 45.0 },
+    { label: '6M', min: 50.0, max: 54.0 },
+    { label: '5M', min: 54.0, max: 70.0 },
+    { label: '4M', min: 70.0, max: 71.0 },
+    { label: '2M', min: 144.0, max: 148.0 },
+    { label: '1.25M', min: 222.0, max: 225.0 },
+    { label: '70CM', min: 420.0, max: 450.0 },
+    { label: '33CM', min: 902.0, max: 928.0 },
+    { label: '23CM', min: 1240.0, max: 1300.0 },
+    { label: '13CM', min: 2300.0, max: 2450.0 },
+    { label: '9CM', min: 3300.0, max: 3500.0 },
+    { label: '6CM', min: 5650.0, max: 5925.0 },
+    { label: '3CM', min: 10000.0, max: 10500.0 },
+    { label: '1.25CM', min: 24000.0, max: 24250.0 },
+    { label: '6MM', min: 47000.0, max: 47200.0 },
+    { label: '4MM', min: 75500.0, max: 81000.0 },
+    { label: '2.5MM', min: 122000.0, max: 123000.0 },
+    { label: '2MM', min: 134000.0, max: 141000.0 },
+    { label: '1MM', min: 241000.0, max: 250000.0 }
+  ];
+
+  const BAND_LABELS = new Set(BAND_DEFS.map((b) => b.label));
+  const BAND_ORDER_INDEX = new Map(BAND_DEFS.map((b, idx) => [b.label, idx]));
+  const METER_TOKEN_MAP = new Map();
+  BAND_DEFS.forEach((band) => {
+    const match = band.label.match(/^(\d+(?:\.\d+)?)(M)$/i);
+    if (!match) return;
+    const num = match[1];
+    const norm = String(parseFloat(num));
+    METER_TOKEN_MAP.set(num, band.label);
+    METER_TOKEN_MAP.set(norm, band.label);
+  });
+
+  const SUPPORTED_BANDS = new Set([...BAND_LABELS, 'LIGHT']);
+
+  function bandOrderIndex(band) {
+    const key = (band || '').toUpperCase();
+    if (BAND_ORDER_INDEX.has(key)) return BAND_ORDER_INDEX.get(key);
+    const num = parseFloat(key);
+    if (Number.isFinite(num)) return 1000 + num;
+    return 9999;
+  }
+
+  function sortBands(list) {
+    return (list || []).slice().sort((a, b) => {
+      const ai = bandOrderIndex(a);
+      const bi = bandOrderIndex(b);
+      if (ai !== bi) return ai - bi;
+      return String(a || '').localeCompare(String(b || ''));
+    });
+  }
+
+  function formatBandLabel(band) {
+    if (!band) return '';
+    const raw = String(band).trim();
+    if (!raw) return '';
+    if (raw === 'All' || raw === 'ALL') return 'All';
+    const key = raw.toUpperCase();
+    if (BAND_LABELS.has(key) || key === 'LIGHT') return key.toLowerCase();
+    return raw;
+  }
+
+  function bandLabelFromNumberToken(token) {
+    if (!token) return '';
+    const key = String(token).trim();
+    if (!key) return '';
+    const direct = METER_TOKEN_MAP.get(key);
+    if (direct) return direct;
+    const norm = String(parseFloat(key));
+    return METER_TOKEN_MAP.get(norm) || '';
+  }
 
   function normalizeCall(call) {
     return (call || '').trim().toUpperCase();
   }
 
   function parseBandFromFreq(freqMHz) {
-    if (!freqMHz || Number.isNaN(freqMHz)) return '';
-    if (freqMHz >= 1.8 && freqMHz < 2.0) return '160';
-    if (freqMHz >= 3.4 && freqMHz < 4.0) return '80';
-    if (freqMHz >= 5.0 && freqMHz < 5.5) return '60';
-    if (freqMHz >= 6.9 && freqMHz < 7.5) return '40';
-    if (freqMHz >= 10.0 && freqMHz < 10.2) return '30';
-    if (freqMHz >= 13.9 && freqMHz < 15.0) return '20';
-    if (freqMHz >= 18.0 && freqMHz < 18.2) return '17';
-    if (freqMHz >= 20.8 && freqMHz < 22.0) return '15';
-    if (freqMHz >= 24.8 && freqMHz < 25.0) return '12';
-    if (freqMHz >= 27.9 && freqMHz < 29.8) return '10';
-    if (freqMHz >= 50 && freqMHz < 54) return '6';
-    if (freqMHz >= 144 && freqMHz < 148) return '2';
-    if (freqMHz >= 420 && freqMHz < 450) return '70';
+    if (!Number.isFinite(freqMHz)) return '';
+    for (const band of BAND_DEFS) {
+      if (freqMHz >= band.min && freqMHz < band.max) return band.label;
+    }
     return '';
   }
 
-  function normalizeBand(rawBand, freq) {
-    const band = (rawBand || '').trim();
-    if (band) {
-      const lower = band.toLowerCase();
-      const cmMatch = lower.match(/^(\d+(?:\.\d+)?)\s*cm$/);
-      if (cmMatch) return cmMatch[1];
-      const meterMatch = lower.match(/^(\d+(?:\.\d+)?)\s*m(?:eters?)?$/);
-      if (meterMatch) return meterMatch[1];
-      const cleaned = band.replace(/\s*(cm|m)$/i, '').trim();
-      if (cleaned) return cleaned;
-      return band;
+  function normalizeBandToken(raw) {
+    if (!raw) return '';
+    const cleaned = String(raw).trim();
+    if (!cleaned) return '';
+    let token = cleaned.toLowerCase().replace(/\s+/g, '');
+    token = token
+      .replace(/meters?|metres?/g, 'm')
+      .replace(/centimeters?|centimetres?/g, 'cm')
+      .replace(/millimeters?|millimetres?/g, 'mm');
+    let match = token.match(/^(\d+(?:\.\d+)?)(mm|cm|m)$/);
+    if (match) {
+      const num = String(parseFloat(match[1]));
+      return `${num}${match[2]}`.toUpperCase();
     }
-    return parseBandFromFreq(freq);
+    match = token.match(/^(\d+(?:\.\d+)?)g(?:hz)?$/);
+    if (match) {
+      const ghz = parseFloat(match[1]);
+      if (Number.isFinite(ghz)) {
+        const band = parseBandFromFreq(ghz * 1000);
+        return band || `${match[1]}G`.toUpperCase();
+      }
+    }
+    if (/^\d+(\.\d+)?$/.test(token)) {
+      const fromToken = bandLabelFromNumberToken(token);
+      if (fromToken) return fromToken;
+      const num = parseFloat(token);
+      if (!Number.isFinite(num)) return '';
+      const mhz = num >= 1000 ? num / 1000 : num;
+      const band = parseBandFromFreq(mhz);
+      return band || String(num).toUpperCase();
+    }
+    return cleaned.toUpperCase();
+  }
+
+  function normalizeBand(rawBand, freq) {
+    const band = normalizeBandToken(rawBand);
+    if (band) return band;
+    if (Number.isFinite(freq)) return parseBandFromFreq(freq);
+    return '';
   }
 
   function normalizeMode(mode) {
@@ -491,6 +576,73 @@
     const num = Number(freq);
     if (!Number.isFinite(num)) return String(freq);
     return num.toFixed(3);
+  }
+
+  function getBandsFromDerived(derived) {
+    if (!derived || !derived.bandSummary) return [];
+    return derived.bandSummary.map((b) => b.band).filter((b) => {
+      if (!b) return false;
+      const key = String(b).trim();
+      if (!key) return false;
+      return key.toLowerCase() !== 'unknown';
+    });
+  }
+
+  function getAvailableBands(includeCompare = false) {
+    const bands = new Set();
+    getBandsFromDerived(state.fullDerived || state.derived).forEach((b) => bands.add(b));
+    if ((includeCompare || state.compareEnabled) && state.compareB) {
+      getBandsFromDerived(state.compareB.fullDerived || state.compareB.derived).forEach((b) => bands.add(b));
+    }
+    return sortBands(Array.from(bands));
+  }
+
+  function getDisplayBandList() {
+    return getAvailableBands(state.compareEnabled);
+  }
+
+  function bandSlug(band) {
+    if (!band || band === 'All' || band === 'ALL') return 'all';
+    return formatBandLabel(band).replace(/[^a-z0-9]+/gi, '_');
+  }
+
+  function buildReportsList() {
+    const bands = getDisplayBandList();
+    const countriesByTimeChildren = bands.map((band) => ({
+      id: `countries_by_time::${band}`,
+      title: `Countries by time - ${formatBandLabel(band)}`,
+      parentId: 'countries_by_time',
+      band
+    }));
+    const qsByHourChildren = bands.map((band) => ({
+      id: `graphs_qs_by_hour::${band}`,
+      title: `Qs by hour - ${formatBandLabel(band)}`,
+      parentId: 'graphs_qs_by_hour',
+      band
+    }));
+    const list = [];
+    BASE_REPORTS.forEach((r) => {
+      list.push(r);
+      if (r.id === 'countries_by_time') {
+        list.push(...countriesByTimeChildren);
+      }
+      if (r.id === 'graphs_qs_by_hour') {
+        list.push(...qsByHourChildren);
+      }
+    });
+    return list;
+  }
+
+  function rebuildReports() {
+    const currentId = reports[state.activeIndex]?.id;
+    reports = buildReportsList();
+    const newIndex = currentId ? reports.findIndex((r) => r.id === currentId) : -1;
+    if (newIndex >= 0) {
+      state.activeIndex = newIndex;
+    } else if (reports.length) {
+      state.activeIndex = Math.min(state.activeIndex, reports.length - 1);
+    }
+    initNavigation();
   }
 
   function getFrequencyScatterRange(qsos) {
@@ -867,16 +1019,16 @@
   }
 
   const BAND_CLASS_MAP = {
-    '160': 'b160',
-    '80': 'b80',
-    '40': 'b40',
-    '20': 'b20',
-    '15': 'b15',
-    '10': 'b10'
+    '160M': 'b160',
+    '80M': 'b80',
+    '40M': 'b40',
+    '20M': 'b20',
+    '15M': 'b15',
+    '10M': 'b10'
   };
 
   function bandClass(band) {
-    return BAND_CLASS_MAP[band] || '';
+    return BAND_CLASS_MAP[(band || '').toUpperCase()] || '';
   }
 
   function modeClass(mode) {
@@ -958,8 +1110,10 @@
 
   function buildCountryTimeBuckets(qsos, bandFilter) {
     const map = new Map(); // country -> {prefix, name, continent, total, buckets: Map(hourBucket -> [4 counts])}
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
     qsos.forEach((q) => {
-      if (bandFilter && q.band !== bandFilter) return;
+      const qBand = q.band ? normalizeBandToken(q.band) : '';
+      if (bandKey && qBand !== bandKey) return;
       if (q.country == null || q.ts == null) return;
       const hour = Math.floor(q.ts / 3600000);
       const quarter = Math.floor((q.ts % 3600000) / (15 * 60000));
@@ -1297,7 +1451,7 @@
       const ghz = parseFloat(ghzMatch[1]);
       if (Number.isFinite(ghz)) {
         const mhz = ghz * 1000;
-        const band = parseBandFromFreq(mhz) || upper;
+        const band = parseBandFromFreq(mhz) || `${ghzMatch[1]}G`.toUpperCase();
         return { freqMHz: mhz, band };
       }
     }
@@ -1306,26 +1460,24 @@
     if (mhzMatch) {
       const mhz = parseFloat(mhzMatch[1]);
       if (Number.isFinite(mhz)) {
-        const band = parseBandFromFreq(mhz) || raw;
+        const band = parseBandFromFreq(mhz) || normalizeBandToken(raw);
         return { freqMHz: mhz, band };
       }
     }
 
     if (/^\d+(\.\d+)?$/.test(upper)) {
-      const num = parseFloat(upper);
-      if (!Number.isFinite(num)) return { freqMHz: null, band: '' };
-      const bandToken = Number.isInteger(num) ? String(num) : null;
-      if (bandToken && SUPPORTED_BANDS.has(bandToken)) {
+      const bandToken = bandLabelFromNumberToken(upper);
+      if (bandToken) {
         return { freqMHz: null, band: bandToken };
       }
-      if (num >= 1000) {
-        const mhz = num / 1000;
-        return { freqMHz: mhz, band: parseBandFromFreq(mhz) };
-      }
-      return { freqMHz: num, band: parseBandFromFreq(num) || String(num) };
+      const num = parseFloat(upper);
+      if (!Number.isFinite(num)) return { freqMHz: null, band: '' };
+      const mhz = num >= 1000 ? num / 1000 : num;
+      const band = parseBandFromFreq(mhz) || String(num).toUpperCase();
+      return { freqMHz: mhz, band };
     }
 
-    return { freqMHz: null, band: raw };
+    return { freqMHz: null, band: normalizeBandToken(raw) };
   }
 
   function normalizeCabrilloHeaderValue(value) {
@@ -1499,12 +1651,9 @@
       // If still too many tokens, try comma as delimiter fallback
       const fields = parts.length >= 5 ? parts : line.split(',').map((p) => p.trim());
       const [date, time, call, bandOrFreq, mode, rstSent, rstRcvd, exchSent, exchRcvd, operator, grid, cqz, ituz] = fields;
-      let band = bandOrFreq;
-      let freq = parseFloat(bandOrFreq);
-      if (!Number.isFinite(freq)) freq = null;
-      if (freq != null) {
-        band = parseBandFromFreq(freq);
-      }
+      const freqInfo = parseCabrilloFreqToken(bandOrFreq);
+      let band = freqInfo.band || normalizeBandToken(bandOrFreq);
+      let freq = Number.isFinite(freqInfo.freqMHz) ? freqInfo.freqMHz : null;
       qsos.push({
         DATE: date,
         TIME: time,
@@ -1822,6 +1971,8 @@
       log_type: target.qsoData.type || ''
     });
     invalidateCompareLogData();
+    updateBandRibbon();
+    rebuildReports();
     setActiveReport(state.activeIndex);
     return target.qsoData;
   }
@@ -1955,6 +2106,8 @@
     }
     if (!state.qsoData && !state.compareB?.qsoData) return;
     invalidateCompareLogData();
+    updateBandRibbon();
+    rebuildReports();
     renderActiveReport();
   }
 
@@ -2596,7 +2749,10 @@
         if (minTs === null || q.ts < minTs) minTs = q.ts;
         if (maxTs === null || q.ts > maxTs) maxTs = q.ts;
       }
-      const bandKey = q.band || 'unknown';
+      const bandKey = normalizeBand(q.band, Number.isFinite(q.freq) ? q.freq : null) || 'unknown';
+      if (bandKey && bandKey !== q.band) {
+        q.band = bandKey;
+      }
       if (!bands.has(bandKey)) {
         bands.set(bandKey, { qsos: 0, uniques: new Set(), dupes: 0 });
       }
@@ -2712,9 +2868,8 @@
         }
         const h = hours.get(hourBucket);
         h.qsos += 1;
-        const hb = q.band || 'unknown';
-        if (!h.byBand.has(hb)) h.byBand.set(hb, 0);
-        h.byBand.set(hb, h.byBand.get(hb) + 1);
+        if (!h.byBand.has(bandKey)) h.byBand.set(bandKey, 0);
+        h.byBand.set(bandKey, h.byBand.get(bandKey) + 1);
 
         const minuteBucket = Math.floor(q.ts / 60000);
         if (!minutes.has(minuteBucket)) {
@@ -2732,7 +2887,6 @@
           const hc = hoursCountries.get(hourBucket);
           hc.set(q.country, (hc.get(q.country) || 0) + 1);
 
-          const bandKey = q.band || 'unknown';
           if (!bandHourCountry.has(bandKey)) bandHourCountry.set(bandKey, new Map());
           const bandMap = bandHourCountry.get(bandKey);
           if (!bandMap.has(hourBucket)) bandMap.set(hourBucket, new Map());
@@ -2853,13 +3007,14 @@
         possibleErrors.push({ reason: 'Invalid/missing time', q });
       }
       if (q.band && !SUPPORTED_BANDS.has(q.band)) {
-        possibleErrors.push({ reason: `Unexpected band value "${q.band}"`, q });
+        const bandLabel = formatBandLabel(q.band) || q.band;
+        possibleErrors.push({ reason: `Unexpected band value "${bandLabel}"`, q });
       }
       if (Number.isFinite(q.freq)) {
         if (!freqBand) {
           possibleErrors.push({ reason: `Frequency ${q.freq} MHz is outside supported bands`, q });
         } else if (q.band && q.band !== freqBand) {
-          possibleErrors.push({ reason: `Band/freq mismatch: band ${q.band}, freq ${q.freq} MHz (${freqBand}m)`, q });
+          possibleErrors.push({ reason: `Band/freq mismatch: band ${formatBandLabel(q.band)}, freq ${q.freq} MHz (${formatBandLabel(freqBand)})`, q });
         }
         const bin = Math.floor(q.freq * 10) / 10;
         freqBins.set(bin, (freqBins.get(bin) || 0) + 1);
@@ -2884,13 +3039,9 @@
       });
     });
     bandSummary.sort((a, b) => {
-      const na = parseFloat(a.band);
-      const nb = parseFloat(b.band);
-      const hasNa = Number.isFinite(na);
-      const hasNb = Number.isFinite(nb);
-      if (hasNa && hasNb) return nb - na;
-      if (hasNa) return -1;
-      if (hasNb) return 1;
+      const ai = bandOrderIndex(a.band);
+      const bi = bandOrderIndex(b.band);
+      if (ai !== bi) return ai - bi;
       return (a.band || '').localeCompare(b.band || '');
     });
 
@@ -2903,9 +3054,9 @@
       countries: b.countries.size,
       points: b.points
     })).sort((a, b) => {
-      const ai = parseInt(a.band, 10);
-      const bi = parseInt(b.band, 10);
-      if (Number.isFinite(ai) && Number.isFinite(bi)) return bi - ai;
+      const ai = bandOrderIndex(a.band);
+      const bi = bandOrderIndex(b.band);
+      if (ai !== bi) return ai - bi;
       return a.band.localeCompare(b.band);
     });
 
@@ -2915,7 +3066,7 @@
         country: k,
         qsos: v.qsos,
         uniques: v.uniques.size,
-        bands: Array.from(v.bands).sort(),
+        bands: sortBands(Array.from(v.bands)),
         bandCounts: v.bandCounts,
         cw: v.cw,
         digital: v.digital,
@@ -3320,7 +3471,7 @@
       const digPct = totalQsos ? (b.digital / totalQsos) * 100 : 0;
       const phonePct = totalQsos ? (b.phone / totalQsos) * 100 : 0;
       const allPct = totalQsos ? (b.all / totalQsos) * 100 : 0;
-      const bandText = escapeHtml(b.band || '');
+      const bandText = escapeHtml(formatBandLabel(b.band || ''));
       const bandAttr = escapeAttr(b.band || '');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
@@ -3527,7 +3678,7 @@
     const country = escapeCountry(q.country || '');
     const grid = escapeHtml(q.grid || '');
     const mode = escapeHtml(q.mode || '');
-    const band = escapeHtml(q.band || '');
+    const band = escapeHtml(formatBandLabel(q.band || ''));
     const cont = escapeHtml(q.continent || '');
     const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
     const time = escapeHtml(q.time || '');
@@ -3772,7 +3923,7 @@
     state.compareLogWindowStart = start;
     const rows = compareData ? renderCompareLogRows(compareData.buckets, start, end) : '';
     const dataNote = `<p>${(state.ctyTable && state.ctyTable.length) ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${(state.masterSet && state.masterSet.size) ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
-    const safeBand = escapeHtml(filters.bandFilter || 'All bands');
+    const safeBand = escapeHtml(filters.bandFilter ? formatBandLabel(filters.bandFilter) : 'All bands');
     const safeMode = escapeHtml(filters.modeFilter || '');
     const safeOp = escapeHtml(filters.opFilter || '');
     const safeLen = Number.isFinite(filters.callLenFilter) ? formatNumberSh6(filters.callLenFilter) : '';
@@ -3870,7 +4021,7 @@
       const country = escapeCountry(q.country || '');
       const grid = escapeHtml(q.grid || '');
       const mode = escapeHtml(q.mode || '');
-      const band = escapeHtml(q.band || '');
+      const band = escapeHtml(formatBandLabel(q.band || ''));
       const cont = escapeHtml(q.continent || '');
       const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       const time = escapeHtml(q.time || '');
@@ -3902,7 +4053,7 @@
     const note = `<p>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(Math.min(end, filtered.length))} of ${formatNumberSh6(filtered.length)} QSOs (page ${page + 1} / ${totalPages}).</p>`;
     const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const emptyNote = filtered.length ? '' : '<p>No QSOs match current filter.</p>';
-    const safeBand = escapeHtml(bandFilter || 'All bands');
+    const safeBand = escapeHtml(bandFilter ? formatBandLabel(bandFilter) : 'All bands');
     const safeMode = escapeHtml(modeFilter || '');
     const safeOp = escapeHtml(filters.opFilter || '');
     const safeLen = Number.isFinite(filters.callLenFilter) ? formatNumberSh6(filters.callLenFilter) : '';
@@ -3974,7 +4125,7 @@
       const country = escapeCountry(q.country || '');
       const grid = escapeHtml(q.grid || '');
       const mode = escapeHtml(q.mode || '');
-      const band = escapeHtml(q.band || '');
+      const band = escapeHtml(formatBandLabel(q.band || ''));
       const cont = escapeHtml(q.continent || '');
       const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       const time = escapeHtml(q.time || '');
@@ -4203,7 +4354,7 @@
     if (!state.derived) return renderPlaceholder({ id: 'dupes', title: 'Dupes' });
     const rows = state.derived.dupes.map((q, idx) => {
       const time = escapeHtml(q.time || '');
-      const band = escapeHtml(q.band || '');
+      const band = escapeHtml(formatBandLabel(q.band || ''));
       const mode = escapeHtml(q.mode || '');
       const call = escapeHtml(q.call || '');
       const callAttr = escapeAttr(q.call || '');
@@ -4302,7 +4453,7 @@
   }
 
   function renderCountryRowsFromList(list, derived, totalQsos) {
-    const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const bandCols = getDisplayBandList();
     const summaryMap = buildCountrySummaryMap(derived);
     const renderCount = (count, country, band, mode) => {
       if (!count) return '<td></td>';
@@ -4346,21 +4497,24 @@
   }
 
   function renderCountriesTable(rows) {
+    const bandCols = getDisplayBandList();
+    const qsoCols = 3 + bandCols.length + 2;
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="40px" span="3" align="center"/><col align="left"/><col span="12" width="40px" align="center"/></colgroup>
+        <colgroup><col width="40px" span="3" align="center"/><col align="left"/><col span="${bandCols.length + 8}" width="40px" align="center"/></colgroup>
         <tr class="thc">
           <th rowspan="2">#</th>
           <th rowspan="2">Cont.</th>
           <th colspan="2" rowspan="2">Country</th>
           <th rowspan="2">Distance, km</th>
-          <th colspan="11">QSOs</th>
+          <th colspan="${qsoCols}">QSOs</th>
           <th rowspan="2">Bands</th>
           <th rowspan="2">Map</th>
         </tr>
         <tr class="thc">
           <th>CW</th><th>DIG</th><th>SSB</th>
-          <th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th>
+          ${bandHeaders}
           <th>All</th><th>%</th>
         </tr>
         ${rows}
@@ -4405,7 +4559,7 @@
   }
 
   function renderContinentsRowsFromList(list, derived, totalQsos) {
-    const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const bandCols = getDisplayBandList();
     const summaryMap = buildContinentSummaryMap(derived);
     return list.map((info, idx) => {
       const contKey = (info.continent || '').toUpperCase();
@@ -4442,11 +4596,14 @@
   }
 
   function renderContinentsTable(rows) {
+    const bandCols = getDisplayBandList();
+    const qsoCols = bandCols.length + 5;
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="30px"/><col width="200px"/><col span="11" width="120px"/><col width="5%"/></colgroup>
-        <tr class="thc"><th colspan="2" rowspan="2">Continent</th><th colspan="11">QSOs</th><th colspan="2" rowspan="2">Map</th></tr>
-        <tr class="thc"><th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th><th>All</th><th>%</th><th>CW</th><th>Digital</th><th>Phone</th></tr>
+        <colgroup><col width="30px"/><col width="200px"/><col span="${qsoCols}" width="120px"/><col width="5%"/></colgroup>
+        <tr class="thc"><th colspan="2" rowspan="2">Continent</th><th colspan="${qsoCols}">QSOs</th><th colspan="2" rowspan="2">Map</th></tr>
+        <tr class="thc">${bandHeaders}<th>All</th><th>%</th><th>CW</th><th>Digital</th><th>Phone</th></tr>
         ${rows}
         ${mapAllFooter()}
       </table>
@@ -4534,7 +4691,8 @@
 
   function renderQsByHourSheet() {
     if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'qs_by_hour_sheet', title: 'Qs by hour sheet' });
-    const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const bandCols = getDisplayBandList();
+    const qsoCols = bandCols.length + 4;
     const hourPoints = new Map();
     (state.qsoData?.qsos || []).forEach((q) => {
       if (typeof q.ts !== 'number' || !Number.isFinite(q.points)) return;
@@ -4566,10 +4724,10 @@
         <tr class="thc">
           <th rowspan="2">Day</th>
           <th rowspan="2">Hour</th>
-          <th colspan="10">QSOs</th>
+          <th colspan="${qsoCols}">QSOs</th>
         </tr>
         <tr class="thc">
-          <th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th>
+          ${bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('')}
           <th>All</th><th>Accum.</th><th>Pts</th><th>Avg. Pts</th>
         </tr>
         ${rows}
@@ -4598,7 +4756,8 @@
       const entry = map.get(key);
       entry.qsos += 1;
       if (Number.isFinite(q.points)) entry.points += q.points;
-      if (q.band) entry.bands.set(q.band, (entry.bands.get(q.band) || 0) + 1);
+      const bandKey = q.band ? normalizeBandToken(q.band) : '';
+      if (bandKey) entry.bands.set(bandKey, (entry.bands.get(bandKey) || 0) + 1);
     });
     return map;
   }
@@ -4629,7 +4788,8 @@
 
   function renderQsByHourSheetForSlot(slot, keyOrder, bucketMap) {
     if (!slot || !slot.derived) return '<p>No log loaded.</p>';
-    const bandCols = ['160', '80', '40', '20', '15', '10'];
+    const bandCols = getDisplayBandList();
+    const qsoCols = bandCols.length + 4;
     let accum = 0;
     let lastDay = null;
     const rows = keyOrder.map((key, idx) => {
@@ -4663,10 +4823,10 @@
         <tr class="thc">
           <th rowspan="2">Day</th>
           <th rowspan="2">Hour</th>
-          <th colspan="10">QSOs</th>
+          <th colspan="${qsoCols}">QSOs</th>
         </tr>
         <tr class="thc">
-          <th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th>
+          ${bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('')}
           <th>All</th><th>Accum.</th><th>Pts</th><th>Avg. Pts</th>
         </tr>
         ${rows}
@@ -5159,10 +5319,11 @@
   }
 
   function renderHeadingRowsFromList(list, derived) {
-    const bands = ['160', '80', '40', '20', '15', '10'];
+    const bands = getDisplayBandList();
     const map = buildHeadingMap(derived);
     const total = derived?.headingSummary?.reduce((sum, h) => sum + h.count, 0) || 0;
     const maxCount = derived?.headingSummary?.reduce((max, h) => Math.max(max, h.count), 1) || 1;
+    const rowColspan = bands.length + 5;
     let rows = '';
     list.forEach((info, idx) => {
       const h = map.get(info.start);
@@ -5187,18 +5348,21 @@
         </tr>
       `;
       if (info.start % 90 === 80) {
-        rows += '<tr><td colspan="11"><hr/></td></tr>';
+        rows += `<tr><td colspan="${rowColspan}"><hr/></td></tr>`;
       }
     });
     return rows;
   }
 
   function renderHeadingTable(rows) {
+    const bands = getDisplayBandList();
+    const qsoCols = bands.length + 1;
+    const bandHeaders = bands.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="100px" align="center"/><col span="9" width="60px"/><col width="5%"/></colgroup>
-        <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="7">QSOs</th><th colspan="2" rowspan="2">%</th><th colspan="2" rowspan="2">Map</th></tr>
-        <tr class="thc"><th>160</th><th>80</th><th>40</th><th>20</th><th>15</th><th>10</th><th>All</th></tr>
+        <colgroup><col width="100px" align="center"/><col span="${bands.length + 1}" width="60px"/><col width="5%"/></colgroup>
+        <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="${qsoCols}">QSOs</th><th colspan="2" rowspan="2">%</th><th rowspan="2">Map</th></tr>
+        <tr class="thc">${bandHeaders}<th>All</th></tr>
         ${rows}
         ${mapAllFooter()}
       </table>
@@ -5215,14 +5379,16 @@
 
   function renderMapView() {
     const ctx = state.mapContext || { scope: '', key: '' };
+    const displayKey = ctx.scope === 'summary' ? formatBandLabel(ctx.key || '') : (ctx.key || '');
     const title = ctx.scope === 'all'
       ? 'All QSOs'
-      : (ctx.key ? `${ctx.scope}: ${ctx.key}` : ctx.scope || 'Map');
-    const kmzLinks = KMZ_BANDS.map((band) => {
+      : (displayKey ? `${ctx.scope}: ${displayKey}` : ctx.scope || 'Map');
+    const kmzBands = ['All', ...getAvailableBands(false)];
+    const kmzLinks = kmzBands.map((band) => {
       const url = state.kmzUrls?.[band];
       if (!url) return '';
-      const label = band === 'All' ? 'all_qsos.kmz' : `qsos_${band}m.kmz`;
-      const title = band === 'All' ? 'All QSOs KMZ' : `${band}m KMZ`;
+      const label = band === 'All' ? 'all_qsos.kmz' : `qsos_${bandSlug(band)}.kmz`;
+      const title = band === 'All' ? 'All QSOs KMZ' : `${formatBandLabel(band)} KMZ`;
       return `<li><a href="${url}" class="kmz-link" data-band="${band}" download="${label}">Download ${title}</a></li>`;
     }).filter(Boolean).join('');
     const kmzBlock = kmzLinks
@@ -5355,7 +5521,8 @@
       if (!listForCont || listForCont.length === 0) return;
       const contAttr = escapeAttr(contKey);
       const contLabel = escapeHtml(continentLabel(contKey));
-      rows += `<tr class="thc"><th colspan="3" class="${continentClass(contKey)}"><a href="#" class="log-continent" data-continent="${contAttr}">${contLabel}</a></th><th>${bandFilter ? `${bandFilter} m Qs` : 'All m Qs'}</th>${hourHeaders(startHour, endHour).join('')}</tr>`;
+      const bandLabel = bandFilter ? `${formatBandLabel(bandFilter)} QSOs` : 'All bands QSOs';
+      rows += `<tr class="thc"><th colspan="3" class="${continentClass(contKey)}"><a href="#" class="log-continent" data-continent="${contAttr}">${contLabel}</a></th><th>${bandLabel}</th>${hourHeaders(startHour, endHour).join('')}</tr>`;
       rows += listForCont.map((entry, idx) => {
         let cells = '';
         for (let h = startHour; h <= endHour; h += 1) {
@@ -5410,15 +5577,16 @@
 
   function renderCountriesByTime(bandFilter) {
     if (!state.derived) return renderPlaceholder({ id: 'countries_by_time', title: 'Countries by time' });
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
     const qsos = state.qsoData?.qsos || [];
-    const map = buildCountryTimeBuckets(qsos, bandFilter);
+    const map = buildCountryTimeBuckets(qsos, bandKey);
     if (map.size === 0) return '<p>No data.</p>';
     const countryInfo = new Map();
     state.derived.countrySummary.forEach((c) => {
       countryInfo.set(c.country, { continent: c.continent, prefixCode: c.prefixCode });
     });
     const list = buildCountryListFromDerived(state.derived);
-    const rows = renderCountriesByTimeRowsFromList(list, map, countryInfo, bandFilter);
+    const rows = renderCountriesByTimeRowsFromList(list, map, countryInfo, bandKey);
     return renderCountriesByTimeTable(rows);
   }
 
@@ -5537,16 +5705,15 @@
     `;
   }
 
-  const KMZ_BANDS = ['All', '160', '80', '40', '20', '15', '10'];
-
   function renderKmzFiles() {
-    const urls = buildKmzUrls(KMZ_BANDS);
-    const rows = KMZ_BANDS.map((b, idx) => {
+    const kmzBands = ['All', ...getAvailableBands(false)];
+    const urls = buildKmzUrls(kmzBands);
+    const rows = kmzBands.map((b, idx) => {
       const url = urls[b];
-      const label = b === 'All' ? 'all_qsos.kmz' : `${b}_kmz.kmz`;
+      const label = b === 'All' ? 'all_qsos.kmz' : `qsos_${bandSlug(b)}.kmz`;
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-          <td>${b}</td>
+          <td>${escapeHtml(formatBandLabel(b))}</td>
           <td>${url ? `<a href="${url}" download="${label}">${label}</a>` : label}</td>
         </tr>
       `;
@@ -5570,7 +5737,7 @@
       }
       const kml = buildKmlForBand(qsos, band === 'All' ? null : band);
       if (!kml) return;
-      const filename = band === 'All' ? 'all_qsos.kml' : `${band}.kml`;
+      const filename = band === 'All' ? 'all_qsos.kml' : `${bandSlug(band)}.kml`;
       const kmz = buildKmzFromKml(filename, kml);
       const blob = new Blob([kmz], { type: 'application/vnd.google-earth.kmz' });
       const url = URL.createObjectURL(blob);
@@ -5677,7 +5844,7 @@
         const remote = deriveRemoteLatLon(q, prefix);
         if (!remote) return;
         const marker = L.circleMarker([remote.lat, remote.lon], { radius: 3, color: slot.color, fillColor: slot.color, fillOpacity: 0.7 });
-        marker.bindPopup(`${escapeHtml(q.call || '')} ${escapeHtml(q.band || '')} ${escapeHtml(q.mode || '')}`);
+        marker.bindPopup(`${escapeHtml(q.call || '')} ${escapeHtml(formatBandLabel(q.band || ''))} ${escapeHtml(q.mode || '')}`);
         markerLayer.addLayer(marker);
         allLatLngs.push(marker.getLatLng());
       });
@@ -5742,7 +5909,7 @@
       const remote = deriveRemoteLatLon(q, prefix);
       if (!remote) return;
       const name = escapeXml(q.call || 'QSO');
-      const desc = escapeXml(`${q.ts ? formatDateSh6(q.ts) : q.time} ${q.band || ''} ${q.mode || ''}`);
+      const desc = escapeXml(`${q.ts ? formatDateSh6(q.ts) : q.time} ${formatBandLabel(q.band || '')} ${q.mode || ''}`);
       placemarks.push(`
         <Placemark>
           <name>${name}</name>
@@ -5752,7 +5919,7 @@
       `);
     });
     if (!placemarks.length) return null;
-    const title = isAll ? 'All QSOs' : `${band}m QSOs`;
+    const title = isAll ? 'All QSOs' : `${formatBandLabel(band)} QSOs`;
     return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
@@ -5855,7 +6022,7 @@
       const time = escapeHtml(q.time || '');
       const call = escapeHtml(q.call || '');
       const callAttr = escapeAttr(q.call || '');
-      const band = escapeHtml(q.band || '');
+      const band = escapeHtml(formatBandLabel(q.band || ''));
       const mode = escapeHtml(q.mode || '');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
@@ -5922,7 +6089,8 @@
 
   function renderChartQsByBand() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_qs_by_band', title: 'Qs by band' });
-    return `<div class="mtc"><div class="gradient">&nbsp;Qs by band</div>${renderBars(state.derived.bandSummary, 'band', 'qsos')}</div>`;
+    const data = state.derived.bandSummary.map((b) => ({ ...b, bandLabel: formatBandLabel(b.band) }));
+    return `<div class="mtc"><div class="gradient">&nbsp;Qs by band</div>${renderBars(data, 'bandLabel', 'qsos')}</div>`;
   }
 
   function renderChartTop10Countries() {
@@ -6045,14 +6213,15 @@
 
   function renderGraphsQsByHour(bandFilter) {
     if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'graphs_qs_by_hour', title: 'Qs by hour' });
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
     const data = state.derived.hourSeries.map((h) => {
       const ts = h.hour * 3600000;
       const hourLabel = formatDateSh6(ts);
-      const val = bandFilter ? (h.bands[bandFilter] || 0) : h.qsos;
+      const val = bandKey ? (h.bands[bandKey] || 0) : h.qsos;
       return { label: hourLabel, value: val };
     });
     const bars = renderBars(data, 'label', 'value');
-    const subtitle = bandFilter ? `Band ${bandFilter}` : 'All bands';
+    const subtitle = bandKey ? `Band ${formatBandLabel(bandKey)}` : 'All bands';
     return `
       <div class="mtc">
         <div class="gradient">&nbsp;Qs by hour</div>
@@ -6064,12 +6233,13 @@
 
   function renderGraphsQsByHourForSlot(slot, keyOrder, bucketMap, bandFilter, maxValue) {
     if (!slot || !slot.derived) return '<p>No log loaded.</p>';
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
     const rows = keyOrder.map((key, idx) => {
       const entry = bucketMap.get(key);
       const day = entry ? entry.day : Number(String(key).split('-')[0]);
       const hour = entry ? entry.hour : Number(String(key).split('-')[1]);
       const label = `${WEEKDAY_LABELS[day] || ''} ${String(hour).padStart(2, '0')}:00Z`;
-      const count = entry ? (bandFilter ? (entry.bands.get(bandFilter) || 0) : entry.qsos) : 0;
+      const count = entry ? (bandKey ? (entry.bands.get(bandKey) || 0) : entry.qsos) : 0;
       const barWidth = maxValue ? Math.round((count / maxValue) * 100) : 0;
       const cls = idx % 2 === 0 ? 'td1' : 'td0';
       return `
@@ -6080,7 +6250,7 @@
         </tr>
       `;
     }).join('');
-    const subtitle = bandFilter ? `Band ${bandFilter}` : 'All bands';
+    const subtitle = bandKey ? `Band ${formatBandLabel(bandKey)}` : 'All bands';
     return `
       <div class="mtc">
         <div class="gradient">&nbsp;Qs by hour</div>
@@ -6100,18 +6270,19 @@
     const mapB = buildHourBucketMap(slotB.qsoData?.qsos || []);
     const order = buildHourKeyOrderFromMaps(mapA, mapB, slotA.qsoData?.qsos || [], slotB.qsoData?.qsos || []);
     const values = [];
-    mapA.forEach((entry) => values.push(bandFilter ? (entry.bands.get(bandFilter) || 0) : entry.qsos));
-    mapB.forEach((entry) => values.push(bandFilter ? (entry.bands.get(bandFilter) || 0) : entry.qsos));
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
+    mapA.forEach((entry) => values.push(bandKey ? (entry.bands.get(bandKey) || 0) : entry.qsos));
+    mapB.forEach((entry) => values.push(bandKey ? (entry.bands.get(bandKey) || 0) : entry.qsos));
     const maxValue = Math.max(1, ...values);
     return `
       <div class="compare-grid">
         <div class="compare-panel compare-a">
           <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
-          ${renderGraphsQsByHourForSlot(slotA, order, mapA, bandFilter, maxValue)}
+          ${renderGraphsQsByHourForSlot(slotA, order, mapA, bandKey, maxValue)}
         </div>
         <div class="compare-panel compare-b">
           <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
-          ${renderGraphsQsByHourForSlot(slotB, order, mapB, bandFilter, maxValue)}
+          ${renderGraphsQsByHourForSlot(slotB, order, mapB, bandKey, maxValue)}
         </div>
       </div>
     `;
@@ -6119,6 +6290,12 @@
 
   function renderReportSingle(report) {
     return withBandContext(report.id, () => {
+      if (report.parentId === 'countries_by_time') {
+        return renderCountriesByTime(report.band || null);
+      }
+      if (report.parentId === 'graphs_qs_by_hour') {
+        return renderGraphsQsByHour(report.band || null);
+      }
       switch (report.id) {
         case 'load_logs': return renderLoadLogs();
         case 'main': return renderMain();
@@ -6134,12 +6311,6 @@
         case 'zones_itu': return renderItuZones();
         case 'qs_by_hour_sheet': return renderQsByHourSheet();
         case 'graphs_qs_by_hour': return renderGraphsQsByHour(null);
-        case 'graphs_qs_by_hour_10': return renderGraphsQsByHour('10');
-        case 'graphs_qs_by_hour_15': return renderGraphsQsByHour('15');
-        case 'graphs_qs_by_hour_20': return renderGraphsQsByHour('20');
-        case 'graphs_qs_by_hour_40': return renderGraphsQsByHour('40');
-        case 'graphs_qs_by_hour_80': return renderGraphsQsByHour('80');
-        case 'graphs_qs_by_hour_160': return renderGraphsQsByHour('160');
         case 'rates': return renderRates();
         case 'qs_by_minute': return renderQsByMinute();
         case 'one_minute_rates': return renderOneMinuteRates();
@@ -6152,12 +6323,6 @@
         case 'all_callsigns': return renderAllCallsigns();
         case 'not_in_master': return renderNotInMaster();
         case 'countries_by_time': return renderCountriesByTime(null);
-        case 'countries_by_time_10': return renderCountriesByTime('10');
-        case 'countries_by_time_15': return renderCountriesByTime('15');
-        case 'countries_by_time_20': return renderCountriesByTime('20');
-        case 'countries_by_time_40': return renderCountriesByTime('40');
-        case 'countries_by_time_80': return renderCountriesByTime('80');
-        case 'countries_by_time_160': return renderCountriesByTime('160');
         case 'possible_errors': return renderPossibleErrors();
         case 'comments': return renderComments();
         case 'export': return renderExportPage();
@@ -6419,24 +6584,25 @@
 
   function renderCountriesByTimeCompareAligned(bandFilter) {
     const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
     const list = mergeCountryLists(
       buildCountryListFromDerived(slotA.derived),
       buildCountryListFromDerived(slotB.derived)
     );
     const renderForSlot = (slot) => {
       const qsos = slot.qsoData?.qsos || [];
-      const map = buildCountryTimeBuckets(qsos, bandFilter);
+      const map = buildCountryTimeBuckets(qsos, bandKey);
       if (!list.length) return '<p>No data.</p>';
       const countryInfo = new Map();
       slot.derived?.countrySummary?.forEach((c) => {
         countryInfo.set(c.country, { continent: c.continent, prefixCode: c.prefixCode });
       });
-      const rows = renderCountriesByTimeRowsFromList(list, map, countryInfo, bandFilter);
+      const rows = renderCountriesByTimeRowsFromList(list, map, countryInfo, bandKey);
       return renderCountriesByTimeTable(rows);
     };
     const aHtml = aReady ? renderForSlot(slotA) : '<p>No Log A loaded.</p>';
     const bHtml = bReady ? renderForSlot(slotB) : '<p>No Log B loaded.</p>';
-    const reportId = bandFilter ? `countries_by_time_${bandFilter}` : 'countries_by_time';
+    const reportId = bandKey ? `countries_by_time::${bandKey}` : 'countries_by_time';
     return renderComparePanels(slotA, slotB, aHtml, bHtml, reportId);
   }
 
@@ -6599,6 +6765,12 @@
   }
 
   function renderReportCompare(report) {
+    if (report.parentId === 'graphs_qs_by_hour') {
+      return renderGraphsQsByHourCompare(report.band || null);
+    }
+    if (report.parentId === 'countries_by_time') {
+      return renderCountriesByTimeCompareAligned(report.band || null);
+    }
     if (report.id === 'log') {
       return renderLogCompare();
     }
@@ -6627,6 +6799,12 @@
     if (report.id === 'breaks') {
       return renderBreaksCompare();
     }
+    if (report.id === 'graphs_qs_by_hour') {
+      return renderGraphsQsByHourCompare(null);
+    }
+    if (report.id === 'countries_by_time') {
+      return renderCountriesByTimeCompareAligned(null);
+    }
     if (report.id === 'possible_errors') {
       const { slotA, slotB, aReady, bReady } = getCompareSlots();
       const callsA = aReady ? buildCallSet(slotA.qsoData?.qsos || []) : new Set();
@@ -6635,14 +6813,6 @@
       const aHtml = aReady ? renderPossibleErrorsFrom(slotA.derived, callsB, note) : '<p>No Log A loaded.</p>';
       const bHtml = bReady ? renderPossibleErrorsFrom(slotB.derived, callsA, note) : '<p>No Log B loaded.</p>';
       return renderComparePanels(slotA, slotB, aHtml, bHtml, 'possible_errors');
-    }
-    if (report.id.startsWith('graphs_qs_by_hour')) {
-      let bandFilter = null;
-      if (report.id !== 'graphs_qs_by_hour') {
-        const parts = report.id.split('_');
-        bandFilter = parts[parts.length - 1];
-      }
-      return renderGraphsQsByHourCompare(bandFilter);
     }
     if (report.id === 'countries') return renderCountriesCompareAligned();
     if (report.id === 'continents') return renderContinentsCompareAligned();
@@ -6654,14 +6824,6 @@
     if (report.id === 'distance') return renderDistanceCompareAligned();
     if (report.id === 'beam_heading') return renderBeamHeadingCompareAligned();
     if (report.id === 'qs_per_station') return renderQsPerStationCompareAligned();
-    if (report.id.startsWith('countries_by_time')) {
-      let bandFilter = null;
-      if (report.id !== 'countries_by_time') {
-        const parts = report.id.split('_');
-        bandFilter = parts[parts.length - 1];
-      }
-      return renderCountriesByTimeCompareAligned(bandFilter);
-    }
     const { slotA, slotB, aReady, bReady } = getCompareSlots();
     const aHtml = aReady ? withSlotState(slotA, () => renderReportSingle(report)) : `<p>No Log A loaded.</p>`;
     const bHtml = bReady ? withSlotState(slotB, () => renderReportSingle(report)) : `<p>No Log B loaded.</p>`;
@@ -8019,6 +8181,8 @@
     const applyMode = (enabled) => {
       state.compareEnabled = enabled;
       document.body.classList.toggle('compare-mode', enabled);
+      updateBandRibbon();
+      rebuildReports();
       renderActiveReport();
     };
     dom.compareModeRadios.forEach((radio) => {
@@ -8034,7 +8198,7 @@
 
   function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
-    initNavigation();
+    rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
     setupGlobalDragOverlay();
@@ -8060,6 +8224,7 @@
       });
     }
     // Export actions are handled in the Export report page.
+    updateBandRibbon();
     setActiveReport(0);
   }
 

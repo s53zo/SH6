@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.5';
+  const APP_VERSION = 'v3.3.6';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -6108,33 +6108,43 @@
           const analysis = buildAnalysisContext();
           return `
             <div class="export-actions export-note"><b>Unworked-after-spot rate (band/hour)</b></div>
+            <div class="export-actions export-note">Plain language: Out of all spots of you, how many did not turn into a QSO within the match window, grouped by band and hour. Lower is better.</div>
             ${renderUnworkedRateTable(stats.ofUsSpots)}
 
             <div class="export-actions export-note"><b>Time-to-first-QSO after spot (band)</b></div>
+            <div class="export-actions export-note">Plain language: How long it usually takes to log a QSO after the first spot in a spot “cluster” on each band. Lower is better.</div>
             ${renderTimeToFirstQsoTable(stats.ofUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Spot-to-rate uplift (10 min before vs after)</b></div>
+            <div class="export-actions export-note">Plain language: Compares QSO rate in the 10 minutes before a spot vs the 10 minutes after. Higher uplift and higher % positive are better.</div>
             ${renderSpotUpliftTable(stats.ofUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>DX spot conversion funnel</b></div>
+            <div class="export-actions export-note">Plain language: Of the spots you sent, how many turned into a QSO, a new call, a new band for that call, or a new country. Higher % is better.</div>
             ${renderSpottingFunnelTable(stats.byUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Band change efficiency</b></div>
+            <div class="export-actions export-note">Plain language: When you switch into a band, did your rate go up in the next 10 minutes? Higher % improved and higher avg uplift are better.</div>
             ${renderBandChangeEfficiencyTable(analysis)}
 
             <div class="export-actions export-note"><b>Peak spotter reliability</b></div>
+            <div class="export-actions export-note">Plain language: Which spotters give you the most “actionable” spots (they turn into QSOs). Higher % is better.</div>
             ${renderSpotterReliabilityTable(stats.ofUsSpots)}
 
             <div class="export-actions export-note"><b>Missed mult opportunities</b></div>
+            <div class="export-actions export-note">Plain language: Spots you sent where you never worked the DX and it looked like a new country at that time. Lower is better.</div>
             ${renderMissedMultTable(stats.byUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Opening/closing windows by day</b></div>
+            <div class="export-actions export-note">Plain language: First and last time you were spotted on each band each day. Longer span means a longer window of opportunity (informational).</div>
             ${renderOpenCloseTable(stats.ofUsSpots)}
 
             <div class="export-actions export-note"><b>Pileup window profiling</b></div>
+            <div class="export-actions export-note">Plain language: 10‑minute windows with lots of spots, plus how many QSOs you made in those windows. Higher spots and QSOs indicate stronger pileups.</div>
             ${renderPileupWindowTable(stats.ofUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Frequency agility view</b></div>
+            <div class="export-actions export-note">Plain language: Compares QSOs after spots when you moved frequency versus stayed put. Higher avg rate after is better; use this to decide whether moving helps.</div>
             ${renderFrequencyAgilityTable(stats.ofUsSpots, analysis)}
           `;
         })()}

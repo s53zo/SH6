@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.3.6 (2026-01-31)
+- Add plain-language explanations for each spots insight section.
+
 ## v3.3.5 (2026-01-31)
 - Add 10 new spot insights tables at the bottom of the Spots report.
 

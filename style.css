@@ -231,7 +231,20 @@ a:hover {
   color: #34527a;
 }
 
+.spots-control-row {
+  margin-top: 6px;
+}
+
+.spots-control-row:first-child {
+  margin-top: 0;
+}
+
 .spots-controls input[type="range"] {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.spots-controls select {
   width: 100%;
   margin-top: 6px;
 }

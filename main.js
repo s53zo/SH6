@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.2.8';
+  const APP_VERSION = 'v3.2.9';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -110,6 +110,7 @@
       lastWindowKey: null,
       lastCall: null,
       windowMinutes: 15,
+      scatterBucketMinutes: 10,
       bandFilter: [],
       raw: null,
       totalScanned: 0,
@@ -5126,7 +5127,6 @@
     const spotters = new Map();
     const dxTargets = new Map();
     const bandStats = new Map();
-    const spotBuckets = new Map();
     const responseTimes = [];
     const responseDxTimes = [];
     const heatmap = new Map();
@@ -5151,8 +5151,6 @@
         if (!heatmap.has(spot.band)) heatmap.set(spot.band, Array.from({ length: 24 }, () => 0));
         const hour = new Date(spot.ts).getUTCHours();
         heatmap.get(spot.band)[hour] = (heatmap.get(spot.band)[hour] || 0) + 1;
-        const bucket = Math.floor(spot.ts / (60000 * 10));
-        spotBuckets.set(bucket, (spotBuckets.get(bucket) || 0) + 1);
       }
     });
     (spotsState.raw.byUsSpots || []).forEach((spot) => {
@@ -5191,7 +5189,6 @@
       bandStats: Array.from(bandStats.entries()).map(([band, info]) => ({ band, ...info })),
       responseTimes,
       responseDxTimes,
-      spotBuckets: Array.from(spotBuckets.entries()).map(([bucket, count]) => ({ bucket, count })),
       heatmap: Array.from(heatmap.entries()).map(([band, hours]) => ({ band, hours }))
     };
   }
@@ -5211,6 +5208,7 @@
     const dayList = days.map((d) => `${d.year}/${d.doy}.dat`).join(', ');
     const spotsState = getSpotsState();
     const windowMinutes = Number(spotsState.windowMinutes) || 15;
+    const scatterBucketMinutes = Number(spotsState.scatterBucketMinutes) || 10;
     const bandFilterSet = new Set(spotsState.bandFilter || []);
     const stats = spotsState.stats;
     const statusText = spotsState.status === 'loading'
@@ -5392,20 +5390,25 @@
         </table>
       `;
     };
-    const buildTenMinuteSeries = (derived, bandSet) => {
-      if (!bandSet || !bandSet.size) {
-        return (derived?.tenMinuteSeries || []).map((p) => ({ ts: p.bucket * 600000, qsos: p.qsos }));
+    const buildBucketSeries = (derived, bandSet, bucketMinutes) => {
+      const minutes = Math.max(1, Number(bucketMinutes) || 10);
+      const bucketMs = minutes * 60000;
+      if ((!bandSet || !bandSet.size) && minutes === 10) {
+        return (derived?.tenMinuteSeries || []).map((p) => ({ ts: p.bucket * bucketMs, qsos: p.qsos }));
       }
       const map = new Map();
       (state.qsoData?.qsos || []).forEach((q) => {
         if (!Number.isFinite(q.ts)) return;
         const band = normalizeBandToken(q.band || '') || 'unknown';
-        if (!bandSet.has(band)) return;
-        const bucket = Math.floor(q.ts / (60000 * 10));
+        if (bandSet && bandSet.size && !bandSet.has(band)) return;
+        const bucket = Math.floor(q.ts / bucketMs);
         map.set(bucket, (map.get(bucket) || 0) + 1);
       });
-      return Array.from(map.entries()).sort((a, b) => a[0] - b[0]).map(([bucket, qsos]) => ({ ts: bucket * 600000, qsos }));
+      return Array.from(map.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([bucket, qsos]) => ({ ts: bucket * bucketMs, qsos }));
     };
+    const buildTenMinuteSeries = (derived, bandSet) => buildBucketSeries(derived, bandSet, 10);
     const renderSpotRateTimeline = (derived, spots) => {
       const filterSet = new Set(spotsState.bandFilter || []);
       const series = buildTenMinuteSeries(derived, filterSet);
@@ -5462,15 +5465,22 @@
         </div>
       `;
     };
-    const renderSpotRateScatter = (spotBuckets, derived) => {
+    const renderSpotRateScatter = (spots, derived, bucketMinutes) => {
+      const minutes = Math.max(1, Number(bucketMinutes) || 10);
+      const bucketMs = minutes * 60000;
       const filterSet = new Set(spotsState.bandFilter || []);
-      const series = buildTenMinuteSeries(derived, filterSet).map((p) => ({ bucket: Math.floor(p.ts / 600000), qsos: p.qsos }));
+      const series = buildBucketSeries(derived, filterSet, minutes).map((p) => ({ bucket: Math.floor(p.ts / bucketMs), qsos: p.qsos }));
       const qsoBuckets = new Map(series.map((p) => [p.bucket, p.qsos]));
+      const spotBuckets = new Map();
+      (spots || []).forEach((s) => {
+        const bucket = Math.floor(s.ts / bucketMs);
+        spotBuckets.set(bucket, (spotBuckets.get(bucket) || 0) + 1);
+      });
       const buckets = new Set();
-      (spotBuckets || []).forEach((b) => buckets.add(b.bucket));
+      spotBuckets.forEach((_, k) => buckets.add(k));
       qsoBuckets.forEach((_, k) => buckets.add(k));
       const points = Array.from(buckets).map((bucket) => ({
-        x: (spotBuckets || []).find((b) => b.bucket === bucket)?.count || 0,
+        x: spotBuckets.get(bucket) || 0,
         y: qsoBuckets.get(bucket) || 0
       }));
       if (!points.length) return '<p>No data.</p>';
@@ -5491,8 +5501,8 @@
             <line class="freq-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>
             <line class="freq-axis" x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}"></line>
             ${dots}
-            <text class="freq-axis-title" x="${width / 2}" y="${height - 8}" text-anchor="middle">Spots per 10 min (of you)</text>
-            <text class="freq-axis-title" x="14" y="${height / 2}" transform="rotate(-90 14 ${height / 2})" text-anchor="middle">QSOs per 10 min</text>
+            <text class="freq-axis-title" x="${width / 2}" y="${height - 8}" text-anchor="middle">Spots per ${minutes} min (of you)</text>
+            <text class="freq-axis-title" x="14" y="${height / 2}" transform="rotate(-90 14 ${height / 2})" text-anchor="middle">QSOs per ${minutes} min</text>
           </svg>
         </div>
       `;
@@ -5531,8 +5541,16 @@
           <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
         </div>
         <div class="spots-controls">
-          <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}">${windowMinutes}</span></label>
-          <input id="spotsWindow-${slotAttr}" class="spots-window" data-slot="${slotAttr}" type="range" min="1" max="60" step="1" value="${windowMinutes}">
+          <div class="spots-control-row">
+            <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}">${windowMinutes}</span></label>
+            <input id="spotsWindow-${slotAttr}" class="spots-window" data-slot="${slotAttr}" type="range" min="1" max="60" step="1" value="${windowMinutes}">
+          </div>
+          <div class="spots-control-row">
+            <label for="spotsScatterBucket-${slotAttr}">Scatter bucket (minutes)</label>
+            <select id="spotsScatterBucket-${slotAttr}" class="spots-scatter-bucket" data-slot="${slotAttr}">
+              ${[1, 2, 5, 10, 15, 30].map((m) => `<option value="${m}"${m === scatterBucketMinutes ? ' selected' : ''}>${m} min</option>`).join('')}
+            </select>
+          </div>
         </div>
         <div class="spots-filters">
           <label class="spots-filter">
@@ -5573,7 +5591,7 @@
         ${renderSpotRateTimeline(state.derived, stats.ofUsSpots)}
 
         <div class="export-actions export-note"><b>Spot density vs QSO rate (scatter)</b></div>
-        ${renderSpotRateScatter(stats.spotBuckets, state.derived)}
+        ${renderSpotRateScatter(stats.ofUsSpots, state.derived, scatterBucketMinutes)}
 
         <div class="export-actions export-note"><b>Conversion by band</b></div>
         ${renderBandConversionTable(stats.bandStats)}
@@ -8402,6 +8420,16 @@
           }
           spotsState.bandFilter = Array.from(current);
           computeSpotsStats(slot);
+          renderActiveReport();
+        });
+      });
+      const bucketSelects = document.querySelectorAll('.spots-scatter-bucket');
+      bucketSelects.forEach((select) => {
+        select.addEventListener('change', () => {
+          const slotId = select.dataset.slot || 'A';
+          const slot = getSlotById(slotId) || state;
+          const spotsState = ensureSpotsState(slot);
+          spotsState.scatterBucketMinutes = Math.max(1, Number(select.value) || 10);
           renderActiveReport();
         });
       });

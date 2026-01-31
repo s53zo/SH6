@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.2.9 (2026-01-31)
+- Add scatter bucket size selector for spot density vs QSO rate.
+
 ## v3.2.8 (2026-01-31)
 - Changelog wording cleanup (all entries are released).
 

@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.2.4';
+  const APP_VERSION = 'v3.2.5';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -102,6 +102,22 @@
     D: '#6a1b9a'
   };
 
+  function createSpotsState() {
+    return {
+      status: 'idle',
+      error: null,
+      stats: null,
+      lastWindowKey: null,
+      lastCall: null,
+      windowMinutes: 15,
+      bandFilter: [],
+      raw: null,
+      totalScanned: 0,
+      qsoIndex: null,
+      qsoCallIndex: null
+    };
+  }
+
   function createEmptyCompareSlot() {
     return {
       logFile: null,
@@ -115,7 +131,7 @@
       fullDerived: null,
       bandDerivedCache: new Map(),
       logVersion: 0,
-      spotsState: null
+      spotsState: createSpotsState()
     };
   }
 
@@ -194,6 +210,7 @@
     compareLogFallbackTimer: null,
     compareLogWindowStart: 0,
     compareLogWindowSize: 1000,
+    renderSlotId: null,
     logVersion: 0,
     spotsState: null,
     compareSlots: [createEmptyCompareSlot(), createEmptyCompareSlot(), createEmptyCompareSlot()]
@@ -264,7 +281,8 @@
       fullQsoData: source.fullQsoData,
       fullDerived: source.fullDerived,
       bandDerivedCache: source.bandDerivedCache,
-      logVersion: source.logVersion
+      logVersion: source.logVersion,
+      spotsState: source.spotsState
     };
   }
 
@@ -2069,7 +2087,7 @@
     const safeSize = Number.isFinite(size) ? size : text.length;
     const target = getSlotById(slotId);
     if (!target) return null;
-    target.spotsState = null;
+    target.spotsState = createSpotsState();
     const reconstructed = typeof sourcePath === 'string' && sourcePath.startsWith('RECONSTRUCTED_LOGS/');
     target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
     if (sourcePath) target.logFile.path = sourcePath;
@@ -4851,21 +4869,15 @@
     return days;
   }
 
-  function getSpotsState() {
-    if (!state.spotsState) {
-      state.spotsState = {
-        status: 'idle',
-        error: null,
-        stats: null,
-        lastWindowKey: null,
-        lastCall: null,
-        windowMinutes: 15,
-        bandFilter: [],
-        raw: null,
-        totalScanned: 0
-      };
+  function ensureSpotsState(slot) {
+    if (!slot.spotsState) {
+      slot.spotsState = createSpotsState();
     }
-    return state.spotsState;
+    return slot.spotsState;
+  }
+
+  function getSpotsState() {
+    return ensureSpotsState(state);
   }
 
   function buildSpotWindowKey(minTs, maxTs) {
@@ -5014,12 +5026,12 @@
     return text;
   }
 
-  async function loadSpotsForCurrentLog() {
-    const spotsState = getSpotsState();
-    if (!state.derived || !state.qsoData) return;
-    const call = String(state.derived.contestMeta?.stationCallsign || '').toUpperCase();
-    const minTs = state.derived.timeRange?.minTs;
-    const maxTs = state.derived.timeRange?.maxTs;
+  async function loadSpotsForCurrentLog(slot = state) {
+    const spotsState = ensureSpotsState(slot);
+    if (!slot.derived || !slot.qsoData) return;
+    const call = String(slot.derived.contestMeta?.stationCallsign || '').toUpperCase();
+    const minTs = slot.derived.timeRange?.minTs;
+    const maxTs = slot.derived.timeRange?.maxTs;
     if (!call || !Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
       spotsState.status = 'error';
       spotsState.error = 'Missing callsign or time range.';
@@ -5043,8 +5055,8 @@
         `${SPOTS_BASE_URL}/${d.year}/${d.doy}.dat.gz`
       ]
     }));
-    const qsoIndex = buildQsoTimeIndex(state.qsoData.qsos);
-    const qsoCallIndex = buildQsoCallIndex(state.qsoData.qsos);
+    const qsoIndex = buildQsoTimeIndex(slot.qsoData.qsos);
+    const qsoCallIndex = buildQsoCallIndex(slot.qsoData.qsos);
     let total = 0;
     const ofUsSpots = [];
     const byUsSpots = [];
@@ -5084,7 +5096,7 @@
       spotsState.raw = { ofUsSpots, byUsSpots };
       spotsState.qsoIndex = qsoIndex;
       spotsState.qsoCallIndex = qsoCallIndex;
-      computeSpotsStats();
+      computeSpotsStats(slot);
     } catch (err) {
       spotsState.status = 'error';
       spotsState.error = err && err.message ? err.message : 'Failed to load spots.';
@@ -5092,10 +5104,10 @@
     renderActiveReport();
   }
 
-  function computeSpotsStats() {
-    const spotsState = getSpotsState();
-    if (!spotsState.raw || !state.qsoData) return;
-    const call = String(state.derived?.contestMeta?.stationCallsign || '').toUpperCase();
+  function computeSpotsStats(slot = state) {
+    const spotsState = ensureSpotsState(slot);
+    if (!spotsState.raw || !slot.qsoData) return;
+    const call = String(slot.derived?.contestMeta?.stationCallsign || '').toUpperCase();
     const windowMinutes = Number(spotsState.windowMinutes) || 15;
     const windowMs = windowMinutes * 60 * 1000;
     const filterSet = new Set(spotsState.bandFilter || []);
@@ -5104,8 +5116,8 @@
       const key = band || 'unknown';
       return filterSet.has(key);
     };
-    const qsoIndex = spotsState.qsoIndex || buildQsoTimeIndex(state.qsoData.qsos);
-    const qsoCallIndex = spotsState.qsoCallIndex || buildQsoCallIndex(state.qsoData.qsos);
+    const qsoIndex = spotsState.qsoIndex || buildQsoTimeIndex(slot.qsoData.qsos);
+    const qsoCallIndex = spotsState.qsoCallIndex || buildQsoCallIndex(slot.qsoData.qsos);
     let ofUs = 0;
     let byUs = 0;
     let ofUsMatched = 0;
@@ -5188,6 +5200,8 @@
     if (!state.qsoData || !state.derived) {
       return '<p>No log loaded yet. Load a log to enable spots analysis.</p>';
     }
+    const slotId = state.renderSlotId || 'A';
+    const slotAttr = escapeAttr(slotId);
     const call = escapeHtml(state.derived.contestMeta?.stationCallsign || 'N/A');
     const minTs = state.derived.timeRange?.minTs;
     const maxTs = state.derived.timeRange?.maxTs;
@@ -5507,7 +5521,7 @@
       `;
     };
     return `
-      <div class="mtc export-panel">
+      <div class="mtc export-panel spots-panel" data-slot="${slotAttr}">
         <div class="gradient">&nbsp;Spots</div>
         <p>Analyze spots for your callsign and your spotter activity.</p>
         <div class="export-actions">
@@ -5517,12 +5531,12 @@
           <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
         </div>
         <div class="spots-controls">
-          <label for="spotsWindow">Match window (minutes): <span id="spotsWindowValue">${windowMinutes}</span></label>
-          <input id="spotsWindow" type="range" min="1" max="60" step="1" value="${windowMinutes}">
+          <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}">${windowMinutes}</span></label>
+          <input id="spotsWindow-${slotAttr}" class="spots-window" data-slot="${slotAttr}" type="range" min="1" max="60" step="1" value="${windowMinutes}">
         </div>
         <div class="spots-filters">
           <label class="spots-filter">
-            <input type="checkbox" class="spots-band-filter" data-band="ALL" ${bandFilterSet.size ? '' : 'checked'}>
+            <input type="checkbox" class="spots-band-filter" data-slot="${slotAttr}" data-band="ALL" ${bandFilterSet.size ? '' : 'checked'}>
             <span>All bands</span>
           </label>
           ${bandOptions.map((band) => {
@@ -5531,7 +5545,7 @@
             const cls = band === 'unknown' ? '' : bandClass(band);
             return `
               <label class="spots-filter ${cls}">
-                <input type="checkbox" class="spots-band-filter" data-band="${escapeAttr(band)}" ${checked}>
+                <input type="checkbox" class="spots-band-filter" data-slot="${slotAttr}" data-band="${escapeAttr(band)}" ${checked}>
                 <span>${escapeHtml(label)}</span>
               </label>
             `;
@@ -5541,7 +5555,7 @@
           <span><b>Spot files</b>: ${dayList || 'N/A'}</span>
         </div>
         <div class="export-actions">
-          <button type="button" class="button spots-load-btn">Load spots</button>
+          <button type="button" class="button spots-load-btn" data-slot="${slotAttr}">Load spots</button>
           <span>${statusText}</span>
         </div>
         ${stats ? `
@@ -7645,7 +7659,7 @@
     });
   }
 
-  function withSlotState(slot, fn) {
+  function withSlotState(slot, fn, options = {}) {
     const snapshot = {
       logFile: state.logFile,
       qsoData: state.qsoData,
@@ -7658,9 +7672,11 @@
       fullDerived: state.fullDerived,
       bandDerivedCache: state.bandDerivedCache,
       logVersion: state.logVersion,
-      spotsState: state.spotsState
+      spotsState: state.spotsState,
+      renderSlotId: state.renderSlotId
     };
     Object.assign(state, slot);
+    if (options.slotId) state.renderSlotId = options.slotId;
     const result = fn();
     Object.assign(state, snapshot);
     return result;
@@ -8239,7 +8255,7 @@
     if (report.id === 'qs_per_station') return renderQsPerStationCompareAligned();
     const slots = getActiveCompareSnapshots();
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? withSlotState(entry.snapshot, () => renderReportSingle(report)) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? withSlotState(entry.snapshot, () => renderReportSingle(report), { slotId: entry.id }) : `<p>No ${entry.label} loaded.</p>`
     ));
     return renderComparePanels(slots, htmlBlocks, report.id);
   }
@@ -8340,34 +8356,42 @@
       }
     }
     if (reportId === 'spots') {
-      if (state.derived && state.qsoData) {
-        const spotsState = getSpotsState();
+      const loadTargets = state.compareEnabled ? getLoadedCompareSlots() : [{ id: 'A', slot: state }];
+      loadTargets.forEach((entry) => {
+        if (!entry.slot?.derived || !entry.slot?.qsoData) return;
+        const spotsState = ensureSpotsState(entry.slot);
         if (spotsState.status === 'idle' || spotsState.status === 'error') {
-          loadSpotsForCurrentLog();
+          loadSpotsForCurrentLog(entry.slot);
         }
-      }
-      const btn = document.querySelector('.spots-load-btn');
-      if (btn) {
+      });
+      const buttons = document.querySelectorAll('.spots-load-btn');
+      buttons.forEach((btn) => {
         btn.addEventListener('click', (evt) => {
           evt.preventDefault();
-          loadSpotsForCurrentLog();
+          const slotId = btn.dataset.slot || 'A';
+          const slot = getSlotById(slotId) || state;
+          loadSpotsForCurrentLog(slot);
         });
-      }
-      const windowInput = document.getElementById('spotsWindow');
-      const windowValue = document.getElementById('spotsWindowValue');
-      if (windowInput) {
-        windowInput.addEventListener('input', () => {
-          const spotsState = getSpotsState();
-          spotsState.windowMinutes = Number(windowInput.value) || 15;
-          if (windowValue) windowValue.textContent = String(spotsState.windowMinutes);
-          computeSpotsStats();
+      });
+      const windowInputs = document.querySelectorAll('.spots-window');
+      windowInputs.forEach((input) => {
+        input.addEventListener('input', () => {
+          const slotId = input.dataset.slot || 'A';
+          const slot = getSlotById(slotId) || state;
+          const spotsState = ensureSpotsState(slot);
+          spotsState.windowMinutes = Number(input.value) || 15;
+          const valueEl = document.querySelector(`.spots-window-value[data-slot="${slotId}"]`);
+          if (valueEl) valueEl.textContent = String(spotsState.windowMinutes);
+          computeSpotsStats(slot);
           renderActiveReport();
         });
-      }
+      });
       const filters = document.querySelectorAll('.spots-band-filter');
       filters.forEach((el) => {
         el.addEventListener('change', () => {
-          const spotsState = getSpotsState();
+          const slotId = el.dataset.slot || 'A';
+          const slot = getSlotById(slotId) || state;
+          const spotsState = ensureSpotsState(slot);
           const band = el.dataset.band || '';
           const current = new Set(spotsState.bandFilter || []);
           if (band === 'ALL') {
@@ -8377,7 +8401,7 @@
             else current.delete(band);
           }
           spotsState.bandFilter = Array.from(current);
-          computeSpotsStats();
+          computeSpotsStats(slot);
           renderActiveReport();
         });
       });

@@ -4913,6 +4913,26 @@
     return candidates.some((t) => Math.abs(t - ts) <= windowMs);
   }
 
+  function getNearestQsoDeltaMinutes(band, ts, index) {
+    if (!band || !index.has(band)) return null;
+    const list = index.get(band);
+    let lo = 0;
+    let hi = list.length - 1;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      const val = list[mid];
+      if (val < ts) lo = mid + 1;
+      else if (val > ts) hi = mid - 1;
+      else return 0;
+    }
+    const candidates = [];
+    if (lo < list.length) candidates.push(list[lo]);
+    if (lo - 1 >= 0) candidates.push(list[lo - 1]);
+    if (!candidates.length) return null;
+    const best = Math.min(...candidates.map((t) => Math.abs(t - ts)));
+    return best / 60000;
+  }
+
   async function fetchSpotFile(url) {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -4965,6 +4985,12 @@
     let byUsMatched = 0;
     const spotters = new Map();
     const dxTargets = new Map();
+    const ofUsSpots = [];
+    const byUsSpots = [];
+    const bandStats = new Map();
+    const spotBuckets = new Map();
+    const responseTimes = [];
+    const heatmap = new Map();
     try {
       for (const entry of urls) {
         let text = null;
@@ -4988,12 +5014,37 @@
           if (spot.dxCall === call) {
             ofUs += 1;
             spotters.set(spot.spotter, (spotters.get(spot.spotter) || 0) + 1);
-            if (hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs)) ofUsMatched += 1;
+            const bandKey = spot.band || 'unknown';
+            if (!bandStats.has(bandKey)) bandStats.set(bandKey, { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 });
+            bandStats.get(bandKey).ofUs += 1;
+            const matched = hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs);
+            if (matched) {
+              ofUsMatched += 1;
+              bandStats.get(bandKey).ofUsMatched += 1;
+            }
+            const delta = matched ? getNearestQsoDeltaMinutes(spot.band, spot.ts, qsoIndex) : null;
+            if (matched && Number.isFinite(delta)) responseTimes.push(delta);
+            ofUsSpots.push({ ...spot, matched, delta });
+            if (spot.band) {
+              if (!heatmap.has(spot.band)) heatmap.set(spot.band, Array.from({ length: 24 }, () => 0));
+              const hour = new Date(spot.ts).getUTCHours();
+              heatmap.get(spot.band)[hour] = (heatmap.get(spot.band)[hour] || 0) + 1;
+              const bucket = Math.floor(spot.ts / (60000 * 10));
+              spotBuckets.set(bucket, (spotBuckets.get(bucket) || 0) + 1);
+            }
           }
           if (spot.spotter === call) {
             byUs += 1;
             dxTargets.set(spot.dxCall, (dxTargets.get(spot.dxCall) || 0) + 1);
-            if (hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs)) byUsMatched += 1;
+            const bandKey = spot.band || 'unknown';
+            if (!bandStats.has(bandKey)) bandStats.set(bandKey, { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 });
+            bandStats.get(bandKey).byUs += 1;
+            const matched = hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs);
+            if (matched) {
+              byUsMatched += 1;
+              bandStats.get(bandKey).byUsMatched += 1;
+            }
+            byUsSpots.push({ ...spot, matched });
           }
         }
       }
@@ -5010,7 +5061,13 @@
         ofUsMatched,
         byUsMatched,
         topSpotters,
-        topDx
+        topDx,
+        ofUsSpots,
+        byUsSpots,
+        bandStats: Array.from(bandStats.entries()).map(([band, info]) => ({ band, ...info })),
+        responseTimes,
+        spotBuckets: Array.from(spotBuckets.entries()).map(([bucket, count]) => ({ bucket, count })),
+        heatmap: Array.from(heatmap.entries()).map(([band, hours]) => ({ band, hours }))
       };
     } catch (err) {
       spotsState.status = 'error';
@@ -5045,6 +5102,186 @@
         </table>
       `;
     };
+    const renderBandConversionTable = (bandStats) => {
+      if (!bandStats || !bandStats.length) return '<p>No band data.</p>';
+      const bands = sortBands(bandStats.map((b) => b.band).filter(Boolean));
+      const rows = bands.map((band, idx) => {
+        const entry = bandStats.find((b) => b.band === band) || { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 };
+        const ofPct = entry.ofUs ? ((entry.ofUsMatched / entry.ofUs) * 100).toFixed(1) : '0.0';
+        const byPct = entry.byUs ? ((entry.byUsMatched / entry.byUs) * 100).toFixed(1) : '0.0';
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        return `
+          <tr class="${cls}">
+            <td class="${bandClass(band)}"><b>${escapeHtml(formatBandLabel(band))}</b></td>
+            <td>${formatNumberSh6(entry.ofUs)}</td>
+            <td>${formatNumberSh6(entry.ofUsMatched)}</td>
+            <td>${ofPct}%</td>
+            <td>${formatNumberSh6(entry.byUs)}</td>
+            <td>${formatNumberSh6(entry.byUsMatched)}</td>
+            <td>${byPct}%</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Band</th><th>Spots of you</th><th>Matched</th><th>%</th><th>Spots by you</th><th>Matched</th><th>%</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderResponseHistogram = (values) => {
+      if (!values || !values.length) return '<p>No matched spots to analyze.</p>';
+      const bins = [
+        { label: '0-1m', min: 0, max: 1 },
+        { label: '1-3m', min: 1, max: 3 },
+        { label: '3-5m', min: 3, max: 5 },
+        { label: '5-10m', min: 5, max: 10 },
+        { label: '10-15m', min: 10, max: 15 }
+      ];
+      const data = bins.map((b) => ({
+        label: b.label,
+        count: values.filter((v) => v >= b.min && v < b.max + 1e-6).length
+      }));
+      return renderBars(data, 'label', 'count');
+    };
+    const renderUnansweredTable = (spots) => {
+      if (!spots || !spots.length) return '<p>None.</p>';
+      const rows = spots.slice(0, 200).map((s, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        return `
+          <tr class="${cls}">
+            <td>${escapeHtml(formatDateSh6(s.ts))}</td>
+            <td class="${bandClass(s.band)}">${escapeHtml(formatBandLabel(s.band || ''))}</td>
+            <td>${escapeHtml(String(s.freqKHz || ''))}</td>
+            <td>${escapeHtml(s.spotter || '')}</td>
+            <td class="tl">${escapeHtml(s.comment || '')}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>Spotter</th><th>Comment</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const buildTenMinuteSeries = (derived) => (derived?.tenMinuteSeries || []).map((p) => ({
+      ts: p.bucket * 600000,
+      qsos: p.qsos
+    }));
+    const renderSpotRateTimeline = (derived, spots) => {
+      const series = buildTenMinuteSeries(derived);
+      if (!series.length) return '<p>No QSO rate data.</p>';
+      const min = Math.min(...series.map((s) => s.ts));
+      const max = Math.max(...series.map((s) => s.ts));
+      const maxRate = Math.max(...series.map((s) => s.qsos), 1);
+      const width = 900;
+      const height = 320;
+      const margin = { left: 70, right: 20, top: 20, bottom: 55 };
+      const plotW = width - margin.left - margin.right;
+      const plotH = height - margin.top - margin.bottom;
+      const xScale = (ts) => margin.left + ((ts - min) / (max - min)) * plotW;
+      const yScale = (v) => margin.top + (1 - (v / maxRate)) * plotH;
+      const line = series.map((s, idx) => `${idx === 0 ? 'M' : 'L'} ${xScale(s.ts)} ${yScale(s.qsos)}`).join(' ');
+      const xTicks = 5;
+      const xGrid = [];
+      const xLabels = [];
+      for (let i = 0; i < xTicks; i += 1) {
+        const t = min + ((max - min) * i) / (xTicks - 1);
+        const x = xScale(t);
+        xGrid.push(`<line class="freq-grid" x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}"></line>`);
+        const label = formatDateSh6(t);
+        xLabels.push(`<text class="freq-axis-text" x="${x}" y="${height - margin.bottom + 18}" transform="rotate(-35 ${x} ${height - margin.bottom + 18})" text-anchor="end">${escapeHtml(label)}</text>`);
+      }
+      const yTicks = 5;
+      const yGrid = [];
+      const yLabels = [];
+      for (let i = 0; i < yTicks; i += 1) {
+        const v = (maxRate * i) / (yTicks - 1);
+        const y = yScale(v);
+        yGrid.push(`<line class="freq-grid" x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}"></line>`);
+        yLabels.push(`<text class="freq-axis-text" x="${margin.left - 8}" y="${y + 4}" text-anchor="end">${escapeHtml(v.toFixed(0))}</text>`);
+      }
+      const spotLines = (spots || []).slice(0, 200).map((s) => {
+        const x = xScale(s.ts);
+        return `<line class="spot-line" x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}"></line>`;
+      }).join('');
+      const note = spots && spots.length > 200 ? `<div class="freq-scatter-note">Showing first 200 spot markers.</div>` : '';
+      return `
+        <div class="freq-scatter-wrap">
+          <svg class="freq-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="10 minute rate timeline">
+            <rect class="freq-plot-bg" x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}"></rect>
+            ${xGrid.join('')}
+            ${yGrid.join('')}
+            ${spotLines}
+            <path class="spot-rate-line" d="${line}"></path>
+            <line class="freq-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>
+            <line class="freq-axis" x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}"></line>
+            ${xLabels.join('')}
+            ${yLabels.join('')}
+            <text class="freq-axis-title" x="${width / 2}" y="${height - 8}" text-anchor="middle">Time (UTC)</text>
+            <text class="freq-axis-title" x="14" y="${height / 2}" transform="rotate(-90 14 ${height / 2})" text-anchor="middle">10 min QSO rate</text>
+          </svg>
+        </div>
+        ${note}
+      `;
+    };
+    const renderSpotRateScatter = (spotBuckets, derived) => {
+      const qsoBuckets = new Map((derived?.tenMinuteSeries || []).map((p) => [p.bucket, p.qsos]));
+      const buckets = new Set();
+      (spotBuckets || []).forEach((b) => buckets.add(b.bucket));
+      qsoBuckets.forEach((_, k) => buckets.add(k));
+      const points = Array.from(buckets).map((bucket) => ({
+        x: (spotBuckets || []).find((b) => b.bucket === bucket)?.count || 0,
+        y: qsoBuckets.get(bucket) || 0
+      }));
+      if (!points.length) return '<p>No data.</p>';
+      const maxX = Math.max(...points.map((p) => p.x), 1);
+      const maxY = Math.max(...points.map((p) => p.y), 1);
+      const width = 500;
+      const height = 300;
+      const margin = { left: 60, right: 20, top: 20, bottom: 45 };
+      const plotW = width - margin.left - margin.right;
+      const plotH = height - margin.top - margin.bottom;
+      const xScale = (v) => margin.left + (v / maxX) * plotW;
+      const yScale = (v) => margin.top + (1 - (v / maxY)) * plotH;
+      const dots = points.map((p) => `<circle class="spot-dot" cx="${xScale(p.x)}" cy="${yScale(p.y)}" r="2.5"></circle>`).join('');
+      return `
+        <div class="freq-scatter-wrap">
+          <svg class="freq-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="Spot density vs rate scatter">
+            <rect class="freq-plot-bg" x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}"></rect>
+            <line class="freq-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>
+            <line class="freq-axis" x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}"></line>
+            ${dots}
+            <text class="freq-axis-title" x="${width / 2}" y="${height - 8}" text-anchor="middle">Spots per 10 min (of you)</text>
+            <text class="freq-axis-title" x="14" y="${height / 2}" transform="rotate(-90 14 ${height / 2})" text-anchor="middle">QSOs per 10 min</text>
+          </svg>
+        </div>
+      `;
+    };
+    const renderHeatmap = (heatmapData) => {
+      if (!heatmapData || !heatmapData.length) return '<p>No heatmap data.</p>';
+      const bands = sortBands(heatmapData.map((h) => h.band));
+      const maxVal = Math.max(...heatmapData.flatMap((h) => h.hours || []), 1);
+      const header = Array.from({ length: 24 }, (_, h) => `<th>${String(h).padStart(2, '0')}</th>`).join('');
+      const rows = bands.map((band, idx) => {
+        const entry = heatmapData.find((h) => h.band === band);
+        const hours = entry ? entry.hours : Array.from({ length: 24 }, () => 0);
+        const cells = hours.map((v) => {
+          const intensity = v ? Math.min(0.85, 0.15 + (v / maxVal) * 0.7) : 0;
+          const bg = v ? `background: rgba(30, 91, 214, ${intensity}); color: #fff;` : '';
+          return `<td style="${bg}">${v || ''}</td>`;
+        }).join('');
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        return `<tr class="${cls}"><td class="${bandClass(band)}"><b>${escapeHtml(formatBandLabel(band))}</b></td>${cells}</tr>`;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Band</th>${header}</tr>
+          ${rows}
+        </table>
+      `;
+    };
     return `
       <div class="mtc export-panel">
         <div class="gradient">&nbsp;Spots</div>
@@ -5072,10 +5309,30 @@
         <div class="export-actions export-note">
           <span><b>Spots by you</b>: ${formatNumberSh6(stats.byUs)} (matched to QSOs: ${formatNumberSh6(stats.byUsMatched)})</span>
         </div>
+
+        <div class="export-actions export-note"><b>Spot→Rate timeline (10‑min rate with spot markers)</b></div>
+        ${renderSpotRateTimeline(state.derived, stats.ofUsSpots)}
+
+        <div class="export-actions export-note"><b>Spot density vs QSO rate (scatter)</b></div>
+        ${renderSpotRateScatter(stats.spotBuckets, state.derived)}
+
+        <div class="export-actions export-note"><b>Conversion by band</b></div>
+        ${renderBandConversionTable(stats.bandStats)}
+
+        <div class="export-actions export-note"><b>Response time distribution (minutes)</b></div>
+        ${renderResponseHistogram(stats.responseTimes)}
+
         <div class="export-actions export-note"><b>Top spotters for you</b></div>
         ${renderList(stats.topSpotters)}
+
         <div class="export-actions export-note"><b>Top DX you spotted</b></div>
         ${renderList(stats.topDx)}
+
+        <div class="export-actions export-note"><b>Spots of you by band/hour</b></div>
+        ${renderHeatmap(stats.heatmap)}
+
+        <div class="export-actions export-note"><b>Unanswered spots (no QSO within 15 minutes)</b></div>
+        ${renderUnansweredTable((stats.ofUsSpots || []).filter((s) => !s.matched))}
         ` : ''}
       </div>
     `;

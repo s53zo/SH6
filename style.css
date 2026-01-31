@@ -1189,6 +1189,22 @@ th {
   fill: rgba(30, 111, 235, 0.65);
 }
 
+.spot-rate-line {
+  fill: none;
+  stroke: #1e5bd6;
+  stroke-width: 2;
+}
+
+.spot-line {
+  stroke: #c62828;
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.spot-dot {
+  fill: rgba(194, 40, 40, 0.7);
+}
+
 .freq-axis-text {
   font-size: 11px;
   fill: #444444;

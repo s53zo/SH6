@@ -3675,8 +3675,8 @@
               <span class="landing-action-note">Public archive of over 1 million contest logs at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a> as a searchable database</span>
             </div>
             <div class="landing-action-row">
-              <button type="button" class="button landing-action" data-action="compare">Compare two logs</button>
-              <span class="landing-action-note">compare two logs from your computer or public archive</span>
+              <button type="button" class="button landing-action" data-action="compare">Compare logs</button>
+              <span class="landing-action-note">Compare logs from your computer or the public archive</span>
             </div>
             <div class="landing-action-row">
               <button type="button" class="button demo-log-btn">Demo log</button>
@@ -3697,7 +3697,7 @@
           <h3>Quick start</h3>
           <ol class="landing-steps">
             <li>Load Log A (upload or pick from the archive).</li>
-            <li>Optional: enable Compare mode and load Log B.</li>
+            <li>Optional: enable Compare logs mode and load Log B.</li>
             <li>Open a report from the menu to explore results.</li>
           </ol>
         </section>

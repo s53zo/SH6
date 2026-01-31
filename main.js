@@ -56,6 +56,7 @@
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
+  const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
   const QSL_LABEL_TOOL_URL = 'https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html';
   const QRZ_URLS = ['https://azure.s53m.com/cors/qrz', 'https://www.qrz.com/db'];
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
@@ -113,7 +114,8 @@
       fullQsoData: null,
       fullDerived: null,
       bandDerivedCache: new Map(),
-      logVersion: 0
+      logVersion: 0,
+      spotsState: null
     };
   }
 
@@ -193,6 +195,7 @@
     compareLogWindowStart: 0,
     compareLogWindowSize: 1000,
     logVersion: 0,
+    spotsState: null,
     compareSlots: [createEmptyCompareSlot(), createEmptyCompareSlot(), createEmptyCompareSlot()]
   };
 
@@ -2066,6 +2069,7 @@
     const safeSize = Number.isFinite(size) ? size : text.length;
     const target = getSlotById(slotId);
     if (!target) return null;
+    target.spotsState = null;
     const reconstructed = typeof sourcePath === 'string' && sourcePath.startsWith('RECONSTRUCTED_LOGS/');
     target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
     if (sourcePath) target.logFile.path = sourcePath;
@@ -4847,6 +4851,149 @@
     return days;
   }
 
+  function getSpotsState() {
+    if (!state.spotsState) {
+      state.spotsState = {
+        status: 'idle',
+        error: null,
+        stats: null,
+        lastWindowKey: null,
+        lastCall: null
+      };
+    }
+    return state.spotsState;
+  }
+
+  function buildSpotWindowKey(minTs, maxTs) {
+    return `${minTs || 0}-${maxTs || 0}`;
+  }
+
+  function parseSpotLine(line) {
+    const parts = String(line || '').split('^');
+    if (parts.length < 6) return null;
+    const freqKHz = parseFloat(parts[0]);
+    const dxCall = (parts[1] || '').trim().toUpperCase();
+    const ts = parseInt(parts[2], 10) * 1000;
+    const comment = (parts[3] || '').trim();
+    const spotter = (parts[4] || '').trim().toUpperCase();
+    if (!dxCall || !spotter || !Number.isFinite(ts)) return null;
+    const freqMHz = Number.isFinite(freqKHz) ? freqKHz / 1000 : null;
+    const band = freqMHz ? normalizeBandToken(parseBandFromFreq(freqMHz) || '') : '';
+    return { dxCall, spotter, ts, freqKHz, freqMHz, band, comment };
+  }
+
+  function buildQsoTimeIndex(qsos) {
+    const map = new Map();
+    (qsos || []).forEach((q) => {
+      if (!Number.isFinite(q.ts)) return;
+      const band = normalizeBandToken(q.band || '');
+      if (!band) return;
+      if (!map.has(band)) map.set(band, []);
+      map.get(band).push(q.ts);
+    });
+    map.forEach((list) => list.sort((a, b) => a - b));
+    return map;
+  }
+
+  function hasQsoWithin(band, ts, index, windowMs) {
+    if (!band || !index.has(band)) return false;
+    const list = index.get(band);
+    let lo = 0;
+    let hi = list.length - 1;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      const val = list[mid];
+      if (val < ts) lo = mid + 1;
+      else if (val > ts) hi = mid - 1;
+      else return true;
+    }
+    const candidates = [];
+    if (lo < list.length) candidates.push(list[lo]);
+    if (lo - 1 >= 0) candidates.push(list[lo - 1]);
+    return candidates.some((t) => Math.abs(t - ts) <= windowMs);
+  }
+
+  async function fetchSpotFile(url) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
+  }
+
+  async function loadSpotsForCurrentLog() {
+    const spotsState = getSpotsState();
+    if (!state.derived || !state.qsoData) return;
+    const call = String(state.derived.contestMeta?.stationCallsign || '').toUpperCase();
+    const minTs = state.derived.timeRange?.minTs;
+    const maxTs = state.derived.timeRange?.maxTs;
+    if (!call || !Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
+      spotsState.status = 'error';
+      spotsState.error = 'Missing callsign or time range.';
+      renderActiveReport();
+      return;
+    }
+    const windowKey = buildSpotWindowKey(minTs, maxTs);
+    if (spotsState.status === 'ready' && spotsState.lastWindowKey === windowKey && spotsState.lastCall === call) {
+      renderActiveReport();
+      return;
+    }
+    spotsState.status = 'loading';
+    spotsState.error = null;
+    spotsState.stats = null;
+    renderActiveReport();
+    const days = buildSpotDayList(minTs, maxTs);
+    const urls = days.map((d) => `${SPOTS_BASE_URL}/${d.year}/${d.doy}.dat`);
+    const qsoIndex = buildQsoTimeIndex(state.qsoData.qsos);
+    const windowMs = 15 * 60 * 1000;
+    let total = 0;
+    let ofUs = 0;
+    let byUs = 0;
+    let ofUsMatched = 0;
+    let byUsMatched = 0;
+    const spotters = new Map();
+    const dxTargets = new Map();
+    try {
+      for (const url of urls) {
+        const text = await fetchSpotFile(url);
+        const lines = text.split(/\r?\n/);
+        for (const line of lines) {
+          if (!line) continue;
+          const spot = parseSpotLine(line);
+          if (!spot) continue;
+          total += 1;
+          if (spot.dxCall === call) {
+            ofUs += 1;
+            spotters.set(spot.spotter, (spotters.get(spot.spotter) || 0) + 1);
+            if (hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs)) ofUsMatched += 1;
+          }
+          if (spot.spotter === call) {
+            byUs += 1;
+            dxTargets.set(spot.dxCall, (dxTargets.get(spot.dxCall) || 0) + 1);
+            if (hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs)) byUsMatched += 1;
+          }
+        }
+      }
+      const topSpotters = Array.from(spotters.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      const topDx = Array.from(dxTargets.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      spotsState.status = 'ready';
+      spotsState.error = null;
+      spotsState.lastWindowKey = windowKey;
+      spotsState.lastCall = call;
+      spotsState.stats = {
+        total,
+        ofUs,
+        byUs,
+        ofUsMatched,
+        byUsMatched,
+        topSpotters,
+        topDx
+      };
+    } catch (err) {
+      spotsState.status = 'error';
+      spotsState.error = err && err.message ? err.message : 'Failed to load spots.';
+    }
+    renderActiveReport();
+  }
+
   function renderSpots() {
     if (!state.qsoData || !state.derived) {
       return '<p>No log loaded yet. Load a log to enable spots analysis.</p>';
@@ -4858,10 +5005,25 @@
     const end = Number.isFinite(maxTs) ? formatDateSh6(maxTs) : 'N/A';
     const days = buildSpotDayList(minTs, maxTs);
     const dayList = days.map((d) => `${d.year}/${d.doy}.dat`).join(', ');
+    const spotsState = getSpotsState();
+    const stats = spotsState.stats;
+    const statusText = spotsState.status === 'loading'
+      ? 'Loading spots...'
+      : (spotsState.status === 'error' ? `Error: ${escapeHtml(spotsState.error || '')}` : (spotsState.status === 'ready' ? 'Spots loaded.' : 'Not loaded'));
+    const renderList = (entries) => {
+      if (!entries || !entries.length) return '<p>None.</p>';
+      const rows = entries.map(([name, count]) => `<tr><td>${escapeHtml(name)}</td><td>${formatNumberSh6(count)}</td></tr>`).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Name</th><th>Spots</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
     return `
       <div class="mtc export-panel">
         <div class="gradient">&nbsp;Spots</div>
-        <p>Planned: analyze spots for your callsign and your spotter activity.</p>
+        <p>Analyze spots for your callsign and your spotter activity.</p>
         <div class="export-actions">
           <span><b>Callsign</b>: ${call} (exact match)</span>
         </div>
@@ -4871,9 +5033,25 @@
         <div class="export-actions">
           <span><b>Spot files</b>: ${dayList || 'N/A'}</span>
         </div>
-        <div class="export-actions export-note">
-          <span>Next step: fetch the daily spot files and match by time/frequency.</span>
+        <div class="export-actions">
+          <button type="button" class="button spots-load-btn">Load spots</button>
+          <span>${statusText}</span>
         </div>
+        ${stats ? `
+        <div class="export-actions export-note">
+          <span><b>Total spots scanned</b>: ${formatNumberSh6(stats.total)}</span>
+        </div>
+        <div class="export-actions export-note">
+          <span><b>Spots of you</b>: ${formatNumberSh6(stats.ofUs)} (matched to QSOs: ${formatNumberSh6(stats.ofUsMatched)})</span>
+        </div>
+        <div class="export-actions export-note">
+          <span><b>Spots by you</b>: ${formatNumberSh6(stats.byUs)} (matched to QSOs: ${formatNumberSh6(stats.byUsMatched)})</span>
+        </div>
+        <div class="export-actions export-note"><b>Top spotters for you</b></div>
+        ${renderList(stats.topSpotters)}
+        <div class="export-actions export-note"><b>Top DX you spotted</b></div>
+        ${renderList(stats.topDx)}
+        ` : ''}
       </div>
     `;
   }
@@ -6952,7 +7130,8 @@
       fullQsoData: state.fullQsoData,
       fullDerived: state.fullDerived,
       bandDerivedCache: state.bandDerivedCache,
-      logVersion: state.logVersion
+      logVersion: state.logVersion,
+      spotsState: state.spotsState
     };
     Object.assign(state, slot);
     const result = fn();
@@ -7630,6 +7809,15 @@
         btn.addEventListener('click', (evt) => {
           evt.preventDefault();
           openQslLabelTool();
+        });
+      }
+    }
+    if (reportId === 'spots') {
+      const btn = document.querySelector('.spots-load-btn');
+      if (btn) {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          loadSpotsForCurrentLog();
         });
       }
     }

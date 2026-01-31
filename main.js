@@ -4810,6 +4810,8 @@
       <div class="mtc export-panel">
         <div class="gradient">&nbsp;QSL labels</div>
         <p>Send the current log to the ADIF-to-QSL-label tool and preload it there.</p>
+        <p>The label service formats QSOs into print-ready Avery-style layouts with customizable columns, filters, and export options.</p>
+        <p><a href="${QSL_LABEL_TOOL_URL}" target="_blank" rel="noopener noreferrer">${QSL_LABEL_TOOL_URL}</a></p>
         <div class="export-actions">
           <button type="button" class="button qsl-open-btn">Open QSL label tool</button>
           <span>${name} · ${count} QSOs</span>

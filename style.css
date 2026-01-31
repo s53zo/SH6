@@ -156,18 +156,64 @@ a:hover {
 }
 
 .compare-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  border: 1px dotted #999999;
-  background: #f8f8f8;
-  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #c9d5f2;
+  background: #eef3ff;
+  border-radius: 8px;
+  margin-bottom: 8px;
 }
 
-.compare-label {
-  font-weight: 600;
-  margin-right: 4px;
+.compare-toggle-title {
+  font-weight: 700;
+  color: #0d3a73;
+}
+
+.compare-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compare-option {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.compare-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.compare-option span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid #c5daf8;
+  background: #ffffff;
+  color: #0d3a73;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.compare-option input:checked + span {
+  background: #1e5bd6;
+  border-color: #1e5bd6;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(30, 91, 214, 0.25);
+}
+
+.compare-helper {
+  font-size: 12px;
+  color: #34527a;
 }
 
 .log-panel {

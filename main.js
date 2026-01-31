@@ -224,6 +224,7 @@
     ctySourceLabel: document.getElementById('ctySourceLabel'),
     masterStatus: document.getElementById('masterStatus'),
     masterSourceLabel: document.getElementById('masterSourceLabel'),
+    compareHelper: document.getElementById('compareHelper'),
     appVersion: document.getElementById('appVersion'),
     bandRibbon: document.getElementById('bandRibbon'),
     repoSearch: document.getElementById('repoSearch'),
@@ -8884,6 +8885,11 @@
       document.body.classList.toggle('compare-mode', state.compareEnabled);
       document.body.classList.remove('compare-count-1', 'compare-count-2', 'compare-count-3', 'compare-count-4');
       document.body.classList.add(`compare-count-${safeCount}`);
+      if (dom.compareHelper) {
+        dom.compareHelper.textContent = safeCount > 1
+          ? `Comparing ${safeCount} logs`
+          : 'Single log mode';
+      }
       invalidateCompareLogData();
       updateBandRibbon();
       rebuildReports();

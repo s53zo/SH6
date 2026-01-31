@@ -52,12 +52,27 @@
       <td style="width:83%" valign="top">
         <div class="content">
           <div id="loadPanel">
-            <div class="compare-toggle">
-              <span class="compare-label">Logs:</span>
-              <label><input type="radio" name="compareCount" value="1" checked> 1</label>
-              <label><input type="radio" name="compareCount" value="2"> 2</label>
-              <label><input type="radio" name="compareCount" value="3"> 3</label>
-              <label><input type="radio" name="compareCount" value="4"> 4</label>
+            <div class="compare-toggle" role="group" aria-label="Compare logs">
+              <div class="compare-toggle-title">Compare logs</div>
+              <div class="compare-options">
+                <label class="compare-option">
+                  <input type="radio" name="compareCount" value="1" checked>
+                  <span>1</span>
+                </label>
+                <label class="compare-option">
+                  <input type="radio" name="compareCount" value="2">
+                  <span>2</span>
+                </label>
+                <label class="compare-option">
+                  <input type="radio" name="compareCount" value="3">
+                  <span>3</span>
+                </label>
+                <label class="compare-option">
+                  <input type="radio" name="compareCount" value="4">
+                  <span>4</span>
+                </label>
+              </div>
+              <div class="compare-helper" id="compareHelper">Single log mode</div>
             </div>
             <div class="log-panel log-a">
               <div class="log-panel-title">Log A</div>

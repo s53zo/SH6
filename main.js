@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.2';
+  const APP_VERSION = 'v3.3.3';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -6260,7 +6260,12 @@
       `;
     }).join('');
     return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+      <table class="mtc one-minute-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <colgroup>
+          <col class="col-rate"/>
+          <col class="col-list"/>
+          <col class="col-total"/>
+        </colgroup>
         <tr class="thc"><th>Qs per<br/>minute</th><th>Minutes list</th><th>Total</th></tr>
         ${rows}
       </table>

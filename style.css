@@ -1296,6 +1296,35 @@ th {
   word-break: break-word;
 }
 
+.one-minute-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.one-minute-table .col-rate {
+  width: 70px;
+}
+
+.one-minute-table .col-total {
+  width: 80px;
+}
+
+.one-minute-table td {
+  vertical-align: top;
+}
+
+.one-minute-table td.minute-list {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.one-minute-table .log-minute {
+  display: inline-block;
+  margin: 0 4px 2px 0;
+}
+
 .mtc {
   font-size: 8pt;
 }

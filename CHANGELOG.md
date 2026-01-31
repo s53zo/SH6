@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.3.3 (2026-01-31)
+- Wrap One Minute Rates minute list to avoid horizontal overflow.
+
 ## v3.3.2 (2026-01-31)
 - Fix continent color mapping by normalizing continent codes.
 

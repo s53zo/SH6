@@ -6970,6 +6970,9 @@
     ]);
     const wrapReports = new Set(['one_minute_rates']);
     const quadReports = new Set([
+      'main',
+      'summary',
+      'qsl_labels',
       'qs_per_station',
       'one_minute_rates',
       'distance',

@@ -4895,6 +4895,25 @@
     return map;
   }
 
+  function buildQsoCallIndex(qsos) {
+    const map = new Map();
+    (qsos || []).forEach((q) => {
+      if (!Number.isFinite(q.ts) || !q.call) return;
+      const band = normalizeBandToken(q.band || '');
+      if (!band) return;
+      const call = normalizeCall(q.call);
+      if (!call) return;
+      if (!map.has(band)) map.set(band, new Map());
+      const bandMap = map.get(band);
+      if (!bandMap.has(call)) bandMap.set(call, []);
+      bandMap.get(call).push(q.ts);
+    });
+    map.forEach((bandMap) => {
+      bandMap.forEach((list) => list.sort((a, b) => a - b));
+    });
+    return map;
+  }
+
   function hasQsoWithin(band, ts, index, windowMs) {
     if (!band || !index.has(band)) return false;
     const list = index.get(band);
@@ -4913,9 +4932,53 @@
     return candidates.some((t) => Math.abs(t - ts) <= windowMs);
   }
 
+  function hasQsoCallWithin(band, call, ts, index, windowMs) {
+    if (!band || !call || !index.has(band)) return false;
+    const bandMap = index.get(band);
+    const key = normalizeCall(call);
+    if (!bandMap || !bandMap.has(key)) return false;
+    const list = bandMap.get(key);
+    let lo = 0;
+    let hi = list.length - 1;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      const val = list[mid];
+      if (val < ts) lo = mid + 1;
+      else if (val > ts) hi = mid - 1;
+      else return true;
+    }
+    const candidates = [];
+    if (lo < list.length) candidates.push(list[lo]);
+    if (lo - 1 >= 0) candidates.push(list[lo - 1]);
+    return candidates.some((t) => Math.abs(t - ts) <= windowMs);
+  }
+
   function getNearestQsoDeltaMinutes(band, ts, index) {
     if (!band || !index.has(band)) return null;
     const list = index.get(band);
+    let lo = 0;
+    let hi = list.length - 1;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      const val = list[mid];
+      if (val < ts) lo = mid + 1;
+      else if (val > ts) hi = mid - 1;
+      else return 0;
+    }
+    const candidates = [];
+    if (lo < list.length) candidates.push(list[lo]);
+    if (lo - 1 >= 0) candidates.push(list[lo - 1]);
+    if (!candidates.length) return null;
+    const best = Math.min(...candidates.map((t) => Math.abs(t - ts)));
+    return best / 60000;
+  }
+
+  function getNearestQsoCallDeltaMinutes(band, call, ts, index) {
+    if (!band || !call || !index.has(band)) return null;
+    const bandMap = index.get(band);
+    const key = normalizeCall(call);
+    if (!bandMap || !bandMap.has(key)) return null;
+    const list = bandMap.get(key);
     let lo = 0;
     let hi = list.length - 1;
     while (lo <= hi) {
@@ -4983,6 +5046,7 @@
     let byUs = 0;
     let ofUsMatched = 0;
     let byUsMatched = 0;
+    let byUsMatchedDx = 0;
     const spotters = new Map();
     const dxTargets = new Map();
     const ofUsSpots = [];
@@ -4990,8 +5054,10 @@
     const bandStats = new Map();
     const spotBuckets = new Map();
     const responseTimes = [];
+    const responseDxTimes = [];
     const heatmap = new Map();
     try {
+      const qsoCallIndex = buildQsoCallIndex(state.qsoData.qsos);
       for (const entry of urls) {
         let text = null;
         let lastErr = null;
@@ -5044,7 +5110,14 @@
               byUsMatched += 1;
               bandStats.get(bandKey).byUsMatched += 1;
             }
-            byUsSpots.push({ ...spot, matched });
+            const matchedDx = hasQsoCallWithin(spot.band, spot.dxCall, spot.ts, qsoCallIndex, windowMs);
+            if (matchedDx) {
+              byUsMatchedDx += 1;
+              const deltaDx = getNearestQsoCallDeltaMinutes(spot.band, spot.dxCall, spot.ts, qsoCallIndex);
+              if (Number.isFinite(deltaDx)) responseDxTimes.push(deltaDx);
+            }
+            const delta = matched ? getNearestQsoDeltaMinutes(spot.band, spot.ts, qsoIndex) : null;
+            byUsSpots.push({ ...spot, matched, matchedDx, delta, deltaDx: Number.isFinite(deltaDx) ? deltaDx : null });
           }
         }
       }
@@ -5060,12 +5133,14 @@
         byUs,
         ofUsMatched,
         byUsMatched,
+        byUsMatchedDx,
         topSpotters,
         topDx,
         ofUsSpots,
         byUsSpots,
         bandStats: Array.from(bandStats.entries()).map(([band, info]) => ({ band, ...info })),
         responseTimes,
+        responseDxTimes,
         spotBuckets: Array.from(spotBuckets.entries()).map(([bucket, count]) => ({ bucket, count })),
         heatmap: Array.from(heatmap.entries()).map(([band, hours]) => ({ band, hours }))
       };
@@ -5092,12 +5167,101 @@
     const statusText = spotsState.status === 'loading'
       ? 'Loading spots...'
       : (spotsState.status === 'error' ? `Error: ${escapeHtml(spotsState.error || '')}` : (spotsState.status === 'ready' ? 'Spots loaded.' : 'Not loaded'));
-    const renderList = (entries) => {
+    const summarizeGroups = (spots, keyField) => {
+      const map = new Map();
+      (spots || []).forEach((s) => {
+        const key = s[keyField];
+        if (!key) return;
+        if (!map.has(key)) {
+          map.set(key, { name: key, count: 0, matched: 0, matchedDx: 0, deltas: [], dxDeltas: [], bandCounts: new Map() });
+        }
+        const entry = map.get(key);
+        entry.count += 1;
+        if (s.matched) {
+          entry.matched += 1;
+          if (Number.isFinite(s.delta)) entry.deltas.push(s.delta);
+        }
+        if (s.matchedDx) {
+          entry.matchedDx += 1;
+          if (Number.isFinite(s.deltaDx)) entry.dxDeltas.push(s.deltaDx);
+        }
+        if (s.band) {
+          entry.bandCounts.set(s.band, (entry.bandCounts.get(s.band) || 0) + 1);
+        }
+      });
+      const median = (list) => {
+        if (!list.length) return null;
+        const sorted = list.slice().sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        if (sorted.length % 2) return sorted[mid];
+        return (sorted[mid - 1] + sorted[mid]) / 2;
+      };
+      const out = [];
+      map.forEach((entry) => {
+        const topBand = entry.bandCounts.size
+          ? Array.from(entry.bandCounts.entries()).sort((a, b) => b[1] - a[1])[0][0]
+          : '';
+        out.push({
+          name: entry.name,
+          count: entry.count,
+          matched: entry.matched,
+          matchedDx: entry.matchedDx,
+          conv: entry.count ? (entry.matched / entry.count) * 100 : 0,
+          convDx: entry.count ? (entry.matchedDx / entry.count) * 100 : 0,
+          median: median(entry.deltas),
+          avg: entry.deltas.length ? entry.deltas.reduce((a, b) => a + b, 0) / entry.deltas.length : null,
+          medianDx: median(entry.dxDeltas),
+          avgDx: entry.dxDeltas.length ? entry.dxDeltas.reduce((a, b) => a + b, 0) / entry.dxDeltas.length : null,
+          topBand
+        });
+      });
+      return out.sort((a, b) => b.count - a.count);
+    };
+
+    const renderSpotterTable = (entries) => {
       if (!entries || !entries.length) return '<p>None.</p>';
-      const rows = entries.map(([name, count]) => `<tr><td>${escapeHtml(name)}</td><td>${formatNumberSh6(count)}</td></tr>`).join('');
+      const rows = entries.slice(0, 15).map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        return `
+          <tr class="${cls}">
+            <td>${escapeHtml(e.name)}</td>
+            <td>${formatNumberSh6(e.count)}</td>
+            <td>${formatNumberSh6(e.matched)}</td>
+            <td>${e.conv.toFixed(1)}%</td>
+            <td>${e.median != null ? e.median.toFixed(1) : 'N/A'}</td>
+            <td>${e.avg != null ? e.avg.toFixed(1) : 'N/A'}</td>
+            <td class="${bandClass(e.topBand)}">${escapeHtml(formatBandLabel(e.topBand || ''))}</td>
+          </tr>
+        `;
+      }).join('');
       return `
         <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc"><th>Name</th><th>Spots</th></tr>
+          <tr class="thc"><th>Spotter</th><th>Spots</th><th>Matched</th><th>%</th><th>Median min</th><th>Avg min</th><th>Top band</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+
+    const renderDxTable = (entries) => {
+      if (!entries || !entries.length) return '<p>None.</p>';
+      const rows = entries.slice(0, 15).map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        return `
+          <tr class="${cls}">
+            <td>${escapeHtml(e.name)}</td>
+            <td>${formatNumberSh6(e.count)}</td>
+            <td>${formatNumberSh6(e.matched)}</td>
+            <td>${e.conv.toFixed(1)}%</td>
+            <td>${formatNumberSh6(e.matchedDx)}</td>
+            <td>${e.convDx.toFixed(1)}%</td>
+            <td>${e.medianDx != null ? e.medianDx.toFixed(1) : 'N/A'}</td>
+            <td class="${bandClass(e.topBand)}">${escapeHtml(formatBandLabel(e.topBand || ''))}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>DX</th><th>Spots</th><th>Matched (band)</th><th>%</th><th>Worked DX</th><th>%</th><th>Median min</th><th>Top band</th></tr>
           ${rows}
         </table>
       `;
@@ -5202,11 +5366,10 @@
         yGrid.push(`<line class="freq-grid" x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}"></line>`);
         yLabels.push(`<text class="freq-axis-text" x="${margin.left - 8}" y="${y + 4}" text-anchor="end">${escapeHtml(v.toFixed(0))}</text>`);
       }
-      const spotLines = (spots || []).slice(0, 200).map((s) => {
+      const spotLines = (spots || []).map((s) => {
         const x = xScale(s.ts);
         return `<line class="spot-line" x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}"></line>`;
       }).join('');
-      const note = spots && spots.length > 200 ? `<div class="freq-scatter-note">Showing first 200 spot markers.</div>` : '';
       return `
         <div class="freq-scatter-wrap">
           <svg class="freq-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="10 minute rate timeline">
@@ -5223,7 +5386,6 @@
             <text class="freq-axis-title" x="14" y="${height / 2}" transform="rotate(-90 14 ${height / 2})" text-anchor="middle">10 min QSO rate</text>
           </svg>
         </div>
-        ${note}
       `;
     };
     const renderSpotRateScatter = (spotBuckets, derived) => {
@@ -5323,10 +5485,10 @@
         ${renderResponseHistogram(stats.responseTimes)}
 
         <div class="export-actions export-note"><b>Top spotters for you</b></div>
-        ${renderList(stats.topSpotters)}
+        ${renderSpotterTable(summarizeGroups(stats.ofUsSpots, 'spotter'))}
 
         <div class="export-actions export-note"><b>Top DX you spotted</b></div>
-        ${renderList(stats.topDx)}
+        ${renderDxTable(summarizeGroups(stats.byUsSpots, 'dxCall'))}
 
         <div class="export-actions export-note"><b>Spots of you by band/hour</b></div>
         ${renderHeatmap(stats.heatmap)}

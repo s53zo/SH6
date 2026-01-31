@@ -4916,7 +4916,15 @@
   async function fetchSpotFile(url) {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.text();
+    if (!/\.gz$/i.test(url)) return res.text();
+    if (typeof DecompressionStream !== 'function') {
+      throw new Error('gzip not supported in this browser');
+    }
+    const buffer = await res.arrayBuffer();
+    const ds = new DecompressionStream('gzip');
+    const stream = new Response(buffer).body.pipeThrough(ds);
+    const text = await new Response(stream).text();
+    return text;
   }
 
   async function loadSpotsForCurrentLog() {
@@ -4941,7 +4949,13 @@
     spotsState.stats = null;
     renderActiveReport();
     const days = buildSpotDayList(minTs, maxTs);
-    const urls = days.map((d) => `${SPOTS_BASE_URL}/${d.year}/${d.doy}.dat`);
+    const urls = days.map((d) => ({
+      day: d,
+      urls: [
+        `${SPOTS_BASE_URL}/${d.year}/${d.doy}.dat`,
+        `${SPOTS_BASE_URL}/${d.year}/${d.doy}.dat.gz`
+      ]
+    }));
     const qsoIndex = buildQsoTimeIndex(state.qsoData.qsos);
     const windowMs = 15 * 60 * 1000;
     let total = 0;
@@ -4952,8 +4966,19 @@
     const spotters = new Map();
     const dxTargets = new Map();
     try {
-      for (const url of urls) {
-        const text = await fetchSpotFile(url);
+      for (const entry of urls) {
+        let text = null;
+        let lastErr = null;
+        for (const url of entry.urls) {
+          try {
+            text = await fetchSpotFile(url);
+            break;
+          } catch (err) {
+            lastErr = err;
+            continue;
+          }
+        }
+        if (text == null) throw lastErr || new Error('Spot file missing');
         const lines = text.split(/\r?\n/);
         for (const line of lines) {
           if (!line) continue;

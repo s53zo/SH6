@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.2.3';
+  const APP_VERSION = 'v3.2.4';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5156,12 +5156,11 @@
         bandStats.get(bandKey).byUsMatched += 1;
       }
       const matchedDx = hasQsoCallWithin(spot.band, spot.dxCall, spot.ts, qsoCallIndex, windowMs);
+      const deltaDx = matchedDx ? getNearestQsoCallDeltaMinutes(spot.band, spot.dxCall, spot.ts, qsoCallIndex) : null;
       if (matchedDx) {
         byUsMatchedDx += 1;
-        const deltaDx = getNearestQsoCallDeltaMinutes(spot.band, spot.dxCall, spot.ts, qsoCallIndex);
         if (Number.isFinite(deltaDx)) responseDxTimes.push(deltaDx);
       }
-      const deltaDx = matchedDx ? getNearestQsoCallDeltaMinutes(spot.band, spot.dxCall, spot.ts, qsoCallIndex) : null;
       byUsSpots.push({ ...spot, matched, matchedDx, deltaDx: Number.isFinite(deltaDx) ? deltaDx : null });
     });
     const topSpotters = Array.from(spotters.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);

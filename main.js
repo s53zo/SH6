@@ -40,6 +40,7 @@
     { id: 'comments', title: 'Comments' },
     { id: 'export', title: 'Export' },
     { id: 'qsl_labels', title: 'QSL labels' },
+    { id: 'spots', title: 'Spots' },
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
@@ -4824,6 +4825,59 @@
     `;
   }
 
+  function formatDayOfYear(ts) {
+    const d = new Date(ts);
+    const start = Date.UTC(d.getUTCFullYear(), 0, 1);
+    const day = Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - start) / 86400000) + 1;
+    return String(day).padStart(3, '0');
+  }
+
+  function buildSpotDayList(minTs, maxTs) {
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return [];
+    const days = [];
+    const start = Date.UTC(new Date(minTs).getUTCFullYear(), new Date(minTs).getUTCMonth(), new Date(minTs).getUTCDate());
+    const end = Date.UTC(new Date(maxTs).getUTCFullYear(), new Date(maxTs).getUTCMonth(), new Date(maxTs).getUTCDate());
+    for (let t = start; t <= end; t += 86400000) {
+      const d = new Date(t);
+      days.push({
+        year: d.getUTCFullYear(),
+        doy: formatDayOfYear(t)
+      });
+    }
+    return days;
+  }
+
+  function renderSpots() {
+    if (!state.qsoData || !state.derived) {
+      return '<p>No log loaded yet. Load a log to enable spots analysis.</p>';
+    }
+    const call = escapeHtml(state.derived.contestMeta?.stationCallsign || 'N/A');
+    const minTs = state.derived.timeRange?.minTs;
+    const maxTs = state.derived.timeRange?.maxTs;
+    const start = Number.isFinite(minTs) ? formatDateSh6(minTs) : 'N/A';
+    const end = Number.isFinite(maxTs) ? formatDateSh6(maxTs) : 'N/A';
+    const days = buildSpotDayList(minTs, maxTs);
+    const dayList = days.map((d) => `${d.year}/${d.doy}.dat`).join(', ');
+    return `
+      <div class="mtc export-panel">
+        <div class="gradient">&nbsp;Spots</div>
+        <p>Planned: analyze spots for your callsign and your spotter activity.</p>
+        <div class="export-actions">
+          <span><b>Callsign</b>: ${call} (exact match)</span>
+        </div>
+        <div class="export-actions">
+          <span><b>Time window</b>: ${start} → ${end} (±15 minutes, same frequency band)</span>
+        </div>
+        <div class="export-actions">
+          <span><b>Spot files</b>: ${dayList || 'N/A'}</span>
+        </div>
+        <div class="export-actions export-note">
+          <span>Next step: fetch the daily spot files and match by time/frequency.</span>
+        </div>
+      </div>
+    `;
+  }
+
   const CONTINENT_ORDER = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
 
   function continentOrderIndex(code) {
@@ -6869,6 +6923,7 @@
         case 'comments': return renderComments();
         case 'export': return renderExportPage();
         case 'qsl_labels': return renderQslLabels();
+        case 'spots': return renderSpots();
         case 'charts': return renderChartsIndex();
         case 'charts_qs_by_band': return renderChartQsByBand();
         case 'charts_top_10_countries': return renderChartTop10Countries();

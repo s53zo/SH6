@@ -637,38 +637,19 @@ a:hover {
 }
 
 .source-indicator {
+  display: inline-block;
+  margin-left: 4px;
   font-size: 11px;
-  font-weight: 600;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: #f3f3f3;
-  color: #555;
-  border: 1px solid #e0e0e0;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .source-local {
-  background: #e6f4ea;
-  color: #1b5e20;
-  border-color: #c8e6c9;
+  color: #2e7d32;
 }
 
 .source-proxy {
-  background: #fff3e0;
-  color: #e65100;
-  border-color: #ffe0b2;
-}
-
-.source-direct {
-  background: #e3f2fd;
-  color: #0d47a1;
-  border-color: #bbdefb;
-}
-
-.source-remote {
-  background: #ede7f6;
-  color: #4527a0;
-  border-color: #d1c4e9;
+  color: #ef6c00;
 }
 
 .status-ok {

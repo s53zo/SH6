@@ -44,7 +44,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.1.5';
+  const APP_VERSION = 'v3.1.6';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1908,15 +1908,11 @@
   function updateDataStatus() {
     const isProxy = (src) => /allorigins\.win|corsproxy\.io/i.test(src || '');
     const classifySource = (src) => {
-      if (!src) return { label: '', className: '' };
+      if (!src) return { mark: '', className: '' };
       const lower = String(src).toLowerCase();
-      if (lower.includes('azure.s53m.com/cors')) return { label: 'Azure CORS', className: 'source-local' };
-      if (lower.includes('allorigins.win') || lower.includes('corsproxy.io')) return { label: 'Public CORS', className: 'source-proxy' };
-      if (lower.includes('country-files.com') || lower.includes('supercheckpartial.com') || lower.includes('qrz.com')) {
-        return { label: 'Direct', className: 'source-direct' };
-      }
-      if (!/^https?:\/\//i.test(src)) return { label: 'Local file', className: 'source-local' };
-      return { label: 'Remote', className: 'source-remote' };
+      if (lower.includes('azure.s53m.com/cors')) return { mark: '✓', className: 'source-local' };
+      if (lower.includes('allorigins.win') || lower.includes('corsproxy.io')) return { mark: '✓', className: 'source-proxy' };
+      return { mark: '', className: '' };
     };
     const formatStatus = (status, src) => {
       if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
@@ -1937,7 +1933,7 @@
     }
     if (dom.ctySourceLabel) {
       const info = classifySource(state.ctySource);
-      dom.ctySourceLabel.textContent = info.label;
+      dom.ctySourceLabel.textContent = info.mark;
       dom.ctySourceLabel.title = state.ctySource || '';
       dom.ctySourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
     }
@@ -1954,7 +1950,7 @@
     }
     if (dom.masterSourceLabel) {
       const info = classifySource(state.masterSource);
-      dom.masterSourceLabel.textContent = info.label;
+      dom.masterSourceLabel.textContent = info.mark;
       dom.masterSourceLabel.title = state.masterSource || '';
       dom.masterSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
     }

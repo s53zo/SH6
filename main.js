@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.2.9';
+  const APP_VERSION = 'v3.3.0';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5322,25 +5322,19 @@
       if (!bandStats || !bandStats.length) return '<p>No band data.</p>';
       const bands = sortBands(bandStats.map((b) => b.band).filter(Boolean));
       const rows = bands.map((band, idx) => {
-        const entry = bandStats.find((b) => b.band === band) || { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 };
-        const ofPct = entry.ofUs ? ((entry.ofUsMatched / entry.ofUs) * 100).toFixed(1) : '0.0';
-        const byPct = entry.byUs ? ((entry.byUsMatched / entry.byUs) * 100).toFixed(1) : '0.0';
+        const entry = bandStats.find((b) => b.band === band) || { ofUs: 0, byUs: 0 };
         const cls = idx % 2 === 0 ? 'td1' : 'td0';
         return `
           <tr class="${cls}">
             <td class="${bandClass(band)}"><b>${escapeHtml(formatBandLabel(band))}</b></td>
             <td>${formatNumberSh6(entry.ofUs)}</td>
-            <td>${formatNumberSh6(entry.ofUsMatched)}</td>
-            <td>${ofPct}%</td>
             <td>${formatNumberSh6(entry.byUs)}</td>
-            <td>${formatNumberSh6(entry.byUsMatched)}</td>
-            <td>${byPct}%</td>
           </tr>
         `;
       }).join('');
       return `
         <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc"><th>Band</th><th>Spots of you</th><th>Matched</th><th>%</th><th>Spots by you</th><th>Matched</th><th>%</th></tr>
+          <tr class="thc"><th>Band</th><th>Spots of you</th><th>Spots by you</th></tr>
           ${rows}
         </table>
       `;

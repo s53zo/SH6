@@ -3,14 +3,17 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.2.8 (2026-01-31)
+- Changelog wording cleanup (all entries are released).
+
 ## v3.2.7 (2026-01-31)
 - Version badge links to CHANGELOG.md.
 - Removed sample ADIF log from the repo.
 
-## Unreleased (after v3.1.8)
+## v3.2.2 (2026-01-31)
 - Spots workflow: menu scaffold, loader/matching, and gzip spot file support.
 - Compare main/summary/QSL updated to a 2x2 layout.
-- Key files: main.js.
+- Added Spots report with charts and analysis (timeline, scatter, conversion, top tables).
 
 ## v3.1.8 (2026-01-31)
 - Compare log selector improvements, action rename, and panel visibility fixes.

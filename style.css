@@ -232,9 +232,9 @@ a:hover {
   display: none;
 }
 
-.compare-count-2 .compare-only,
-.compare-count-3 .compare-only,
-.compare-count-4 .compare-only {
+.compare-count-2 .compare-only-2,
+.compare-count-3 .compare-only-2,
+.compare-count-4 .compare-only-2 {
   display: block;
 }
 

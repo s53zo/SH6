@@ -146,6 +146,11 @@ a:hover {
   background: #e3edfb;
   border: 1px solid #c5daf8;
   border-radius: 4px;
+  text-decoration: none;
+}
+
+.version-badge:hover {
+  background: #d6e6fb;
 }
 
 .controls {

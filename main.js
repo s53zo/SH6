@@ -39,6 +39,7 @@
     { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour', parentId: 'charts' },
     { id: 'comments', title: 'Comments' },
     { id: 'export', title: 'Export' },
+    { id: 'qsl_labels', title: 'QSL labels' },
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
@@ -54,6 +55,7 @@
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
+  const QSL_LABEL_TOOL_URL = 'https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html';
   const QRZ_URLS = ['https://azure.s53m.com/cors/qrz', 'https://www.qrz.com/db'];
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const QRZ_MAX_CONCURRENCY = 3;
@@ -4690,6 +4692,85 @@
     `;
   }
 
+  function getQslLabelFilename() {
+    const name = state.logFile?.name || '';
+    if (name) return name;
+    const type = (state.qsoData?.type || '').toUpperCase();
+    const ext = type === 'CBR' ? 'cbr' : 'adi';
+    return `sh6_log.${ext}`;
+  }
+
+  function openQslLabelTool() {
+    if (!state.rawLogText) {
+      showOverlayNotice('Load a log first to send it to the QSL label tool.', 2400);
+      return;
+    }
+    const win = window.open(QSL_LABEL_TOOL_URL, '_blank');
+    if (!win) {
+      showOverlayNotice('Popup blocked. Allow popups to open the QSL label tool.', 2600);
+      return;
+    }
+    const targetOrigin = 'https://s53zo.github.io';
+    const payload = {
+      type: 'sh6_log',
+      name: getQslLabelFilename(),
+      content: state.rawLogText
+    };
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      try {
+        win.postMessage(payload, targetOrigin);
+      } catch (err) {
+        // ignore transient postMessage errors
+      }
+      if (attempts >= 15) window.clearInterval(timer);
+    }, 350);
+    try {
+      win.postMessage(payload, targetOrigin);
+    } catch (err) {
+      /* ignore */
+    }
+    const onAck = (event) => {
+      if (event.origin !== targetOrigin) return;
+      if (event.data && event.data.type === 'sh6_log_received') {
+        showOverlayNotice('Log sent to QSL label tool.', 2200);
+        window.clearInterval(timer);
+        window.removeEventListener('message', onAck);
+      }
+    };
+    window.addEventListener('message', onAck);
+    window.setTimeout(() => {
+      window.removeEventListener('message', onAck);
+    }, 8000);
+  }
+
+  function renderQslLabels() {
+    if (!state.qsoData || !state.rawLogText) {
+      return `
+        <div class="mtc export-panel">
+          <div class="gradient">&nbsp;QSL labels</div>
+          <p>No log loaded yet. Load a log, then send it to the label generator.</p>
+        </div>
+      `;
+    }
+    const name = escapeHtml(getQslLabelFilename());
+    const count = formatNumberSh6(state.qsoData.qsos.length || 0);
+    return `
+      <div class="mtc export-panel">
+        <div class="gradient">&nbsp;QSL labels</div>
+        <p>Send the current log to the ADIF-to-QSL-label tool and preload it there.</p>
+        <div class="export-actions">
+          <button type="button" class="button qsl-open-btn">Open QSL label tool</button>
+          <span>${name} · ${count} QSOs</span>
+        </div>
+        <div class="export-actions export-note">
+          <span>The label tool will open in a new tab and auto-load your log.</span>
+        </div>
+      </div>
+    `;
+  }
+
   const CONTINENT_ORDER = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
 
   function continentOrderIndex(code) {
@@ -6734,6 +6815,7 @@
         case 'possible_errors': return renderPossibleErrors();
         case 'comments': return renderComments();
         case 'export': return renderExportPage();
+        case 'qsl_labels': return renderQslLabels();
         case 'charts': return renderChartsIndex();
         case 'charts_qs_by_band': return renderChartQsByBand();
         case 'charts_top_10_countries': return renderChartTop10Countries();
@@ -7430,6 +7512,15 @@
           }
         });
       });
+    }
+    if (reportId === 'qsl_labels') {
+      const btn = document.querySelector('.qsl-open-btn');
+      if (btn) {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          openQslLabelTool();
+        });
+      }
     }
     if (reportId === 'load_logs') {
       const demoButtons = document.querySelectorAll('.demo-log-btn');

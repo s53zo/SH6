@@ -44,7 +44,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v2.2.25';
+  const APP_VERSION = 'v3.1.4';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -57,6 +57,7 @@
   const QRZ_BASE_URL = 'https://www.qrz.com/db';
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const QRZ_MAX_CONCURRENCY = 3;
+  const COMPARE_PROGRESS_THRESHOLD = 20000;
   const RECONSTRUCTED_NOTICE = 'THIS LOG IS RECONSTRUCTED. For contests where not all stations submitted logs, the repo can generate reconstructed mock logs. These are built by inferring QSOs for missing stations from logs that were submitted. They are not official submissions and are not complete logs.';
   const DEMO_ARCHIVE_PATH = 'CQWW/cw/2025/tk0c.log';
   const DEMO_ARCHIVE_LABEL = 'TK0C CQWW CW 2025';
@@ -81,6 +82,35 @@
   ];
   const LOG_EXTENSIONS = new Set(['adi', 'adif', 'cbf', 'cbr', 'log']);
   const LOG_EXTENSIONS_LABEL = '.adi, .adif, .cbf, .cbr, .log';
+  const COMPARE_SLOT_IDS = ['B', 'C', 'D'];
+  const COMPARE_SLOT_LABELS = {
+    A: 'Log A',
+    B: 'Log B',
+    C: 'Log C',
+    D: 'Log D'
+  };
+  const COMPARE_SLOT_COLORS = {
+    A: '#1e5bd6',
+    B: '#c62828',
+    C: '#2e7d32',
+    D: '#6a1b9a'
+  };
+
+  function createEmptyCompareSlot() {
+    return {
+      logFile: null,
+      qsoData: null,
+      qsoLite: null,
+      rawLogText: '',
+      derived: null,
+      logPage: 0,
+      logPageSize: 1000,
+      fullQsoData: null,
+      fullDerived: null,
+      bandDerivedCache: new Map(),
+      logVersion: 0
+    };
+  }
 
   function buildFetchUrls(urls) {
     const remotes = [];
@@ -144,25 +174,21 @@
     masterSource: null,
     showLoadPanel: false,
     compareEnabled: false,
+    compareCount: 1,
+    compareFocus: {
+      countries_by_time: ['A', 'B'],
+      qs_by_minute: ['A', 'B'],
+      one_minute_rates: ['A', 'B']
+    },
     compareWorker: null,
     compareLogData: null,
     compareLogPendingKey: null,
+    compareLogPendingSince: null,
+    compareLogFallbackTimer: null,
     compareLogWindowStart: 0,
     compareLogWindowSize: 1000,
     logVersion: 0,
-    compareB: {
-      logFile: null,
-      qsoData: null,
-      qsoLite: null,
-      rawLogText: '',
-      derived: null,
-      logPage: 0,
-      logPageSize: 1000,
-      fullQsoData: null,
-      fullDerived: null,
-      bandDerivedCache: new Map(),
-      logVersion: 0
-    }
+    compareSlots: [createEmptyCompareSlot(), createEmptyCompareSlot(), createEmptyCompareSlot()]
   };
 
   const qrzPhotoInFlight = new Map();
@@ -178,10 +204,14 @@
     loadPanel: document.getElementById('loadPanel'),
     fileInput: document.getElementById('fileInput'),
     fileInputB: document.getElementById('fileInputB'),
+    fileInputC: document.getElementById('fileInputC'),
+    fileInputD: document.getElementById('fileInputD'),
     ctyInput: document.getElementById('ctyInput'),
     masterInput: document.getElementById('masterInput'),
     fileStatus: document.getElementById('fileStatus'),
     fileStatusB: document.getElementById('fileStatusB'),
+    fileStatusC: document.getElementById('fileStatusC'),
+    fileStatusD: document.getElementById('fileStatusD'),
     viewTitle: document.getElementById('viewTitle'),
     viewContainer: document.getElementById('viewContainer'),
     prevBtn: document.getElementById('prevBtn'),
@@ -198,9 +228,67 @@
     repoStatusB: document.getElementById('repoStatusB'),
     repoResultsB: document.getElementById('repoResultsB'),
     repoAutoCloseB: document.getElementById('repoAutoCloseB'),
-    compareModeRadios: document.querySelectorAll('input[name="compareMode"]'),
+    repoSearchC: document.getElementById('repoSearchC'),
+    repoStatusC: document.getElementById('repoStatusC'),
+    repoResultsC: document.getElementById('repoResultsC'),
+    repoAutoCloseC: document.getElementById('repoAutoCloseC'),
+    repoSearchD: document.getElementById('repoSearchD'),
+    repoStatusD: document.getElementById('repoStatusD'),
+    repoResultsD: document.getElementById('repoResultsD'),
+    repoAutoCloseD: document.getElementById('repoAutoCloseD'),
+    compareModeRadios: document.querySelectorAll('input[name="compareCount"]'),
     dragOverlay: document.getElementById('dragOverlay')
   };
+
+  function buildSlotSnapshot(source) {
+    if (!source) return createEmptyCompareSlot();
+    return {
+      logFile: source.logFile,
+      qsoData: source.qsoData,
+      qsoLite: source.qsoLite,
+      rawLogText: source.rawLogText,
+      derived: source.derived,
+      logPage: source.logPage,
+      logPageSize: source.logPageSize,
+      fullQsoData: source.fullQsoData,
+      fullDerived: source.fullDerived,
+      bandDerivedCache: source.bandDerivedCache,
+      logVersion: source.logVersion
+    };
+  }
+
+  function getSlotById(slotId) {
+    if (!slotId || slotId === 'A') return state;
+    const idx = COMPARE_SLOT_IDS.indexOf(String(slotId).toUpperCase());
+    if (idx === -1) return null;
+    return state.compareSlots[idx];
+  }
+
+  function getActiveCompareSlots() {
+    const count = Math.min(4, Math.max(1, Number(state.compareCount) || 1));
+    const ids = ['A', 'B', 'C', 'D'].slice(0, count);
+    return ids.map((id) => {
+      const slot = getSlotById(id);
+      return {
+        id,
+        label: COMPARE_SLOT_LABELS[id] || `Log ${id}`,
+        color: COMPARE_SLOT_COLORS[id] || '#333333',
+        slot
+      };
+    });
+  }
+
+  function getLoadedCompareSlots() {
+    return getActiveCompareSlots().filter((entry) => entry.slot && entry.slot.qsoData);
+  }
+
+  function getActiveCompareSnapshots() {
+    return getActiveCompareSlots().map((entry) => ({
+      ...entry,
+      snapshot: buildSlotSnapshot(entry.slot),
+      ready: !!entry.slot?.qsoData
+    }));
+  }
 
   const renderers = {};
   let overlayNoticeTimer = null;
@@ -300,7 +388,7 @@
       el.classList.toggle('sli', isActive);
       if (isActive) {
         const details = el.closest('details');
-        if (details) details.open = true;
+        if (details && !el.classList.contains('nav-summary')) details.open = true;
       }
     });
   }
@@ -368,12 +456,17 @@
   function invalidateCompareLogData() {
     state.compareLogData = null;
     state.compareLogPendingKey = null;
+    state.compareLogPendingSince = null;
+    if (state.compareLogFallbackTimer) {
+      clearTimeout(state.compareLogFallbackTimer);
+      state.compareLogFallbackTimer = null;
+    }
     state.compareLogWindowStart = 0;
   }
 
   function updateBandRibbon() {
     if (!dom.bandRibbon) return;
-    const bands = getAvailableBands(state.compareEnabled);
+    const bands = getAvailableBands(state.compareCount > 1);
     const active = (state.globalBandFilter || '').trim();
     const hasActive = active && bands.some((b) => String(b).toUpperCase() === active.toUpperCase());
     if (active && !hasActive) state.globalBandFilter = '';
@@ -591,14 +684,17 @@
   function getAvailableBands(includeCompare = false) {
     const bands = new Set();
     getBandsFromDerived(state.fullDerived || state.derived).forEach((b) => bands.add(b));
-    if ((includeCompare || state.compareEnabled) && state.compareB) {
-      getBandsFromDerived(state.compareB.fullDerived || state.compareB.derived).forEach((b) => bands.add(b));
+    if (includeCompare || state.compareCount > 1) {
+      getActiveCompareSlots().forEach((entry) => {
+        if (!entry.slot || entry.id === 'A') return;
+        getBandsFromDerived(entry.slot.fullDerived || entry.slot.derived).forEach((b) => bands.add(b));
+      });
     }
     return sortBands(Array.from(bands));
   }
 
   function getDisplayBandList() {
-    return getAvailableBands(state.compareEnabled);
+    return getAvailableBands(state.compareCount > 1);
   }
 
   function bandSlug(band) {
@@ -674,6 +770,12 @@
       maxFreq: Math.max(rangeA.maxFreq, rangeB.maxFreq),
       count: (rangeA.count || 0) + (rangeB.count || 0)
     };
+  }
+
+  function mergeFrequencyScatterRangesList(ranges) {
+    const valid = (ranges || []).filter(Boolean);
+    if (!valid.length) return null;
+    return valid.reduce((acc, range) => mergeFrequencyScatterRanges(acc, range), null);
   }
 
   function sampleFrequencyScatterPoints(qsos, maxPoints = 6000) {
@@ -1926,9 +2028,17 @@
     }));
   }
 
+  function ensureSlotQsoLite(slot) {
+    if (!slot || !slot.qsoData || !Array.isArray(slot.qsoData.qsos)) return;
+    if (!slot.qsoLite || slot.qsoLite.length !== slot.qsoData.qsos.length) {
+      slot.qsoLite = buildQsoLiteArray(slot.qsoData.qsos);
+    }
+  }
+
   function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl, sourcePath) {
     const safeSize = Number.isFinite(size) ? size : text.length;
-    const target = slotId === 'B' ? state.compareB : state;
+    const target = getSlotById(slotId);
+    if (!target) return null;
     const reconstructed = typeof sourcePath === 'string' && sourcePath.startsWith('RECONSTRUCTED_LOGS/');
     target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
     if (sourcePath) target.logFile.path = sourcePath;
@@ -2096,15 +2206,18 @@
       state.bandDerivedCache = new Map();
       state.logVersion = (state.logVersion || 0) + 1;
     }
-    if (state.compareB && state.compareB.qsoData) {
-      state.compareB.derived = buildDerived(state.compareB.qsoData.qsos);
-      state.compareB.qsoLite = buildQsoLiteArray(state.compareB.qsoData.qsos);
-      state.compareB.fullQsoData = state.compareB.qsoData;
-      state.compareB.fullDerived = state.compareB.derived;
-      state.compareB.bandDerivedCache = new Map();
-      state.compareB.logVersion = (state.compareB.logVersion || 0) + 1;
-    }
-    if (!state.qsoData && !state.compareB?.qsoData) return;
+    state.compareSlots.forEach((slot) => {
+      if (slot && slot.qsoData) {
+        slot.derived = buildDerived(slot.qsoData.qsos);
+        slot.qsoLite = buildQsoLiteArray(slot.qsoData.qsos);
+        slot.fullQsoData = slot.qsoData;
+        slot.fullDerived = slot.derived;
+        slot.bandDerivedCache = new Map();
+        slot.logVersion = (slot.logVersion || 0) + 1;
+      }
+    });
+    const hasAny = state.qsoData || state.compareSlots.some((slot) => slot && slot.qsoData);
+    if (!hasAny) return;
     invalidateCompareLogData();
     updateBandRibbon();
     rebuildReports();
@@ -3513,12 +3626,13 @@
 
   function renderLoadLogs() {
     const aMeta = state.derived?.contestMeta;
-    const bMeta = state.compareB?.derived?.contestMeta;
+    const bSlot = getSlotById('B');
+    const bMeta = bSlot?.derived?.contestMeta;
     const aText = state.qsoData
       ? `${aMeta?.stationCallsign || 'Log A'} · ${aMeta?.contestId || 'N/A'} · ${state.qsoData.qsos.length} QSOs`
       : 'No Log A loaded yet.';
-    const bText = state.compareB?.qsoData
-      ? `${bMeta?.stationCallsign || 'Log B'} · ${bMeta?.contestId || 'N/A'} · ${state.compareB.qsoData.qsos.length} QSOs`
+    const bText = bSlot?.qsoData
+      ? `${bMeta?.stationCallsign || 'Log B'} · ${bMeta?.contestId || 'N/A'} · ${bSlot.qsoData.qsos.length} QSOs`
       : 'No Log B loaded yet.';
     return `
       <div class="landing-page">
@@ -3653,7 +3767,13 @@
   }
 
   function loadDemoLog(slotId = 'A') {
-    const statusEl = slotId === 'B' ? dom.fileStatusB : dom.fileStatus;
+    const statusEl = slotId === 'B'
+      ? dom.fileStatusB
+      : slotId === 'C'
+        ? dom.fileStatusC
+        : slotId === 'D'
+          ? dom.fileStatusD
+          : dom.fileStatus;
     const startDemo = async () => {
       if (statusEl) statusEl.textContent = `Loading demo log (${DEMO_ARCHIVE_LABEL})...`;
       const result = await fetchArchiveLogText(DEMO_ARCHIVE_PATH);
@@ -3669,41 +3789,100 @@
     startDemo();
   }
 
-  function renderLogCells(q, idx) {
-    if (!q) {
-      return '<td></td>'.repeat(17);
+  const LOG_COMPARE_COLUMNS = [
+    { id: 'num', label: '#' },
+    { id: 'time', label: 'Time' },
+    { id: 'band', label: 'Band' },
+    { id: 'mode', label: 'Mode' },
+    { id: 'freq', label: 'Freq' },
+    { id: 'call', label: 'Call' },
+    { id: 'rstS', label: 'RST S' },
+    { id: 'rstR', label: 'RST R' },
+    { id: 'exchSent', label: 'Exch Sent' },
+    { id: 'exchRcvd', label: 'Exch Rcvd' },
+    { id: 'op', label: 'Op' },
+    { id: 'country', label: 'Country' },
+    { id: 'cont', label: 'Cont.' },
+    { id: 'cq', label: 'CQ' },
+    { id: 'itu', label: 'ITU' },
+    { id: 'grid', label: 'Grid' },
+    { id: 'flags', label: 'Flags' }
+  ];
+
+  function formatTimeOnly(ts, fallback) {
+    if (Number.isFinite(ts)) {
+      const d = new Date(ts);
+      const hh = String(d.getUTCHours()).padStart(2, '0');
+      const mm = String(d.getUTCMinutes()).padStart(2, '0');
+      return `${hh}:${mm}Z`;
     }
-    const call = escapeCall(q.call || '');
-    const op = escapeHtml(q.op || '');
-    const country = escapeCountry(q.country || '');
-    const grid = escapeHtml(q.grid || '');
-    const mode = escapeHtml(q.mode || '');
-    const band = escapeHtml(formatBandLabel(q.band || ''));
-    const cont = escapeHtml(q.continent || '');
-    const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
-    const time = escapeHtml(q.time || '');
-    const freq = escapeHtml(formatFrequency(q.freq));
-    const cq = escapeHtml(q.cqZone || '');
-    const itu = escapeHtml(q.ituZone || '');
-    return `
-        <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
-        <td>${q.ts ? formatDateSh6(q.ts) : time}</td>
-        <td class="${bandClass(q.band)}">${band}</td>
-        <td class="${modeClass(q.mode)}">${mode}</td>
-        <td class="${bandClass(q.band)}">${freq}</td>
-        <td class="tl">${call}</td>
-        <td>${formatNumberSh6(q.rstSent || '')}</td>
-        <td>${formatNumberSh6(q.rstRcvd || '')}</td>
-        <td>${formatNumberSh6(q.stx || q.exchSent || '')}</td>
-        <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
-        <td>${op}</td>
-        <td class="tl">${country}</td>
-        <td class="tac ${continentClass(q.continent)}">${cont}</td>
-        <td>${cq}</td>
-        <td>${itu}</td>
-        <td class="tl">${grid}</td>
-        <td class="tl">${flags}</td>
-    `;
+    return fallback || '';
+  }
+
+  function getLogCompareColumnConfig(count) {
+    const total = Math.max(1, Number(count) || 1);
+    let columns = LOG_COMPARE_COLUMNS.map((c) => c.id);
+    let timeOnly = false;
+    if (total >= 4) {
+      columns = ['num', 'time', 'band', 'mode', 'freq', 'call'];
+      timeOnly = true;
+    } else if (total === 3) {
+      columns = columns.filter((c) => c !== 'exchSent' && c !== 'exchRcvd');
+    } else if (total === 2) {
+      columns = columns.filter((c) => !['rstS', 'rstR', 'grid', 'flags'].includes(c));
+    }
+    return { columns, timeOnly };
+  }
+
+  function renderLogCellById(q, columnId, options) {
+    if (!q) return '<td></td>';
+    const timeOnly = options && options.timeOnly;
+    switch (columnId) {
+      case 'num':
+        return `<td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>`;
+      case 'time': {
+        const raw = timeOnly ? formatTimeOnly(q.ts, q.time || '') : (q.ts ? formatDateSh6(q.ts) : (q.time || ''));
+        return `<td>${escapeHtml(raw)}</td>`;
+      }
+      case 'band':
+        return `<td class="${bandClass(q.band)}">${escapeHtml(formatBandLabel(q.band || ''))}</td>`;
+      case 'mode':
+        return `<td class="${modeClass(q.mode)}">${escapeHtml(q.mode || '')}</td>`;
+      case 'freq':
+        return `<td class="${bandClass(q.band)}">${escapeHtml(formatFrequency(q.freq))}</td>`;
+      case 'call':
+        return `<td class="tl">${escapeCall(q.call || '')}</td>`;
+      case 'rstS':
+        return `<td>${formatNumberSh6(q.rstSent || '')}</td>`;
+      case 'rstR':
+        return `<td>${formatNumberSh6(q.rstRcvd || '')}</td>`;
+      case 'exchSent':
+        return `<td>${formatNumberSh6(q.stx || q.exchSent || '')}</td>`;
+      case 'exchRcvd':
+        return `<td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>`;
+      case 'op':
+        return `<td>${escapeHtml(q.op || '')}</td>`;
+      case 'country':
+        return `<td class="tl">${escapeCountry(q.country || '')}</td>`;
+      case 'cont':
+        return `<td class="tac ${continentClass(q.continent)}">${escapeHtml(q.continent || '')}</td>`;
+      case 'cq':
+        return `<td>${escapeHtml(q.cqZone || '')}</td>`;
+      case 'itu':
+        return `<td>${escapeHtml(q.ituZone || '')}</td>`;
+      case 'grid':
+        return `<td class="tl">${escapeHtml(q.grid || '')}</td>`;
+      case 'flags': {
+        const flags = q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim();
+        return `<td class="tl">${escapeHtml(flags)}</td>`;
+      }
+      default:
+        return '<td></td>';
+    }
+  }
+
+  function renderLogCells(q, columns, options) {
+    return columns.map((col) => renderLogCellById(q, col, options)).join('');
   }
 
   const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -3731,15 +3910,49 @@
     return buckets;
   }
 
+  function buildCompareBucketOrder(bucketMaps, qsoLists) {
+    const allKeys = new Set();
+    bucketMaps.forEach((map) => {
+      map.forEach((_, key) => allKeys.add(key));
+    });
+    const numericKeys = Array.from(allKeys).filter((k) => k !== 'unknown');
+    let startIndex = null;
+    const allWithTs = qsoLists.flat().filter((q) => Number.isFinite(q.ts));
+    if (allWithTs.length) {
+      const minTs = Math.min(...allWithTs.map((q) => q.ts));
+      const d = new Date(minTs);
+      const startDay = d.getUTCDay();
+      const startSlot = Math.floor((d.getUTCHours() * 60 + d.getUTCMinutes()) / 10);
+      startIndex = startDay * 144 + startSlot;
+    }
+    const slotIndex = (key) => {
+      const [dayStr, slotStr] = String(key).split('-');
+      const day = Number(dayStr);
+      const slot = Number(slotStr);
+      return day * 144 + slot;
+    };
+    const numericSorted = numericKeys.slice().sort((a, b) => {
+      const ai = slotIndex(a);
+      const bi = slotIndex(b);
+      if (startIndex == null) return ai - bi;
+      const da = (ai - startIndex + 1008) % 1008;
+      const db = (bi - startIndex + 1008) % 1008;
+      return da - db;
+    });
+    const hasUnknown = allKeys.has('unknown');
+    return hasUnknown ? numericSorted.concat(['unknown']) : numericSorted;
+  }
+
   function buildCompareLogKey(filters) {
     const rangeKey = filters.rangeFilter ? `${filters.rangeFilter.start}-${filters.rangeFilter.end}` : '';
     const timeKey = filters.timeRange ? `${filters.timeRange.startTs}-${filters.timeRange.endTs}` : '';
     const headingKey = filters.headingRange ? `${filters.headingRange.start}-${filters.headingRange.end}` : '';
     const stationKey = filters.stationQsoRange ? `${filters.stationQsoRange.min}-${filters.stationQsoRange.max}` : '';
     const distanceKey = filters.distanceRange ? `${filters.distanceRange.start}-${filters.distanceRange.end}` : '';
+    const slotVersions = getActiveCompareSlots().map((entry) => entry.slot?.logVersion || 0).join(',');
     return [
-      state.logVersion || 0,
-      state.compareB?.logVersion || 0,
+      state.compareCount || 1,
+      slotVersions,
       filters.search || '',
       filters.fieldFilter || '',
       filters.bandFilter || '',
@@ -3769,10 +3982,14 @@
         if (payload.type === 'compareBuckets') {
           if (payload.key !== state.compareLogPendingKey) return;
           state.compareLogPendingKey = null;
+          state.compareLogPendingSince = null;
+          if (state.compareLogFallbackTimer) {
+            clearTimeout(state.compareLogFallbackTimer);
+            state.compareLogFallbackTimer = null;
+          }
           state.compareLogData = {
             key: payload.key,
-            aCount: payload.data?.aCount || 0,
-            bCount: payload.data?.bCount || 0,
+            counts: payload.data?.counts || [],
             totalRows: payload.data?.totalRows || 0,
             buckets: payload.data?.buckets || []
           };
@@ -3784,6 +4001,11 @@
       worker.onerror = () => {
         state.compareWorker = null;
         state.compareLogPendingKey = null;
+        state.compareLogPendingSince = null;
+        if (state.compareLogFallbackTimer) {
+          clearTimeout(state.compareLogFallbackTimer);
+          state.compareLogFallbackTimer = null;
+        }
       };
       state.compareWorker = worker;
       return true;
@@ -3795,46 +4017,20 @@
   }
 
   function buildCompareLogDataSync(filters) {
-    const aQsos = state.qsoData ? applyLogFilters(state.qsoData.qsos, filters) : [];
-    const bQsos = state.compareB.qsoData ? applyLogFilters(state.compareB.qsoData.qsos, filters) : [];
-    const aBuckets = buildTenMinuteBuckets(aQsos);
-    const bBuckets = buildTenMinuteBuckets(bQsos);
-    const allKeys = new Set([...aBuckets.keys(), ...bBuckets.keys()]);
-    const numericKeys = Array.from(allKeys).filter((k) => k !== 'unknown');
-    let startIndex = null;
-    const allWithTs = aQsos.concat(bQsos).filter((q) => Number.isFinite(q.ts));
-    if (allWithTs.length) {
-      const minTs = Math.min(...allWithTs.map((q) => q.ts));
-      const d = new Date(minTs);
-      const startDay = d.getUTCDay();
-      const startSlot = Math.floor((d.getUTCHours() * 60 + d.getUTCMinutes()) / 10);
-      startIndex = startDay * 144 + startSlot;
-    }
-    const slotIndex = (key) => {
-      const [dayStr, slotStr] = String(key).split('-');
-      const day = Number(dayStr);
-      const slot = Number(slotStr);
-      return day * 144 + slot;
-    };
-    const numericSorted = numericKeys.slice().sort((a, b) => {
-      const ai = slotIndex(a);
-      const bi = slotIndex(b);
-      if (startIndex == null) return ai - bi;
-      const da = (ai - startIndex + 1008) % 1008;
-      const db = (bi - startIndex + 1008) % 1008;
-      return da - db;
-    });
-    const hasUnknown = allKeys.has('unknown');
-    const orderedKeys = hasUnknown ? numericSorted.concat(['unknown']) : numericSorted;
+    const slots = getActiveCompareSlots();
+    const lists = slots.map((entry) => (entry.slot?.qsoData ? applyLogFilters(entry.slot.qsoData.qsos, filters) : []));
+    const bucketMaps = lists.map((qsos) => buildTenMinuteBuckets(qsos));
+    const orderedKeys = buildCompareBucketOrder(bucketMaps, lists);
     const buckets = orderedKeys.map((key) => ({
       key,
-      a: aBuckets.get(key) || [],
-      b: bBuckets.get(key) || []
+      lists: bucketMaps.map((map) => map.get(key) || [])
     }));
-    const totalRows = buckets.reduce((sum, bucket) => sum + Math.max(bucket.a.length, bucket.b.length, 1), 0);
+    const totalRows = buckets.reduce((sum, bucket) => {
+      const lens = bucket.lists.map((list) => list.length);
+      return sum + Math.max(1, ...lens);
+    }, 0);
     return {
-      aCount: aQsos.length,
-      bCount: bQsos.length,
+      counts: lists.map((qsos) => qsos.length),
       totalRows,
       buckets
     };
@@ -3845,30 +4041,58 @@
       const data = buildCompareLogDataSync(filters);
       state.compareLogData = { key: compareKey, ...data };
       state.compareLogPendingKey = null;
+      state.compareLogPendingSince = null;
+      if (state.compareLogFallbackTimer) {
+        clearTimeout(state.compareLogFallbackTimer);
+        state.compareLogFallbackTimer = null;
+      }
       state.compareLogWindowStart = 0;
       return;
     }
     if (state.compareLogPendingKey === compareKey) return;
     state.compareLogPendingKey = compareKey;
+    state.compareLogPendingSince = Date.now();
     state.compareLogData = null;
-    const aLite = state.qsoLite || [];
-    const bLite = state.compareB.qsoLite || [];
+    const slots = getActiveCompareSlots();
+    const totalLoadedQsos = slots.reduce((sum, entry) => sum + (entry.slot?.qsoData?.qsos?.length || 0), 0);
+    if (totalLoadedQsos <= COMPARE_PROGRESS_THRESHOLD) {
+      const data = buildCompareLogDataSync(filters);
+      state.compareLogData = { key: compareKey, ...data };
+      state.compareLogPendingKey = null;
+      state.compareLogPendingSince = null;
+      if (state.compareLogFallbackTimer) {
+        clearTimeout(state.compareLogFallbackTimer);
+        state.compareLogFallbackTimer = null;
+      }
+      state.compareLogWindowStart = 0;
+      return;
+    }
+    slots.forEach((entry) => ensureSlotQsoLite(entry.slot));
+    const liteLists = slots.map((entry) => entry.slot?.qsoLite || []);
     state.compareWorker.postMessage({
       type: 'compareBuckets',
       key: compareKey,
       filters,
-      aQsos: aLite,
-      bQsos: bLite
+      logs: liteLists
     });
+    if (state.compareLogFallbackTimer) clearTimeout(state.compareLogFallbackTimer);
+    state.compareLogFallbackTimer = setTimeout(() => {
+      if (state.compareLogPendingKey !== compareKey) return;
+      const fallback = buildCompareLogDataSync(filters);
+      state.compareLogData = { key: compareKey, ...fallback };
+      state.compareLogPendingKey = null;
+      state.compareLogPendingSince = null;
+      state.compareLogFallbackTimer = null;
+      renderActiveReport();
+    }, 2500);
   }
 
-  function renderCompareLogRows(buckets, start, end) {
+  function renderCompareLogRows(buckets, start, end, slotEntries, columns, options) {
     let rows = '';
     let globalIndex = 0;
     for (const bucket of buckets) {
-      const aList = bucket.a || [];
-      const bList = bucket.b || [];
-      const max = Math.max(aList.length, bList.length, 1);
+      const lists = bucket.lists || [];
+      const max = Math.max(1, ...lists.map((list) => list.length));
       const bucketStart = globalIndex;
       const bucketEnd = globalIndex + max;
       if (bucketEnd <= start) {
@@ -3886,17 +4110,19 @@
           const dayLabel = WEEKDAY_LABELS[Number.isFinite(day) ? day : 0] || '';
           return `${dayLabel} ${formatTimeOfDay(slot * 10)} - ${formatTimeOfDay(slot * 10 + 9)}`;
         })();
-      rows += `<tr class="compare-bucket"><td colspan="34">${bucketLabel}</td></tr>`;
+      rows += `<tr class="compare-bucket"><td colspan="${columns.length * slotEntries.length}">${bucketLabel}</td></tr>`;
       const from = Math.max(0, start - bucketStart);
       const to = Math.min(max, end - bucketStart);
       for (let i = from; i < to; i += 1) {
         const rowIndex = bucketStart + i + 1;
         const cls = rowIndex % 2 === 0 ? 'td1' : 'td0';
-        const aIdx = aList[i];
-        const bIdx = bList[i];
-        const a = (aIdx != null && state.qsoData?.qsos) ? state.qsoData.qsos[aIdx] : null;
-        const b = (bIdx != null && state.compareB?.qsoData?.qsos) ? state.compareB.qsoData.qsos[bIdx] : null;
-        rows += `<tr class="${cls}">${renderLogCells(a, rowIndex)}${renderLogCells(b, rowIndex)}</tr>`;
+        const rowCells = slotEntries.map((entry, slotIdx) => {
+          const list = lists[slotIdx] || [];
+          const qIdx = list[i];
+          const q = (qIdx != null && entry.slot?.qsoData?.qsos) ? entry.slot.qsoData.qsos[qIdx] : null;
+          return renderLogCells(q, columns, options);
+        }).join('');
+        rows += `<tr class="${cls}">${rowCells}</tr>`;
       }
       globalIndex = bucketEnd;
     }
@@ -3904,7 +4130,9 @@
   }
 
   function renderLogCompare() {
-    if (!state.qsoData && !state.compareB.qsoData) {
+    const slotEntries = getActiveCompareSlots();
+    const anyLoaded = slotEntries.some((entry) => entry.slot?.qsoData);
+    if (!anyLoaded) {
       return '<p>No logs loaded for comparison yet.</p>';
     }
     const filters = getLogFilters();
@@ -3912,16 +4140,33 @@
     if (!state.compareLogData || state.compareLogData.key !== compareKey) {
       requestCompareLogData(compareKey, filters);
     }
-    const compareData = state.compareLogData && state.compareLogData.key === compareKey ? state.compareLogData : null;
-    const aCount = compareData ? compareData.aCount : 0;
-    const bCount = compareData ? compareData.bCount : 0;
+    let compareData = state.compareLogData && state.compareLogData.key === compareKey ? state.compareLogData : null;
+    const qsoTotals = slotEntries.map((entry) => entry.slot?.qsoData?.qsos?.length || 0);
+    if (compareData && compareData.totalRows === 0 && qsoTotals.some((n) => n > 0)) {
+      const fallback = buildCompareLogDataSync(filters);
+      state.compareLogData = { key: compareKey, ...fallback };
+      compareData = state.compareLogData;
+    }
+    if (!compareData && state.compareLogPendingKey === compareKey && state.compareLogPendingSince) {
+      const elapsed = Date.now() - state.compareLogPendingSince;
+      if (elapsed > 2500) {
+        const fallback = buildCompareLogDataSync(filters);
+        state.compareLogData = { key: compareKey, ...fallback };
+        state.compareLogPendingKey = null;
+        state.compareLogPendingSince = null;
+        compareData = state.compareLogData;
+      }
+    }
+    const counts = compareData ? (compareData.counts || []) : qsoTotals;
     const totalRows = compareData ? compareData.totalRows : 0;
     const windowSize = state.compareLogWindowSize || 1000;
     const maxStart = Math.max(0, totalRows - windowSize);
     const start = Math.min(Math.max(0, state.compareLogWindowStart || 0), maxStart);
     const end = Math.min(totalRows, start + windowSize);
     state.compareLogWindowStart = start;
-    const rows = compareData ? renderCompareLogRows(compareData.buckets, start, end) : '';
+    const columnConfig = getLogCompareColumnConfig(slotEntries.length);
+    const columns = columnConfig.columns;
+    const rows = compareData ? renderCompareLogRows(compareData.buckets, start, end, slotEntries, columns, columnConfig) : '';
     const dataNote = `<p>${(state.ctyTable && state.ctyTable.length) ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${(state.masterSet && state.masterSet.size) ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const safeBand = escapeHtml(filters.bandFilter ? formatBandLabel(filters.bandFilter) : 'All bands');
     const safeMode = escapeHtml(filters.modeFilter || '');
@@ -3935,14 +4180,23 @@
     const stationRange = filters.stationQsoRange;
     const distanceRange = filters.distanceRange;
     const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange || stationRange || distanceRange
-      ? `<p class="log-filter-note">Filter applied to both logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+      ? `<p class="log-filter-note">Filter applied to all logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
-    const note = `<p>Log A: ${formatNumberSh6(aCount)} QSOs. Log B: ${formatNumberSh6(bCount)} QSOs.</p>`;
-    const missingNote = (!state.qsoData || !state.compareB.qsoData)
-      ? `<p class="log-filter-note">Load ${!state.qsoData ? 'Log A' : 'Log B'} to enable full comparison.</p>`
+    const note = `<p>${slotEntries.map((entry, idx) => `${entry.label}: ${formatNumberSh6(counts[idx] || 0)} QSOs`).join(' · ')}</p>`;
+    const missingSlots = slotEntries.filter((entry) => !entry.slot?.qsoData).map((entry) => entry.label);
+    const missingNote = missingSlots.length
+      ? `<p class="log-filter-note">Load ${missingSlots.join(', ')} to enable full comparison.</p>`
       : '';
-    const emptyNote = compareData && (aCount + bCount) === 0 ? '<p>No QSOs match current filter.</p>' : '';
-    const pendingNote = compareData ? '' : '<p>Preparing compare log...</p>';
+    const emptyNote = compareData && counts.reduce((sum, n) => sum + n, 0) === 0 ? '<p>No QSOs match current filter.</p>' : '';
+    const totalLoadedQsos = slotEntries.reduce((sum, entry) => sum + (entry.slot?.qsoData?.qsos?.length || 0), 0);
+    const pendingNote = compareData
+      ? ''
+      : `
+      <p class="compare-building">
+        <span class="compare-spinner" aria-hidden="true"></span>
+        Compare log is still building\u2026 Need to process ${formatNumberSh6(totalLoadedQsos)} QSOs
+      </p>
+      `;
     const prevDisabled = start <= 0;
     const nextDisabled = end >= totalRows;
     const windowNote = compareData && totalRows > 0
@@ -3977,12 +4231,16 @@
       <div class="compare-log-wrap">
         <table class="mtc log-table compare-log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
           <tr class="thc">
-            <th colspan="17">Log A</th>
-            <th colspan="17">Log B</th>
+            ${slotEntries.map((entry) => {
+              const call = escapeHtml(entry.slot?.derived?.contestMeta?.stationCallsign || 'N/A');
+              return `<th colspan="${columns.length}">${escapeHtml(entry.label)}: ${call}</th>`;
+            }).join('')}
           </tr>
           <tr class="thc">
-            <th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>
-            <th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>
+            ${slotEntries.map(() => columns.map((colId) => {
+              const def = LOG_COMPARE_COLUMNS.find((c) => c.id === colId);
+              return `<th>${escapeHtml(def ? def.label : '')}</th>`;
+            }).join('')).join('')}
           </tr>
           ${rows || ''}
         </table>
@@ -4304,10 +4562,15 @@
     const setAll = (checked) => getChecks().forEach((cb) => { cb.checked = checked; });
     const close = () => overlay.remove();
     const exportSelected = (reportIds) => {
+      const compareSlots = getActiveCompareSlots();
+      const logParams = {};
+      compareSlots.forEach((entry) => {
+        logParams[`log_${entry.id.toLowerCase()}`] = entry.slot?.derived?.contestMeta?.stationCallsign || '';
+      });
       trackEvent(type === 'pdf' ? 'download_pdf' : 'download_html', {
-        log_a: state.derived?.contestMeta?.stationCallsign || '',
-        log_b: state.compareB?.derived?.contestMeta?.stationCallsign || '',
-        compare: state.compareEnabled ? 'yes' : 'no'
+        ...logParams,
+        compare: state.compareEnabled ? 'yes' : 'no',
+        compare_count: state.compareCount || 1
       });
       if (type === 'pdf') {
         exportPdf(reportIds);
@@ -4519,6 +4782,58 @@
         </tr>
         ${rows}
         ${mapAllFooter()}
+      </table>
+    `;
+  }
+
+  function renderCountryBandSummaryRowsFromList(list, derived, totalQsos, options = {}) {
+    const bandCols = options.bandCols && options.bandCols.length ? options.bandCols : getDisplayBandList();
+    const showIndex = options.showIndex !== false;
+    const showTotal = options.showTotal !== false;
+    const summaryMap = buildCountrySummaryMap(derived);
+    const renderCount = (count, country, band) => {
+      if (!count) return '<td></td>';
+      const countryAttr = escapeAttr(country || '');
+      const bandAttr = escapeAttr(band || '');
+      return `<td><a href="#" class="log-country-filter" data-country="${countryAttr}" data-band="${bandAttr}" data-mode="">${formatNumberSh6(count)}</a></td>`;
+    };
+    return list.map((info, idx) => {
+      const c = summaryMap.get(info.country);
+      const continent = c?.continent || info.continent || '';
+      const countryText = escapeHtml(info.country || '');
+      const countryAttr = escapeAttr(info.country || '');
+      const countryLabel = c ? `<a href="#" class="log-country" data-country="${countryAttr}">${countryText}</a>` : countryText;
+      const bandCells = bandCols.map((b) => renderCount(c?.bandCounts?.get(b), info.country, b));
+      const total = c?.qsos || 0;
+      const totalCell = total ? renderCount(total, info.country, '') : '<td></td>';
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          ${showIndex ? `<td>${formatNumberSh6(idx + 1)}</td>` : ''}
+          <td class="${continentClass(continent)}">${escapeHtml(continent)}</td>
+          <td class="tl">${countryLabel}</td>
+          ${bandCells.join('')}
+          ${showTotal ? totalCell : ''}
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderCountriesBandSummaryTable(rows, options = {}) {
+    const bandCols = options.bandCols && options.bandCols.length ? options.bandCols : getDisplayBandList();
+    const showIndex = options.showIndex !== false;
+    const showTotal = options.showTotal !== false;
+    const continentLabel = options.continentLabel || 'Cont.';
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc">
+          ${showIndex ? '<th>#</th>' : ''}
+          <th>${escapeHtml(continentLabel)}</th>
+          <th>Country</th>
+          ${bandHeaders}
+          ${showTotal ? '<th>All</th>' : ''}
+        </tr>
+        ${rows}
       </table>
     `;
   }
@@ -4763,10 +5078,15 @@
   }
 
   function buildHourKeyOrderFromMaps(mapA, mapB, qsosA, qsosB) {
-    const allKeys = new Set([...mapA.keys(), ...mapB.keys()]);
+    return buildHourKeyOrderFromMapsList([mapA, mapB], [qsosA, qsosB]);
+  }
+
+  function buildHourKeyOrderFromMapsList(maps, qsoLists) {
+    const allKeys = new Set();
+    maps.forEach((map) => map.forEach((_, key) => allKeys.add(key)));
     const keys = Array.from(allKeys);
     let startIndex = null;
-    const allWithTs = (qsosA || []).concat(qsosB || []).filter((q) => Number.isFinite(q.ts));
+    const allWithTs = qsoLists.flat().filter((q) => Number.isFinite(q.ts));
     if (allWithTs.length) {
       const minTs = Math.min(...allWithTs.map((q) => q.ts));
       const d = new Date(minTs);
@@ -4835,26 +5155,13 @@
   }
 
   function renderQsByHourSheetCompare() {
-    const slotA = {
-      qsoData: state.qsoData,
-      derived: state.derived
-    };
-    const slotB = state.compareB || {};
-    const mapA = buildHourBucketMap(slotA.qsoData?.qsos || []);
-    const mapB = buildHourBucketMap(slotB.qsoData?.qsos || []);
-    const order = buildHourKeyOrderFromMaps(mapA, mapB, slotA.qsoData?.qsos || [], slotB.qsoData?.qsos || []);
-    return `
-      <div class="compare-grid">
-        <div class="compare-panel compare-a">
-          <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
-          ${renderQsByHourSheetForSlot(slotA, order, mapA)}
-        </div>
-        <div class="compare-panel compare-b">
-          <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
-          ${renderQsByHourSheetForSlot(slotB, order, mapB)}
-        </div>
-      </div>
-    `;
+    const slots = getActiveCompareSnapshots();
+    const maps = slots.map((entry) => buildHourBucketMap(entry.snapshot.qsoData?.qsos || []));
+    const order = buildHourKeyOrderFromMapsList(maps, slots.map((entry) => entry.snapshot.qsoData?.qsos || []));
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready ? renderQsByHourSheetForSlot(entry.snapshot, order, maps[idx]) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'qs_by_hour_sheet');
   }
 
   function renderRates() {
@@ -4995,8 +5302,13 @@
 
   function renderOneMinuteRates() {
     if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'one_minute_rates', title: 'One minute rates' });
+    return renderOneMinuteRatesForDerived(state.derived);
+  }
+
+  function renderOneMinuteRatesForDerived(derived) {
+    if (!derived || !derived.minuteSeries) return '<p>No QSOs to analyze.</p>';
     const grouped = new Map();
-    state.derived.minuteSeries.forEach((m) => {
+    derived.minuteSeries.forEach((m) => {
       if (!grouped.has(m.qsos)) grouped.set(m.qsos, []);
       grouped.get(m.qsos).push(m.minute);
     });
@@ -5016,6 +5328,22 @@
         ${rows}
       </table>
     `;
+  }
+
+  function renderOneMinuteRatesCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    if (slots.length > 2) {
+      const { pair, entries } = resolveFocusEntries('one_minute_rates', slots);
+      const htmlBlocks = entries.map((entry) => (
+        entry.ready ? renderOneMinuteRatesForDerived(entry.snapshot.derived) : `<p>No ${entry.label} loaded.</p>`
+      ));
+      const focusControls = renderCompareFocusControls('one_minute_rates', slots, pair);
+      return `${focusControls}${renderComparePanels(entries, htmlBlocks, 'one_minute_rates')}`;
+    }
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? renderOneMinuteRatesForDerived(entry.snapshot.derived) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'one_minute_rates');
   }
 
   function buildPrefixGroups(derived) {
@@ -5394,10 +5722,10 @@
     const kmzBlock = kmzLinks
       ? `<ul>${kmzLinks}</ul>`
       : '<p>No KMZ files generated yet. Open the KMZ files report to generate them.</p>';
-    const legend = state.compareEnabled && state.compareB?.qsoData
+    const compareSlots = getLoadedCompareSlots();
+    const legend = state.compareEnabled && compareSlots.length > 1
       ? `<div class="map-legend">
-          <span><i class="map-swatch" style="background:#1e5bd6;"></i> Log A</span>
-          <span><i class="map-swatch" style="background:#c62828;"></i> Log B</span>
+          ${compareSlots.map((entry) => `<span><i class="map-swatch" style="background:${entry.color};"></i> ${entry.label}</span>`).join('')}
         </div>`
       : '';
     return `
@@ -5803,11 +6131,13 @@
     const markerLayer = L.layerGroup();
     const lineLayer = L.layerGroup();
     const allLatLngs = [];
-    const slots = state.compareEnabled && state.compareB?.qsoData
-      ? [
-        { label: 'A', color: '#1e5bd6', state: state },
-        { label: 'B', color: '#c62828', state: state.compareB }
-      ]
+    const loadedCompareSlots = getLoadedCompareSlots();
+    const slots = state.compareEnabled && loadedCompareSlots.length > 1
+      ? loadedCompareSlots.map((entry) => ({
+        label: entry.label,
+        color: entry.color,
+        state: entry.slot
+      }))
       : [
         { label: '', color: '#cc0000', state: state }
       ];
@@ -6064,8 +6394,12 @@
     `;
   }
 
-  function renderBars(data, labelField, valueField) {
-    const max = Math.max(...data.map((d) => d[valueField] || 0), 1);
+  function renderBars(data, labelField, valueField, maxOverride) {
+    const values = data.map((d) => Number(d[valueField]) || 0);
+    const computedMax = Math.max(...values, 1);
+    const max = Number.isFinite(maxOverride) && maxOverride > 0
+      ? Math.max(maxOverride, computedMax)
+      : computedMax;
     return data.map((d) => {
       const w = Math.max(4, (d[valueField] / max) * 200);
       const label = escapeHtml(d[labelField] ?? '');
@@ -6087,21 +6421,81 @@
     `;
   }
 
+  function buildChartQsByBandData(derived) {
+    if (!derived || !derived.bandSummary) return [];
+    return derived.bandSummary.map((b) => ({ ...b, bandLabel: formatBandLabel(b.band) }));
+  }
+
+  function renderChartQsByBandForDerived(derived, maxOverride) {
+    if (!derived) return '<p>No data.</p>';
+    const data = buildChartQsByBandData(derived);
+    return `<div class="mtc"><div class="gradient">&nbsp;Qs by band</div>${renderBars(data, 'bandLabel', 'qsos', maxOverride)}</div>`;
+  }
+
   function renderChartQsByBand() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_qs_by_band', title: 'Qs by band' });
-    const data = state.derived.bandSummary.map((b) => ({ ...b, bandLabel: formatBandLabel(b.band) }));
-    return `<div class="mtc"><div class="gradient">&nbsp;Qs by band</div>${renderBars(data, 'bandLabel', 'qsos')}</div>`;
+    return renderChartQsByBandForDerived(state.derived);
+  }
+
+  function buildChartTop10CountriesData(derived) {
+    if (!derived || !derived.countrySummary) return [];
+    return derived.countrySummary.slice().sort((a, b) => (b.qsos || 0) - (a.qsos || 0)).slice(0, 10);
+  }
+
+  function renderChartTop10CountriesForDerived(derived, maxOverride) {
+    if (!derived) return '<p>No data.</p>';
+    const top = buildChartTop10CountriesData(derived);
+    return `<div class="mtc"><div class="gradient">&nbsp;Top 10 countries</div>${renderBars(top, 'country', 'qsos', maxOverride)}</div>`;
   }
 
   function renderChartTop10Countries() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_top_10_countries', title: 'Top 10 countries' });
-    const top = state.derived.countrySummary.slice().sort((a, b) => (b.qsos || 0) - (a.qsos || 0)).slice(0, 10);
-    return `<div class="mtc"><div class="gradient">&nbsp;Top 10 countries</div>${renderBars(top, 'country', 'qsos')}</div>`;
+    return renderChartTop10CountriesForDerived(state.derived);
+  }
+
+  function buildChartContinentsData(derived) {
+    if (!derived || !derived.continentSummary) return [];
+    return derived.continentSummary;
+  }
+
+  function renderChartContinentsForDerived(derived, maxOverride) {
+    if (!derived) return '<p>No data.</p>';
+    return `<div class="mtc"><div class="gradient">&nbsp;Continents</div>${renderBars(buildChartContinentsData(derived), 'continent', 'qsos', maxOverride)}</div>`;
   }
 
   function renderChartContinents() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_continents', title: 'Continents chart' });
-    return `<div class="mtc"><div class="gradient">&nbsp;Continents</div>${renderBars(state.derived.continentSummary, 'continent', 'qsos')}</div>`;
+    return renderChartContinentsForDerived(state.derived);
+  }
+
+  function renderChartQsByBandCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    const dataSets = slots.map((entry) => buildChartQsByBandData(entry.snapshot.derived));
+    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? renderChartQsByBandForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'charts_qs_by_band', { chart: true });
+  }
+
+  function renderChartTop10CountriesCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    const dataSets = slots.map((entry) => buildChartTop10CountriesData(entry.snapshot.derived));
+    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? renderChartTop10CountriesForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'charts_top_10_countries', { chart: true });
+  }
+
+  function renderChartContinentsCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    const dataSets = slots.map((entry) => buildChartContinentsData(entry.snapshot.derived));
+    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? renderChartContinentsForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'charts_continents', { chart: true });
   }
 
   function renderFrequencyScatterChart(qsos, rangeOverride, title) {
@@ -6264,28 +6658,19 @@
   }
 
   function renderGraphsQsByHourCompare(bandFilter) {
-    const slotA = { qsoData: state.qsoData, derived: state.derived };
-    const slotB = state.compareB || {};
-    const mapA = buildHourBucketMap(slotA.qsoData?.qsos || []);
-    const mapB = buildHourBucketMap(slotB.qsoData?.qsos || []);
-    const order = buildHourKeyOrderFromMaps(mapA, mapB, slotA.qsoData?.qsos || [], slotB.qsoData?.qsos || []);
-    const values = [];
+    const slots = getActiveCompareSnapshots();
     const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
-    mapA.forEach((entry) => values.push(bandKey ? (entry.bands.get(bandKey) || 0) : entry.qsos));
-    mapB.forEach((entry) => values.push(bandKey ? (entry.bands.get(bandKey) || 0) : entry.qsos));
+    const maps = slots.map((entry) => buildHourBucketMap(entry.snapshot.qsoData?.qsos || []));
+    const order = buildHourKeyOrderFromMapsList(maps, slots.map((entry) => entry.snapshot.qsoData?.qsos || []));
+    const values = [];
+    maps.forEach((map) => {
+      map.forEach((entry) => values.push(bandKey ? (entry.bands.get(bandKey) || 0) : entry.qsos));
+    });
     const maxValue = Math.max(1, ...values);
-    return `
-      <div class="compare-grid">
-        <div class="compare-panel compare-a">
-          <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
-          ${renderGraphsQsByHourForSlot(slotA, order, mapA, bandKey, maxValue)}
-        </div>
-        <div class="compare-panel compare-b">
-          <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
-          ${renderGraphsQsByHourForSlot(slotB, order, mapB, bandKey, maxValue)}
-        </div>
-      </div>
-    `;
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready ? renderGraphsQsByHourForSlot(entry.snapshot, order, maps[idx], bandKey, maxValue) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'graphs_qs_by_hour');
   }
 
   function renderReportSingle(report) {
@@ -6372,7 +6757,8 @@
 
   function estimateReportRows(reportId, derived) {
     if (!derived) return 0;
-    switch (reportId) {
+    const baseId = String(reportId || '').split('::')[0];
+    switch (baseId) {
       case 'main': return 8;
       case 'summary': return derived.bandModeSummary?.length || 0;
       case 'operators': return derived.operatorsSummary?.length || 0;
@@ -6396,29 +6782,16 @@
     }
   }
 
-  function getCompareSlots() {
-    const slotA = {
-      logFile: state.logFile,
-      qsoData: state.qsoData,
-      qsoLite: state.qsoLite,
-      rawLogText: state.rawLogText,
-      derived: state.derived,
-      logPage: state.logPage,
-      logPageSize: state.logPageSize,
-      fullQsoData: state.fullQsoData,
-      fullDerived: state.fullDerived,
-      bandDerivedCache: state.bandDerivedCache,
-      logVersion: state.logVersion
-    };
-    const slotB = state.compareB || {};
-    return { slotA, slotB, aReady: !!slotA.qsoData, bReady: !!slotB.qsoData };
+  function mergeListsMany(mergeFn, lists) {
+    let merged = [];
+    lists.forEach((list) => {
+      merged = mergeFn(merged, list || []);
+    });
+    return merged;
   }
 
-  function renderComparePanels(slotA, slotB, aHtml, bHtml, reportId) {
-    const aRows = estimateReportRows(reportId, slotA.derived);
-    const bRows = estimateReportRows(reportId, slotB.derived);
-    const forceStackReports = new Set(['one_minute_rates']);
-    const stack = forceStackReports.has(reportId) || Math.max(aRows, bRows) <= 10;
+  function renderComparePanels(slotEntries, htmlBlocks, reportId, options = {}) {
+    const baseId = String(reportId || '').split('::')[0];
     const narrowReports = new Set([
       'summary',
       'operators',
@@ -6434,221 +6807,296 @@
       'not_in_master',
       'one_minute_rates',
       'rates',
-      'all_callsigns'
+      'all_callsigns',
+      'qs_by_hour_sheet'
     ]);
-    const isNarrow = narrowReports.has(reportId);
     const wrapReports = new Set(['one_minute_rates']);
-    const shouldWrap = wrapReports.has(reportId);
-    const gridClass = stack
-      ? `compare-grid compare-stack${isNarrow ? ' compare-narrow' : ''}`
-      : `compare-grid${isNarrow ? ' compare-narrow' : ''}`;
+    const quadReports = new Set([
+      'qs_per_station',
+      'one_minute_rates',
+      'distance',
+      'breaks',
+      'continents',
+      'kmz_files',
+      'fields_map',
+      'callsign_length',
+      'callsign_structure',
+      'zones_cq',
+      'zones_itu',
+      'not_in_master',
+      'possible_errors',
+      'comments',
+      'sh6_info',
+      'charts'
+    ]);
+    const isNarrow = narrowReports.has(baseId);
+    const shouldWrap = wrapReports.has(baseId);
+    const isChart = options.chart || baseId.startsWith('charts_');
+    const isQuad = isChart || quadReports.has(baseId);
+    const gridClass = `compare-grid compare-count-${slotEntries.length}${isNarrow ? ' compare-narrow' : ''}${isChart ? ' compare-chart' : ''}${isQuad ? ' compare-quad' : ''}`;
     return `
       <div class="${gridClass}">
-        <div class="compare-panel compare-a">
-          <div class="compare-head">${formatCompareHeader(slotA, 'Log A')}</div>
-          <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}">${aHtml}</div>
-        </div>
-        <div class="compare-panel compare-b">
-          <div class="compare-head">${formatCompareHeader(slotB, 'Log B')}</div>
-          <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}">${bHtml}</div>
-        </div>
+        ${slotEntries.map((entry, idx) => {
+          const html = htmlBlocks[idx] || '';
+          const panelClass = `compare-panel compare-${entry.id.toLowerCase()}`;
+          return `
+            <div class="${panelClass}">
+              <div class="compare-head">${formatCompareHeader(entry.snapshot, entry.label)}</div>
+              <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}">${html}</div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   }
 
+  function getFocusReportId(reportId) {
+    return String(reportId || '').split('::')[0];
+  }
+
+  function getCompareFocusPair(reportId, slotEntries) {
+    const baseId = getFocusReportId(reportId);
+    const ids = slotEntries.map((entry) => entry.id);
+    const stored = state.compareFocus?.[baseId] || [];
+    let left = ids.includes(stored[0]) ? stored[0] : ids[0];
+    let right = ids.includes(stored[1]) ? stored[1] : ids.find((id) => id !== left);
+    if (!right) right = ids.find((id) => id !== left) || left;
+    if (right === left) right = ids.find((id) => id !== left) || left;
+    return [left, right];
+  }
+
+  function renderCompareFocusControls(reportId, slotEntries, pair) {
+    if (slotEntries.length <= 2) return '';
+    const baseId = getFocusReportId(reportId);
+    const renderOptions = (selectedId) => slotEntries.map((entry) => {
+      const selected = entry.id === selectedId ? ' selected' : '';
+      return `<option value="${entry.id}"${selected}>${entry.label}</option>`;
+    }).join('');
+    return `
+      <div class="compare-focus">
+        <span>Focus compare:</span>
+        <select class="compare-focus-select" data-focus-report="${baseId}" data-focus-role="a">
+          ${renderOptions(pair[0])}
+        </select>
+        <span>vs</span>
+        <select class="compare-focus-select" data-focus-report="${baseId}" data-focus-role="b">
+          ${renderOptions(pair[1])}
+        </select>
+      </div>
+    `;
+  }
+
+  function resolveFocusEntries(reportId, slotEntries) {
+    const pair = getCompareFocusPair(reportId, slotEntries);
+    const left = slotEntries.find((entry) => entry.id === pair[0]) || slotEntries[0];
+    const right = slotEntries.find((entry) => entry.id === pair[1]) || slotEntries.find((entry) => entry.id !== (left && left.id));
+    const entries = [left, right].filter(Boolean);
+    return { pair, entries };
+  }
+
+  function renderFocusComparePanels(reportId, slotEntries, renderSlot, reportKey, options = {}) {
+    const { pair, entries } = resolveFocusEntries(reportId, slotEntries);
+    const focusControls = renderCompareFocusControls(reportId, slotEntries, pair);
+    const htmlBlocks = entries.map((entry) => renderSlot(entry));
+    return `${focusControls}${renderComparePanels(entries, htmlBlocks, reportKey, options)}`;
+  }
+
   function renderCountriesCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const list = mergeCountryLists(
-      buildCountryListFromDerived(slotA.derived),
-      buildCountryListFromDerived(slotB.derived)
-    );
-    const aHtml = aReady
-      ? renderCountriesTable(renderCountryRowsFromList(list, slotA.derived, slotA.qsoData?.qsos.length || 0))
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? renderCountriesTable(renderCountryRowsFromList(list, slotB.derived, slotB.qsoData?.qsos.length || 0))
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'countries');
+    const slots = getActiveCompareSnapshots();
+    const lists = slots.map((entry) => buildCountryListFromDerived(entry.snapshot.derived));
+    const list = mergeListsMany(mergeCountryLists, lists);
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? renderCountriesTable(renderCountryRowsFromList(list, entry.snapshot.derived, entry.snapshot.qsoData?.qsos.length || 0))
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'countries');
   }
 
   function renderContinentsCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const list = mergeContinentLists(
-      buildContinentListFromDerived(slotA.derived),
-      buildContinentListFromDerived(slotB.derived)
-    );
-    const aHtml = aReady
-      ? renderContinentsTable(renderContinentsRowsFromList(list, slotA.derived, slotA.qsoData?.qsos.length || 0))
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? renderContinentsTable(renderContinentsRowsFromList(list, slotB.derived, slotB.qsoData?.qsos.length || 0))
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'continents');
+    const slots = getActiveCompareSnapshots();
+    const lists = slots.map((entry) => buildContinentListFromDerived(entry.snapshot.derived));
+    const list = mergeListsMany(mergeContinentLists, lists);
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? renderContinentsTable(renderContinentsRowsFromList(list, entry.snapshot.derived, entry.snapshot.qsoData?.qsos.length || 0))
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'continents');
   }
 
   function renderZoneCompareAligned(field) {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const list = mergeZoneLists(
-      buildZoneListFromDerived(slotA.derived, field),
-      buildZoneListFromDerived(slotB.derived, field)
-    );
-    const aHtml = aReady
-      ? renderZonesTable(renderZoneRowsFromList(list, slotA.derived, field))
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? renderZonesTable(renderZoneRowsFromList(list, slotB.derived, field))
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, field === 'itu' ? 'zones_itu' : 'zones_cq');
+    const slots = getActiveCompareSnapshots();
+    const lists = slots.map((entry) => buildZoneListFromDerived(entry.snapshot.derived, field));
+    const list = mergeListsMany(mergeZoneLists, lists);
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? renderZonesTable(renderZoneRowsFromList(list, entry.snapshot.derived, field))
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, field === 'itu' ? 'zones_itu' : 'zones_cq');
   }
 
   function renderPrefixesCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const slots = getActiveCompareSnapshots();
     if (!state.ctyTable || !state.ctyTable.length) {
-      const aHtml = aReady ? '<p>cty.dat not loaded.</p>' : '<p>No Log A loaded.</p>';
-      const bHtml = bReady ? '<p>cty.dat not loaded.</p>' : '<p>No Log B loaded.</p>';
-      return renderComparePanels(slotA, slotB, aHtml, bHtml, 'prefixes');
+      const htmlBlocks = slots.map((entry) => (entry.ready ? '<p>cty.dat not loaded.</p>' : `<p>No ${entry.label} loaded.</p>`));
+      return renderComparePanels(slots, htmlBlocks, 'prefixes');
     }
-    const aGroups = buildPrefixGroups(slotA.derived);
-    const bGroups = buildPrefixGroups(slotB.derived);
-    const list = mergePrefixLists(buildPrefixListFromGroups(aGroups), buildPrefixListFromGroups(bGroups));
-    const aHtml = aReady
-      ? renderPrefixesTable(renderPrefixesRowsFromList(list, aGroups, slotA.derived?.prefixSummary?.length || 0))
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? renderPrefixesTable(renderPrefixesRowsFromList(list, bGroups, slotB.derived?.prefixSummary?.length || 0))
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'prefixes');
+    const groupSets = slots.map((entry) => buildPrefixGroups(entry.snapshot.derived));
+    const list = mergeListsMany(mergePrefixLists, groupSets.map((groups) => buildPrefixListFromGroups(groups)));
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready
+        ? renderPrefixesTable(renderPrefixesRowsFromList(list, groupSets[idx], entry.snapshot.derived?.prefixSummary?.length || 0))
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'prefixes');
   }
 
   function renderCallsignLengthCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const list = mergeCallsignLengthLists(
-      buildCallsignLengthList(slotA.derived),
-      buildCallsignLengthList(slotB.derived)
-    );
-    const aHtml = aReady
-      ? renderCallsignLengthTable(renderCallsignLengthRowsFromList(list, slotA.derived, slotA.derived?.uniqueCallsCount || 0, slotA.qsoData?.qsos.length || 0))
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? renderCallsignLengthTable(renderCallsignLengthRowsFromList(list, slotB.derived, slotB.derived?.uniqueCallsCount || 0, slotB.qsoData?.qsos.length || 0))
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'callsign_length');
+    const slots = getActiveCompareSnapshots();
+    const lists = slots.map((entry) => buildCallsignLengthList(entry.snapshot.derived));
+    const list = mergeListsMany(mergeCallsignLengthLists, lists);
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? renderCallsignLengthTable(renderCallsignLengthRowsFromList(list, entry.snapshot.derived, entry.snapshot.derived?.uniqueCallsCount || 0, entry.snapshot.qsoData?.qsos.length || 0))
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'callsign_length');
   }
 
   function renderCallsignStructureCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const list = mergeStructureLists(
-      buildStructureList(slotA.derived),
-      buildStructureList(slotB.derived)
-    );
-    const aHtml = aReady
-      ? renderCallsignStructureTable(renderCallsignStructureRowsFromList(list, slotA.derived, slotA.derived?.uniqueCallsCount || 0, slotA.qsoData?.qsos.length || 0))
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? renderCallsignStructureTable(renderCallsignStructureRowsFromList(list, slotB.derived, slotB.derived?.uniqueCallsCount || 0, slotB.qsoData?.qsos.length || 0))
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'callsign_structure');
+    const slots = getActiveCompareSnapshots();
+    const lists = slots.map((entry) => buildStructureList(entry.snapshot.derived));
+    const list = mergeListsMany(mergeStructureLists, lists);
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? renderCallsignStructureTable(renderCallsignStructureRowsFromList(list, entry.snapshot.derived, entry.snapshot.derived?.uniqueCallsCount || 0, entry.snapshot.qsoData?.qsos.length || 0))
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'callsign_structure');
   }
 
   function renderDistanceCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const list = mergeDistanceLists(
-      buildDistanceList(slotA.derived),
-      buildDistanceList(slotB.derived)
-    );
-    const aHtml = aReady
-      ? (list.length ? renderDistanceTable(renderDistanceRowsFromList(list, slotA.derived)) : '<p>No distance data (station or remote locations missing).</p>')
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? (list.length ? renderDistanceTable(renderDistanceRowsFromList(list, slotB.derived)) : '<p>No distance data (station or remote locations missing).</p>')
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'distance');
+    const slots = getActiveCompareSnapshots();
+    const lists = slots.map((entry) => buildDistanceList(entry.snapshot.derived));
+    const list = mergeListsMany(mergeDistanceLists, lists);
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? (list.length ? renderDistanceTable(renderDistanceRowsFromList(list, entry.snapshot.derived)) : '<p>No distance data (station or remote locations missing).</p>')
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'distance');
   }
 
   function renderBeamHeadingCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const list = mergeHeadingLists(
-      buildHeadingList(slotA.derived),
-      buildHeadingList(slotB.derived)
-    );
-    const aRows = list.length ? renderHeadingRowsFromList(list, slotA.derived) : '';
-    const bRows = list.length ? renderHeadingRowsFromList(list, slotB.derived) : '';
-    const aHtml = aReady
-      ? (aRows ? renderHeadingTable(aRows) : '<p>No heading data.</p>')
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? (bRows ? renderHeadingTable(bRows) : '<p>No heading data.</p>')
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'beam_heading');
+    const slots = getActiveCompareSnapshots();
+    const lists = slots.map((entry) => buildHeadingList(entry.snapshot.derived));
+    const list = mergeListsMany(mergeHeadingLists, lists);
+    const htmlBlocks = slots.map((entry) => {
+      if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+      const rows = list.length ? renderHeadingRowsFromList(list, entry.snapshot.derived) : '';
+      return rows ? renderHeadingTable(rows) : '<p>No heading data.</p>';
+    });
+    return renderComparePanels(slots, htmlBlocks, 'beam_heading');
   }
 
   function renderCountriesByTimeCompareAligned(bandFilter) {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
+    const slots = getActiveCompareSnapshots();
     const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
-    const list = mergeCountryLists(
-      buildCountryListFromDerived(slotA.derived),
-      buildCountryListFromDerived(slotB.derived)
-    );
-    const renderForSlot = (slot) => {
-      const qsos = slot.qsoData?.qsos || [];
+    const reportId = bandKey ? `countries_by_time::${bandKey}` : 'countries_by_time';
+    if (slots.length > 2) {
+      const { pair, entries } = resolveFocusEntries('countries_by_time', slots);
+      const bandCols = bandKey
+        ? [bandKey]
+        : sortBands(Array.from(new Set(
+          entries.flatMap((entry) => getBandsFromDerived(entry.snapshot.derived))
+        )));
+      const list = mergeListsMany(
+        mergeCountryLists,
+        entries.map((entry) => buildCountryListFromDerived(entry.snapshot.derived))
+      );
+      const htmlBlocks = entries.map((entry) => {
+        if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+        const rows = renderCountryBandSummaryRowsFromList(list, entry.snapshot.derived, entry.snapshot.qsoData?.qsos.length || 0, {
+          bandCols,
+          showIndex: false,
+          showTotal: false
+        });
+        return rows ? renderCountriesBandSummaryTable(rows, {
+          bandCols,
+          showIndex: false,
+          showTotal: false,
+          continentLabel: 'Cnt'
+        }) : '<p>No data.</p>';
+      });
+      const focusControls = renderCompareFocusControls('countries_by_time', slots, pair);
+      return `${focusControls}${renderComparePanels(entries, htmlBlocks, reportId)}`;
+    }
+    const lists = slots.map((entry) => buildCountryListFromDerived(entry.snapshot.derived));
+    const list = mergeListsMany(mergeCountryLists, lists);
+    const renderForSlot = (entry) => {
+      if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+      const qsos = entry.snapshot.qsoData?.qsos || [];
       const map = buildCountryTimeBuckets(qsos, bandKey);
       if (!list.length) return '<p>No data.</p>';
       const countryInfo = new Map();
-      slot.derived?.countrySummary?.forEach((c) => {
+      entry.snapshot.derived?.countrySummary?.forEach((c) => {
         countryInfo.set(c.country, { continent: c.continent, prefixCode: c.prefixCode });
       });
       const rows = renderCountriesByTimeRowsFromList(list, map, countryInfo, bandKey);
       return renderCountriesByTimeTable(rows);
     };
-    const aHtml = aReady ? renderForSlot(slotA) : '<p>No Log A loaded.</p>';
-    const bHtml = bReady ? renderForSlot(slotB) : '<p>No Log B loaded.</p>';
-    const reportId = bandKey ? `countries_by_time::${bandKey}` : 'countries_by_time';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, reportId);
+    const htmlBlocks = slots.map((entry) => renderForSlot(entry));
+    return renderComparePanels(slots, htmlBlocks, reportId);
   }
 
   function renderQsPerStationCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const maxQso = Math.max(
-      getMaxQsosPerStation(slotA.derived),
-      getMaxQsosPerStation(slotB.derived)
-    );
-    const aHtml = aReady
-      ? renderQsPerStationTable(slotA.derived, slotA.qsoData?.qsos?.length || 0, maxQso)
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? renderQsPerStationTable(slotB.derived, slotB.qsoData?.qsos?.length || 0, maxQso)
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'qs_per_station');
+    const slots = getActiveCompareSnapshots();
+    const maxQso = Math.max(0, ...slots.map((entry) => getMaxQsosPerStation(entry.snapshot.derived)));
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? renderQsPerStationTable(entry.snapshot.derived, entry.snapshot.qsoData?.qsos?.length || 0, maxQso)
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'qs_per_station');
   }
 
   function renderQsByMinuteCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const mapA = buildMinuteMapFromDerived(slotA.derived);
-    const mapB = buildMinuteMapFromDerived(slotB.derived);
-    const rangeA = getMinuteRangeFromMap(mapA);
-    const rangeB = getMinuteRangeFromMap(mapB);
-    if (!rangeA && !rangeB) {
-      const aHtml = aReady ? '<p>No QSOs to analyze.</p>' : '<p>No Log A loaded.</p>';
-      const bHtml = bReady ? '<p>No QSOs to analyze.</p>' : '<p>No Log B loaded.</p>';
-      return renderComparePanels(slotA, slotB, aHtml, bHtml, 'qs_by_minute');
+    const slots = getActiveCompareSnapshots();
+    if (slots.length > 2) {
+      const { pair, entries } = resolveFocusEntries('qs_by_minute', slots);
+      const maps = entries.map((entry) => buildMinuteMapFromDerived(entry.snapshot.derived));
+      const ranges = maps.map((map) => getMinuteRangeFromMap(map)).filter(Boolean);
+      if (!ranges.length) {
+        const htmlBlocks = entries.map((entry) => (entry.ready ? '<p>No QSOs to analyze.</p>' : `<p>No ${entry.label} loaded.</p>`));
+        const focusControls = renderCompareFocusControls('qs_by_minute', slots, pair);
+        return `${focusControls}${renderComparePanels(entries, htmlBlocks, 'qs_by_minute')}`;
+      }
+      const minMinute = Math.min(...ranges.map((r) => r.minMinute));
+      const maxMinute = Math.max(...ranges.map((r) => r.maxMinute));
+      const startHour = Math.floor(minMinute / 60);
+      const endHour = Math.floor(maxMinute / 60);
+      const htmlBlocks = entries.map((entry, idx) => (
+        entry.ready ? renderQsByMinuteTable(maps[idx], startHour, endHour) : `<p>No ${entry.label} loaded.</p>`
+      ));
+      const focusControls = renderCompareFocusControls('qs_by_minute', slots, pair);
+      return `${focusControls}${renderComparePanels(entries, htmlBlocks, 'qs_by_minute')}`;
     }
-    const minMinute = Math.min(
-      rangeA ? rangeA.minMinute : Infinity,
-      rangeB ? rangeB.minMinute : Infinity
-    );
-    const maxMinute = Math.max(
-      rangeA ? rangeA.maxMinute : -Infinity,
-      rangeB ? rangeB.maxMinute : -Infinity
-    );
+    const maps = slots.map((entry) => buildMinuteMapFromDerived(entry.snapshot.derived));
+    const ranges = maps.map((map) => getMinuteRangeFromMap(map)).filter(Boolean);
+    if (!ranges.length) {
+      const htmlBlocks = slots.map((entry) => (entry.ready ? '<p>No QSOs to analyze.</p>' : `<p>No ${entry.label} loaded.</p>`));
+      return renderComparePanels(slots, htmlBlocks, 'qs_by_minute');
+    }
+    const minMinute = Math.min(...ranges.map((r) => r.minMinute));
+    const maxMinute = Math.max(...ranges.map((r) => r.maxMinute));
     const startHour = Math.floor(minMinute / 60);
     const endHour = Math.floor(maxMinute / 60);
-    const aHtml = aReady
-      ? renderQsByMinuteTable(mapA, startHour, endHour)
-      : '<p>No Log A loaded.</p>';
-    const bHtml = bReady
-      ? renderQsByMinuteTable(mapB, startHour, endHour)
-      : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'qs_by_minute');
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready ? renderQsByMinuteTable(maps[idx], startHour, endHour) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'qs_by_minute');
   }
 
   function renderChartFrequenciesForSlot(slot, rangeOverride) {
@@ -6659,16 +7107,17 @@
   }
 
   function renderChartFrequenciesCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const rangeA = getFrequencyScatterRange(slotA.qsoData?.qsos || []);
-    const rangeB = getFrequencyScatterRange(slotB.qsoData?.qsos || []);
-    const keyA = getWeekendKeyFromRange(rangeA);
-    const keyB = getWeekendKeyFromRange(rangeB);
-    const shareAxis = keyA && keyB && keyA === keyB;
-    const sharedRange = shareAxis ? mergeFrequencyScatterRanges(rangeA, rangeB) : null;
-    const aHtml = aReady ? renderChartFrequenciesForSlot(slotA, shareAxis ? sharedRange : rangeA) : '<p>No Log A loaded.</p>';
-    const bHtml = bReady ? renderChartFrequenciesForSlot(slotB, shareAxis ? sharedRange : rangeB) : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'charts_frequencies');
+    const slots = getActiveCompareSnapshots();
+    const ranges = slots.map((entry) => getFrequencyScatterRange(entry.snapshot.qsoData?.qsos || []));
+    const keys = ranges.map((range) => getWeekendKeyFromRange(range));
+    const shareAxis = keys.length > 0 && keys.every((key) => key && key === keys[0]);
+    const sharedRange = shareAxis ? mergeFrequencyScatterRangesList(ranges) : null;
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready
+        ? renderChartFrequenciesForSlot(entry.snapshot, shareAxis ? sharedRange : ranges[idx])
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'charts_frequencies', { chart: true });
   }
 
   function buildHeadingChartMap(derived) {
@@ -6683,7 +7132,13 @@
     return Array.from(starts).sort((a, b) => a - b);
   }
 
-  function renderChartBeamHeadingForSlot(slot, order) {
+  function buildHeadingChartOrderFromMaps(maps) {
+    const starts = new Set();
+    maps.forEach((map) => map.forEach((_, key) => starts.add(key)));
+    return Array.from(starts).sort((a, b) => a - b);
+  }
+
+  function renderChartBeamHeadingForSlot(slot, order, maxOverride) {
     if (!slot.derived || !slot.derived.headingSummary) {
       return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     }
@@ -6695,18 +7150,20 @@
         value: entry ? entry.value : 0
       };
     });
-    return `<div class="mtc"><div class="gradient">&nbsp;Beam heading</div>${renderBars(data, 'label', 'value')}</div>`;
+    return `<div class="mtc"><div class="gradient">&nbsp;Beam heading</div>${renderBars(data, 'label', 'value', maxOverride)}</div>`;
   }
 
   function renderChartBeamHeadingCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const order = buildHeadingChartOrder(
-      buildHeadingChartMap(slotA.derived),
-      buildHeadingChartMap(slotB.derived)
-    );
-    const aHtml = aReady ? renderChartBeamHeadingForSlot(slotA, order) : '<p>No Log A loaded.</p>';
-    const bHtml = bReady ? renderChartBeamHeadingForSlot(slotB, order) : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'charts_beam_heading');
+    const slots = getActiveCompareSnapshots();
+    const maps = slots.map((entry) => buildHeadingChartMap(entry.snapshot.derived));
+    const order = buildHeadingChartOrderFromMaps(maps);
+    const values = [];
+    maps.forEach((map) => map.forEach((entry) => values.push(entry.value || 0)));
+    const maxValue = Math.max(1, ...values);
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, order, maxValue) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'charts_beam_heading', { chart: true });
   }
 
   function buildHeadingByHourMap(derived) {
@@ -6732,6 +7189,20 @@
     return Array.from(sectors).sort((a, b) => a - b);
   }
 
+  function buildHeadingByHourOrderFromMaps(maps) {
+    const hours = new Set();
+    maps.forEach((map) => map.forEach((_, key) => hours.add(key)));
+    return Array.from(hours).sort((a, b) => a - b);
+  }
+
+  function buildHeadingByHourSectorsFromMaps(maps) {
+    const sectors = new Set();
+    maps.forEach((map) => {
+      map.forEach((m) => m.forEach((_, s) => sectors.add(s)));
+    });
+    return Array.from(sectors).sort((a, b) => a - b);
+  }
+
   function renderChartBeamHeadingByHourForSlot(slot, hours, sectors) {
     if (!slot.derived || !slot.derived.headingByHourSeries) {
       return renderPlaceholder({ id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' });
@@ -6754,14 +7225,14 @@
   }
 
   function renderChartBeamHeadingByHourCompareAligned() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const mapA = buildHeadingByHourMap(slotA.derived);
-    const mapB = buildHeadingByHourMap(slotB.derived);
-    const hours = buildHeadingByHourOrder(mapA, mapB);
-    const sectors = buildHeadingByHourSectors(mapA, mapB);
-    const aHtml = aReady ? renderChartBeamHeadingByHourForSlot(slotA, hours, sectors) : '<p>No Log A loaded.</p>';
-    const bHtml = bReady ? renderChartBeamHeadingByHourForSlot(slotB, hours, sectors) : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'charts_beam_heading_by_hour');
+    const slots = getActiveCompareSnapshots();
+    const maps = slots.map((entry) => buildHeadingByHourMap(entry.snapshot.derived));
+    const hours = buildHeadingByHourOrderFromMaps(maps);
+    const sectors = buildHeadingByHourSectorsFromMaps(maps);
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready ? renderChartBeamHeadingByHourForSlot(entry.snapshot, hours, sectors) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'charts_beam_heading_by_hour', { chart: true });
   }
 
   function renderReportCompare(report) {
@@ -6775,11 +7246,13 @@
       return renderLogCompare();
     }
     if (report.id === 'raw_log') {
-      const slotA = { logFile: state.logFile, rawLogText: state.rawLogText };
-      const slotB = state.compareB || {};
-      const aHtml = slotA.rawLogText ? renderRawLogPanel('Log A', slotA.rawLogText, slotA.logFile?.name, 'A') : '<p>No Log A loaded.</p>';
-      const bHtml = slotB.rawLogText ? renderRawLogPanel('Log B', slotB.rawLogText, slotB.logFile?.name, 'B') : '<p>No Log B loaded.</p>';
-      return renderComparePanels(slotA, slotB, aHtml, bHtml, 'raw_log');
+      const slots = getActiveCompareSnapshots();
+      const htmlBlocks = slots.map((entry) => (
+        entry.snapshot.rawLogText
+          ? renderRawLogPanel(entry.label, entry.snapshot.rawLogText, entry.snapshot.logFile?.name, entry.id)
+          : `<p>No ${entry.label} loaded.</p>`
+      ));
+      return renderComparePanels(slots, htmlBlocks, 'raw_log');
     }
     if (report.id === 'qs_by_hour_sheet') {
       return renderQsByHourSheetCompare();
@@ -6787,8 +7260,20 @@
     if (report.id === 'qs_by_minute') {
       return renderQsByMinuteCompareAligned();
     }
+    if (report.id === 'one_minute_rates') {
+      return renderOneMinuteRatesCompareAligned();
+    }
     if (report.id === 'charts_frequencies') {
       return renderChartFrequenciesCompareAligned();
+    }
+    if (report.id === 'charts_qs_by_band') {
+      return renderChartQsByBandCompareAligned();
+    }
+    if (report.id === 'charts_top_10_countries') {
+      return renderChartTop10CountriesCompareAligned();
+    }
+    if (report.id === 'charts_continents') {
+      return renderChartContinentsCompareAligned();
     }
     if (report.id === 'charts_beam_heading') {
       return renderChartBeamHeadingCompareAligned();
@@ -6806,13 +7291,19 @@
       return renderCountriesByTimeCompareAligned(null);
     }
     if (report.id === 'possible_errors') {
-      const { slotA, slotB, aReady, bReady } = getCompareSlots();
-      const callsA = aReady ? buildCallSet(slotA.qsoData?.qsos || []) : new Set();
-      const callsB = bReady ? buildCallSet(slotB.qsoData?.qsos || []) : new Set();
-      const note = 'Compare mode: callsigns appearing in both logs are omitted from Possible errors for each log.';
-      const aHtml = aReady ? renderPossibleErrorsFrom(slotA.derived, callsB, note) : '<p>No Log A loaded.</p>';
-      const bHtml = bReady ? renderPossibleErrorsFrom(slotB.derived, callsA, note) : '<p>No Log B loaded.</p>';
-      return renderComparePanels(slotA, slotB, aHtml, bHtml, 'possible_errors');
+      const slots = getActiveCompareSnapshots();
+      const callSets = slots.map((entry) => (entry.ready ? buildCallSet(entry.snapshot.qsoData?.qsos || []) : new Set()));
+      const note = 'Compare mode: callsigns appearing in other logs are omitted from Possible errors for each log.';
+      const htmlBlocks = slots.map((entry, idx) => {
+        if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+        const exclude = new Set();
+        callSets.forEach((set, setIdx) => {
+          if (setIdx === idx) return;
+          set.forEach((call) => exclude.add(call));
+        });
+        return renderPossibleErrorsFrom(entry.snapshot.derived, exclude, note);
+      });
+      return renderComparePanels(slots, htmlBlocks, 'possible_errors');
     }
     if (report.id === 'countries') return renderCountriesCompareAligned();
     if (report.id === 'continents') return renderContinentsCompareAligned();
@@ -6824,10 +7315,11 @@
     if (report.id === 'distance') return renderDistanceCompareAligned();
     if (report.id === 'beam_heading') return renderBeamHeadingCompareAligned();
     if (report.id === 'qs_per_station') return renderQsPerStationCompareAligned();
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const aHtml = aReady ? withSlotState(slotA, () => renderReportSingle(report)) : `<p>No Log A loaded.</p>`;
-    const bHtml = bReady ? withSlotState(slotB, () => renderReportSingle(report)) : `<p>No Log B loaded.</p>`;
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, report.id);
+    const slots = getActiveCompareSnapshots();
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? withSlotState(entry.snapshot, () => renderReportSingle(report)) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, report.id);
   }
 
   function renderReport(report) {
@@ -6838,9 +7330,46 @@
     return renderReportSingle(report);
   }
 
+  let focusRenderTimer = null;
   function bindReportInteractions(reportId) {
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
+    const focusSelects = dom.viewContainer.querySelectorAll('.compare-focus-select');
+    if (focusSelects.length) {
+      focusSelects.forEach((select) => {
+        select.addEventListener('change', () => {
+          const baseId = select.dataset.focusReport || '';
+          if (!baseId) return;
+          const role = select.dataset.focusRole || 'a';
+          const slots = getActiveCompareSnapshots();
+          if (slots.length <= 2) return;
+          const [currentLeft, currentRight] = getCompareFocusPair(baseId, slots);
+          let left = currentLeft;
+          let right = currentRight;
+          if (role === 'a') {
+            left = select.value;
+          } else {
+            right = select.value;
+          }
+          if (left === right) {
+            const alt = slots.map((s) => s.id).find((id) => id !== left);
+            if (role === 'a') right = alt || right;
+            else left = alt || left;
+          }
+          state.compareFocus = state.compareFocus || {};
+          state.compareFocus[baseId] = [left, right];
+          if (focusRenderTimer) clearTimeout(focusRenderTimer);
+          focusRenderTimer = setTimeout(() => {
+            try {
+              renderReportWithLoading(reports[state.activeIndex]);
+            } catch (err) {
+              console.error('Focus render failed:', err);
+              showOverlayNotice('Unable to update focus view. Please try again.', 3000);
+            }
+          }, 0);
+        });
+      });
+    }
     if (reportId === 'operators') {
       loadOperatorPhotos(dom.viewContainer);
     }
@@ -6895,7 +7424,7 @@
       };
       const setCompareMode = (enabled) => {
         if (!dom.compareModeRadios || !dom.compareModeRadios.length) return;
-        const targetValue = enabled ? 'compare' : 'single';
+        const targetValue = enabled ? '2' : '1';
         const radio = Array.from(dom.compareModeRadios).find((r) => r.value === targetValue);
         if (!radio) return;
         radio.checked = true;
@@ -7137,8 +7666,9 @@
       const copyButtons = document.querySelectorAll('.raw-log-copy');
       buttons.forEach((btn) => {
         btn.addEventListener('click', () => {
-          const slot = btn.dataset.slot;
-          const text = slot === 'B' ? (state.compareB?.rawLogText || '') : (state.rawLogText || '');
+          const slotId = btn.dataset.slot;
+          const slotState = getSlotById(slotId);
+          const text = slotState?.rawLogText || '';
           if (text) {
             console.log(text);
           } else {
@@ -7148,8 +7678,9 @@
       });
       copyButtons.forEach((btn) => {
         btn.addEventListener('click', async () => {
-          const slot = btn.dataset.slot;
-          const text = slot === 'B' ? (state.compareB?.rawLogText || '') : (state.rawLogText || '');
+          const slotId = btn.dataset.slot;
+          const slotState = getSlotById(slotId);
+          const text = slotState?.rawLogText || '';
           if (!text) return;
           const original = btn.textContent;
           const ok = await copyToClipboard(text);
@@ -7832,19 +8363,21 @@
   }
 
   function renderBreaksCompare() {
-    const { slotA, slotB, aReady, bReady } = getCompareSlots();
-    const aHtml = aReady ? renderBreaksForDerived(slotA.derived, 'A') : '<p>No Log A loaded.</p>';
-    const bHtml = bReady ? renderBreaksForDerived(slotB.derived, 'B') : '<p>No Log B loaded.</p>';
-    return renderComparePanels(slotA, slotB, aHtml, bHtml, 'breaks');
+    const slots = getActiveCompareSnapshots();
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? renderBreaksForDerived(entry.snapshot.derived, entry.id) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'breaks');
   }
 
   function setupRepoSearch(slotId) {
-    const isB = slotId === 'B';
-    const searchInput = isB ? dom.repoSearchB : dom.repoSearch;
-    const resultsEl = isB ? dom.repoResultsB : dom.repoResults;
-    const statusEl = isB ? dom.repoStatusB : dom.repoStatus;
-    const autoCloseEl = isB ? dom.repoAutoCloseB : dom.repoAutoClose;
-    const statusTarget = isB ? dom.fileStatusB : dom.fileStatus;
+    const slotKey = String(slotId || 'A').toUpperCase();
+    const isA = slotKey === 'A';
+    const searchInput = isA ? dom.repoSearch : slotKey === 'B' ? dom.repoSearchB : slotKey === 'C' ? dom.repoSearchC : dom.repoSearchD;
+    const resultsEl = isA ? dom.repoResults : slotKey === 'B' ? dom.repoResultsB : slotKey === 'C' ? dom.repoResultsC : dom.repoResultsD;
+    const statusEl = isA ? dom.repoStatus : slotKey === 'B' ? dom.repoStatusB : slotKey === 'C' ? dom.repoStatusC : dom.repoStatusD;
+    const autoCloseEl = isA ? dom.repoAutoClose : slotKey === 'B' ? dom.repoAutoCloseB : slotKey === 'C' ? dom.repoAutoCloseC : dom.repoAutoCloseD;
+    const statusTarget = isA ? dom.fileStatus : slotKey === 'B' ? dom.fileStatusB : slotKey === 'C' ? dom.fileStatusC : dom.fileStatusD;
     if (!searchInput || !resultsEl || !statusEl) return;
     let timer = null;
     const shardCache = new Map();
@@ -8069,7 +8602,7 @@
         return;
       }
       trackEvent('archive_search', {
-        slot: slotId || 'A',
+        slot: slotKey || 'A',
         callsign
       });
       const seq = ++searchSeq;
@@ -8095,7 +8628,7 @@
         if (seq !== searchSeq) return;
         console.error('Archive search failed:', err);
         trackEvent('archive_shard_error', {
-          slot: slotId || 'A',
+          slot: slotKey || 'A',
           callsign,
           message: err && err.message ? err.message : 'unknown error'
         });
@@ -8108,7 +8641,7 @@
       if (!path) return;
       const name = path.split('/').pop();
       trackEvent('archive_log_select', {
-        slot: slotId || 'A',
+        slot: slotKey || 'A',
         path,
         name: name || ''
       });
@@ -8178,9 +8711,14 @@
 
   function setupCompareToggle() {
     if (!dom.compareModeRadios || !dom.compareModeRadios.length) return;
-    const applyMode = (enabled) => {
-      state.compareEnabled = enabled;
-      document.body.classList.toggle('compare-mode', enabled);
+    const applyCount = (count) => {
+      const safeCount = Math.min(4, Math.max(1, Number(count) || 1));
+      state.compareCount = safeCount;
+      state.compareEnabled = safeCount > 1;
+      document.body.classList.toggle('compare-mode', state.compareEnabled);
+      document.body.classList.remove('compare-count-1', 'compare-count-2', 'compare-count-3', 'compare-count-4');
+      document.body.classList.add(`compare-count-${safeCount}`);
+      invalidateCompareLogData();
       updateBandRibbon();
       rebuildReports();
       renderActiveReport();
@@ -8188,12 +8726,12 @@
     dom.compareModeRadios.forEach((radio) => {
       radio.addEventListener('change', () => {
         if (radio.checked) {
-          applyMode(radio.value === 'compare');
+          applyCount(radio.value);
         }
       });
     });
     const selected = Array.from(dom.compareModeRadios).find((r) => r.checked);
-    applyMode(selected ? selected.value === 'compare' : false);
+    applyCount(selected ? selected.value : 1);
   }
 
   function init() {
@@ -8201,9 +8739,13 @@
     rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
+    setupFileInput(dom.fileInputC, dom.fileStatusC, 'C');
+    setupFileInput(dom.fileInputD, dom.fileStatusD, 'D');
     setupGlobalDragOverlay();
     setupRepoSearch('A');
     setupRepoSearch('B');
+    setupRepoSearch('C');
+    setupRepoSearch('D');
     setupCompareToggle();
     setupDataFileInputs();
     setupPrevNext();

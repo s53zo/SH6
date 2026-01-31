@@ -94,11 +94,12 @@ function buildTenMinuteBuckets(qsos) {
   return buckets;
 }
 
-function buildOrderedKeys(aBuckets, bBuckets, aQsos, bQsos) {
-  const allKeys = new Set([...aBuckets.keys(), ...bBuckets.keys()]);
+function buildOrderedKeys(bucketMaps, qsoLists) {
+  const allKeys = new Set();
+  bucketMaps.forEach((map) => map.forEach((_, key) => allKeys.add(key)));
   const numericKeys = Array.from(allKeys).filter((k) => k !== 'unknown');
   let startIndex = null;
-  const allWithTs = aQsos.concat(bQsos).filter((q) => Number.isFinite(q.ts));
+  const allWithTs = qsoLists.flat().filter((q) => Number.isFinite(q.ts));
   if (allWithTs.length) {
     const minTs = Math.min(...allWithTs.map((q) => q.ts));
     const d = new Date(minTs);
@@ -128,23 +129,23 @@ self.onmessage = (evt) => {
   const payload = evt.data || {};
   if (payload.type === 'compareBuckets') {
     const filters = payload.filters || {};
-    const aQsos = applyLogFilters(payload.aQsos || [], filters);
-    const bQsos = applyLogFilters(payload.bQsos || [], filters);
-    const aBuckets = buildTenMinuteBuckets(aQsos);
-    const bBuckets = buildTenMinuteBuckets(bQsos);
-    const orderedKeys = buildOrderedKeys(aBuckets, bBuckets, aQsos, bQsos);
+    const logs = Array.isArray(payload.logs) ? payload.logs : [];
+    const filtered = logs.map((list) => applyLogFilters(list || [], filters));
+    const bucketMaps = filtered.map((list) => buildTenMinuteBuckets(list));
+    const orderedKeys = buildOrderedKeys(bucketMaps, filtered);
     const buckets = orderedKeys.map((key) => ({
       key,
-      a: aBuckets.get(key) || [],
-      b: bBuckets.get(key) || []
+      lists: bucketMaps.map((map) => map.get(key) || [])
     }));
-    const totalRows = buckets.reduce((sum, bucket) => sum + Math.max(bucket.a.length, bucket.b.length, 1), 0);
+    const totalRows = buckets.reduce((sum, bucket) => {
+      const lengths = bucket.lists.map((list) => list.length);
+      return sum + Math.max(1, ...lengths);
+    }, 0);
     self.postMessage({
       type: 'compareBuckets',
       key: payload.key,
       data: {
-        aCount: aQsos.length,
-        bCount: bQsos.length,
+        counts: filtered.map((list) => list.length),
         totalRows,
         buckets
       }

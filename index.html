@@ -46,9 +46,11 @@
         <div class="content">
           <div id="loadPanel">
             <div class="compare-toggle">
-              <span class="compare-label">Mode:</span>
-              <label><input type="radio" name="compareMode" value="single" checked> Single</label>
-              <label><input type="radio" name="compareMode" value="compare"> Compare</label>
+              <span class="compare-label">Logs:</span>
+              <label><input type="radio" name="compareCount" value="1" checked> 1</label>
+              <label><input type="radio" name="compareCount" value="2"> 2</label>
+              <label><input type="radio" name="compareCount" value="3"> 3</label>
+              <label><input type="radio" name="compareCount" value="4"> 4</label>
             </div>
             <div class="log-panel log-a">
               <div class="log-panel-title">Log A</div>
@@ -94,6 +96,52 @@
                 </label>
                 <div id="repoStatusB" class="status"></div>
                 <div id="repoResultsB" class="repo-results"></div>
+              </div>
+            </div>
+            <div class="log-panel log-c compare-only compare-only-3">
+              <div class="log-panel-title">Log C</div>
+              <div class="controls">
+                <label class="drop-zone" id="dropZoneC">
+                  <input type="file" id="fileInputC" accept=".adi,.adif,.cbf,.cbr,.log,.CBF,.ADI,.ADIF,.CBR,.LOG" hidden>
+                  <span class="drop-zone-inner">
+                    <span class="button">Upload Log C</span>
+                    <span class="drop-hint">Drag &amp; Drop log to load</span>
+                  </span>
+                </label>
+                <div class="status" id="fileStatusC">No log loaded</div>
+              </div>
+              <div class="remote-picker">
+              <div class="remote-label">Load Log C from public archive of over 1 million logs at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>:</div>
+                <input id="repoSearchC" type="text" placeholder="Type a callsign..." autocomplete="off">
+                <label class="repo-option">
+                  <input type="checkbox" id="repoAutoCloseC" checked>
+                  Auto-close tree after selection
+                </label>
+                <div id="repoStatusC" class="status"></div>
+                <div id="repoResultsC" class="repo-results"></div>
+              </div>
+            </div>
+            <div class="log-panel log-d compare-only compare-only-4">
+              <div class="log-panel-title">Log D</div>
+              <div class="controls">
+                <label class="drop-zone" id="dropZoneD">
+                  <input type="file" id="fileInputD" accept=".adi,.adif,.cbf,.cbr,.log,.CBF,.ADI,.ADIF,.CBR,.LOG" hidden>
+                  <span class="drop-zone-inner">
+                    <span class="button">Upload Log D</span>
+                    <span class="drop-hint">Drag &amp; Drop log to load</span>
+                  </span>
+                </label>
+                <div class="status" id="fileStatusD">No log loaded</div>
+              </div>
+              <div class="remote-picker">
+              <div class="remote-label">Load Log D from public archive of over 1 million logs at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>:</div>
+                <input id="repoSearchD" type="text" placeholder="Type a callsign..." autocomplete="off">
+                <label class="repo-option">
+                  <input type="checkbox" id="repoAutoCloseD" checked>
+                  Auto-close tree after selection
+                </label>
+                <div id="repoStatusD" class="status"></div>
+                <div id="repoResultsD" class="repo-results"></div>
               </div>
             </div>
           </div>

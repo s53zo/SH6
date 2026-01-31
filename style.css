@@ -70,6 +70,23 @@ body.is-loading * {
   margin-left: 6px;
 }
 
+.compare-building {
+  color: #c62828;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compare-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #f2bcbc;
+  border-top-color: #c62828;
+  animation: sh6-spin 0.8s linear infinite;
+}
+
 @keyframes sh6-spin {
   to {
     transform: rotate(360deg);
@@ -169,7 +186,26 @@ a:hover {
   display: none;
 }
 
-.compare-mode .compare-only {
+.compare-count-2 .compare-only,
+.compare-count-3 .compare-only,
+.compare-count-4 .compare-only {
+  display: block;
+}
+
+.compare-only-3 {
+  display: none;
+}
+
+.compare-count-3 .compare-only-3,
+.compare-count-4 .compare-only-3 {
+  display: block;
+}
+
+.compare-only-4 {
+  display: none;
+}
+
+.compare-count-4 .compare-only-4 {
   display: block;
 }
 
@@ -186,7 +222,9 @@ a:hover {
 }
 
 #repoSearch,
-#repoSearchB {
+#repoSearchB,
+#repoSearchC,
+#repoSearchD {
   width: min(520px, 100%);
   padding: 6px 8px;
   border: 1px solid #b9b9b9;
@@ -228,18 +266,41 @@ a:hover {
 
 .compare-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 
+@media (min-width: 768px) {
+  .compare-grid.compare-count-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compare-grid.compare-count-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .compare-grid.compare-count-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .compare-grid.compare-narrow {
-  grid-template-columns: max-content max-content;
   justify-content: start;
   gap: 10px;
 }
 
-.compare-grid.compare-stack {
-  grid-template-columns: 1fr;
+@media (min-width: 768px) {
+  .compare-grid.compare-narrow.compare-count-2 {
+    grid-template-columns: max-content max-content;
+  }
+
+  .compare-grid.compare-narrow.compare-count-3 {
+    grid-template-columns: repeat(3, max-content);
+  }
+
+  .compare-grid.compare-narrow.compare-count-4 {
+    grid-template-columns: repeat(4, max-content);
+  }
 }
 
 .compare-panel {
@@ -276,6 +337,47 @@ a:hover {
 
 .compare-panel.compare-b .compare-head {
   color: #c62828;
+}
+
+.compare-panel.compare-c .compare-head {
+  color: #2e7d32;
+}
+
+.compare-panel.compare-d .compare-head {
+  color: #6a1b9a;
+}
+
+.compare-focus {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 12px;
+  font-size: 12px;
+}
+
+.compare-focus select {
+  padding: 4px 6px;
+  border: 1px solid #b9b9b9;
+  border-radius: 4px;
+}
+
+.compare-grid.compare-chart {
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .compare-grid.compare-chart.compare-count-3,
+  .compare-grid.compare-chart.compare-count-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .compare-grid.compare-quad.compare-count-3,
+  .compare-grid.compare-quad.compare-count-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .compare-log-wrap {

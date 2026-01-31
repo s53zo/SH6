@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.2.2';
+  const APP_VERSION = 'v3.2.3';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -4858,7 +4858,11 @@
         error: null,
         stats: null,
         lastWindowKey: null,
-        lastCall: null
+        lastCall: null,
+        windowMinutes: 15,
+        bandFilter: [],
+        raw: null,
+        totalScanned: 0
       };
     }
     return state.spotsState;
@@ -5040,24 +5044,11 @@
       ]
     }));
     const qsoIndex = buildQsoTimeIndex(state.qsoData.qsos);
-    const windowMs = 15 * 60 * 1000;
+    const qsoCallIndex = buildQsoCallIndex(state.qsoData.qsos);
     let total = 0;
-    let ofUs = 0;
-    let byUs = 0;
-    let ofUsMatched = 0;
-    let byUsMatched = 0;
-    let byUsMatchedDx = 0;
-    const spotters = new Map();
-    const dxTargets = new Map();
     const ofUsSpots = [];
     const byUsSpots = [];
-    const bandStats = new Map();
-    const spotBuckets = new Map();
-    const responseTimes = [];
-    const responseDxTimes = [];
-    const heatmap = new Map();
     try {
-      const qsoCallIndex = buildQsoCallIndex(state.qsoData.qsos);
       for (const entry of urls) {
         let text = null;
         let lastErr = null;
@@ -5078,77 +5069,120 @@
           if (!spot) continue;
           total += 1;
           if (spot.dxCall === call) {
-            ofUs += 1;
-            spotters.set(spot.spotter, (spotters.get(spot.spotter) || 0) + 1);
-            const bandKey = spot.band || 'unknown';
-            if (!bandStats.has(bandKey)) bandStats.set(bandKey, { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 });
-            bandStats.get(bandKey).ofUs += 1;
-            const matched = hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs);
-            if (matched) {
-              ofUsMatched += 1;
-              bandStats.get(bandKey).ofUsMatched += 1;
-            }
-            const delta = matched ? getNearestQsoDeltaMinutes(spot.band, spot.ts, qsoIndex) : null;
-            if (matched && Number.isFinite(delta)) responseTimes.push(delta);
-            ofUsSpots.push({ ...spot, matched, delta });
-            if (spot.band) {
-              if (!heatmap.has(spot.band)) heatmap.set(spot.band, Array.from({ length: 24 }, () => 0));
-              const hour = new Date(spot.ts).getUTCHours();
-              heatmap.get(spot.band)[hour] = (heatmap.get(spot.band)[hour] || 0) + 1;
-              const bucket = Math.floor(spot.ts / (60000 * 10));
-              spotBuckets.set(bucket, (spotBuckets.get(bucket) || 0) + 1);
-            }
+            ofUsSpots.push(spot);
           }
           if (spot.spotter === call) {
-            byUs += 1;
-            dxTargets.set(spot.dxCall, (dxTargets.get(spot.dxCall) || 0) + 1);
-            const bandKey = spot.band || 'unknown';
-            if (!bandStats.has(bandKey)) bandStats.set(bandKey, { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 });
-            bandStats.get(bandKey).byUs += 1;
-            const matched = hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs);
-            if (matched) {
-              byUsMatched += 1;
-              bandStats.get(bandKey).byUsMatched += 1;
-            }
-            const matchedDx = hasQsoCallWithin(spot.band, spot.dxCall, spot.ts, qsoCallIndex, windowMs);
-            if (matchedDx) {
-              byUsMatchedDx += 1;
-              const deltaDx = getNearestQsoCallDeltaMinutes(spot.band, spot.dxCall, spot.ts, qsoCallIndex);
-              if (Number.isFinite(deltaDx)) responseDxTimes.push(deltaDx);
-            }
-            const delta = matched ? getNearestQsoDeltaMinutes(spot.band, spot.ts, qsoIndex) : null;
-            byUsSpots.push({ ...spot, matched, matchedDx, delta, deltaDx: Number.isFinite(deltaDx) ? deltaDx : null });
+            byUsSpots.push(spot);
           }
         }
       }
-      const topSpotters = Array.from(spotters.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
-      const topDx = Array.from(dxTargets.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
       spotsState.status = 'ready';
       spotsState.error = null;
       spotsState.lastWindowKey = windowKey;
       spotsState.lastCall = call;
-      spotsState.stats = {
-        total,
-        ofUs,
-        byUs,
-        ofUsMatched,
-        byUsMatched,
-        byUsMatchedDx,
-        topSpotters,
-        topDx,
-        ofUsSpots,
-        byUsSpots,
-        bandStats: Array.from(bandStats.entries()).map(([band, info]) => ({ band, ...info })),
-        responseTimes,
-        responseDxTimes,
-        spotBuckets: Array.from(spotBuckets.entries()).map(([bucket, count]) => ({ bucket, count })),
-        heatmap: Array.from(heatmap.entries()).map(([band, hours]) => ({ band, hours }))
-      };
+      spotsState.totalScanned = total;
+      spotsState.raw = { ofUsSpots, byUsSpots };
+      spotsState.qsoIndex = qsoIndex;
+      spotsState.qsoCallIndex = qsoCallIndex;
+      computeSpotsStats();
     } catch (err) {
       spotsState.status = 'error';
       spotsState.error = err && err.message ? err.message : 'Failed to load spots.';
     }
     renderActiveReport();
+  }
+
+  function computeSpotsStats() {
+    const spotsState = getSpotsState();
+    if (!spotsState.raw || !state.qsoData) return;
+    const call = String(state.derived?.contestMeta?.stationCallsign || '').toUpperCase();
+    const windowMinutes = Number(spotsState.windowMinutes) || 15;
+    const windowMs = windowMinutes * 60 * 1000;
+    const filterSet = new Set(spotsState.bandFilter || []);
+    const bandAllowed = (band) => {
+      if (!filterSet.size) return true;
+      const key = band || 'unknown';
+      return filterSet.has(key);
+    };
+    const qsoIndex = spotsState.qsoIndex || buildQsoTimeIndex(state.qsoData.qsos);
+    const qsoCallIndex = spotsState.qsoCallIndex || buildQsoCallIndex(state.qsoData.qsos);
+    let ofUs = 0;
+    let byUs = 0;
+    let ofUsMatched = 0;
+    let byUsMatched = 0;
+    let byUsMatchedDx = 0;
+    const spotters = new Map();
+    const dxTargets = new Map();
+    const bandStats = new Map();
+    const spotBuckets = new Map();
+    const responseTimes = [];
+    const responseDxTimes = [];
+    const heatmap = new Map();
+    const ofUsSpots = [];
+    const byUsSpots = [];
+    (spotsState.raw.ofUsSpots || []).forEach((spot) => {
+      if (!bandAllowed(spot.band)) return;
+      ofUs += 1;
+      spotters.set(spot.spotter, (spotters.get(spot.spotter) || 0) + 1);
+      const bandKey = spot.band || 'unknown';
+      if (!bandStats.has(bandKey)) bandStats.set(bandKey, { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 });
+      bandStats.get(bandKey).ofUs += 1;
+      const matched = hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs);
+      if (matched) {
+        ofUsMatched += 1;
+        bandStats.get(bandKey).ofUsMatched += 1;
+      }
+      const delta = matched ? getNearestQsoDeltaMinutes(spot.band, spot.ts, qsoIndex) : null;
+      if (matched && Number.isFinite(delta)) responseTimes.push(delta);
+      ofUsSpots.push({ ...spot, matched, delta });
+      if (spot.band) {
+        if (!heatmap.has(spot.band)) heatmap.set(spot.band, Array.from({ length: 24 }, () => 0));
+        const hour = new Date(spot.ts).getUTCHours();
+        heatmap.get(spot.band)[hour] = (heatmap.get(spot.band)[hour] || 0) + 1;
+        const bucket = Math.floor(spot.ts / (60000 * 10));
+        spotBuckets.set(bucket, (spotBuckets.get(bucket) || 0) + 1);
+      }
+    });
+    (spotsState.raw.byUsSpots || []).forEach((spot) => {
+      if (!bandAllowed(spot.band)) return;
+      byUs += 1;
+      dxTargets.set(spot.dxCall, (dxTargets.get(spot.dxCall) || 0) + 1);
+      const bandKey = spot.band || 'unknown';
+      if (!bandStats.has(bandKey)) bandStats.set(bandKey, { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 });
+      bandStats.get(bandKey).byUs += 1;
+      const matched = hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs);
+      if (matched) {
+        byUsMatched += 1;
+        bandStats.get(bandKey).byUsMatched += 1;
+      }
+      const matchedDx = hasQsoCallWithin(spot.band, spot.dxCall, spot.ts, qsoCallIndex, windowMs);
+      if (matchedDx) {
+        byUsMatchedDx += 1;
+        const deltaDx = getNearestQsoCallDeltaMinutes(spot.band, spot.dxCall, spot.ts, qsoCallIndex);
+        if (Number.isFinite(deltaDx)) responseDxTimes.push(deltaDx);
+      }
+      const deltaDx = matchedDx ? getNearestQsoCallDeltaMinutes(spot.band, spot.dxCall, spot.ts, qsoCallIndex) : null;
+      byUsSpots.push({ ...spot, matched, matchedDx, deltaDx: Number.isFinite(deltaDx) ? deltaDx : null });
+    });
+    const topSpotters = Array.from(spotters.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const topDx = Array.from(dxTargets.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    spotsState.stats = {
+      total: spotsState.totalScanned || 0,
+      ofUs,
+      byUs,
+      ofUsMatched,
+      byUsMatched,
+      byUsMatchedDx,
+      topSpotters,
+      topDx,
+      ofUsSpots,
+      byUsSpots,
+      bandStats: Array.from(bandStats.entries()).map(([band, info]) => ({ band, ...info })),
+      responseTimes,
+      responseDxTimes,
+      spotBuckets: Array.from(spotBuckets.entries()).map(([bucket, count]) => ({ bucket, count })),
+      heatmap: Array.from(heatmap.entries()).map(([band, hours]) => ({ band, hours }))
+    };
   }
 
   function renderSpots() {
@@ -5163,10 +5197,17 @@
     const days = buildSpotDayList(minTs, maxTs);
     const dayList = days.map((d) => `${d.year}/${d.doy}.dat`).join(', ');
     const spotsState = getSpotsState();
+    const windowMinutes = Number(spotsState.windowMinutes) || 15;
+    const bandFilterSet = new Set(spotsState.bandFilter || []);
     const stats = spotsState.stats;
     const statusText = spotsState.status === 'loading'
       ? 'Loading spots...'
       : (spotsState.status === 'error' ? `Error: ${escapeHtml(spotsState.error || '')}` : (spotsState.status === 'ready' ? 'Spots loaded.' : 'Not loaded'));
+    const baseBands = getBandsFromDerived(state.derived).filter((b) => b && String(b).toLowerCase() !== 'unknown');
+    if (stats?.bandStats?.some((b) => b.band === 'unknown') && !baseBands.includes('unknown')) {
+      baseBands.push('unknown');
+    }
+    const bandOptions = sortBands(baseBands);
     const summarizeGroups = (spots, keyField) => {
       const map = new Map();
       (spots || []).forEach((s) => {
@@ -5293,15 +5334,24 @@
         </table>
       `;
     };
-    const renderResponseHistogram = (values) => {
+    const renderResponseHistogram = (values, windowMinutes) => {
       if (!values || !values.length) return '<p>No matched spots to analyze.</p>';
-      const bins = [
-        { label: '0-1m', min: 0, max: 1 },
-        { label: '1-3m', min: 1, max: 3 },
-        { label: '3-5m', min: 3, max: 5 },
-        { label: '5-10m', min: 5, max: 10 },
-        { label: '10-15m', min: 10, max: 15 }
-      ];
+      const maxWindow = Math.max(1, Number(windowMinutes) || 15);
+      const steps = [1, 3, 5, 10];
+      const bins = [];
+      let start = 0;
+      for (const step of steps) {
+        if (step >= maxWindow) {
+          bins.push({ label: `${start}-${maxWindow}m`, min: start, max: maxWindow });
+          start = maxWindow;
+          break;
+        }
+        bins.push({ label: `${start}-${step}m`, min: start, max: step });
+        start = step;
+      }
+      if (start < maxWindow) {
+        bins.push({ label: `${start}-${maxWindow}m`, min: start, max: maxWindow });
+      }
       const data = bins.map((b) => ({
         label: b.label,
         count: values.filter((v) => v >= b.min && v < b.max + 1e-6).length
@@ -5329,12 +5379,23 @@
         </table>
       `;
     };
-    const buildTenMinuteSeries = (derived) => (derived?.tenMinuteSeries || []).map((p) => ({
-      ts: p.bucket * 600000,
-      qsos: p.qsos
-    }));
+    const buildTenMinuteSeries = (derived, bandSet) => {
+      if (!bandSet || !bandSet.size) {
+        return (derived?.tenMinuteSeries || []).map((p) => ({ ts: p.bucket * 600000, qsos: p.qsos }));
+      }
+      const map = new Map();
+      (state.qsoData?.qsos || []).forEach((q) => {
+        if (!Number.isFinite(q.ts)) return;
+        const band = normalizeBandToken(q.band || '') || 'unknown';
+        if (!bandSet.has(band)) return;
+        const bucket = Math.floor(q.ts / (60000 * 10));
+        map.set(bucket, (map.get(bucket) || 0) + 1);
+      });
+      return Array.from(map.entries()).sort((a, b) => a[0] - b[0]).map(([bucket, qsos]) => ({ ts: bucket * 600000, qsos }));
+    };
     const renderSpotRateTimeline = (derived, spots) => {
-      const series = buildTenMinuteSeries(derived);
+      const filterSet = new Set(spotsState.bandFilter || []);
+      const series = buildTenMinuteSeries(derived, filterSet);
       if (!series.length) return '<p>No QSO rate data.</p>';
       const min = Math.min(...series.map((s) => s.ts));
       const max = Math.max(...series.map((s) => s.ts));
@@ -5389,7 +5450,9 @@
       `;
     };
     const renderSpotRateScatter = (spotBuckets, derived) => {
-      const qsoBuckets = new Map((derived?.tenMinuteSeries || []).map((p) => [p.bucket, p.qsos]));
+      const filterSet = new Set(spotsState.bandFilter || []);
+      const series = buildTenMinuteSeries(derived, filterSet).map((p) => ({ bucket: Math.floor(p.ts / 600000), qsos: p.qsos }));
+      const qsoBuckets = new Map(series.map((p) => [p.bucket, p.qsos]));
       const buckets = new Set();
       (spotBuckets || []).forEach((b) => buckets.add(b.bucket));
       qsoBuckets.forEach((_, k) => buckets.add(k));
@@ -5452,7 +5515,28 @@
           <span><b>Callsign</b>: ${call} (exact match)</span>
         </div>
         <div class="export-actions">
-          <span><b>Time window</b>: ${start} → ${end} (±15 minutes, same frequency band)</span>
+          <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
+        </div>
+        <div class="spots-controls">
+          <label for="spotsWindow">Match window (minutes): <span id="spotsWindowValue">${windowMinutes}</span></label>
+          <input id="spotsWindow" type="range" min="1" max="60" step="1" value="${windowMinutes}">
+        </div>
+        <div class="spots-filters">
+          <label class="spots-filter">
+            <input type="checkbox" class="spots-band-filter" data-band="ALL" ${bandFilterSet.size ? '' : 'checked'}>
+            <span>All bands</span>
+          </label>
+          ${bandOptions.map((band) => {
+            const label = band === 'unknown' ? 'Unknown' : formatBandLabel(band);
+            const checked = bandFilterSet.has(band) ? 'checked' : '';
+            const cls = band === 'unknown' ? '' : bandClass(band);
+            return `
+              <label class="spots-filter ${cls}">
+                <input type="checkbox" class="spots-band-filter" data-band="${escapeAttr(band)}" ${checked}>
+                <span>${escapeHtml(label)}</span>
+              </label>
+            `;
+          }).join('')}
         </div>
         <div class="export-actions">
           <span><b>Spot files</b>: ${dayList || 'N/A'}</span>
@@ -5482,7 +5566,7 @@
         ${renderBandConversionTable(stats.bandStats)}
 
         <div class="export-actions export-note"><b>Response time distribution (minutes)</b></div>
-        ${renderResponseHistogram(stats.responseTimes)}
+        ${renderResponseHistogram(stats.responseTimes, windowMinutes)}
 
         <div class="export-actions export-note"><b>Top spotters for you</b></div>
         ${renderSpotterTable(summarizeGroups(stats.ofUsSpots, 'spotter'))}
@@ -5493,7 +5577,7 @@
         <div class="export-actions export-note"><b>Spots of you by band/hour</b></div>
         ${renderHeatmap(stats.heatmap)}
 
-        <div class="export-actions export-note"><b>Unanswered spots (no QSO within 15 minutes)</b></div>
+        <div class="export-actions export-note"><b>Unanswered spots (no QSO within ${windowMinutes} minutes)</b></div>
         ${renderUnansweredTable((stats.ofUsSpots || []).filter((s) => !s.matched))}
         ` : ''}
       </div>
@@ -8270,6 +8354,34 @@
           loadSpotsForCurrentLog();
         });
       }
+      const windowInput = document.getElementById('spotsWindow');
+      const windowValue = document.getElementById('spotsWindowValue');
+      if (windowInput) {
+        windowInput.addEventListener('input', () => {
+          const spotsState = getSpotsState();
+          spotsState.windowMinutes = Number(windowInput.value) || 15;
+          if (windowValue) windowValue.textContent = String(spotsState.windowMinutes);
+          computeSpotsStats();
+          renderActiveReport();
+        });
+      }
+      const filters = document.querySelectorAll('.spots-band-filter');
+      filters.forEach((el) => {
+        el.addEventListener('change', () => {
+          const spotsState = getSpotsState();
+          const band = el.dataset.band || '';
+          const current = new Set(spotsState.bandFilter || []);
+          if (band === 'ALL') {
+            if (el.checked) current.clear();
+          } else {
+            if (el.checked) current.add(band);
+            else current.delete(band);
+          }
+          spotsState.bandFilter = Array.from(current);
+          computeSpotsStats();
+          renderActiveReport();
+        });
+      });
     }
     if (reportId === 'load_logs') {
       const demoButtons = document.querySelectorAll('.demo-log-btn');

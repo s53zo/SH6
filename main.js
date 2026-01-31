@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.0';
+  const APP_VERSION = 'v3.3.1';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5278,17 +5278,13 @@
           <tr class="${cls}">
             <td>${escapeHtml(e.name)}</td>
             <td>${formatNumberSh6(e.count)}</td>
-            <td>${formatNumberSh6(e.matched)}</td>
-            <td>${e.conv.toFixed(1)}%</td>
-            <td>${e.median != null ? e.median.toFixed(1) : 'N/A'}</td>
-            <td>${e.avg != null ? e.avg.toFixed(1) : 'N/A'}</td>
             <td class="${bandClass(e.topBand)}">${escapeHtml(formatBandLabel(e.topBand || ''))}</td>
           </tr>
         `;
       }).join('');
       return `
         <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc"><th>Spotter</th><th>Spots</th><th>Matched</th><th>%</th><th>Median min</th><th>Avg min</th><th>Top band</th></tr>
+          <tr class="thc"><th>Spotter</th><th>Spots</th><th>Top band</th></tr>
           ${rows}
         </table>
       `;
@@ -5302,18 +5298,13 @@
           <tr class="${cls}">
             <td>${escapeHtml(e.name)}</td>
             <td>${formatNumberSh6(e.count)}</td>
-            <td>${formatNumberSh6(e.matched)}</td>
-            <td>${e.conv.toFixed(1)}%</td>
-            <td>${formatNumberSh6(e.matchedDx)}</td>
-            <td>${e.convDx.toFixed(1)}%</td>
-            <td>${e.medianDx != null ? e.medianDx.toFixed(1) : 'N/A'}</td>
             <td class="${bandClass(e.topBand)}">${escapeHtml(formatBandLabel(e.topBand || ''))}</td>
           </tr>
         `;
       }).join('');
       return `
         <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc"><th>DX</th><th>Spots</th><th>Matched (band)</th><th>%</th><th>Worked DX</th><th>%</th><th>Median min</th><th>Top band</th></tr>
+          <tr class="thc"><th>DX</th><th>Spots</th><th>Top band</th></tr>
           ${rows}
         </table>
       `;

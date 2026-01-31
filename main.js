@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.4';
+  const APP_VERSION = 'v3.3.5';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5416,6 +5416,525 @@
         </table>
       `;
     };
+    const medianValue = (list) => {
+      if (!list || !list.length) return null;
+      const sorted = list.slice().sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      if (sorted.length % 2) return sorted[mid];
+      return (sorted[mid - 1] + sorted[mid]) / 2;
+    };
+    const lowerBound = (list, target) => {
+      let lo = 0;
+      let hi = list.length;
+      while (lo < hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (list[mid] < target) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    };
+    const countInRange = (list, start, end) => {
+      if (!list || !list.length) return 0;
+      const left = lowerBound(list, start);
+      const right = lowerBound(list, end);
+      return Math.max(0, right - left);
+    };
+    const findAfterRecord = (list, ts) => {
+      if (!list || !list.length) return null;
+      let lo = 0;
+      let hi = list.length;
+      while (lo < hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (list[mid].ts < ts) lo = mid + 1;
+        else hi = mid;
+      }
+      return list[lo] || null;
+    };
+    const findBeforeRecord = (list, ts) => {
+      if (!list || !list.length) return null;
+      let lo = 0;
+      let hi = list.length;
+      while (lo < hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (list[mid].ts <= ts) lo = mid + 1;
+        else hi = mid;
+      }
+      return list[lo - 1] || null;
+    };
+    const formatUtcDate = (ts) => {
+      const d = new Date(ts);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const formatUtcTime = (ts) => {
+      const d = new Date(ts);
+      const h = String(d.getUTCHours()).padStart(2, '0');
+      const m = String(d.getUTCMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    };
+    const buildAnalysisContext = () => {
+      const bandSet = new Set(spotsState.bandFilter || []);
+      const bandAllowed = (band) => {
+        if (!bandSet.size) return true;
+        return bandSet.has(band || 'unknown');
+      };
+      const allQsos = (state.qsoData?.qsos || []).filter((q) => Number.isFinite(q.ts));
+      const filteredQsos = allQsos.filter((q) => bandAllowed(normalizeBandToken(q.band || '') || 'unknown'));
+      const filteredSorted = filteredQsos.slice().sort((a, b) => a.ts - b.ts);
+      const allTimes = filteredSorted.map((q) => q.ts);
+      const qsoTimesByBand = new Map();
+      const qsoRecordsByBand = new Map();
+      filteredSorted.forEach((q) => {
+        const band = normalizeBandToken(q.band || '') || 'unknown';
+        if (!qsoTimesByBand.has(band)) {
+          qsoTimesByBand.set(band, []);
+          qsoRecordsByBand.set(band, []);
+        }
+        qsoTimesByBand.get(band).push(q.ts);
+        qsoRecordsByBand.get(band).push({ ts: q.ts, freq: q.freq, call: q.call || '', country: q.country || '', band });
+      });
+      const allSorted = allQsos.slice().sort((a, b) => a.ts - b.ts);
+      const firstCallTime = new Map();
+      const firstCallBandTime = new Map();
+      const firstCountryTime = new Map();
+      allSorted.forEach((q) => {
+        const callKey = normalizeCall(q.call || '');
+        if (callKey && !firstCallTime.has(callKey)) firstCallTime.set(callKey, q.ts);
+        const bandKey = normalizeBandToken(q.band || '') || 'unknown';
+        if (callKey) {
+          const key = `${bandKey}|${callKey}`;
+          if (!firstCallBandTime.has(key)) firstCallBandTime.set(key, q.ts);
+        }
+        const country = q.country || '';
+        if (country && !firstCountryTime.has(country)) firstCountryTime.set(country, q.ts);
+      });
+      return {
+        bandSet,
+        bandAllowed,
+        filteredSorted,
+        allTimes,
+        qsoTimesByBand,
+        qsoRecordsByBand,
+        firstCallTime,
+        firstCallBandTime,
+        firstCountryTime
+      };
+    };
+    const renderUnworkedRateTable = (spots) => {
+      if (!spots || !spots.length) return '<p>No data.</p>';
+      const map = new Map();
+      spots.forEach((s) => {
+        const band = s.band || 'unknown';
+        const hour = new Date(s.ts).getUTCHours();
+        const key = `${band}|${hour}`;
+        if (!map.has(key)) map.set(key, { band, hour, total: 0, unanswered: 0 });
+        const entry = map.get(key);
+        entry.total += 1;
+        if (!s.matched) entry.unanswered += 1;
+      });
+      const entries = Array.from(map.values()).filter((e) => e.total >= 3).map((e) => ({
+        ...e,
+        pct: e.total ? (e.unanswered / e.total) * 100 : 0
+      }));
+      if (!entries.length) return '<p>No band/hour buckets with at least 3 spots.</p>';
+      entries.sort((a, b) => b.pct - a.pct || b.total - a.total);
+      const rows = entries.slice(0, 20).map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        return `
+          <tr class="${cls}">
+            <td class="${bandClass(e.band)}">${escapeHtml(formatBandLabel(e.band || ''))}</td>
+            <td>${String(e.hour).padStart(2, '0')}</td>
+            <td>${formatNumberSh6(e.total)}</td>
+            <td>${formatNumberSh6(e.unanswered)}</td>
+            <td>${e.pct.toFixed(1)}%</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Band</th><th>Hour</th><th>Spots</th><th>Unanswered</th><th>%</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderTimeToFirstQsoTable = (spots, analysis) => {
+      if (!spots || !spots.length) return '<p>No data.</p>';
+      const byBand = new Map();
+      spots.forEach((s) => {
+        const band = s.band || 'unknown';
+        if (!byBand.has(band)) byBand.set(band, []);
+        byBand.get(band).push(s.ts);
+      });
+      const gapMs = 30 * 60000;
+      const rows = Array.from(byBand.entries()).map(([band, list]) => {
+        const times = list.slice().sort((a, b) => a - b);
+        const clusterStarts = [];
+        let start = times[0];
+        let prev = times[0];
+        for (let i = 1; i < times.length; i += 1) {
+          const ts = times[i];
+          if (ts - prev > gapMs) {
+            clusterStarts.push(start);
+            start = ts;
+          }
+          prev = ts;
+        }
+        clusterStarts.push(start);
+        const qsoList = analysis.qsoRecordsByBand.get(band) || [];
+        const deltas = [];
+        clusterStarts.forEach((ts) => {
+          const next = findAfterRecord(qsoList, ts);
+          if (next) deltas.push((next.ts - ts) / 60000);
+        });
+        return {
+          band,
+          clusters: clusterStarts.length,
+          found: deltas.length,
+          avg: deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length : null,
+          median: medianValue(deltas)
+        };
+      }).sort((a, b) => b.clusters - a.clusters);
+      if (!rows.length) return '<p>No data.</p>';
+      const body = rows.map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        return `
+          <tr class="${cls}">
+            <td class="${bandClass(e.band)}">${escapeHtml(formatBandLabel(e.band || ''))}</td>
+            <td>${formatNumberSh6(e.clusters)}</td>
+            <td>${formatNumberSh6(e.found)}</td>
+            <td>${e.avg != null ? e.avg.toFixed(1) : 'N/A'}</td>
+            <td>${e.median != null ? e.median.toFixed(1) : 'N/A'}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Band</th><th>Spot clusters</th><th>With QSO</th><th>Avg min</th><th>Median min</th></tr>
+          ${body}
+        </table>
+      `;
+    };
+    const renderSpotUpliftTable = (spots, analysis) => {
+      if (!spots || !spots.length) return '<p>No data.</p>';
+      const windowMs = 10 * 60000;
+      const map = new Map();
+      spots.forEach((s) => {
+        const band = s.band || 'unknown';
+        const list = analysis.qsoTimesByBand.get(band) || [];
+        const before = countInRange(list, s.ts - windowMs, s.ts);
+        const after = countInRange(list, s.ts, s.ts + windowMs);
+        if (!map.has(band)) map.set(band, { band, spots: 0, beforeSum: 0, afterSum: 0, upliftSum: 0, positive: 0 });
+        const entry = map.get(band);
+        entry.spots += 1;
+        entry.beforeSum += before;
+        entry.afterSum += after;
+        entry.upliftSum += (after - before);
+        if (after > before) entry.positive += 1;
+      });
+      const rows = Array.from(map.values()).sort((a, b) => b.spots - a.spots).map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        const avgBefore = e.spots ? e.beforeSum / e.spots : 0;
+        const avgAfter = e.spots ? e.afterSum / e.spots : 0;
+        const avgUplift = e.spots ? e.upliftSum / e.spots : 0;
+        const pct = e.spots ? (e.positive / e.spots) * 100 : 0;
+        return `
+          <tr class="${cls}">
+            <td class="${bandClass(e.band)}">${escapeHtml(formatBandLabel(e.band || ''))}</td>
+            <td>${avgBefore.toFixed(2)}</td>
+            <td>${avgAfter.toFixed(2)}</td>
+            <td>${avgUplift.toFixed(2)}</td>
+            <td>${pct.toFixed(1)}%</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Band</th><th>Avg 10m before</th><th>Avg 10m after</th><th>Avg uplift</th><th>% positive</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderSpottingFunnelTable = (spots, analysis) => {
+      const total = spots.length;
+      if (!total) return '<p>No data.</p>';
+      let matchedBand = 0;
+      let matchedDx = 0;
+      let newCall = 0;
+      let newBand = 0;
+      let newCountry = 0;
+      spots.forEach((s) => {
+        if (s.matched) matchedBand += 1;
+        if (s.matchedDx) {
+          matchedDx += 1;
+          const callKey = normalizeCall(s.dxCall || '');
+          if (callKey) {
+            const firstCall = analysis.firstCallTime.get(callKey);
+            if (firstCall == null || firstCall >= s.ts) newCall += 1;
+            const bandKey = s.band || 'unknown';
+            const bandCallKey = `${bandKey}|${callKey}`;
+            const firstBand = analysis.firstCallBandTime.get(bandCallKey);
+            if (firstBand == null || firstBand >= s.ts) newBand += 1;
+          }
+          const prefix = lookupPrefix(s.dxCall || '');
+          const country = prefix?.country || '';
+          if (country) {
+            const firstCountry = analysis.firstCountryTime.get(country);
+            if (firstCountry == null || firstCountry >= s.ts) newCountry += 1;
+          }
+        }
+      });
+      const rows = [
+        { label: 'Spots by you (total)', count: total },
+        { label: 'Matched on band', count: matchedBand },
+        { label: 'Worked DX (call)', count: matchedDx },
+        { label: 'New DX call', count: newCall },
+        { label: 'New band for call', count: newBand },
+        { label: 'New country (cty)', count: newCountry }
+      ].map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        const pct = total ? (e.count / total) * 100 : 0;
+        return `
+          <tr class="${cls}">
+            <td class="tl">${escapeHtml(e.label)}</td>
+            <td>${formatNumberSh6(e.count)}</td>
+            <td>${pct.toFixed(1)}%</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Stage</th><th>Count</th><th>% of total</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderBandChangeEfficiencyTable = (analysis) => {
+      const qsos = analysis.filteredSorted;
+      if (!qsos || qsos.length < 2) return '<p>No data.</p>';
+      const windowMs = 10 * 60000;
+      const map = new Map();
+      for (let i = 1; i < qsos.length; i += 1) {
+        const prev = qsos[i - 1];
+        const curr = qsos[i];
+        const prevBand = normalizeBandToken(prev.band || '') || 'unknown';
+        const currBand = normalizeBandToken(curr.band || '') || 'unknown';
+        if (prevBand === currBand) continue;
+        const before = countInRange(analysis.allTimes, curr.ts - windowMs, curr.ts);
+        const after = countInRange(analysis.allTimes, curr.ts, curr.ts + windowMs);
+        if (!map.has(currBand)) map.set(currBand, { band: currBand, switches: 0, improved: 0, upliftSum: 0 });
+        const entry = map.get(currBand);
+        entry.switches += 1;
+        const uplift = after - before;
+        entry.upliftSum += uplift;
+        if (uplift > 0) entry.improved += 1;
+      }
+      const rows = Array.from(map.values()).sort((a, b) => b.switches - a.switches).map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        const pct = e.switches ? (e.improved / e.switches) * 100 : 0;
+        const avg = e.switches ? e.upliftSum / e.switches : 0;
+        return `
+          <tr class="${cls}">
+            <td class="${bandClass(e.band)}">${escapeHtml(formatBandLabel(e.band || ''))}</td>
+            <td>${formatNumberSh6(e.switches)}</td>
+            <td>${pct.toFixed(1)}%</td>
+            <td>${avg.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Band</th><th>Switches into band</th><th>% improved</th><th>Avg uplift</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderSpotterReliabilityTable = (spots) => {
+      if (!spots || !spots.length) return '<p>No data.</p>';
+      const map = new Map();
+      spots.forEach((s) => {
+        if (!map.has(s.spotter)) map.set(s.spotter, { spotter: s.spotter, spots: 0, matched: 0 });
+        const entry = map.get(s.spotter);
+        entry.spots += 1;
+        if (s.matched) entry.matched += 1;
+      });
+      const rows = Array.from(map.values()).filter((e) => e.spots >= 3)
+        .map((e) => ({ ...e, pct: e.spots ? (e.matched / e.spots) * 100 : 0 }))
+        .sort((a, b) => b.pct - a.pct || b.spots - a.spots)
+        .slice(0, 15)
+        .map((e, idx) => {
+          const cls = idx % 2 === 0 ? 'td1' : 'td0';
+          return `
+            <tr class="${cls}">
+              <td>${escapeHtml(e.spotter || '')}</td>
+              <td>${formatNumberSh6(e.spots)}</td>
+              <td>${formatNumberSh6(e.matched)}</td>
+              <td>${e.pct.toFixed(1)}%</td>
+            </tr>
+          `;
+        }).join('');
+      if (!rows) return '<p>No spotters with at least 3 spots.</p>';
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Spotter</th><th>Spots</th><th>Matched</th><th>%</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderMissedMultTable = (spots, analysis) => {
+      if (!spots || !spots.length) return '<p>No data.</p>';
+      const missed = [];
+      spots.forEach((s) => {
+        if (s.matchedDx) return;
+        const prefix = lookupPrefix(s.dxCall || '');
+        const country = prefix?.country || '';
+        if (!country) return;
+        const first = analysis.firstCountryTime.get(country);
+        if (first != null && first < s.ts) return;
+        missed.push({
+          ts: s.ts,
+          band: s.band,
+          dx: s.dxCall,
+          country
+        });
+      });
+      if (!missed.length) return '<p>No missed mult candidates found.</p>';
+      const rows = missed.slice(0, 20).map((s, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        return `
+          <tr class="${cls}">
+            <td>${escapeHtml(formatDateSh6(s.ts))}</td>
+            <td class="${bandClass(s.band)}">${escapeHtml(formatBandLabel(s.band || ''))}</td>
+            <td>${escapeHtml(s.dx || '')}</td>
+            <td>${escapeHtml(s.country || '')}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <p>Missed mult candidates: ${formatNumberSh6(missed.length)}</p>
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Time (UTC)</th><th>Band</th><th>DX</th><th>Country</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderOpenCloseTable = (spots) => {
+      if (!spots || !spots.length) return '<p>No data.</p>';
+      const map = new Map();
+      spots.forEach((s) => {
+        const day = formatUtcDate(s.ts);
+        const band = s.band || 'unknown';
+        const key = `${day}|${band}`;
+        if (!map.has(key)) map.set(key, { day, band, min: s.ts, max: s.ts });
+        const entry = map.get(key);
+        entry.min = Math.min(entry.min, s.ts);
+        entry.max = Math.max(entry.max, s.ts);
+      });
+      const entries = Array.from(map.values()).sort((a, b) => a.day.localeCompare(b.day) || bandOrderIndex(a.band) - bandOrderIndex(b.band));
+      const rows = entries.map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        const spanHours = ((e.max - e.min) / 3600000).toFixed(1);
+        return `
+          <tr class="${cls}">
+            <td>${escapeHtml(e.day)}</td>
+            <td class="${bandClass(e.band)}">${escapeHtml(formatBandLabel(e.band || ''))}</td>
+            <td>${formatUtcTime(e.min)}</td>
+            <td>${formatUtcTime(e.max)}</td>
+            <td>${spanHours}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Day (UTC)</th><th>Band</th><th>Open</th><th>Close</th><th>Span (h)</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderPileupWindowTable = (spots, analysis) => {
+      if (!spots || !spots.length) return '<p>No data.</p>';
+      const bucketMs = 10 * 60000;
+      const spotBuckets = new Map();
+      spots.forEach((s) => {
+        const bucket = Math.floor(s.ts / bucketMs);
+        spotBuckets.set(bucket, (spotBuckets.get(bucket) || 0) + 1);
+      });
+      const qsoBuckets = new Map();
+      analysis.allTimes.forEach((ts) => {
+        const bucket = Math.floor(ts / bucketMs);
+        qsoBuckets.set(bucket, (qsoBuckets.get(bucket) || 0) + 1);
+      });
+      const entries = Array.from(spotBuckets.entries()).map(([bucket, count]) => ({
+        bucket,
+        spots: count,
+        qsos: qsoBuckets.get(bucket) || 0
+      })).filter((e) => e.spots >= 5);
+      if (!entries.length) return '<p>No pileup windows with at least 5 spots.</p>';
+      entries.sort((a, b) => b.spots - a.spots || b.qsos - a.qsos);
+      const rows = entries.slice(0, 20).map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        const startTs = e.bucket * bucketMs;
+        return `
+          <tr class="${cls}">
+            <td>${escapeHtml(formatDateSh6(startTs))}</td>
+            <td>${formatNumberSh6(e.spots)}</td>
+            <td>${formatNumberSh6(e.qsos)}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Window start (UTC)</th><th>Spots</th><th>QSOs</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
+    const renderFrequencyAgilityTable = (spots, analysis) => {
+      if (!spots || !spots.length) return '<p>No data.</p>';
+      const moved = { count: 0, rateSum: 0, deltas: [] };
+      const stayed = { count: 0, rateSum: 0, deltas: [] };
+      const windowMs = 10 * 60000;
+      spots.forEach((s) => {
+        const band = s.band || 'unknown';
+        const list = analysis.qsoRecordsByBand.get(band) || [];
+        const times = analysis.qsoTimesByBand.get(band) || [];
+        if (list.length < 2) return;
+        const before = findBeforeRecord(list, s.ts);
+        const after = findAfterRecord(list, s.ts);
+        if (!before || !after) return;
+        if (!Number.isFinite(before.freq) || !Number.isFinite(after.freq)) return;
+        const deltaKhz = Math.abs(after.freq - before.freq) * 1000;
+        const rateAfter = countInRange(times, s.ts, s.ts + windowMs);
+        const bucket = deltaKhz >= 1 ? moved : stayed;
+        bucket.count += 1;
+        bucket.rateSum += rateAfter;
+        bucket.deltas.push(deltaKhz);
+      });
+      if (!moved.count && !stayed.count) return '<p>No frequency-change samples.</p>';
+      const rows = [
+        { label: 'Moved ≥ 1 kHz', data: moved },
+        { label: 'Stayed < 1 kHz', data: stayed }
+      ].map((e, idx) => {
+        const cls = idx % 2 === 0 ? 'td1' : 'td0';
+        const avgRate = e.data.count ? e.data.rateSum / e.data.count : 0;
+        const median = medianValue(e.data.deltas);
+        return `
+          <tr class="${cls}">
+            <td class="tl">${escapeHtml(e.label)}</td>
+            <td>${formatNumberSh6(e.data.count)}</td>
+            <td>${avgRate.toFixed(2)}</td>
+            <td>${median != null ? median.toFixed(1) : 'N/A'}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Group</th><th>Spots</th><th>Avg 10m rate after</th><th>Median Δ kHz</th></tr>
+          ${rows}
+        </table>
+      `;
+    };
     const buildTenMinuteSeries = (derived, bandSet) => {
       if (!bandSet || !bandSet.size) {
         return (derived?.tenMinuteSeries || []).map((p) => ({ ts: p.bucket * 600000, qsos: p.qsos }));
@@ -5584,6 +6103,41 @@
 
         <div class="export-actions export-note"><b>All spots by you</b></div>
         ${renderAllSpotsTable(stats.byUsSpots, false)}
+
+        ${(() => {
+          const analysis = buildAnalysisContext();
+          return `
+            <div class="export-actions export-note"><b>Unworked-after-spot rate (band/hour)</b></div>
+            ${renderUnworkedRateTable(stats.ofUsSpots)}
+
+            <div class="export-actions export-note"><b>Time-to-first-QSO after spot (band)</b></div>
+            ${renderTimeToFirstQsoTable(stats.ofUsSpots, analysis)}
+
+            <div class="export-actions export-note"><b>Spot-to-rate uplift (10 min before vs after)</b></div>
+            ${renderSpotUpliftTable(stats.ofUsSpots, analysis)}
+
+            <div class="export-actions export-note"><b>DX spot conversion funnel</b></div>
+            ${renderSpottingFunnelTable(stats.byUsSpots, analysis)}
+
+            <div class="export-actions export-note"><b>Band change efficiency</b></div>
+            ${renderBandChangeEfficiencyTable(analysis)}
+
+            <div class="export-actions export-note"><b>Peak spotter reliability</b></div>
+            ${renderSpotterReliabilityTable(stats.ofUsSpots)}
+
+            <div class="export-actions export-note"><b>Missed mult opportunities</b></div>
+            ${renderMissedMultTable(stats.byUsSpots, analysis)}
+
+            <div class="export-actions export-note"><b>Opening/closing windows by day</b></div>
+            ${renderOpenCloseTable(stats.ofUsSpots)}
+
+            <div class="export-actions export-note"><b>Pileup window profiling</b></div>
+            ${renderPileupWindowTable(stats.ofUsSpots, analysis)}
+
+            <div class="export-actions export-note"><b>Frequency agility view</b></div>
+            ${renderFrequencyAgilityTable(stats.ofUsSpots, analysis)}
+          `;
+        })()}
         ` : ''}
       </div>
     `;

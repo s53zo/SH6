@@ -44,7 +44,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.1.4';
+  const APP_VERSION = 'v3.1.5';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -54,7 +54,7 @@
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
-  const QRZ_BASE_URL = 'https://www.qrz.com/db';
+  const QRZ_URLS = ['https://azure.s53m.com/cors/qrz', 'https://www.qrz.com/db'];
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const QRZ_MAX_CONCURRENCY = 3;
   const COMPARE_PROGRESS_THRESHOLD = 20000;
@@ -66,6 +66,7 @@
     (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
   ];
   const CTY_URLS = [
+    'https://azure.s53m.com/cors/cty.dat',
     'https://www.country-files.com/cty/cty.dat',
     'cty.dat',
     './cty.dat',
@@ -75,6 +76,7 @@
     '/CTY.DAT'
   ];
   const MASTER_URLS = [
+    'https://azure.s53m.com/cors/MASTER.DTA',
     'https://www.supercheckpartial.com/MASTER.DTA',
     'MASTER.DTA',
     './MASTER.DTA',
@@ -217,7 +219,9 @@
     prevBtn: document.getElementById('prevBtn'),
     nextBtn: document.getElementById('nextBtn'),
     ctyStatus: document.getElementById('ctyStatus'),
+    ctySourceLabel: document.getElementById('ctySourceLabel'),
     masterStatus: document.getElementById('masterStatus'),
+    masterSourceLabel: document.getElementById('masterSourceLabel'),
     appVersion: document.getElementById('appVersion'),
     bandRibbon: document.getElementById('bandRibbon'),
     repoSearch: document.getElementById('repoSearch'),
@@ -1903,6 +1907,17 @@
 
   function updateDataStatus() {
     const isProxy = (src) => /allorigins\.win|corsproxy\.io/i.test(src || '');
+    const classifySource = (src) => {
+      if (!src) return { label: '', className: '' };
+      const lower = String(src).toLowerCase();
+      if (lower.includes('azure.s53m.com/cors')) return { label: 'Azure CORS', className: 'source-local' };
+      if (lower.includes('allorigins.win') || lower.includes('corsproxy.io')) return { label: 'Public CORS', className: 'source-proxy' };
+      if (lower.includes('country-files.com') || lower.includes('supercheckpartial.com') || lower.includes('qrz.com')) {
+        return { label: 'Direct', className: 'source-direct' };
+      }
+      if (!/^https?:\/\//i.test(src)) return { label: 'Local file', className: 'source-local' };
+      return { label: 'Remote', className: 'source-remote' };
+    };
     const formatStatus = (status, src) => {
       if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
       if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
@@ -1920,6 +1935,12 @@
         state.ctyStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
+    if (dom.ctySourceLabel) {
+      const info = classifySource(state.ctySource);
+      dom.ctySourceLabel.textContent = info.label;
+      dom.ctySourceLabel.title = state.ctySource || '';
+      dom.ctySourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
+    }
     if (dom.masterStatus) {
       dom.masterStatus.textContent = formatStatus(state.masterStatus, state.masterSource);
       dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
@@ -1930,6 +1951,12 @@
         state.masterStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
         state.masterStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
+    }
+    if (dom.masterSourceLabel) {
+      const info = classifySource(state.masterSource);
+      dom.masterSourceLabel.textContent = info.label;
+      dom.masterSourceLabel.title = state.masterSource || '';
+      dom.masterSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
     }
   }
 
@@ -2351,8 +2378,8 @@
     if (cached.hit) return cached.url;
     if (qrzPhotoInFlight.has(call)) return qrzPhotoInFlight.get(call);
     const task = (async () => {
-      const url = `${QRZ_BASE_URL}/${encodeURIComponent(call)}`;
-      const res = await fetchWithFallback(buildFetchUrls([url]), () => {});
+      const urls = QRZ_URLS.map((base) => `${base}/${encodeURIComponent(call)}`);
+      const res = await fetchWithFallback(buildFetchUrls(urls), () => {});
       if (res && res.error) {
         setQrzPhotoCache(call, null);
         return null;

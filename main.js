@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.1';
+  const APP_VERSION = 'v3.3.2';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1172,7 +1172,7 @@
   }
 
   function continentClass(cont) {
-    switch ((cont || '').toUpperCase()) {
+    switch (normalizeContinent(cont)) {
       case 'NA': return 'c2';
       case 'SA': return 'c3';
       case 'EU': return 'c4';
@@ -2841,8 +2841,12 @@
     return map;
   }
 
+  function normalizeContinent(code) {
+    return (code || '').trim().toUpperCase();
+  }
+
   function continentLabel(code) {
-    switch ((code || '').toUpperCase()) {
+    switch (normalizeContinent(code)) {
       case 'NA': return 'North America';
       case 'SA': return 'South America';
       case 'EU': return 'Europe';
@@ -5781,7 +5785,7 @@
 
   function buildContinentListFromDerived(derived) {
     if (!derived || !derived.continentSummary) return [];
-    return derived.continentSummary.map((c) => ({ continent: c.continent || '' }));
+    return derived.continentSummary.map((c) => ({ continent: normalizeContinent(c.continent) }));
   }
 
   function mergeContinentLists(listA, listB) {
@@ -5802,7 +5806,7 @@
   function buildContinentSummaryMap(derived) {
     const map = new Map();
     if (!derived || !derived.continentSummary) return map;
-    derived.continentSummary.forEach((c) => map.set(c.continent, c));
+    derived.continentSummary.forEach((c) => map.set(normalizeContinent(c.continent), c));
     return map;
   }
 
@@ -5810,7 +5814,7 @@
     const bandCols = getDisplayBandList();
     const summaryMap = buildContinentSummaryMap(derived);
     return list.map((info, idx) => {
-      const contKey = (info.continent || '').toUpperCase();
+      const contKey = normalizeContinent(info.continent);
       const c = summaryMap.get(contKey);
       const pct = c && totalQsos ? ((c.qsos / totalQsos) * 100).toFixed(1) : '';
       const contText = escapeHtml(contKey);

@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.3.2 (2026-01-31)
+- Fix continent color mapping by normalizing continent codes.
+
 ## v3.3.1 (2026-01-31)
 - Simplify Top spotters and Top DX tables to Spotter/DX, Spots, Top band.
 

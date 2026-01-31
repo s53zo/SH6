@@ -8257,6 +8257,12 @@
       }
     }
     if (reportId === 'spots') {
+      if (state.derived && state.qsoData) {
+        const spotsState = getSpotsState();
+        if (spotsState.status === 'idle' || spotsState.status === 'error') {
+          loadSpotsForCurrentLog();
+        }
+      }
       const btn = document.querySelector('.spots-load-btn');
       if (btn) {
         btn.addEventListener('click', (evt) => {

@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.6';
+  const APP_VERSION = 'v3.3.7';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -3690,28 +3690,32 @@
     return `
       <div class="landing-page">
         <section class="landing-hero">
-          <div class="landing-kicker"><img class="landing-logo" src="SH6_logo.png" alt="SH6" decoding="async"></div>
-          <h1>SH6 — Hamradio log analyzer</h1>
-          <p>Analyze hamradio logs in your browser: countries, rates, operators, maps, and side-by-side comparisons.</p>
-          <div class="landing-actions">
-            <div class="landing-action-row">
-              <button type="button" class="button landing-action" data-action="upload-a">Upload log</button>
-              <span class="landing-action-note">Upload your own log or Drag &amp; Drop it to this window</span>
-            </div>
-            <div class="landing-action-row">
-              <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
-              <span class="landing-action-note">Public archive of over 1 million contest logs at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a> as a searchable database</span>
-            </div>
-            <div class="landing-action-row">
-              <button type="button" class="button landing-action" data-action="compare">Compare logs</button>
-              <span class="landing-action-note">Compare logs from your computer or the public archive</span>
-            </div>
-            <div class="landing-action-row">
-              <button type="button" class="button demo-log-btn">Demo log</button>
-              <span class="landing-action-note">just a simple demo log to see possibilities</span>
+          <div class="landing-hero-copy">
+            <div class="landing-kicker"><img class="landing-logo" src="SH6_logo.png" alt="SH6" decoding="async"></div>
+            <h1>SH6 — Hamradio log analyzer</h1>
+            <p>Analyze hamradio logs in your browser: countries, rates, operators, maps, and side-by-side comparisons.</p>
+            <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif).</div>
+          </div>
+          <div class="landing-hero-actions">
+            <div class="landing-actions">
+              <div class="landing-action-row">
+                <button type="button" class="button landing-action" data-action="upload-a">Upload log</button>
+                <span class="landing-action-note">Upload your own log or Drag &amp; Drop it to this window</span>
+              </div>
+              <div class="landing-action-row">
+                <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
+                <span class="landing-action-note">Public archive of over 1 million contest logs at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a> as a searchable database</span>
+              </div>
+              <div class="landing-action-row">
+                <button type="button" class="button landing-action" data-action="compare">Compare logs</button>
+                <span class="landing-action-note">Compare logs from your computer or the public archive</span>
+              </div>
+              <div class="landing-action-row">
+                <button type="button" class="button demo-log-btn">Demo log</button>
+                <span class="landing-action-note">just a simple demo log to see possibilities</span>
+              </div>
             </div>
           </div>
-          <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif).</div>
         </section>
         <section class="landing-section landing-panel">
           <h3>What you can explore</h3>

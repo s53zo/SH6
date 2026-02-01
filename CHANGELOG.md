@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.3.7 (2026-01-31)
+- Redesign load logs UI (upload hub + landing page refresh).
+
 ## v3.3.6 (2026-01-31)
 - Add plain-language explanations for each spots insight section.
 

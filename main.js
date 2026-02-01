@@ -6456,12 +6456,6 @@
         ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderUnansweredTable((stats.ofUsSpots || []).filter((s) => !s.matched))}
         `}
 
-        <div class="export-actions export-note"><b>All spots of you</b></div>
-        ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderAllSpotsTable(stats.ofUsSpots, true)}
-
-        <div class="export-actions export-note"><b>All spots by you</b></div>
-        ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderAllSpotsTable(stats.byUsSpots, false)}
-
         ${(() => {
           const analysis = buildAnalysisContext();
           const concurrentBands = hasConcurrentBands(state.qsoData?.qsos || []);
@@ -6513,6 +6507,12 @@
             ${renderFrequencyAgilityTable(stats.ofUsSpots, analysis)}
           `;
         })()}
+
+        <div class="export-actions export-note"><b>All spots of you</b></div>
+        ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderAllSpotsTable(stats.ofUsSpots, true)}
+
+        <div class="export-actions export-note"><b>All spots by you</b></div>
+        ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderAllSpotsTable(stats.byUsSpots, false)}
         ` : ''}
       </div>
     `;

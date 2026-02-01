@@ -3,6 +3,11 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.1.4 (2026-02-01)
+- Add Save&Load session menu and session handling (permalinks + offline session files).
+- Move QSL labels menu entry just above SH6 info.
+- Lower Break time slider minimum to 2 minutes.
+
 ## v4.1.3 (2026-02-01)
 - Add RBN date picker when logs span more than two UTC days, with per-slot selection in compare mode.
 - Notify users about the two-day RBN query limit and drive RBN fetches from the selected dates.

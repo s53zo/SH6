@@ -2849,6 +2849,18 @@
 
   function normalizeContinent(code) {
     const raw = (code || '').trim().toUpperCase();
+    if (!raw) return '';
+    if (raw === 'NA' || raw === 'SA' || raw === 'EU' || raw === 'AF' || raw === 'AS' || raw === 'OC') return raw;
+    const words = raw.replace(/[^A-Z]/g, ' ').split(/\s+/).filter(Boolean);
+    if (raw.includes('AMERICA')) {
+      if (raw.includes('SOUTH') || words.includes('S')) return 'SA';
+      if (raw.includes('NORTH') || words.includes('N')) return 'NA';
+      return 'NA';
+    }
+    if (raw.includes('EUROPE')) return 'EU';
+    if (raw.includes('AFRICA')) return 'AF';
+    if (raw.includes('ASIA')) return 'AS';
+    if (raw.includes('OCEANIA') || raw.includes('AUSTRALIA')) return 'OC';
     const match = raw.match(/[A-Z]{2}/);
     return match ? match[0] : '';
   }
@@ -6118,43 +6130,43 @@
           const analysis = buildAnalysisContext();
           return `
             <div class="export-actions export-note"><b>Unworked-after-spot rate (band/hour)</b></div>
-            <div class="export-actions export-note">Plain language: Out of all spots of you, how many did not turn into a QSO within the match window, grouped by band and hour. Lower is better.</div>
+            <div class="export-actions export-note">Out of all spots of you, how many did not turn into a QSO within the match window, grouped by band and hour. Lower is better.</div>
             ${renderUnworkedRateTable(stats.ofUsSpots)}
 
             <div class="export-actions export-note"><b>Time-to-first-QSO after spot (band)</b></div>
-            <div class="export-actions export-note">Plain language: How long it usually takes to log a QSO after the first spot in a spot “cluster” on each band. Lower is better.</div>
+            <div class="export-actions export-note">How long it usually takes to log a QSO after the first spot in a spot “cluster” on each band. Lower is better.</div>
             ${renderTimeToFirstQsoTable(stats.ofUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Spot-to-rate uplift (10 min before vs after)</b></div>
-            <div class="export-actions export-note">Plain language: Compares QSO rate in the 10 minutes before a spot vs the 10 minutes after. Higher uplift and higher % positive are better.</div>
+            <div class="export-actions export-note">Compares QSO rate in the 10 minutes before a spot vs the 10 minutes after. Higher uplift and higher % positive are better.</div>
             ${renderSpotUpliftTable(stats.ofUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>DX spot conversion funnel</b></div>
-            <div class="export-actions export-note">Plain language: Of the spots you sent, how many turned into a QSO, a new call, a new band for that call, or a new country. Higher % is better.</div>
+            <div class="export-actions export-note">Of the spots you sent, how many turned into a QSO, a new call, a new band for that call, or a new country. Higher % is better.</div>
             ${renderSpottingFunnelTable(stats.byUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Band change efficiency</b></div>
-            <div class="export-actions export-note">Plain language: When you switch into a band, did your rate go up in the next 10 minutes? Higher % improved and higher avg uplift are better.</div>
+            <div class="export-actions export-note">When you switch into a band, did your rate go up in the next 10 minutes? Higher % improved and higher avg uplift are better.</div>
             ${renderBandChangeEfficiencyTable(analysis)}
 
             <div class="export-actions export-note"><b>Peak spotter reliability</b></div>
-            <div class="export-actions export-note">Plain language: Which spotters give you the most “actionable” spots (they turn into QSOs). Higher % is better.</div>
+            <div class="export-actions export-note">Which spotters give you the most “actionable” spots (they turn into QSOs). Higher % is better.</div>
             ${renderSpotterReliabilityTable(stats.ofUsSpots)}
 
             <div class="export-actions export-note"><b>Missed mult opportunities</b></div>
-            <div class="export-actions export-note">Plain language: Spots you sent where you never worked the DX and it looked like a new country at that time. Lower is better.</div>
+            <div class="export-actions export-note">Spots you sent where you never worked the DX and it looked like a new country at that time. Lower is better.</div>
             ${renderMissedMultTable(stats.byUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Opening/closing windows by day</b></div>
-            <div class="export-actions export-note">Plain language: First and last time you were spotted on each band each day. Longer span means a longer window of opportunity (informational).</div>
+            <div class="export-actions export-note">First and last time you were spotted on each band each day. Longer span means a longer window of opportunity (informational).</div>
             ${renderOpenCloseTable(stats.ofUsSpots)}
 
             <div class="export-actions export-note"><b>Pileup window profiling</b></div>
-            <div class="export-actions export-note">Plain language: 10‑minute windows with lots of spots, plus how many QSOs you made in those windows. Higher spots and QSOs indicate stronger pileups.</div>
+            <div class="export-actions export-note">10‑minute windows with lots of spots, plus how many QSOs you made in those windows. Higher spots and QSOs indicate stronger pileups.</div>
             ${renderPileupWindowTable(stats.ofUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Frequency agility view</b></div>
-            <div class="export-actions export-note">Plain language: Compares QSOs after spots when you moved frequency versus stayed put. Higher avg rate after is better; use this to decide whether moving helps.</div>
+            <div class="export-actions export-note">Compares QSOs after spots when you moved frequency versus stayed put. Higher avg rate after is better; use this to decide whether moving helps.</div>
             ${renderFrequencyAgilityTable(stats.ofUsSpots, analysis)}
           `;
         })()}
@@ -6166,7 +6178,7 @@
   const CONTINENT_ORDER = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
 
   function continentOrderIndex(code) {
-    const key = (code || '').trim().toUpperCase();
+    const key = normalizeContinent(code);
     const idx = CONTINENT_ORDER.indexOf(key);
     return idx === -1 ? 99 : idx;
   }
@@ -6392,6 +6404,7 @@
       const mapLink = c ? `<a href="#" class="map-link" data-scope="continent" data-key="${contAttr}">map</a>` : '';
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td>${formatNumberSh6(idx + 1)}</td>
           <td class="${contClass}">${contText}</td>
           <td style="text-align:left">${contLabel}</td>
           ${bandCells}
@@ -6412,8 +6425,8 @@
     const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="30px"/><col width="200px"/><col span="${qsoCols}" width="120px"/><col width="5%"/></colgroup>
-        <tr class="thc"><th colspan="2" rowspan="2">Continent</th><th colspan="${qsoCols}">QSOs</th><th colspan="2" rowspan="2">Map</th></tr>
+        <colgroup><col width="40px"/><col width="30px"/><col width="200px"/><col span="${qsoCols}" width="120px"/><col width="5%"/></colgroup>
+        <tr class="thc"><th rowspan="2">#</th><th colspan="2" rowspan="2">Continent</th><th colspan="${qsoCols}">QSOs</th><th rowspan="2">Map</th></tr>
         <tr class="thc">${bandHeaders}<th>All</th><th>%</th><th>CW</th><th>Digital</th><th>Phone</th></tr>
         ${rows}
         ${mapAllFooter()}

@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.1.9 (2026-02-01)
+- Redesign log upload panel layout into step-based slots for clearer archive vs upload paths.
+
 ## v4.1.8 (2026-02-01)
 - Make Operators view responsive with a grid layout that avoids overflow.
 

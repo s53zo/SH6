@@ -105,6 +105,7 @@
     C: '#2e7d32',
     D: '#6a1b9a'
   };
+  const SESSION_VERSION = 1;
 
   function createSpotsState(source = 'spots') {
     return {
@@ -150,6 +151,216 @@
       spotsState: createSpotsState(),
       rbnState: createRbnState()
     };
+  }
+
+  function resetMainSlot() {
+    state.logFile = null;
+    state.qsoData = null;
+    state.qsoLite = null;
+    state.rawLogText = '';
+    state.derived = null;
+    state.logPage = 0;
+    state.fullQsoData = null;
+    state.fullDerived = null;
+    state.bandDerivedCache = new Map();
+    state.logVersion = (state.logVersion || 0) + 1;
+    state.spotsState = createSpotsState();
+    state.rbnState = createRbnState();
+  }
+
+  function resetCompareSlot(slotId) {
+    const idx = COMPARE_SLOT_IDS.indexOf(String(slotId || '').toUpperCase());
+    if (idx < 0) return;
+    state.compareSlots[idx] = createEmptyCompareSlot();
+  }
+
+  function serializeSpotSettings(spotState) {
+    if (!spotState) return { windowMinutes: 15, bandFilter: [] };
+    return {
+      windowMinutes: Number(spotState.windowMinutes) || 15,
+      bandFilter: Array.isArray(spotState.bandFilter) ? spotState.bandFilter.slice() : []
+    };
+  }
+
+  function serializeRbnSettings(rbnState) {
+    if (!rbnState) return { windowMinutes: 15, bandFilter: [], selectedDays: [] };
+    return {
+      windowMinutes: Number(rbnState.windowMinutes) || 15,
+      bandFilter: Array.isArray(rbnState.bandFilter) ? rbnState.bandFilter.slice() : [],
+      selectedDays: Array.isArray(rbnState.selectedDays) ? rbnState.selectedDays.slice() : []
+    };
+  }
+
+  function buildSessionPayload(includeRaw) {
+    const slotIds = ['A', 'B', 'C', 'D'];
+    const slots = slotIds.map((id) => {
+      const slot = getSlotById(id);
+      if (!slot || !slot.qsoData || !slot.logFile) {
+        return { id, empty: true };
+      }
+      const file = {
+        name: slot.logFile?.name || '',
+        size: Number.isFinite(slot.logFile?.size) ? slot.logFile.size : 0,
+        source: slot.logFile?.source || ''
+      };
+      const path = slot.logFile?.path || '';
+      const sourceType = path ? 'archive' : 'local';
+      const data = {
+        id,
+        empty: false,
+        file,
+        sourceType,
+        archivePath: path || '',
+        spots: serializeSpotSettings(slot.spotsState),
+        rbn: serializeRbnSettings(slot.rbnState)
+      };
+      if (includeRaw) {
+        data.rawText = slot.rawLogText || '';
+      }
+      return data;
+    });
+    return {
+      version: SESSION_VERSION,
+      createdAt: Date.now(),
+      appVersion: APP_VERSION,
+      compareCount: state.compareCount,
+      compareFocus: state.compareFocus,
+      globalBandFilter: state.globalBandFilter || '',
+      breakThreshold: state.breakThreshold,
+      logPageSize: state.logPageSize,
+      logPage: state.logPage,
+      compareLogWindowStart: state.compareLogWindowStart,
+      compareLogWindowSize: state.compareLogWindowSize,
+      logFilters: {
+        search: state.logSearch || '',
+        fieldFilter: state.logFieldFilter || '',
+        bandFilter: state.logBandFilter || '',
+        modeFilter: state.logModeFilter || '',
+        opFilter: state.logOpFilter || '',
+        callLenFilter: Number.isFinite(state.logCallLenFilter) ? state.logCallLenFilter : null,
+        callStructFilter: state.logCallStructFilter || '',
+        countryFilter: state.logCountryFilter || '',
+        continentFilter: state.logContinentFilter || '',
+        cqFilter: state.logCqFilter || '',
+        ituFilter: state.logItuFilter || '',
+        rangeFilter: state.logRange || null,
+        timeRange: state.logTimeRange || null,
+        headingRange: state.logHeadingRange || null,
+        stationQsoRange: state.logStationQsoRange || null,
+        distanceRange: state.logDistanceRange || null
+      },
+      slots
+    };
+  }
+
+  function applySpotSettings(slot, data) {
+    if (!slot) return;
+    if (data?.spots) {
+      const spotsState = getSpotStateBySource(slot, 'spots');
+      spotsState.windowMinutes = Number(data.spots.windowMinutes) || 15;
+      spotsState.bandFilter = Array.isArray(data.spots.bandFilter) ? data.spots.bandFilter.slice() : [];
+    }
+    if (data?.rbn) {
+      const rbnState = getSpotStateBySource(slot, 'rbn');
+      rbnState.windowMinutes = Number(data.rbn.windowMinutes) || 15;
+      rbnState.bandFilter = Array.isArray(data.rbn.bandFilter) ? data.rbn.bandFilter.slice() : [];
+      rbnState.selectedDays = Array.isArray(data.rbn.selectedDays) ? data.rbn.selectedDays.slice() : [];
+    }
+  }
+
+  function applySessionFilters(filters) {
+    const f = filters || {};
+    state.logSearch = f.search || '';
+    state.logFieldFilter = f.fieldFilter || '';
+    state.logBandFilter = f.bandFilter || '';
+    state.logModeFilter = f.modeFilter || '';
+    state.logOpFilter = f.opFilter || '';
+    state.logCallLenFilter = Number.isFinite(f.callLenFilter) ? f.callLenFilter : null;
+    state.logCallStructFilter = f.callStructFilter || '';
+    state.logCountryFilter = f.countryFilter || '';
+    state.logContinentFilter = f.continentFilter || '';
+    state.logCqFilter = f.cqFilter || '';
+    state.logItuFilter = f.ituFilter || '';
+    state.logRange = f.rangeFilter || null;
+    state.logTimeRange = f.timeRange || null;
+    state.logHeadingRange = f.headingRange || null;
+    state.logStationQsoRange = f.stationQsoRange || null;
+    state.logDistanceRange = f.distanceRange || null;
+  }
+
+  async function applySessionPayload(payload, options = {}) {
+    if (!payload || typeof payload !== 'object') return;
+    state.sessionNotice = [];
+    const compareCount = Math.min(4, Math.max(1, Number(payload.compareCount) || 1));
+    setCompareCount(compareCount, true);
+    state.compareFocus = payload.compareFocus || state.compareFocus;
+    state.globalBandFilter = payload.globalBandFilter || '';
+    state.breakThreshold = Number(payload.breakThreshold) || state.breakThreshold;
+    if (Number.isFinite(payload.logPageSize)) state.logPageSize = payload.logPageSize;
+    if (Number.isFinite(payload.logPage)) state.logPage = payload.logPage;
+    if (Number.isFinite(payload.compareLogWindowStart)) state.compareLogWindowStart = payload.compareLogWindowStart;
+    if (Number.isFinite(payload.compareLogWindowSize)) state.compareLogWindowSize = payload.compareLogWindowSize;
+    applySessionFilters(payload.logFilters);
+    const slotPayloads = Array.isArray(payload.slots) ? payload.slots : [];
+    const payloadMap = new Map(slotPayloads.map((s) => [String(s.id || '').toUpperCase(), s]));
+    for (const id of ['A', 'B', 'C', 'D']) {
+      const data = payloadMap.get(id);
+      if (!data || data.empty) {
+        if (id === 'A') resetMainSlot();
+        else resetCompareSlot(id);
+        continue;
+      }
+      if (options.fromPermalink && data.sourceType === 'local') {
+        const label = data.file?.name ? ` (${data.file.name})` : '';
+        state.sessionNotice.push(`Permalink needs local log upload for slot ${id}${label}.`);
+        if (id === 'A') resetMainSlot();
+        else resetCompareSlot(id);
+        continue;
+      }
+      if (data.rawText) {
+        applyLoadedLogToSlot(id, data.rawText, data.file?.name || `${id}.log`, data.file?.size || data.rawText.length, 'Session', null, data.archivePath || '');
+        applySpotSettings(getSlotById(id), data);
+        continue;
+      }
+      if (data.archivePath) {
+        const result = await fetchArchiveLogText(data.archivePath);
+        if (result && result.text) {
+          const name = data.file?.name || data.archivePath.split('/').pop() || `${id}.log`;
+          applyLoadedLogToSlot(id, result.text, name, result.text.length, 'Archive', null, data.archivePath);
+          applySpotSettings(getSlotById(id), data);
+        } else {
+          state.sessionNotice.push(`Failed to load archive log for slot ${id}.`);
+          if (id === 'A') resetMainSlot();
+          else resetCompareSlot(id);
+        }
+      }
+    }
+    invalidateCompareLogData();
+    updateBandRibbon();
+    rebuildReports();
+    const logIndex = reports.findIndex((r) => r.id === 'log');
+    if (logIndex >= 0) setActiveReport(logIndex);
+  }
+
+  function buildPermalink() {
+    const payload = buildSessionPayload(false);
+    const encoded = base64UrlEncode(JSON.stringify(payload));
+    const url = new URL(window.location.href);
+    url.searchParams.set('state', encoded);
+    url.hash = '';
+    return url.toString();
+  }
+
+  function parsePermalinkState() {
+    const params = new URLSearchParams(window.location.search || '');
+    const encoded = params.get('state');
+    if (!encoded) return null;
+    try {
+      const json = base64UrlDecode(encoded);
+      return JSON.parse(json);
+    } catch (err) {
+      return null;
+    }
   }
 
   function buildFetchUrls(urls) {
@@ -227,6 +438,7 @@
     compareLogFallbackTimer: null,
     compareLogWindowStart: 0,
     compareLogWindowSize: 1000,
+    sessionNotice: [],
     renderSlotId: null,
     logVersion: 0,
     spotsState: null,
@@ -235,6 +447,20 @@
   };
 
   const qrzPhotoInFlight = new Map();
+
+  const base64UrlEncode = (value) => {
+    const text = String(value == null ? '' : value);
+    const encoded = btoa(unescape(encodeURIComponent(text)));
+    return encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  };
+
+  const base64UrlDecode = (value) => {
+    if (!value) return '';
+    let text = String(value);
+    text = text.replace(/-/g, '+').replace(/_/g, '/');
+    while (text.length % 4) text += '=';
+    return decodeURIComponent(escape(atob(text)));
+  };
 
   function trackEvent(name, params) {
     if (typeof window.gtag === 'function') {
@@ -2211,6 +2437,10 @@
     updateBandRibbon();
     rebuildReports();
     setActiveReport(state.activeIndex);
+    if (Array.isArray(state.sessionNotice) && state.sessionNotice.length) {
+      const tag = `slot ${String(slotId || '').toUpperCase()}`;
+      state.sessionNotice = state.sessionNotice.filter((msg) => !String(msg).toLowerCase().includes(tag.toLowerCase()));
+    }
     return target.qsoData;
   }
 
@@ -4031,6 +4261,23 @@
     return columns.map((col) => renderLogCellById(q, col, options)).join('');
   }
 
+  function renderSessionControls() {
+    const notices = Array.isArray(state.sessionNotice) ? state.sessionNotice.filter(Boolean) : [];
+    const noticeHtml = notices.length
+      ? `<div class="export-actions export-note"><b>Session notice</b>: ${escapeHtml(notices.join(' '))}</div>`
+      : '';
+    return `
+      ${noticeHtml}
+      <div class="export-actions export-note"><b>Session</b>: save or restore full comparisons and settings.</div>
+      <div class="export-actions">
+        <button type="button" class="button session-permalink">Copy permalink</button>
+        <button type="button" class="button session-save">Save session</button>
+        <button type="button" class="button session-load">Load session</button>
+        <input type="file" id="sessionFileInput" class="session-file-input" accept="application/json" hidden>
+      </div>
+    `;
+  }
+
   const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   function formatTimeOfDay(minutes) {
@@ -4279,7 +4526,10 @@
     const slotEntries = getActiveCompareSlots();
     const anyLoaded = slotEntries.some((entry) => entry.slot?.qsoData);
     if (!anyLoaded) {
-      return '<p>No logs loaded for comparison yet.</p>';
+      return `
+        ${renderSessionControls()}
+        <p>No logs loaded for comparison yet.</p>
+      `;
     }
     const filters = getLogFilters();
     const compareKey = buildCompareLogKey(filters);
@@ -4352,13 +4602,14 @@
           Showing rows ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(totalRows)} (window ${formatNumberSh6(windowSize)}).
         </div>
         <div class="compare-window-actions">
-          <button type="button" id="comparePrev" ${prevDisabled ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(windowSize)}</button>
-          <button type="button" id="compareNext" ${nextDisabled ? 'disabled' : ''}>Next ${formatNumberSh6(windowSize)} &#9654;</button>
+          <button type="button" class="compare-window-btn" data-dir="prev" ${prevDisabled ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(windowSize)}</button>
+          <button type="button" class="compare-window-btn" data-dir="next" ${nextDisabled ? 'disabled' : ''}>Next ${formatNumberSh6(windowSize)} &#9654;</button>
         </div>
       </div>
       `
       : '';
     return `
+      ${renderSessionControls()}
       ${note}
       ${missingNote}
       ${dataNote}
@@ -4391,6 +4642,7 @@
           ${rows || ''}
         </table>
       </div>
+      ${windowNote}
     `;
   }
 
@@ -4398,7 +4650,12 @@
     if (state.compareEnabled) {
       return renderLogCompare();
     }
-    if (!state.qsoData) return renderPlaceholder({ id: 'log', title: 'Log' });
+    if (!state.qsoData) {
+      return `
+        ${renderSessionControls()}
+        ${renderPlaceholder({ id: 'log', title: 'Log' })}
+      `;
+    }
     const ctyLoaded = state.ctyTable && state.ctyTable.length > 0;
     const masterLoaded = state.masterSet && state.masterSet.size > 0;
     const filters = getLogFilters();
@@ -4478,6 +4735,7 @@
       return `<a href="#" class="log-page ${cls}" data-page="${i}" title="${from}-${to} Qs">&nbsp;${i + 1}&nbsp;</a>`;
     }).join(' ');
     return `
+      ${renderSessionControls()}
       ${note}
       ${dataNote}
       ${filterNote}
@@ -4495,6 +4753,9 @@
         <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
         ${rows}
       </table>
+      <div class="log-controls log-controls-bottom">
+        <div class="log-pages">Pages: ${pageLinks}</div>
+      </div>
     `;
   }
 
@@ -7697,9 +7958,9 @@
     }).join('');
     const nav = list.length > pageSize ? `
       <div class="not-master-controls">
-        <button type="button" id="notMasterPrev" ${page <= 0 ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(pageSize)}</button>
+        <button type="button" class="not-master-btn" data-dir="prev" ${page <= 0 ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(pageSize)}</button>
         <span>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(list.length)}</span>
-        <button type="button" id="notMasterNext" ${page >= totalPages - 1 ? 'disabled' : ''}>Next ${formatNumberSh6(pageSize)} &#9654;</button>
+        <button type="button" class="not-master-btn" data-dir="next" ${page >= totalPages - 1 ? 'disabled' : ''}>Next ${formatNumberSh6(pageSize)} &#9654;</button>
       </div>
     ` : '';
     return `
@@ -7710,6 +7971,7 @@
         <tr class="thc"><th>#</th><th>Callsign</th><th>QSOs</th><th>First</th><th>Last</th></tr>
         ${rows}
       </table>
+      ${nav}
     `;
   }
 
@@ -9283,27 +9545,26 @@
       loadOperatorPhotos(dom.viewContainer);
     }
     if (reportId === 'not_in_master') {
-      const prev = document.getElementById('notMasterPrev');
-      const next = document.getElementById('notMasterNext');
-      if (prev) {
-        prev.addEventListener('click', () => {
-          if (state.notInMasterPage > 0) {
-            state.notInMasterPage -= 1;
-            renderReportWithLoading(reports[state.activeIndex]);
-          }
-        });
-      }
-      if (next) {
-        next.addEventListener('click', () => {
+      const buttons = document.querySelectorAll('.not-master-btn');
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
           const list = state.derived?.notInMasterList || [];
           const pageSize = state.notInMasterPageSize || 500;
           const totalPages = Math.max(1, Math.ceil(list.length / pageSize));
-          if (state.notInMasterPage < totalPages - 1) {
-            state.notInMasterPage += 1;
-            renderReportWithLoading(reports[state.activeIndex]);
+          const dir = btn.dataset.dir || '';
+          if (dir === 'prev') {
+            if (state.notInMasterPage > 0) {
+              state.notInMasterPage -= 1;
+              renderReportWithLoading(reports[state.activeIndex]);
+            }
+          } else if (dir === 'next') {
+            if (state.notInMasterPage < totalPages - 1) {
+              state.notInMasterPage += 1;
+              renderReportWithLoading(reports[state.activeIndex]);
+            }
           }
         });
-      }
+      });
     }
     if (reportId === 'export') {
       const exportButtons = document.querySelectorAll('.export-action');
@@ -9634,26 +9895,80 @@
           renderReportWithLoading(reports[state.activeIndex]);
         });
       }
-      const comparePrev = document.getElementById('comparePrev');
-      const compareNext = document.getElementById('compareNext');
-      if (comparePrev) {
-        comparePrev.addEventListener('click', (evt) => {
-          evt.preventDefault();
-          if (comparePrev.disabled) return;
-          const size = state.compareLogWindowSize || 1000;
-          state.compareLogWindowStart = Math.max(0, (state.compareLogWindowStart || 0) - size);
-          renderReportWithLoading(reports[state.activeIndex]);
+      const permalinkBtn = document.querySelector('.session-permalink');
+      const saveBtn = document.querySelector('.session-save');
+      const loadBtn = document.querySelector('.session-load');
+      const fileInput = document.getElementById('sessionFileInput');
+      if (permalinkBtn) {
+        permalinkBtn.addEventListener('click', async () => {
+          const link = buildPermalink();
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(link);
+              showOverlayNotice('Permalink copied to clipboard.', 2000);
+              return;
+            }
+          } catch (err) {
+            /* fallback below */
+          }
+          window.prompt('Copy permalink:', link);
         });
       }
-      if (compareNext) {
-        compareNext.addEventListener('click', (evt) => {
-          evt.preventDefault();
-          if (compareNext.disabled) return;
-          const size = state.compareLogWindowSize || 1000;
-          state.compareLogWindowStart = (state.compareLogWindowStart || 0) + size;
-          renderReportWithLoading(reports[state.activeIndex]);
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          try {
+            const payload = buildSessionPayload(true);
+            const json = JSON.stringify(payload, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const ts = new Date();
+            const stamp = `${ts.getUTCFullYear()}${String(ts.getUTCMonth() + 1).padStart(2, '0')}${String(ts.getUTCDate()).padStart(2, '0')}-${String(ts.getUTCHours()).padStart(2, '0')}${String(ts.getUTCMinutes()).padStart(2, '0')}`;
+            const name = `sh6-session-${stamp}.json`;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showOverlayNotice('Session saved.', 2000);
+          } catch (err) {
+            showOverlayNotice('Unable to save session.', 3000);
+          }
         });
       }
+      if (loadBtn && fileInput) {
+        loadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async () => {
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const payload = JSON.parse(text);
+            await applySessionPayload(payload, { fromPermalink: false });
+            showOverlayNotice('Session loaded.', 2000);
+          } catch (err) {
+            showOverlayNotice('Failed to load session file.', 3000);
+          } finally {
+            fileInput.value = '';
+          }
+        });
+      }
+      const compareButtons = document.querySelectorAll('.compare-window-btn');
+      compareButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          if (btn.disabled) return;
+          const size = state.compareLogWindowSize || 1000;
+          const dir = btn.dataset.dir || '';
+          if (dir === 'prev') {
+            state.compareLogWindowStart = Math.max(0, (state.compareLogWindowStart || 0) - size);
+          } else {
+            state.compareLogWindowStart = (state.compareLogWindowStart || 0) + size;
+          }
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      });
     }
     if (reportId === 'raw_log') {
       const buttons = document.querySelectorAll('.raw-log-console');
@@ -10710,37 +11025,43 @@
     });
   }
 
+  function setCompareCount(count, updateRadios = false) {
+    const safeCount = Math.min(4, Math.max(1, Number(count) || 1));
+    state.compareCount = safeCount;
+    state.compareEnabled = safeCount > 1;
+    document.body.classList.toggle('compare-mode', state.compareEnabled);
+    document.body.classList.remove('compare-count-1', 'compare-count-2', 'compare-count-3', 'compare-count-4');
+    document.body.classList.add(`compare-count-${safeCount}`);
+    if (dom.compareHelper) {
+      dom.compareHelper.textContent = safeCount > 1
+        ? `Comparing ${safeCount} logs`
+        : 'Single log mode';
+    }
+    if (updateRadios && dom.compareModeRadios && dom.compareModeRadios.length) {
+      dom.compareModeRadios.forEach((radio) => {
+        radio.checked = Number(radio.value) === safeCount;
+      });
+    }
+    invalidateCompareLogData();
+    updateBandRibbon();
+    rebuildReports();
+    renderActiveReport();
+  }
+
   function setupCompareToggle() {
     if (!dom.compareModeRadios || !dom.compareModeRadios.length) return;
-    const applyCount = (count) => {
-      const safeCount = Math.min(4, Math.max(1, Number(count) || 1));
-      state.compareCount = safeCount;
-      state.compareEnabled = safeCount > 1;
-      document.body.classList.toggle('compare-mode', state.compareEnabled);
-      document.body.classList.remove('compare-count-1', 'compare-count-2', 'compare-count-3', 'compare-count-4');
-      document.body.classList.add(`compare-count-${safeCount}`);
-      if (dom.compareHelper) {
-        dom.compareHelper.textContent = safeCount > 1
-          ? `Comparing ${safeCount} logs`
-          : 'Single log mode';
-      }
-      invalidateCompareLogData();
-      updateBandRibbon();
-      rebuildReports();
-      renderActiveReport();
-    };
     dom.compareModeRadios.forEach((radio) => {
       radio.addEventListener('change', () => {
         if (radio.checked) {
-          applyCount(radio.value);
+          setCompareCount(radio.value, false);
         }
       });
     });
     const selected = Array.from(dom.compareModeRadios).find((r) => r.checked);
-    applyCount(selected ? selected.value : 1);
+    setCompareCount(selected ? selected.value : 1, true);
   }
 
-  function init() {
+  async function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
@@ -10773,7 +11094,12 @@
     }
     // Export actions are handled in the Export report page.
     updateBandRibbon();
-    setActiveReport(0);
+    const permalinkState = parsePermalinkState();
+    if (permalinkState) {
+      await applySessionPayload(permalinkState, { fromPermalink: true });
+    } else {
+      setActiveReport(0);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);

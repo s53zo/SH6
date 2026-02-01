@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.1.9';
+  const APP_VERSION = 'v4.2.0';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2612,6 +2612,12 @@
   function getBandFilteredQsos(band) {
     const source = state.fullQsoData?.qsos || state.qsoData?.qsos || [];
     return source.filter((q) => q.band && q.band.toUpperCase() === band);
+  }
+
+  function getBandFilteredQsosFrom(qsos, band) {
+    if (!band) return qsos || [];
+    const key = String(band).toUpperCase();
+    return (qsos || []).filter((q) => q.band && q.band.toUpperCase() === key);
   }
 
   function withBandContext(reportId, fn) {
@@ -5761,6 +5767,7 @@
     const extraNote = options.note || '';
     const dayPickerHtml = options.dayPickerHtml || '';
     const hideRbnExtras = source === 'rbn';
+    const hideControls = Boolean(options.hideControls);
     const slotId = state.renderSlotId || 'A';
     const slotAttr = escapeAttr(slotId);
     const call = escapeHtml(state.derived.contestMeta?.stationCallsign || 'N/A');
@@ -6673,6 +6680,7 @@
           <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
         </div>
         ${extraNote ? `<div class="export-actions export-note">${escapeHtml(extraNote)}</div>` : ''}
+        ${hideControls ? '' : `
         <div class="spots-controls">
           <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}" data-source="${sourceAttr}">${windowMinutes}</span></label>
           <input id="spotsWindow-${slotAttr}" class="spots-window" data-slot="${slotAttr}" data-source="${sourceAttr}" type="range" min="1" max="60" step="1" value="${windowMinutes}">
@@ -6694,6 +6702,7 @@
             `;
           }).join('')}
         </div>
+        `}
         ${dayPickerHtml}
         <div class="export-actions">
           <span><b>${escapeHtml(fileListLabel)}</b>: ${dayList || 'N/A'}</span>
@@ -6841,6 +6850,47 @@
       note: 'RBN spotters can include a “-#” suffix (skimmer ID). These are grouped by the base callsign.',
       dayPickerHtml
     });
+  }
+
+  function renderSpotsSharedControls(source) {
+    const sourceAttr = escapeAttr(source);
+    const spotState = getSpotStateBySource(state, source);
+    const windowMinutes = Number(spotState.windowMinutes) || 15;
+    const bandFilterSet = new Set(spotState.bandFilter || []);
+    const baseBands = getAvailableBands(true).filter((b) => b && String(b).toLowerCase() !== 'unknown');
+    const bandOptions = sortBands(baseBands);
+    return `
+      <div class="spots-controls">
+        <label>Match window (minutes): <span class="spots-window-value" data-shared="1" data-source="${sourceAttr}">${windowMinutes}</span></label>
+        <input class="spots-window" data-shared="1" data-source="${sourceAttr}" type="range" min="1" max="60" step="1" value="${windowMinutes}">
+      </div>
+      <div class="spots-filters">
+        <label class="spots-filter">
+          <input type="checkbox" class="spots-band-filter" data-shared="1" data-source="${sourceAttr}" data-band="ALL" ${bandFilterSet.size ? '' : 'checked'}>
+          <span>All bands</span>
+        </label>
+        ${bandOptions.map((band) => {
+          const label = band === 'unknown' ? 'Unknown' : formatBandLabel(band);
+          const checked = bandFilterSet.has(band) ? 'checked' : '';
+          const cls = band === 'unknown' ? '' : bandClass(band);
+          return `
+            <label class="spots-filter ${cls}">
+              <input type="checkbox" class="spots-band-filter" data-shared="1" data-source="${sourceAttr}" data-band="${escapeAttr(band)}" ${checked}>
+              <span>${escapeHtml(label)}</span>
+            </label>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function renderSpotsCompare(source) {
+    const slots = getActiveCompareSnapshots();
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? withSlotState(entry.snapshot, () => renderSpots({ source, spotsState: getSpotStateBySource(entry.snapshot, source), hideControls: true }), { slotId: entry.id }) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    const controls = renderSpotsSharedControls(source);
+    return `${controls}${renderComparePanels(slots, htmlBlocks, source === 'rbn' ? 'rbn_spots' : 'spots')}`;
   }
 
   const CONTINENT_ORDER = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
@@ -7357,37 +7407,32 @@
         ? `<a href="#" class="log-range" data-start="${startAttr}" data-end="${endAttr}">${formatNumberSh6(peak.count)}</a>`
         : `${formatNumberSh6(peak.count)}`;
       return `
-        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-          <td><b>${mins}</b></td>
-          <td>${rangeLink}</td>
-          <td>${perMin}</td>
-          <td>${formatNumberSh6(perHour)}</td>
-          <td>${fromTime}</td>
-          <td>${formatNumberSh6(peak.startQso ?? '')}</td>
-          <td>${toTime}</td>
-          <td>${formatNumberSh6(peak.endQso ?? '')}</td>
-        </tr>
+        <div class="rates-row ${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <div class="rates-cell"><b>${mins}</b></div>
+          <div class="rates-cell">${rangeLink}</div>
+          <div class="rates-cell">${perMin}</div>
+          <div class="rates-cell">${formatNumberSh6(perHour)}</div>
+          <div class="rates-cell">${fromTime}</div>
+          <div class="rates-cell">${formatNumberSh6(peak.startQso ?? '')}</div>
+          <div class="rates-cell">${toTime}</div>
+          <div class="rates-cell">${formatNumberSh6(peak.endQso ?? '')}</div>
+        </div>
       `;
     }).join('');
     return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="100px" span="4" align="center"/><col width="150px" align="center"/><col width="50px" align="center"/><col width="150px" align="center"/><col width="50px" align="center"/></colgroup>
-        <tr class="thc">
-          <th rowspan="2">Period, min.</th>
-          <th rowspan="2">QSOs</th>
-          <th rowspan="2">QSOs per<br/>minute</th>
-          <th rowspan="2">QSOs per<br/>hour</th>
-          <th colspan="2">From</th>
-          <th colspan="2">To</th>
-        </tr>
-        <tr class="thc">
-          <th>Time</th>
-          <th>QSO #</th>
-          <th>Time</th>
-          <th>QSO #</th>
-        </tr>
+      <div class="rates-grid">
+        <div class="rates-header thc">
+          <div class="rates-cell">Period (min)</div>
+          <div class="rates-cell">QSOs</div>
+          <div class="rates-cell">QSOs / min</div>
+          <div class="rates-cell">QSOs / hour</div>
+          <div class="rates-cell">From (time)</div>
+          <div class="rates-cell">From (QSO #)</div>
+          <div class="rates-cell">To (time)</div>
+          <div class="rates-cell">To (QSO #)</div>
+        </div>
         ${rows}
-      </table>
+      </div>
     `;
   }
 
@@ -9292,22 +9337,25 @@
     return renderComparePanels(slots, htmlBlocks, 'qs_by_minute');
   }
 
-  function renderChartFrequenciesForSlot(slot, rangeOverride) {
+  function renderChartFrequenciesForSlot(slot, rangeOverride, qsosOverride) {
     if (!slot.qsoData) {
       return renderPlaceholder({ id: 'charts_frequencies', title: 'Frequencies' });
     }
-    return renderFrequencyScatterChart(slot.qsoData.qsos || [], rangeOverride, 'Frequencies');
+    const qsos = qsosOverride || slot.qsoData.qsos || [];
+    return renderFrequencyScatterChart(qsos, rangeOverride, 'Frequencies');
   }
 
   function renderChartFrequenciesCompareAligned() {
     const slots = getActiveCompareSnapshots();
-    const ranges = slots.map((entry) => getFrequencyScatterRange(entry.snapshot.qsoData?.qsos || []));
+    const band = state.globalBandFilter && shouldBandFilterReport('charts_frequencies') ? state.globalBandFilter : '';
+    const lists = slots.map((entry) => getBandFilteredQsosFrom(entry.snapshot.qsoData?.qsos || [], band));
+    const ranges = lists.map((list) => getFrequencyScatterRange(list));
     const keys = ranges.map((range) => getWeekendKeyFromRange(range));
     const shareAxis = keys.length > 0 && keys.every((key) => key && key === keys[0]);
     const sharedRange = shareAxis ? mergeFrequencyScatterRangesList(ranges) : null;
     const htmlBlocks = slots.map((entry, idx) => (
       entry.ready
-        ? renderChartFrequenciesForSlot(entry.snapshot, shareAxis ? sharedRange : ranges[idx])
+        ? renderChartFrequenciesForSlot(entry.snapshot, shareAxis ? sharedRange : ranges[idx], lists[idx])
         : `<p>No ${entry.label} loaded.</p>`
     ));
     return renderComparePanels(slots, htmlBlocks, 'charts_frequencies', { chart: true });
@@ -9447,6 +9495,9 @@
       ));
       return renderComparePanels(slots, htmlBlocks, 'raw_log');
     }
+    if (report.id === 'session') {
+      return renderSessionPage();
+    }
     if (report.id === 'qs_by_hour_sheet') {
       return renderQsByHourSheetCompare();
     }
@@ -9455,6 +9506,12 @@
     }
     if (report.id === 'one_minute_rates') {
       return renderOneMinuteRatesCompareAligned();
+    }
+    if (report.id === 'spots') {
+      return renderSpotsCompare('spots');
+    }
+    if (report.id === 'rbn_spots') {
+      return renderSpotsCompare('rbn');
     }
     if (report.id === 'charts_frequencies') {
       return renderChartFrequenciesCompareAligned();
@@ -9627,7 +9684,7 @@
           loadSpotsForSource(slot, source);
         });
       });
-      const windowInputs = document.querySelectorAll(`.spots-window[data-source="${source}"]`);
+      const windowInputs = document.querySelectorAll(`.spots-window[data-source="${source}"]:not([data-shared="1"])`);
       windowInputs.forEach((input) => {
         input.addEventListener('input', () => {
           const slotId = input.dataset.slot || 'A';
@@ -9640,7 +9697,7 @@
           renderActiveReport();
         });
       });
-      const filters = document.querySelectorAll(`.spots-band-filter[data-source="${source}"]`);
+      const filters = document.querySelectorAll(`.spots-band-filter[data-source="${source}"]:not([data-shared="1"])`);
       filters.forEach((el) => {
         el.addEventListener('change', () => {
           const slotId = el.dataset.slot || 'A';
@@ -9656,6 +9713,41 @@
           }
           spotState.bandFilter = Array.from(current);
           computeSpotsStats(slot, spotState);
+          renderActiveReport();
+        });
+      });
+      const sharedWindow = document.querySelectorAll(`.spots-window[data-source="${source}"][data-shared="1"]`);
+      sharedWindow.forEach((input) => {
+        input.addEventListener('input', () => {
+          const next = Number(input.value) || 15;
+          const valueEl = document.querySelector(`.spots-window-value[data-source="${source}"][data-shared="1"]`);
+          if (valueEl) valueEl.textContent = String(next);
+          const targets = state.compareEnabled ? getLoadedCompareSlots() : [{ id: 'A', slot: state }];
+          targets.forEach((entry) => {
+            const spotState = getSpotStateBySource(entry.slot, source);
+            spotState.windowMinutes = next;
+            computeSpotsStats(entry.slot, spotState);
+          });
+          renderActiveReport();
+        });
+      });
+      const sharedFilters = document.querySelectorAll(`.spots-band-filter[data-source="${source}"][data-shared="1"]`);
+      sharedFilters.forEach((el) => {
+        el.addEventListener('change', () => {
+          const band = el.dataset.band || '';
+          const targets = state.compareEnabled ? getLoadedCompareSlots() : [{ id: 'A', slot: state }];
+          targets.forEach((entry) => {
+            const spotState = getSpotStateBySource(entry.slot, source);
+            const current = new Set(spotState.bandFilter || []);
+            if (band === 'ALL') {
+              if (el.checked) current.clear();
+            } else {
+              if (el.checked) current.add(band);
+              else current.delete(band);
+            }
+            spotState.bandFilter = Array.from(current);
+            computeSpotsStats(entry.slot, spotState);
+          });
           renderActiveReport();
         });
       });
@@ -10663,19 +10755,20 @@
     });
   }
 
-  function renderBreaksForDerived(derived, slotLabel) {
+  function renderBreaksForDerived(derived, slotLabel, options = {}) {
     if (!derived || !derived.minuteSeries) return renderPlaceholder({ id: 'breaks', title: 'Break time' });
     const threshold = state.breakThreshold || 60;
     const minutesMap = new Map(derived.minuteSeries.map((m) => [m.minute, m.qsos]));
     const breakSummary = computeBreakSummary(minutesMap, threshold);
     const slotAttr = slotLabel ? ` data-break-slot="${slotLabel}"` : '';
-    const slider = `
+    const showControls = options.showControls !== false;
+    const slider = showControls ? `
       <div class="break-controls"${slotAttr}>
         Break threshold (minutes):
         <input type="range" class="break-threshold"${slotAttr} min="2" max="60" step="1" value="${threshold}">
         <span class="break-threshold-value"${slotAttr}>${threshold}</span>
       </div>
-    `;
+    ` : '';
     if (!breakSummary.breaks.length) return `${slider}<p>No breaks detected.</p>`;
     let accum = 0;
     const rows = breakSummary.breaks.map((b, idx) => {
@@ -10705,9 +10798,16 @@
   function renderBreaksCompare() {
     const slots = getActiveCompareSnapshots();
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderBreaksForDerived(entry.snapshot.derived, entry.id) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderBreaksForDerived(entry.snapshot.derived, entry.id, { showControls: false }) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'breaks');
+    const slider = `
+      <div class="break-controls">
+        Break threshold (minutes):
+        <input type="range" class="break-threshold" min="2" max="60" step="1" value="${state.breakThreshold || 60}">
+        <span class="break-threshold-value">${state.breakThreshold || 60}</span>
+      </div>
+    `;
+    return `${slider}${renderComparePanels(slots, htmlBlocks, 'breaks')}`;
   }
 
   function setupRepoSearch(slotId) {

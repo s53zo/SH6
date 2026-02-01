@@ -1442,6 +1442,66 @@ th {
   gap: 4px 6px;
 }
 
+.rates-grid {
+  margin-top: 5px;
+  margin-bottom: 10px;
+  font-size: 8pt;
+}
+
+.rates-header,
+.rates-row {
+  display: grid;
+  grid-template-columns: 90px 90px 110px 110px 150px 80px 150px 80px;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+}
+
+.rates-row {
+  border-left: 1px solid #dddddd;
+  border-right: 1px solid #dddddd;
+}
+
+.rates-cell {
+  min-width: 0;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .rates-header,
+  .rates-row {
+    grid-template-columns: 70px 80px 90px 90px 1fr 70px 1fr 70px;
+  }
+}
+
+@media (max-width: 760px) {
+  .rates-header,
+  .rates-row {
+    grid-template-columns: 1fr 1fr;
+    text-align: left;
+  }
+  .rates-header {
+    display: none;
+  }
+  .rates-row .rates-cell {
+    text-align: left;
+  }
+  .rates-row .rates-cell:nth-child(odd)::before {
+    font-weight: 700;
+    color: #2a3f63;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .rates-row .rates-cell:nth-child(1)::before { content: "Period (min)"; }
+  .rates-row .rates-cell:nth-child(2)::before { content: "QSOs"; }
+  .rates-row .rates-cell:nth-child(3)::before { content: "QSOs / min"; }
+  .rates-row .rates-cell:nth-child(4)::before { content: "QSOs / hour"; }
+  .rates-row .rates-cell:nth-child(5)::before { content: "From (time)"; }
+  .rates-row .rates-cell:nth-child(6)::before { content: "From (QSO #)"; }
+  .rates-row .rates-cell:nth-child(7)::before { content: "To (time)"; }
+  .rates-row .rates-cell:nth-child(8)::before { content: "To (QSO #)"; }
+}
+
 @media (max-width: 900px) {
   .one-minute-header,
   .one-minute-row {

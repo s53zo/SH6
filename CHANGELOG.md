@@ -3,6 +3,11 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.0 (2026-02-01)
+- Show session controls once in compare mode and simplify Spots/RBN/Breaks compare controls.
+- Fix Rates layout stacking and make it responsive.
+- Apply band filter to Frequencies chart in compare mode.
+
 ## v4.1.9 (2026-02-01)
 - Redesign log upload panel layout into step-based slots for clearer archive vs upload paths.
 

@@ -59,6 +59,8 @@
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
   const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
+  const RBN_SUMMARY_ONLY_THRESHOLD = 200000;
+  const SPOT_TABLE_LIMIT = 2000;
   const QSL_LABEL_TOOL_URL = 'https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html';
   const QRZ_URLS = ['https://azure.s53m.com/cors/qrz', 'https://www.qrz.com/db'];
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
@@ -117,6 +119,12 @@
       bandFilter: [],
       raw: null,
       totalScanned: 0,
+      totalOfUs: 0,
+      totalByUs: 0,
+      capPerSide: null,
+      truncatedOfUs: false,
+      truncatedByUs: false,
+      summaryOnly: false,
       qsoIndex: null,
       qsoCallIndex: null
     };
@@ -5272,6 +5280,12 @@
       spotsState.lastCall = call;
       spotsState.totalScanned = total;
       spotsState.raw = { ofUsSpots, byUsSpots };
+      spotsState.totalOfUs = ofUsSpots.length;
+      spotsState.totalByUs = byUsSpots.length;
+      spotsState.capPerSide = null;
+      spotsState.truncatedOfUs = false;
+      spotsState.truncatedByUs = false;
+      spotsState.summaryOnly = false;
       spotsState.qsoIndex = qsoIndex;
       spotsState.qsoCallIndex = qsoCallIndex;
       computeSpotsStats(slot);
@@ -5319,6 +5333,12 @@
       rbnState.lastCall = call;
       rbnState.totalScanned = data.total || data.scanned || 0;
       rbnState.errors = Array.isArray(data.errors) ? data.errors : [];
+      rbnState.totalOfUs = Number.isFinite(data.totalOfUs) ? data.totalOfUs : ofUsSpots.length;
+      rbnState.totalByUs = Number.isFinite(data.totalByUs) ? data.totalByUs : byUsSpots.length;
+      rbnState.capPerSide = Number.isFinite(data.capPerSide) ? data.capPerSide : null;
+      rbnState.truncatedOfUs = Boolean(data.truncatedOfUs);
+      rbnState.truncatedByUs = Boolean(data.truncatedByUs);
+      rbnState.summaryOnly = (rbnState.totalOfUs + rbnState.totalByUs) > RBN_SUMMARY_ONLY_THRESHOLD;
       rbnState.raw = { ofUsSpots, byUsSpots };
       rbnState.qsoIndex = qsoIndex;
       rbnState.qsoCallIndex = qsoCallIndex;
@@ -5451,6 +5471,17 @@
     const statusText = spotsState.status === 'loading'
       ? loadingLabel
       : (spotsState.status === 'error' ? `Error: ${escapeHtml(spotsState.error || '')}` : (spotsState.status === 'ready' ? readyLabel : 'Not loaded'));
+    const totalOfUs = Number.isFinite(spotsState.totalOfUs) ? spotsState.totalOfUs : (stats?.ofUs || 0);
+    const totalByUs = Number.isFinite(spotsState.totalByUs) ? spotsState.totalByUs : (stats?.byUs || 0);
+    const truncated = Boolean(spotsState.truncatedOfUs || spotsState.truncatedByUs);
+    const capPerSide = Number.isFinite(spotsState.capPerSide) ? spotsState.capPerSide : null;
+    const summaryOnly = Boolean(spotsState.summaryOnly);
+    const truncatedNote = truncated
+      ? `Large dataset detected. Showing first ${formatNumberSh6(capPerSide || SPOT_TABLE_LIMIT)} per side; stats are based on this sample.`
+      : '';
+    const summaryNote = summaryOnly
+      ? 'Spot lists are hidden to protect your browser. Narrow by band/time to reveal lists.'
+      : '';
     const errorList = Array.isArray(spotsState.errors) ? spotsState.errors : [];
     const errorSummary = errorList.length
       ? (() => {
@@ -5605,9 +5636,11 @@
       }));
       return renderBars(data, 'label', 'count');
     };
-    const renderUnansweredTable = (spots) => {
+    const renderUnansweredTable = (spots, limit = SPOT_TABLE_LIMIT) => {
       if (!spots || !spots.length) return '<p>None.</p>';
-      const rows = spots.slice(0, 200).map((s, idx) => {
+      const clipped = spots.slice(0, limit);
+      const truncated = spots.length > limit;
+      const rows = clipped.map((s, idx) => {
         const cls = idx % 2 === 0 ? 'td1' : 'td0';
         return `
           <tr class="${cls}">
@@ -5619,16 +5652,20 @@
           </tr>
         `;
       }).join('');
+      const note = truncated ? `<div class="export-actions export-note">Showing first ${formatNumberSh6(limit)} of ${formatNumberSh6(spots.length)} rows.</div>` : '';
       return `
+        ${note}
         <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
           <tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>Spotter</th><th>Comment</th></tr>
           ${rows}
         </table>
       `;
     };
-    const renderAllSpotsTable = (spots, isOfUs) => {
+    const renderAllSpotsTable = (spots, isOfUs, limit = SPOT_TABLE_LIMIT) => {
       if (!spots || !spots.length) return '<p>None.</p>';
-      const rows = spots.map((s, idx) => {
+      const clipped = spots.slice(0, limit);
+      const truncated = spots.length > limit;
+      const rows = clipped.map((s, idx) => {
         const cls = idx % 2 === 0 ? 'td1' : 'td0';
         const time = escapeHtml(formatDateSh6(s.ts));
         const bandLabel = escapeHtml(formatBandLabel(s.band || ''));
@@ -5658,7 +5695,9 @@
       const headers = isOfUs
         ? '<tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>Spotter</th><th>Comment</th></tr>'
         : '<tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>DX</th><th>Comment</th></tr>';
+      const note = truncated ? `<div class="export-actions export-note">Showing first ${formatNumberSh6(limit)} of ${formatNumberSh6(spots.length)} rows.</div>` : '';
       return `
+        ${note}
         <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
           ${headers}
           ${rows}
@@ -6316,16 +6355,18 @@
           <button type="button" class="button spots-load-btn" data-slot="${slotAttr}" data-source="${sourceAttr}">${escapeHtml(loadLabel)}</button>
           <span>${statusText}</span>
         </div>
+        ${truncatedNote ? `<div class="export-actions export-note">${escapeHtml(truncatedNote)}</div>` : ''}
+        ${summaryNote ? `<div class="export-actions export-note">${escapeHtml(summaryNote)}</div>` : ''}
         ${errorSummary ? `<div class="export-actions export-note"><b>${escapeHtml(errorLabel)}</b>: ${errorSummary}</div>` : ''}
         ${stats ? `
         <div class="export-actions export-note">
           <span><b>Total spots scanned</b>: ${formatNumberSh6(stats.total)}</span>
         </div>
         <div class="export-actions export-note">
-          <span><b>Spots of you</b>: ${formatNumberSh6(stats.ofUs)} (matched to QSOs: ${formatNumberSh6(stats.ofUsMatched)})</span>
+          <span><b>Spots of you</b>: ${formatNumberSh6(totalOfUs)} (matched to QSOs: ${formatNumberSh6(stats.ofUsMatched)})</span>
         </div>
         <div class="export-actions export-note">
-          <span><b>Spots by you</b>: ${formatNumberSh6(stats.byUs)} (matched to QSOs: ${formatNumberSh6(stats.byUsMatched)})</span>
+          <span><b>Spots by you</b>: ${formatNumberSh6(totalByUs)} (matched to QSOs: ${formatNumberSh6(stats.byUsMatched)})</span>
         </div>
 
         <div class="export-actions export-note"><b>Spot→Rate timeline (10‑min rate with spot markers)</b></div>
@@ -6347,13 +6388,13 @@
         ${renderHeatmap(stats.heatmap)}
 
         <div class="export-actions export-note"><b>Unanswered spots (no QSO within ${windowMinutes} minutes)</b></div>
-        ${renderUnansweredTable((stats.ofUsSpots || []).filter((s) => !s.matched))}
+        ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderUnansweredTable((stats.ofUsSpots || []).filter((s) => !s.matched))}
 
         <div class="export-actions export-note"><b>All spots of you</b></div>
-        ${renderAllSpotsTable(stats.ofUsSpots, true)}
+        ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderAllSpotsTable(stats.ofUsSpots, true)}
 
         <div class="export-actions export-note"><b>All spots by you</b></div>
-        ${renderAllSpotsTable(stats.byUsSpots, false)}
+        ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderAllSpotsTable(stats.byUsSpots, false)}
 
         ${(() => {
           const analysis = buildAnalysisContext();

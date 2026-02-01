@@ -813,6 +813,26 @@ a:hover {
   cursor: pointer;
 }
 
+.demo-log-btn {
+  background: #5266df;
+  color: #ffffff;
+  border-color: #3f52c8;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 4px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+}
+
+.demo-log-btn:hover {
+  background: #4458d6;
+  border-color: #3649c2;
+}
+
+.demo-log-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.14);
+}
+
 .nav-buttons button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

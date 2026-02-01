@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.3.8 (2026-01-31)
+- Style demo log buttons to match landing page.
+
 ## v3.3.7 (2026-01-31)
 - Replace empty-report placeholder with friendly “load a log” message and demo button.
 

@@ -5454,6 +5454,7 @@
     const fileListLabel = options.fileListLabel || 'Spot files';
     const errorLabel = options.errorLabel || 'Day errors';
     const extraNote = options.note || '';
+    const hideRbnExtras = source === 'rbn';
     const slotId = state.renderSlotId || 'A';
     const slotAttr = escapeAttr(slotId);
     const call = escapeHtml(state.derived.contestMeta?.stationCallsign || 'N/A');
@@ -6272,10 +6273,30 @@
         yGrid.push(`<line class="freq-grid" x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}"></line>`);
         yLabels.push(`<text class="freq-axis-text" x="${margin.left - 8}" y="${y + 4}" text-anchor="end">${escapeHtml(v.toFixed(0))}</text>`);
       }
-      const spotLines = (spots || []).map((s) => {
-        const x = xScale(s.ts);
-        return `<line class="spot-line" x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}"></line>`;
-      }).join('');
+      const spotList = spots || [];
+      const maxMarkers = 500;
+      let spotLines = '';
+      let spotAgg = '';
+      if (spotList.length <= maxMarkers) {
+        spotLines = spotList.map((s) => {
+          const x = xScale(s.ts);
+          return `<line class="spot-line" x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}"></line>`;
+        }).join('');
+      } else {
+        const bucketCounts = new Map();
+        spotList.forEach((s) => {
+          if (!Number.isFinite(s.ts)) return;
+          const bucket = Math.floor(s.ts / 600000) * 600000;
+          bucketCounts.set(bucket, (bucketCounts.get(bucket) || 0) + 1);
+        });
+        const maxBucket = Math.max(...Array.from(bucketCounts.values()), 1);
+        const aggHeight = plotH * 0.25;
+        spotAgg = Array.from(bucketCounts.entries()).map(([bucket, count]) => {
+          const x = xScale(bucket);
+          const h = (count / maxBucket) * aggHeight;
+          return `<rect class="spot-agg" x="${x - 1}" y="${height - margin.bottom - h}" width="2" height="${h}"></rect>`;
+        }).join('');
+      }
       return `
         <div class="freq-scatter-wrap">
           <svg class="freq-scatter" viewBox="0 0 ${width} ${height}" role="img" aria-label="10 minute rate timeline">
@@ -6283,6 +6304,7 @@
             ${xGrid.join('')}
             ${yGrid.join('')}
             ${spotLines}
+            ${spotAgg}
             <path class="spot-rate-line" d="${line}"></path>
             <line class="freq-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>
             <line class="freq-axis" x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}"></line>
@@ -6388,8 +6410,10 @@
         <div class="export-actions export-note"><b>Spots of you by band/hour</b></div>
         ${renderHeatmap(stats.heatmap)}
 
+        ${hideRbnExtras ? '' : `
         <div class="export-actions export-note"><b>Unanswered spots (no QSO within ${windowMinutes} minutes)</b></div>
         ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderUnansweredTable((stats.ofUsSpots || []).filter((s) => !s.matched))}
+        `}
 
         <div class="export-actions export-note"><b>All spots of you</b></div>
         ${summaryOnly ? '<p>Lists hidden for large datasets.</p>' : renderAllSpotsTable(stats.ofUsSpots, true)}
@@ -6400,9 +6424,11 @@
         ${(() => {
           const analysis = buildAnalysisContext();
           return `
+            ${hideRbnExtras ? '' : `
             <div class="export-actions export-note"><b>Unworked-after-spot rate (band/hour)</b></div>
             <div class="export-actions export-note">Out of all spots of you, how many did not turn into a QSO within the match window, grouped by band and hour. Lower is better.</div>
             ${renderUnworkedRateTable(stats.ofUsSpots)}
+            `}
 
             <div class="export-actions export-note"><b>Time-to-first-QSO after spot (band)</b></div>
             <div class="export-actions export-note">How long it usually takes to log a QSO after the first spot in a spot “cluster” on each band. Lower is better.</div>
@@ -6412,9 +6438,11 @@
             <div class="export-actions export-note">Compares QSO rate in the 10 minutes before a spot vs the 10 minutes after. Higher uplift and higher % positive are better.</div>
             ${renderSpotUpliftTable(stats.ofUsSpots, analysis)}
 
+            ${hideRbnExtras ? '' : `
             <div class="export-actions export-note"><b>DX spot conversion funnel</b></div>
             <div class="export-actions export-note">Of the spots you sent, how many turned into a QSO, a new call, a new band for that call, or a new country. Higher % is better.</div>
             ${renderSpottingFunnelTable(stats.byUsSpots, analysis)}
+            `}
 
             <div class="export-actions export-note"><b>Band change efficiency</b></div>
             <div class="export-actions export-note">When you switch into a band, did your rate go up in the next 10 minutes? Higher % improved and higher avg uplift are better.</div>

@@ -1268,6 +1268,10 @@ th {
   opacity: 0.6;
 }
 
+.spot-agg {
+  fill: rgba(198, 40, 40, 0.3);
+}
+
 .spot-dot {
   fill: rgba(194, 40, 40, 0.7);
 }

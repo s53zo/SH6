@@ -9380,20 +9380,20 @@
         const daySelects = document.querySelectorAll(`.rbn-day-select[data-source="${source}"]`);
         daySelects.forEach((select) => {
           select.addEventListener('change', () => {
-            const selects = Array.from(document.querySelectorAll(`.rbn-day-select[data-source="${source}"]`));
-            const values = selects.map((s) => s.value).filter(Boolean);
-            if (selects.length === 2 && values.length === 2 && values[0] === values[1]) {
+            const slotId = select.dataset.slot || 'A';
+            const scoped = Array.from(document.querySelectorAll(`.rbn-day-select[data-source="${source}"][data-slot="${slotId}"]`));
+            const values = scoped.map((s) => s.value).filter(Boolean);
+            if (scoped.length === 2 && values.length === 2 && values[0] === values[1]) {
               const options = Array.from(select.options).map((o) => o.value);
               const next = options.find((v) => v !== values[0]);
               if (next) {
-                const other = selects[0] === select ? selects[1] : selects[0];
+                const other = scoped[0] === select ? scoped[1] : scoped[0];
                 other.value = next;
               }
             }
-            const slotId = select.dataset.slot || 'A';
             const slot = getSlotById(slotId) || state;
             const rbnState = getSpotStateBySource(slot, 'rbn');
-            rbnState.selectedDays = selects.map((s) => s.value).filter(Boolean).slice(0, 2);
+            rbnState.selectedDays = scoped.map((s) => s.value).filter(Boolean).slice(0, 2);
             renderActiveReport();
           });
         });

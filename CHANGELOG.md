@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.3.9 (2026-01-31)
+- Normalize continent codes at ingest to fix table coloring.
+
 ## v3.3.8 (2026-01-31)
 - Style demo log buttons to match landing page.
 

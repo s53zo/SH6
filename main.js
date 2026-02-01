@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.8';
+  const APP_VERSION = 'v3.3.9';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2953,10 +2953,11 @@
       const wpx = wpxPrefix(q.call);
       if (wpx) q.wpxPrefix = wpx;
       if (prefix) {
+        const cont = normalizeContinent(prefix.continent);
         q.country = prefix.country;
         q.cqZone = prefix.cqZone;
         q.ituZone = prefix.ituZone;
-        q.continent = prefix.continent;
+        q.continent = cont;
         q.prefix = prefix.prefix;
         if (prefix.country) {
           if (!countries.has(prefix.country)) {
@@ -2970,7 +2971,7 @@
               phone: 0,
               firstTs: q.ts,
               lastTs: q.ts,
-              continent: prefix.continent || null,
+              continent: cont || null,
               distSum: 0,
               distCount: 0
             });
@@ -2991,11 +2992,11 @@
             if (c.lastTs == null || q.ts > c.lastTs) c.lastTs = q.ts;
           }
         }
-        if (prefix.continent) {
-          if (!continents.has(prefix.continent)) {
-            continents.set(prefix.continent, { qsos: 0, uniques: new Set(), bandCounts: new Map(), cw: 0, digital: 0, phone: 0 });
+        if (cont) {
+          if (!continents.has(cont)) {
+            continents.set(cont, { qsos: 0, uniques: new Set(), bandCounts: new Map(), cw: 0, digital: 0, phone: 0 });
           }
-          const c = continents.get(prefix.continent);
+          const c = continents.get(cont);
           c.qsos += 1;
           if (q.call) c.uniques.add(q.call);
           if (q.band) c.bandCounts.set(q.band, (c.bandCounts.get(q.band) || 0) + 1);

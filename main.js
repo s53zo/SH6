@@ -38,17 +38,17 @@
     { id: 'charts_beam_heading', title: 'Beam heading', parentId: 'charts' },
     { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour', parentId: 'charts' },
     { id: 'comments', title: 'Comments' },
-    { id: 'export', title: 'Export' },
-    { id: 'session', title: 'Save&Load session' },
     { id: 'spots', title: 'Spots' },
     { id: 'rbn_spots', title: 'RBN spots' },
+    { id: 'export', title: 'EXPORT PDF or HTML' },
+    { id: 'session', title: 'Save&Load session' },
     { id: 'qsl_labels', title: 'QSL labels' },
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
   let reports = [];
 
-  const APP_VERSION = 'v4.1.4';
+  const APP_VERSION = 'v4.1.5';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'

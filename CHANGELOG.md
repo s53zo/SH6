@@ -3,6 +3,10 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.1.5 (2026-02-01)
+- Rename Export menu to "EXPORT PDF or HTML".
+- Move Export and Save&Load session menus just above QSL labels.
+
 ## v4.1.4 (2026-02-01)
 - Add Save&Load session menu and session handling (permalinks + offline session files).
 - Move QSL labels menu entry just above SH6 info.

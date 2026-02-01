@@ -40,6 +40,7 @@
     { id: 'comments', title: 'Comments' },
     { id: 'export', title: 'Export' },
     { id: 'qsl_labels', title: 'QSL labels' },
+    { id: 'session', title: 'Save&Load session' },
     { id: 'spots', title: 'Spots' },
     { id: 'rbn_spots', title: 'RBN spots' },
     { id: 'sh6_info', title: 'SH6 info' }
@@ -4278,6 +4279,19 @@
     `;
   }
 
+  function renderSessionPage() {
+    return `
+      <div class="mtc export-panel">
+        <div class="gradient">&nbsp;Save&Load session</div>
+        <p>Sessions capture the full state of your analysis, including compare slots, filters, and report settings.</p>
+        <p><b>Permalink</b>: Generates a URL that restores archive logs and settings. Local logs cannot be auto-loaded; the app will ask you to upload them again.</p>
+        <p><b>Save session</b>: Stores a local JSON file with raw log data and settings for offline restore (no network required).</p>
+        <p><b>Load session</b>: Opens a saved session JSON and restores everything.</p>
+        ${renderSessionControls()}
+      </div>
+    `;
+  }
+
   const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   function formatTimeOfDay(minutes) {
@@ -4526,10 +4540,7 @@
     const slotEntries = getActiveCompareSlots();
     const anyLoaded = slotEntries.some((entry) => entry.slot?.qsoData);
     if (!anyLoaded) {
-      return `
-        ${renderSessionControls()}
-        <p>No logs loaded for comparison yet.</p>
-      `;
+      return '<p>No logs loaded for comparison yet.</p>';
     }
     const filters = getLogFilters();
     const compareKey = buildCompareLogKey(filters);
@@ -4651,10 +4662,7 @@
       return renderLogCompare();
     }
     if (!state.qsoData) {
-      return `
-        ${renderSessionControls()}
-        ${renderPlaceholder({ id: 'log', title: 'Log' })}
-      `;
+      return renderPlaceholder({ id: 'log', title: 'Log' });
     }
     const ctyLoaded = state.ctyTable && state.ctyTable.length > 0;
     const masterLoaded = state.masterSet && state.masterSet.size > 0;
@@ -4735,7 +4743,6 @@
       return `<a href="#" class="log-page ${cls}" data-page="${i}" title="${from}-${to} Qs">&nbsp;${i + 1}&nbsp;</a>`;
     }).join(' ');
     return `
-      ${renderSessionControls()}
       ${note}
       ${dataNote}
       ${filterNote}
@@ -8873,6 +8880,7 @@
         case 'comments': return renderComments();
         case 'export': return renderExportPage();
         case 'qsl_labels': return renderQslLabels();
+        case 'session': return renderSessionPage();
         case 'spots': return renderSpots();
         case 'rbn_spots': return renderRbnSpots();
         case 'charts': return renderChartsIndex();
@@ -9895,6 +9903,23 @@
           renderReportWithLoading(reports[state.activeIndex]);
         });
       }
+      const compareButtons = document.querySelectorAll('.compare-window-btn');
+      compareButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          if (btn.disabled) return;
+          const size = state.compareLogWindowSize || 1000;
+          const dir = btn.dataset.dir || '';
+          if (dir === 'prev') {
+            state.compareLogWindowStart = Math.max(0, (state.compareLogWindowStart || 0) - size);
+          } else {
+            state.compareLogWindowStart = (state.compareLogWindowStart || 0) + size;
+          }
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      });
+    }
+    if (reportId === 'session') {
       const permalinkBtn = document.querySelector('.session-permalink');
       const saveBtn = document.querySelector('.session-save');
       const loadBtn = document.querySelector('.session-load');
@@ -9954,21 +9979,6 @@
           }
         });
       }
-      const compareButtons = document.querySelectorAll('.compare-window-btn');
-      compareButtons.forEach((btn) => {
-        btn.addEventListener('click', (evt) => {
-          evt.preventDefault();
-          if (btn.disabled) return;
-          const size = state.compareLogWindowSize || 1000;
-          const dir = btn.dataset.dir || '';
-          if (dir === 'prev') {
-            state.compareLogWindowStart = Math.max(0, (state.compareLogWindowStart || 0) - size);
-          } else {
-            state.compareLogWindowStart = (state.compareLogWindowStart || 0) + size;
-          }
-          renderReportWithLoading(reports[state.activeIndex]);
-        });
-      });
     }
     if (reportId === 'raw_log') {
       const buttons = document.querySelectorAll('.raw-log-console');

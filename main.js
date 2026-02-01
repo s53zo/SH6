@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.1.7';
+  const APP_VERSION = 'v4.1.8';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -3868,9 +3868,7 @@
       `;
     }).join('');
     return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
-        <tr><td><div class="operator-grid">${cards}</div></td></tr>
-      </table>
+      <div class="operator-grid">${cards}</div>
     `;
   }
 

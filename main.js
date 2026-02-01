@@ -4978,7 +4978,7 @@
       const day = String(d.getUTCDate()).padStart(2, '0');
       days.push(`${y}${m}${day}`);
     }
-    return days.slice(0, 2);
+    return days;
   }
 
   function ensureSpotsState(slot) {
@@ -5005,6 +5005,28 @@
 
   function getSpotStateBySource(slot, source) {
     return source === 'rbn' ? ensureRbnState(slot) : ensureSpotsState(slot);
+  }
+
+  function selectRbnDaysForSlot(slot, minTs, maxTs) {
+    const allDays = buildRbnDayList(minTs, maxTs);
+    if (!allDays.length) return [];
+    const rbnState = ensureRbnState(slot);
+    const selected = Array.isArray(rbnState.selectedDays) ? rbnState.selectedDays : [];
+    const valid = selected.filter((d) => allDays.includes(d));
+    let out = [];
+    if (allDays.length <= 2) {
+      out = allDays.slice();
+    } else if (valid.length >= 2) {
+      out = valid.slice(0, 2);
+    } else if (valid.length === 1) {
+      out = [valid[0]];
+      const next = allDays.find((d) => d !== valid[0]);
+      if (next) out.push(next);
+    } else {
+      out = allDays.slice(0, 2);
+    }
+    rbnState.selectedDays = out.slice();
+    return out;
   }
 
   function loadSpotsForSource(slot, source) {
@@ -5321,7 +5343,7 @@
     rbnState.stats = null;
     updateDataStatus();
     renderActiveReport();
-    const days = buildRbnDayList(minTs, maxTs);
+    const days = selectRbnDaysForSlot(slot, minTs, maxTs);
     const qsoIndex = buildQsoTimeIndex(slot.qsoData.qsos);
     const qsoCallIndex = buildQsoCallIndex(slot.qsoData.qsos);
     try {
@@ -5454,6 +5476,7 @@
     const fileListLabel = options.fileListLabel || 'Spot files';
     const errorLabel = options.errorLabel || 'Day errors';
     const extraNote = options.note || '';
+    const dayPickerHtml = options.dayPickerHtml || '';
     const hideRbnExtras = source === 'rbn';
     const slotId = state.renderSlotId || 'A';
     const slotAttr = escapeAttr(slotId);
@@ -6388,6 +6411,7 @@
             `;
           }).join('')}
         </div>
+        ${dayPickerHtml}
         <div class="export-actions">
           <span><b>${escapeHtml(fileListLabel)}</b>: ${dayList || 'N/A'}</span>
         </div>
@@ -6500,8 +6524,26 @@
     }
     const minTs = state.derived.timeRange?.minTs;
     const maxTs = state.derived.timeRange?.maxTs;
-    const days = buildRbnDayList(minTs, maxTs);
-    const dayList = days.map((d) => `${d}.zip`).join(', ');
+    const slotId = state.renderSlotId || 'A';
+    const allDays = buildRbnDayList(minTs, maxTs);
+    const selectedDays = selectRbnDaysForSlot(state, minTs, maxTs);
+    const dayList = selectedDays.map((d) => `${d}.zip`).join(', ');
+    const showPicker = allDays.length > 2;
+    const dayPickerHtml = showPicker ? `
+      <div class="export-actions export-note">
+        This log spans ${formatNumberSh6(allDays.length)} UTC dates. RBN queries are limited to 2 dates at a time. Choose the dates below.
+      </div>
+      <div class="export-actions">
+        <label for="rbnDayA">RBN date 1</label>
+        <select id="rbnDayA" class="rbn-day-select" data-source="rbn" data-slot="${escapeAttr(slotId)}" data-index="0">
+          ${allDays.map((d) => `<option value="${escapeAttr(d)}" ${selectedDays[0] === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+        </select>
+        <label for="rbnDayB" style="margin-left:12px;">RBN date 2</label>
+        <select id="rbnDayB" class="rbn-day-select" data-source="rbn" data-slot="${escapeAttr(slotId)}" data-index="1">
+          ${allDays.map((d) => `<option value="${escapeAttr(d)}" ${selectedDays[1] === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+        </select>
+      </div>
+    ` : '';
     return renderSpots({
       source: 'rbn',
       spotsState: getRbnState(),
@@ -6513,7 +6555,8 @@
       fileListLabel: 'RBN files',
       errorLabel: 'RBN day errors',
       dayList,
-      note: 'RBN spotters can include a “-#” suffix (skimmer ID). These are grouped by the base callsign.'
+      note: 'RBN spotters can include a “-#” suffix (skimmer ID). These are grouped by the base callsign.',
+      dayPickerHtml
     });
   }
 
@@ -9333,6 +9376,28 @@
           renderActiveReport();
         });
       });
+      if (source === 'rbn') {
+        const daySelects = document.querySelectorAll(`.rbn-day-select[data-source="${source}"]`);
+        daySelects.forEach((select) => {
+          select.addEventListener('change', () => {
+            const selects = Array.from(document.querySelectorAll(`.rbn-day-select[data-source="${source}"]`));
+            const values = selects.map((s) => s.value).filter(Boolean);
+            if (selects.length === 2 && values.length === 2 && values[0] === values[1]) {
+              const options = Array.from(select.options).map((o) => o.value);
+              const next = options.find((v) => v !== values[0]);
+              if (next) {
+                const other = selects[0] === select ? selects[1] : selects[0];
+                other.value = next;
+              }
+            }
+            const slotId = select.dataset.slot || 'A';
+            const slot = getSlotById(slotId) || state;
+            const rbnState = getSpotStateBySource(slot, 'rbn');
+            rbnState.selectedDays = selects.map((s) => s.value).filter(Boolean).slice(0, 2);
+            renderActiveReport();
+          });
+        });
+      }
     };
     if (reportId === 'spots') {
       if (dom.spotsStatusRow) dom.spotsStatusRow.classList.remove('hidden');

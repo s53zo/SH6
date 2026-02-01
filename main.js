@@ -6072,6 +6072,23 @@
         </table>
       `;
     };
+    const hasConcurrentBands = (qsos) => {
+      const buckets = new Map();
+      const bucketMs = 10 * 60000;
+      (qsos || []).forEach((q) => {
+        if (!Number.isFinite(q.ts)) return;
+        const band = normalizeBandToken(q.band || '') || 'unknown';
+        const bucket = Math.floor(q.ts / bucketMs);
+        if (!buckets.has(bucket)) buckets.set(bucket, new Set());
+        const set = buckets.get(bucket);
+        set.add(band);
+        if (set.size > 1) return;
+      });
+      for (const set of buckets.values()) {
+        if (set.size > 1) return true;
+      }
+      return false;
+    };
     const renderMissedMultTable = (spots, analysis) => {
       if (!spots || !spots.length) return '<p>No data.</p>';
       const missed = [];
@@ -6423,6 +6440,7 @@
 
         ${(() => {
           const analysis = buildAnalysisContext();
+          const concurrentBands = hasConcurrentBands(state.qsoData?.qsos || []);
           return `
             ${hideRbnExtras ? '' : `
             <div class="export-actions export-note"><b>Unworked-after-spot rate (band/hour)</b></div>
@@ -6444,9 +6462,11 @@
             ${renderSpottingFunnelTable(stats.byUsSpots, analysis)}
             `}
 
+            ${concurrentBands ? '' : `
             <div class="export-actions export-note"><b>Band change efficiency</b></div>
             <div class="export-actions export-note">When you switch into a band, did your rate go up in the next 10 minutes? Higher % improved and higher avg uplift are better.</div>
             ${renderBandChangeEfficiencyTable(analysis)}
+            `}
 
             <div class="export-actions export-note"><b>Peak spotter reliability</b></div>
             <div class="export-actions export-note">Which spotters give you the most “actionable” spots (they turn into QSOs). Higher % is better.</div>

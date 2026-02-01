@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.9';
+  const APP_VERSION = 'v3.4.0';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2848,7 +2848,9 @@
   }
 
   function normalizeContinent(code) {
-    return (code || '').trim().toUpperCase();
+    const raw = (code || '').trim().toUpperCase();
+    const match = raw.match(/[A-Z]{2}/);
+    return match ? match[0] : '';
   }
 
   function continentLabel(code) {

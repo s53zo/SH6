@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.4.0 (2026-01-31)
+- Harden continent normalization to strip stray characters before coloring.
+
 ## v3.3.9 (2026-01-31)
 - Normalize continent codes at ingest to fix table coloring.
 

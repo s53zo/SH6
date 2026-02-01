@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.1.6';
+  const APP_VERSION = 'v4.1.7';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -7492,25 +7492,24 @@
       grouped.get(m.qsos).push(m.minute);
     });
     const rows = Array.from(grouped.entries()).sort((a, b) => b[0] - a[0]).map(([rate, minutes], idx) => {
-      const labels = minutes.map((min) => `<a href="#" class="log-minute" data-minute="${min}">${formatDateSh6(min * 60000)}</a>`).join(' ');
+      const labels = minutes.map((min) => `<a href="#" class="log-minute" data-minute="${min}">${formatDateSh6(min * 60000)}</a>`).join('');
       return `
-        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-          <td style="text-align:center"><b>${rate}</b></td>
-          <td class="minute-list">${labels}</td>
-          <td>${formatNumberSh6(minutes.length)}</td>
-        </tr>
+        <div class="one-minute-row ${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <div class="one-minute-cell one-minute-rate"><b>${rate}</b></div>
+          <div class="one-minute-cell minute-list">${labels}</div>
+          <div class="one-minute-cell one-minute-total">${formatNumberSh6(minutes.length)}</div>
+        </div>
       `;
     }).join('');
     return `
-      <table class="mtc one-minute-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup>
-          <col class="col-rate"/>
-          <col class="col-list"/>
-          <col class="col-total"/>
-        </colgroup>
-        <tr class="thc"><th>Qs per<br/>minute</th><th>Minutes list</th><th>Total</th></tr>
+      <div class="one-minute-rates">
+        <div class="one-minute-header thc">
+          <div class="one-minute-cell one-minute-rate">Qs per<br/>minute</div>
+          <div class="one-minute-cell">Minutes list</div>
+          <div class="one-minute-cell one-minute-total">Total</div>
+        </div>
         ${rows}
-      </table>
+      </div>
     `;
   }
 

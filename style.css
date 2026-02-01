@@ -1336,9 +1336,73 @@ th {
   line-height: 1.25;
 }
 
-.one-minute-table .log-minute {
+.one-minute-rates {
+  margin-top: 5px;
+  margin-bottom: 10px;
+  font-size: 8pt;
+}
+
+.one-minute-header,
+.one-minute-row {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) 70px;
+  gap: 8px;
+  align-items: start;
+  padding: 6px 8px;
+}
+
+.one-minute-header {
+  font-weight: 700;
+}
+
+.one-minute-row {
+  border-left: 1px solid #dddddd;
+  border-right: 1px solid #dddddd;
+}
+
+.one-minute-cell {
+  min-width: 0;
+}
+
+.one-minute-rate,
+.one-minute-total {
+  text-align: center;
+}
+
+.one-minute-rates .log-minute {
   display: inline-block;
-  margin: 0 4px 2px 0;
+  margin: 0 6px 4px 0;
+  padding: 1px 4px;
+  background: rgba(82, 102, 223, 0.08);
+  border-radius: 3px;
+}
+
+.one-minute-rates .minute-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+@media (max-width: 900px) {
+  .one-minute-header,
+  .one-minute-row {
+    grid-template-columns: 70px minmax(0, 1fr) 60px;
+  }
+}
+
+@media (max-width: 720px) {
+  .one-minute-header,
+  .one-minute-row {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+  .one-minute-rate,
+  .one-minute-total {
+    text-align: left;
+  }
+  .one-minute-header .one-minute-total {
+    display: none;
+  }
 }
 
 .mtc {

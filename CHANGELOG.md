@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.1.7 (2026-02-01)
+- Redesign One Minute Rates layout to prevent overflow and wrap minutes cleanly.
+
 ## v4.1.6 (2026-02-01)
 - Add session permalink migration layer to preserve compatibility across upgrades.
 

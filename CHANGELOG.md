@@ -3,6 +3,13 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.1.3 (2026-02-01)
+- Add RBN date picker when logs span more than two UTC days, with per-slot selection in compare mode.
+- Notify users about the two-day RBN query limit and drive RBN fetches from the selected dates.
+- Aggregate Spot→Rate timeline markers when spot volume is high to keep the chart responsive.
+- Hide Band change efficiency when logs show concurrent multi-band activity.
+- Remove Unanswered spots, Unworked-after-spot rate, and DX spot conversion funnel from the RBN report.
+
 ## v3.4.1 (2026-02-01)
 - Add RBN spots report with the same analysis blocks as Spots.
 - Show Spots and RBN status indicators in the sidebar (on demand).

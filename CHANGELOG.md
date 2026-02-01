@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.1.6 (2026-02-01)
+- Add session permalink migration layer to preserve compatibility across upgrades.
+
 ## v4.1.5 (2026-02-01)
 - Rename Export menu to "EXPORT PDF or HTML".
 - Move Export and Save&Load session menus just above QSL labels.

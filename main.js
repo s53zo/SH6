@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.1.5';
+  const APP_VERSION = 'v4.1.6';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -289,20 +289,37 @@
     state.logDistanceRange = f.distanceRange || null;
   }
 
+  function migrateSessionPayload(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const payload = { ...raw };
+    const version = Number.isFinite(payload.version) ? payload.version : 0;
+    if (version <= 0) {
+      if (!payload.slots && payload.compareSlots) {
+        payload.slots = payload.compareSlots;
+      }
+      if (payload.filters && !payload.logFilters) {
+        payload.logFilters = payload.filters;
+      }
+      payload.version = 1;
+    }
+    return payload;
+  }
+
   async function applySessionPayload(payload, options = {}) {
-    if (!payload || typeof payload !== 'object') return;
+    const migrated = migrateSessionPayload(payload);
+    if (!migrated || typeof migrated !== 'object') return;
     state.sessionNotice = [];
-    const compareCount = Math.min(4, Math.max(1, Number(payload.compareCount) || 1));
+    const compareCount = Math.min(4, Math.max(1, Number(migrated.compareCount) || 1));
     setCompareCount(compareCount, true);
-    state.compareFocus = payload.compareFocus || state.compareFocus;
-    state.globalBandFilter = payload.globalBandFilter || '';
-    state.breakThreshold = Number(payload.breakThreshold) || state.breakThreshold;
-    if (Number.isFinite(payload.logPageSize)) state.logPageSize = payload.logPageSize;
-    if (Number.isFinite(payload.logPage)) state.logPage = payload.logPage;
-    if (Number.isFinite(payload.compareLogWindowStart)) state.compareLogWindowStart = payload.compareLogWindowStart;
-    if (Number.isFinite(payload.compareLogWindowSize)) state.compareLogWindowSize = payload.compareLogWindowSize;
-    applySessionFilters(payload.logFilters);
-    const slotPayloads = Array.isArray(payload.slots) ? payload.slots : [];
+    state.compareFocus = migrated.compareFocus || state.compareFocus;
+    state.globalBandFilter = migrated.globalBandFilter || '';
+    state.breakThreshold = Number(migrated.breakThreshold) || state.breakThreshold;
+    if (Number.isFinite(migrated.logPageSize)) state.logPageSize = migrated.logPageSize;
+    if (Number.isFinite(migrated.logPage)) state.logPage = migrated.logPage;
+    if (Number.isFinite(migrated.compareLogWindowStart)) state.compareLogWindowStart = migrated.compareLogWindowStart;
+    if (Number.isFinite(migrated.compareLogWindowSize)) state.compareLogWindowSize = migrated.compareLogWindowSize;
+    applySessionFilters(migrated.logFilters);
+    const slotPayloads = Array.isArray(migrated.slots) ? migrated.slots : [];
     const payloadMap = new Map(slotPayloads.map((s) => [String(s.id || '').toUpperCase(), s]));
     for (const id of ['A', 'B', 'C', 'D']) {
       const data = payloadMap.get(id);

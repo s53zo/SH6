@@ -46,7 +46,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v3.3.6';
+  const APP_VERSION = 'v3.3.7';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -527,14 +527,21 @@
   }
 
   function renderPlaceholder(report) {
-    const hasLog = !!state.logFile;
-    const logMsg = hasLog ? `Loaded file: ${state.logFile.name}` : 'No log file loaded yet.';
-    const qsoMsg = state.qsoData ? `Parsed QSOs: ${state.qsoData.qsos.length}` : 'QSOs not parsed.';
+    const hasLog = !!state.logFile && !!state.qsoData && state.qsoData.qsos && state.qsoData.qsos.length;
+    if (!hasLog) {
+      return `
+        <div class="landing-panel">
+          <h3>No log loaded yet</h3>
+          <p>To see this report, please load a log first. You can upload your own log, load from the archive, or use the demo log.</p>
+          <p><button type="button" class="button demo-log-btn">Demo log</button></p>
+        </div>
+      `;
+    }
     return `
-      <p><strong>${report.title}</strong> view is not yet implemented.</p>
-      <p>${logMsg}</p>
-      <p>${qsoMsg}</p>
-      <p>Once parsing and aggregation are wired, this view will render SH6-style data for <code>${report.id}</code>.</p>
+      <div class="landing-panel">
+        <h3>${escapeHtml(report.title)}</h3>
+        <p>This report will appear after log data is available for this view.</p>
+      </div>
     `;
   }
 
@@ -8968,13 +8975,6 @@
       });
     }
     if (reportId === 'load_logs') {
-      const demoButtons = document.querySelectorAll('.demo-log-btn');
-      demoButtons.forEach((btn) => {
-        btn.addEventListener('click', (evt) => {
-          evt.preventDefault();
-          loadDemoLog('A');
-        });
-      });
       const revealLoadPanel = () => {
         state.showLoadPanel = true;
         document.body.classList.remove('landing-only');
@@ -9880,6 +9880,13 @@
         });
       });
     }
+    const demoButtons = document.querySelectorAll('.demo-log-btn');
+    demoButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        loadDemoLog('A');
+      });
+    });
   }
 
   function renderBreaksForDerived(derived, slotLabel) {

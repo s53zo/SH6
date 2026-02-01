@@ -4969,7 +4969,7 @@
       const day = String(d.getUTCDate()).padStart(2, '0');
       days.push(`${y}${m}${day}`);
     }
-    return days;
+    return days.slice(0, 2);
   }
 
   function ensureSpotsState(slot) {

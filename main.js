@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.0';
+  const APP_VERSION = 'v4.2.1';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -9046,6 +9046,7 @@
       'qs_by_hour_sheet'
     ]);
     const wrapReports = new Set(['one_minute_rates']);
+    const stackReports = new Set(['rates']);
     const quadReports = new Set([
       'main',
       'summary',
@@ -9071,7 +9072,8 @@
     const shouldWrap = wrapReports.has(baseId);
     const isChart = options.chart || baseId.startsWith('charts_');
     const isQuad = isChart || quadReports.has(baseId);
-    const gridClass = `compare-grid compare-count-${slotEntries.length}${isNarrow ? ' compare-narrow' : ''}${isChart ? ' compare-chart' : ''}${isQuad ? ' compare-quad' : ''}`;
+    const shouldStack = stackReports.has(baseId);
+    const gridClass = `compare-grid compare-count-${slotEntries.length}${isNarrow ? ' compare-narrow' : ''}${isChart ? ' compare-chart' : ''}${isQuad ? ' compare-quad' : ''}${shouldStack ? ' compare-stack' : ''}`;
     return `
       <div class="${gridClass}">
         ${slotEntries.map((entry, idx) => {

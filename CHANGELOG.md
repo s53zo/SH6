@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.1 (2026-02-01)
+- Narrow Spots/RBN sliders and stack Rates compare panels vertically.
+
 ## v4.2.0 (2026-02-01)
 - Show session controls once in compare mode and simplify Spots/RBN/Breaks compare controls.
 - Fix Rates layout stacking and make it responsive.

@@ -252,7 +252,7 @@ a:hover {
 }
 
 .spots-controls input[type="range"] {
-  width: 100%;
+  width: min(420px, 100%);
   margin-top: 6px;
 }
 
@@ -435,6 +435,18 @@ a:hover {
 .compare-grid.compare-narrow {
   justify-content: start;
   gap: 10px;
+}
+
+.compare-grid.compare-stack {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .compare-grid.compare-stack.compare-count-2,
+  .compare-grid.compare-stack.compare-count-3,
+  .compare-grid.compare-stack.compare-count-4 {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (min-width: 768px) {

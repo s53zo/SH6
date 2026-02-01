@@ -752,6 +752,10 @@ a:hover {
   font-weight: 700;
 }
 
+.status-row.hidden {
+  display: none;
+}
+
 .source-indicator {
   display: inline-block;
   margin-left: 4px;

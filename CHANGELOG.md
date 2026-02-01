@@ -3,6 +3,11 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v3.4.1 (2026-02-01)
+- Add RBN spots report with the same analysis blocks as Spots.
+- Show Spots and RBN status indicators in the sidebar (on demand).
+- Surface per-day RBN errors inside the RBN report.
+
 ## v3.4.0 (2026-01-31)
 - Harden continent normalization to strip stray characters before coloring.
 

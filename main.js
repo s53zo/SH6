@@ -41,12 +41,13 @@
     { id: 'export', title: 'Export' },
     { id: 'qsl_labels', title: 'QSL labels' },
     { id: 'spots', title: 'Spots' },
+    { id: 'rbn_spots', title: 'RBN spots' },
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
   let reports = [];
 
-  const APP_VERSION = 'v3.4.0';
+  const APP_VERSION = 'v3.4.1';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -57,6 +58,7 @@
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
+  const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
   const QSL_LABEL_TOOL_URL = 'https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html';
   const QRZ_URLS = ['https://azure.s53m.com/cors/qrz', 'https://www.qrz.com/db'];
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
@@ -102,10 +104,12 @@
     D: '#6a1b9a'
   };
 
-  function createSpotsState() {
+  function createSpotsState(source = 'spots') {
     return {
+      source,
       status: 'idle',
       error: null,
+      errors: [],
       stats: null,
       lastWindowKey: null,
       lastCall: null,
@@ -116,6 +120,10 @@
       qsoIndex: null,
       qsoCallIndex: null
     };
+  }
+
+  function createRbnState() {
+    return createSpotsState('rbn');
   }
 
   function createEmptyCompareSlot() {
@@ -131,7 +139,8 @@
       fullDerived: null,
       bandDerivedCache: new Map(),
       logVersion: 0,
-      spotsState: createSpotsState()
+      spotsState: createSpotsState(),
+      rbnState: createRbnState()
     };
   }
 
@@ -213,6 +222,7 @@
     renderSlotId: null,
     logVersion: 0,
     spotsState: null,
+    rbnState: null,
     compareSlots: [createEmptyCompareSlot(), createEmptyCompareSlot(), createEmptyCompareSlot()]
   };
 
@@ -245,6 +255,12 @@
     ctySourceLabel: document.getElementById('ctySourceLabel'),
     masterStatus: document.getElementById('masterStatus'),
     masterSourceLabel: document.getElementById('masterSourceLabel'),
+    spotsStatus: document.getElementById('spotsStatus'),
+    spotsSourceLabel: document.getElementById('spotsSourceLabel'),
+    spotsStatusRow: document.getElementById('spotsStatusRow'),
+    rbnStatus: document.getElementById('rbnStatus'),
+    rbnSourceLabel: document.getElementById('rbnSourceLabel'),
+    rbnStatusRow: document.getElementById('rbnStatusRow'),
     compareHelper: document.getElementById('compareHelper'),
     appVersion: document.getElementById('appVersion'),
     bandRibbon: document.getElementById('bandRibbon'),
@@ -1942,7 +1958,7 @@
     const classifySource = (src) => {
       if (!src) return { mark: '', className: '' };
       const lower = String(src).toLowerCase();
-      if (lower.includes('azure.s53m.com/cors')) return { mark: '✓', className: 'source-local' };
+      if (lower.includes('azure.s53m.com')) return { mark: '✓', className: 'source-local' };
       if (lower.includes('allorigins.win') || lower.includes('corsproxy.io')) return { mark: '✓', className: 'source-proxy' };
       return { mark: '', className: '' };
     };
@@ -1950,6 +1966,13 @@
       if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
       if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
       if (status === 'error') return 'error';
+      return status || '';
+    };
+    const mapSpotStatus = (status) => {
+      if (status === 'ready') return 'ok';
+      if (status === 'loading') return 'loading';
+      if (status === 'error') return 'error';
+      if (status === 'idle') return 'pending';
       return status || '';
     };
     if (dom.ctyStatus) {
@@ -1985,6 +2008,44 @@
       dom.masterSourceLabel.textContent = info.mark;
       dom.masterSourceLabel.title = state.masterSource || '';
       dom.masterSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
+    }
+    if (dom.spotsStatus) {
+      const spotsState = ensureSpotsState(state);
+      const status = mapSpotStatus(spotsState.status);
+      dom.spotsStatus.textContent = formatStatus(status, SPOTS_BASE_URL);
+      dom.spotsStatus.title = SPOTS_BASE_URL;
+      const proxy = isProxy(SPOTS_BASE_URL);
+      dom.spotsStatus.className = [
+        'status-indicator',
+        status === 'ok' ? 'status-ok' : '',
+        status === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        status === 'error' ? 'status-error' : ''
+      ].filter(Boolean).join(' ');
+    }
+    if (dom.spotsSourceLabel) {
+      const info = classifySource(SPOTS_BASE_URL);
+      dom.spotsSourceLabel.textContent = info.mark;
+      dom.spotsSourceLabel.title = SPOTS_BASE_URL;
+      dom.spotsSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
+    }
+    if (dom.rbnStatus) {
+      const rbnState = ensureRbnState(state);
+      const status = mapSpotStatus(rbnState.status);
+      dom.rbnStatus.textContent = formatStatus(status, RBN_PROXY_URL);
+      dom.rbnStatus.title = RBN_PROXY_URL;
+      const proxy = isProxy(RBN_PROXY_URL);
+      dom.rbnStatus.className = [
+        'status-indicator',
+        status === 'ok' ? 'status-ok' : '',
+        status === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        status === 'error' ? 'status-error' : ''
+      ].filter(Boolean).join(' ');
+    }
+    if (dom.rbnSourceLabel) {
+      const info = classifySource(RBN_PROXY_URL);
+      dom.rbnSourceLabel.textContent = info.mark;
+      dom.rbnSourceLabel.title = RBN_PROXY_URL;
+      dom.rbnSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
     }
   }
 
@@ -2095,6 +2156,7 @@
     const target = getSlotById(slotId);
     if (!target) return null;
     target.spotsState = createSpotsState();
+    target.rbnState = createRbnState();
     const reconstructed = typeof sourcePath === 'string' && sourcePath.startsWith('RECONSTRUCTED_LOGS/');
     target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
     if (sourcePath) target.logFile.path = sourcePath;
@@ -4895,6 +4957,21 @@
     return days;
   }
 
+  function buildRbnDayList(minTs, maxTs) {
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return [];
+    const days = [];
+    const start = Date.UTC(new Date(minTs).getUTCFullYear(), new Date(minTs).getUTCMonth(), new Date(minTs).getUTCDate());
+    const end = Date.UTC(new Date(maxTs).getUTCFullYear(), new Date(maxTs).getUTCMonth(), new Date(maxTs).getUTCDate());
+    for (let t = start; t <= end; t += 86400000) {
+      const d = new Date(t);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      days.push(`${y}${m}${day}`);
+    }
+    return days;
+  }
+
   function ensureSpotsState(slot) {
     if (!slot.spotsState) {
       slot.spotsState = createSpotsState();
@@ -4904,6 +4981,26 @@
 
   function getSpotsState() {
     return ensureSpotsState(state);
+  }
+
+  function ensureRbnState(slot) {
+    if (!slot.rbnState) {
+      slot.rbnState = createRbnState();
+    }
+    return slot.rbnState;
+  }
+
+  function getRbnState() {
+    return ensureRbnState(state);
+  }
+
+  function getSpotStateBySource(slot, source) {
+    return source === 'rbn' ? ensureRbnState(slot) : ensureSpotsState(slot);
+  }
+
+  function loadSpotsForSource(slot, source) {
+    if (source === 'rbn') return loadRbnForCurrentLog(slot);
+    return loadSpotsForCurrentLog(slot);
   }
 
   function buildSpotWindowKey(minTs, maxTs) {
@@ -5052,6 +5149,59 @@
     return text;
   }
 
+  function formatRbnComment(spot) {
+    const parts = [];
+    if (Number.isFinite(spot.snr)) parts.push(`SNR ${spot.snr} dB`);
+    if (Number.isFinite(spot.speed)) parts.push(`Speed ${spot.speed}`);
+    if (spot.mode) parts.push(String(spot.mode).toUpperCase());
+    if (spot.txMode && spot.txMode !== spot.mode) parts.push(`TX ${String(spot.txMode).toUpperCase()}`);
+    if (spot.spotterRaw && spot.spotterRaw !== spot.spotter) parts.push(`Skimmer ${spot.spotterRaw}`);
+    return parts.join(' · ');
+  }
+
+  function normalizeRbnSpot(raw) {
+    if (!raw) return null;
+    const spotterRaw = normalizeCall(raw.spotterRaw || raw.spotter || '');
+    const spotter = normalizeCall(raw.spotter || spotterRaw);
+    const dxCall = normalizeCall(raw.dxCall || '');
+    const ts = Number(raw.ts);
+    const freqKHz = raw.freqKHz != null ? Number(raw.freqKHz) : Number(raw.freq);
+    const freqMHz = Number.isFinite(raw.freqMHz) ? Number(raw.freqMHz) : (Number.isFinite(freqKHz) ? freqKHz / 1000 : null);
+    let band = normalizeBandToken(raw.band || '');
+    if (!band && Number.isFinite(freqMHz)) band = normalizeBandToken(parseBandFromFreq(freqMHz));
+    const snr = raw.snr != null ? Number(raw.snr) : (raw.db != null ? Number(raw.db) : null);
+    const speed = raw.speed != null ? Number(raw.speed) : null;
+    const mode = raw.mode || '';
+    const txMode = raw.txMode || raw.tx_mode || '';
+    const spot = {
+      spotter,
+      spotterRaw,
+      dxCall,
+      ts: Number.isFinite(ts) ? ts : null,
+      freqKHz: Number.isFinite(freqKHz) ? freqKHz : null,
+      freqMHz: Number.isFinite(freqMHz) ? freqMHz : null,
+      band: band || '',
+      mode,
+      snr: Number.isFinite(snr) ? snr : null,
+      speed: Number.isFinite(speed) ? speed : null,
+      txMode
+    };
+    spot.comment = formatRbnComment(spot);
+    return spot;
+  }
+
+  async function fetchRbnSpots(call, days) {
+    const params = new URLSearchParams();
+    if (call) params.set('call', call);
+    if (days && days.length) params.set('days', days.join(','));
+    const url = `${RBN_PROXY_URL}?${params.toString()}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || typeof data !== 'object') throw new Error('Invalid RBN response');
+    return data;
+  }
+
   async function loadSpotsForCurrentLog(slot = state) {
     const spotsState = ensureSpotsState(slot);
     if (!slot.derived || !slot.qsoData) return;
@@ -5071,7 +5221,9 @@
     }
     spotsState.status = 'loading';
     spotsState.error = null;
+    spotsState.errors = [];
     spotsState.stats = null;
+    updateDataStatus();
     renderActiveReport();
     const days = buildSpotDayList(minTs, maxTs);
     const urls = days.map((d) => ({
@@ -5127,11 +5279,60 @@
       spotsState.status = 'error';
       spotsState.error = err && err.message ? err.message : 'Failed to load spots.';
     }
+    updateDataStatus();
     renderActiveReport();
   }
 
-  function computeSpotsStats(slot = state) {
-    const spotsState = ensureSpotsState(slot);
+  async function loadRbnForCurrentLog(slot = state) {
+    const rbnState = ensureRbnState(slot);
+    if (!slot.derived || !slot.qsoData) return;
+    const call = String(slot.derived.contestMeta?.stationCallsign || '').toUpperCase();
+    const minTs = slot.derived.timeRange?.minTs;
+    const maxTs = slot.derived.timeRange?.maxTs;
+    if (!call || !Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
+      rbnState.status = 'error';
+      rbnState.error = 'Missing callsign or time range.';
+      renderActiveReport();
+      return;
+    }
+    const windowKey = buildSpotWindowKey(minTs, maxTs);
+    if (rbnState.status === 'ready' && rbnState.lastWindowKey === windowKey && rbnState.lastCall === call) {
+      renderActiveReport();
+      return;
+    }
+    rbnState.status = 'loading';
+    rbnState.error = null;
+    rbnState.errors = [];
+    rbnState.stats = null;
+    updateDataStatus();
+    renderActiveReport();
+    const days = buildRbnDayList(minTs, maxTs);
+    const qsoIndex = buildQsoTimeIndex(slot.qsoData.qsos);
+    const qsoCallIndex = buildQsoCallIndex(slot.qsoData.qsos);
+    try {
+      const data = await fetchRbnSpots(call, days);
+      const ofUsSpots = (data.ofUsSpots || []).map(normalizeRbnSpot).filter(Boolean);
+      const byUsSpots = (data.byUsSpots || []).map(normalizeRbnSpot).filter(Boolean);
+      rbnState.status = 'ready';
+      rbnState.error = null;
+      rbnState.lastWindowKey = windowKey;
+      rbnState.lastCall = call;
+      rbnState.totalScanned = data.total || data.scanned || 0;
+      rbnState.errors = Array.isArray(data.errors) ? data.errors : [];
+      rbnState.raw = { ofUsSpots, byUsSpots };
+      rbnState.qsoIndex = qsoIndex;
+      rbnState.qsoCallIndex = qsoCallIndex;
+      computeSpotsStats(slot, rbnState);
+    } catch (err) {
+      rbnState.status = 'error';
+      rbnState.error = err && err.message ? err.message : 'Failed to load RBN spots.';
+    }
+    updateDataStatus();
+    renderActiveReport();
+  }
+
+  function computeSpotsStats(slot = state, spotsStateOverride = null) {
+    const spotsState = spotsStateOverride || ensureSpotsState(slot);
     if (!spotsState.raw || !slot.qsoData) return;
     const call = String(slot.derived?.contestMeta?.stationCallsign || '').toUpperCase();
     const windowMinutes = Number(spotsState.windowMinutes) || 15;
@@ -5218,10 +5419,20 @@
     };
   }
 
-  function renderSpots() {
+  function renderSpots(options = {}) {
     if (!state.qsoData || !state.derived) {
       return '<p>No log loaded yet. Load a log to enable spots analysis.</p>';
     }
+    const source = options.source || 'spots';
+    const sourceAttr = escapeAttr(source);
+    const title = options.title || 'Spots';
+    const intro = options.intro || 'Analyze spots for your callsign and your spotter activity.';
+    const loadLabel = options.loadLabel || 'Load spots';
+    const loadingLabel = options.loadingLabel || 'Loading spots...';
+    const readyLabel = options.readyLabel || 'Spots loaded.';
+    const fileListLabel = options.fileListLabel || 'Spot files';
+    const errorLabel = options.errorLabel || 'Day errors';
+    const extraNote = options.note || '';
     const slotId = state.renderSlotId || 'A';
     const slotAttr = escapeAttr(slotId);
     const call = escapeHtml(state.derived.contestMeta?.stationCallsign || 'N/A');
@@ -5230,14 +5441,30 @@
     const start = Number.isFinite(minTs) ? formatDateSh6(minTs) : 'N/A';
     const end = Number.isFinite(maxTs) ? formatDateSh6(maxTs) : 'N/A';
     const days = buildSpotDayList(minTs, maxTs);
-    const dayList = days.map((d) => `${d.year}/${d.doy}.dat`).join(', ');
-    const spotsState = getSpotsState();
+    const dayList = options.dayList != null
+      ? options.dayList
+      : days.map((d) => `${d.year}/${d.doy}.dat`).join(', ');
+    const spotsState = options.spotsState || getSpotsState();
     const windowMinutes = Number(spotsState.windowMinutes) || 15;
     const bandFilterSet = new Set(spotsState.bandFilter || []);
     const stats = spotsState.stats;
     const statusText = spotsState.status === 'loading'
-      ? 'Loading spots...'
-      : (spotsState.status === 'error' ? `Error: ${escapeHtml(spotsState.error || '')}` : (spotsState.status === 'ready' ? 'Spots loaded.' : 'Not loaded'));
+      ? loadingLabel
+      : (spotsState.status === 'error' ? `Error: ${escapeHtml(spotsState.error || '')}` : (spotsState.status === 'ready' ? readyLabel : 'Not loaded'));
+    const errorList = Array.isArray(spotsState.errors) ? spotsState.errors : [];
+    const errorSummary = errorList.length
+      ? (() => {
+        const max = 5;
+        const items = errorList.slice(0, max).map((e) => {
+          const day = escapeHtml(e?.day || '');
+          const msg = escapeHtml(e?.error || 'error');
+          return `${day}: ${msg}`;
+        }).filter(Boolean);
+        if (!items.length) return '';
+        const more = errorList.length > max ? ` (+${errorList.length - max} more)` : '';
+        return `${items.join('; ')}${more}`;
+      })()
+      : '';
     const baseBands = getBandsFromDerived(state.derived).filter((b) => b && String(b).toLowerCase() !== 'unknown');
     if (stats?.bandStats?.some((b) => b.band === 'unknown') && !baseBands.includes('unknown')) {
       baseBands.push('unknown');
@@ -6052,21 +6279,22 @@
     };
     return `
       <div class="mtc export-panel spots-panel" data-slot="${slotAttr}">
-        <div class="gradient">&nbsp;Spots</div>
-        <p>Analyze spots for your callsign and your spotter activity.</p>
+        <div class="gradient">&nbsp;${escapeHtml(title)}</div>
+        <p>${escapeHtml(intro)}</p>
         <div class="export-actions">
           <span><b>Callsign</b>: ${call} (exact match)</span>
         </div>
         <div class="export-actions">
           <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
         </div>
+        ${extraNote ? `<div class="export-actions export-note">${escapeHtml(extraNote)}</div>` : ''}
         <div class="spots-controls">
-          <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}">${windowMinutes}</span></label>
-          <input id="spotsWindow-${slotAttr}" class="spots-window" data-slot="${slotAttr}" type="range" min="1" max="60" step="1" value="${windowMinutes}">
+          <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}" data-source="${sourceAttr}">${windowMinutes}</span></label>
+          <input id="spotsWindow-${slotAttr}" class="spots-window" data-slot="${slotAttr}" data-source="${sourceAttr}" type="range" min="1" max="60" step="1" value="${windowMinutes}">
         </div>
         <div class="spots-filters">
           <label class="spots-filter">
-            <input type="checkbox" class="spots-band-filter" data-slot="${slotAttr}" data-band="ALL" ${bandFilterSet.size ? '' : 'checked'}>
+            <input type="checkbox" class="spots-band-filter" data-slot="${slotAttr}" data-source="${sourceAttr}" data-band="ALL" ${bandFilterSet.size ? '' : 'checked'}>
             <span>All bands</span>
           </label>
           ${bandOptions.map((band) => {
@@ -6075,19 +6303,20 @@
             const cls = band === 'unknown' ? '' : bandClass(band);
             return `
               <label class="spots-filter ${cls}">
-                <input type="checkbox" class="spots-band-filter" data-slot="${slotAttr}" data-band="${escapeAttr(band)}" ${checked}>
+                <input type="checkbox" class="spots-band-filter" data-slot="${slotAttr}" data-source="${sourceAttr}" data-band="${escapeAttr(band)}" ${checked}>
                 <span>${escapeHtml(label)}</span>
               </label>
             `;
           }).join('')}
         </div>
         <div class="export-actions">
-          <span><b>Spot files</b>: ${dayList || 'N/A'}</span>
+          <span><b>${escapeHtml(fileListLabel)}</b>: ${dayList || 'N/A'}</span>
         </div>
         <div class="export-actions">
-          <button type="button" class="button spots-load-btn" data-slot="${slotAttr}">Load spots</button>
+          <button type="button" class="button spots-load-btn" data-slot="${slotAttr}" data-source="${sourceAttr}">${escapeHtml(loadLabel)}</button>
           <span>${statusText}</span>
         </div>
+        ${errorSummary ? `<div class="export-actions export-note"><b>${escapeHtml(errorLabel)}</b>: ${errorSummary}</div>` : ''}
         ${stats ? `
         <div class="export-actions export-note">
           <span><b>Total spots scanned</b>: ${formatNumberSh6(stats.total)}</span>
@@ -6173,6 +6402,29 @@
         ` : ''}
       </div>
     `;
+  }
+
+  function renderRbnSpots() {
+    if (!state.qsoData || !state.derived) {
+      return '<p>No log loaded yet. Load a log to enable RBN spots analysis.</p>';
+    }
+    const minTs = state.derived.timeRange?.minTs;
+    const maxTs = state.derived.timeRange?.maxTs;
+    const days = buildRbnDayList(minTs, maxTs);
+    const dayList = days.map((d) => `${d}.zip`).join(', ');
+    return renderSpots({
+      source: 'rbn',
+      spotsState: getRbnState(),
+      title: 'RBN spots',
+      intro: 'Analyze Reverse Beacon Network (RBN) spots for your callsign and skimmer activity.',
+      loadLabel: 'Load RBN spots',
+      loadingLabel: 'Loading RBN spots...',
+      readyLabel: 'RBN spots loaded.',
+      fileListLabel: 'RBN files',
+      errorLabel: 'RBN day errors',
+      dayList,
+      note: 'RBN spotters can include a “-#” suffix (skimmer ID). These are grouped by the base callsign.'
+    });
   }
 
   const CONTINENT_ORDER = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
@@ -8227,6 +8479,7 @@
         case 'export': return renderExportPage();
         case 'qsl_labels': return renderQslLabels();
         case 'spots': return renderSpots();
+        case 'rbn_spots': return renderRbnSpots();
         case 'charts': return renderChartsIndex();
         case 'charts_qs_by_band': return renderChartQsByBand();
         case 'charts_top_10_countries': return renderChartTop10Countries();
@@ -8257,6 +8510,7 @@
       bandDerivedCache: state.bandDerivedCache,
       logVersion: state.logVersion,
       spotsState: state.spotsState,
+      rbnState: state.rbnState,
       renderSlotId: state.renderSlotId
     };
     Object.assign(state, slot);
@@ -8939,56 +9193,66 @@
         });
       }
     }
-    if (reportId === 'spots') {
+    const bindSpotControls = (source) => {
       const loadTargets = state.compareEnabled ? getLoadedCompareSlots() : [{ id: 'A', slot: state }];
       loadTargets.forEach((entry) => {
         if (!entry.slot?.derived || !entry.slot?.qsoData) return;
-        const spotsState = ensureSpotsState(entry.slot);
-        if (spotsState.status === 'idle' || spotsState.status === 'error') {
-          loadSpotsForCurrentLog(entry.slot);
+        const spotState = getSpotStateBySource(entry.slot, source);
+        if (spotState.status === 'idle' || spotState.status === 'error') {
+          loadSpotsForSource(entry.slot, source);
         }
       });
-      const buttons = document.querySelectorAll('.spots-load-btn');
+      const buttons = document.querySelectorAll(`.spots-load-btn[data-source="${source}"]`);
       buttons.forEach((btn) => {
         btn.addEventListener('click', (evt) => {
           evt.preventDefault();
           const slotId = btn.dataset.slot || 'A';
           const slot = getSlotById(slotId) || state;
-          loadSpotsForCurrentLog(slot);
+          loadSpotsForSource(slot, source);
         });
       });
-      const windowInputs = document.querySelectorAll('.spots-window');
+      const windowInputs = document.querySelectorAll(`.spots-window[data-source="${source}"]`);
       windowInputs.forEach((input) => {
         input.addEventListener('input', () => {
           const slotId = input.dataset.slot || 'A';
           const slot = getSlotById(slotId) || state;
-          const spotsState = ensureSpotsState(slot);
-          spotsState.windowMinutes = Number(input.value) || 15;
-          const valueEl = document.querySelector(`.spots-window-value[data-slot="${slotId}"]`);
-          if (valueEl) valueEl.textContent = String(spotsState.windowMinutes);
-          computeSpotsStats(slot);
+          const spotState = getSpotStateBySource(slot, source);
+          spotState.windowMinutes = Number(input.value) || 15;
+          const valueEl = document.querySelector(`.spots-window-value[data-slot="${slotId}"][data-source="${source}"]`);
+          if (valueEl) valueEl.textContent = String(spotState.windowMinutes);
+          computeSpotsStats(slot, spotState);
           renderActiveReport();
         });
       });
-      const filters = document.querySelectorAll('.spots-band-filter');
+      const filters = document.querySelectorAll(`.spots-band-filter[data-source="${source}"]`);
       filters.forEach((el) => {
         el.addEventListener('change', () => {
           const slotId = el.dataset.slot || 'A';
           const slot = getSlotById(slotId) || state;
-          const spotsState = ensureSpotsState(slot);
+          const spotState = getSpotStateBySource(slot, source);
           const band = el.dataset.band || '';
-          const current = new Set(spotsState.bandFilter || []);
+          const current = new Set(spotState.bandFilter || []);
           if (band === 'ALL') {
             if (el.checked) current.clear();
           } else {
             if (el.checked) current.add(band);
             else current.delete(band);
           }
-          spotsState.bandFilter = Array.from(current);
-          computeSpotsStats(slot);
+          spotState.bandFilter = Array.from(current);
+          computeSpotsStats(slot, spotState);
           renderActiveReport();
         });
       });
+    };
+    if (reportId === 'spots') {
+      if (dom.spotsStatusRow) dom.spotsStatusRow.classList.remove('hidden');
+      updateDataStatus();
+      bindSpotControls('spots');
+    }
+    if (reportId === 'rbn_spots') {
+      if (dom.rbnStatusRow) dom.rbnStatusRow.classList.remove('hidden');
+      updateDataStatus();
+      bindSpotControls('rbn');
     }
     if (reportId === 'load_logs') {
       const revealLoadPanel = () => {

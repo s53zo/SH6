@@ -39,10 +39,10 @@
     { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour', parentId: 'charts' },
     { id: 'comments', title: 'Comments' },
     { id: 'export', title: 'Export' },
-    { id: 'qsl_labels', title: 'QSL labels' },
     { id: 'session', title: 'Save&Load session' },
     { id: 'spots', title: 'Spots' },
     { id: 'rbn_spots', title: 'RBN spots' },
+    { id: 'qsl_labels', title: 'QSL labels' },
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
@@ -10658,7 +10658,7 @@
     const slider = `
       <div class="break-controls"${slotAttr}>
         Break threshold (minutes):
-        <input type="range" class="break-threshold"${slotAttr} min="10" max="60" step="1" value="${threshold}">
+        <input type="range" class="break-threshold"${slotAttr} min="2" max="60" step="1" value="${threshold}">
         <span class="break-threshold-value"${slotAttr}>${threshold}</span>
       </div>
     `;

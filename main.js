@@ -306,7 +306,8 @@
       fullDerived: source.fullDerived,
       bandDerivedCache: source.bandDerivedCache,
       logVersion: source.logVersion,
-      spotsState: source.spotsState
+      spotsState: source.spotsState,
+      rbnState: source.rbnState
     };
   }
 

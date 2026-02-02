@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.6';
+  const APP_VERSION = 'v4.2.7';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1878,6 +1878,19 @@
     return /^[A-R]{2}\d{2}([A-X]{2})?$/.test(t);
   }
 
+  function normalizeLookupGrid(raw) {
+    if (!raw) return null;
+    const t = String(raw).trim().toUpperCase();
+    if (!t) return null;
+    if (t.length >= 6 && /^[A-R]{2}\d{2}[A-X]{2}/.test(t)) {
+      return t.slice(0, 6);
+    }
+    if (t.length >= 4 && /^[A-R]{2}\d{2}/.test(t)) {
+      return t.slice(0, 4);
+    }
+    return null;
+  }
+
   function isCallsignToken(token) {
     if (!token) return false;
     const t = token.trim().toUpperCase();
@@ -2784,7 +2797,7 @@
           data.rows.forEach((row) => {
             if (!row || row.length < 2) return;
             const call = normalizeCall(row[0]);
-            const grid = String(row[1] || '').trim().toUpperCase();
+            const grid = normalizeLookupGrid(row[1]);
             if (!call) return;
             cache.set(call, isMaidenheadGrid(grid) ? grid : null);
           });

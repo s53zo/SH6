@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.7 (2026-02-02)
+- Normalize lookup grids (trim 8/10/12-char locators to 6-char) and ignore invalid/empty entries.
+
 ## v4.2.6 (2026-02-02)
 - Add fallback lookup endpoint to avoid HTTP 404 from /sh6/lookup.
 

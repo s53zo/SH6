@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.2';
+  const APP_VERSION = 'v4.2.3';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -60,6 +60,8 @@
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
   const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
+  const CALLSIGN_LOOKUP_URL = 'https://azure.s53m.com/sh6/lookup';
+  const CALLSIGN_LOOKUP_BATCH = 900;
   const RBN_SUMMARY_ONLY_THRESHOLD = 200000;
   const SPOT_TABLE_LIMIT = 2000;
   const QSL_LABEL_TOOL_URL = 'https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html';
@@ -406,6 +408,7 @@
     ctyTable: null,
     masterSet: null,
     prefixCache: new Map(),
+    callsignGridCache: new Map(),
     derived: null,
     logPage: 0,
     logPageSize: 1000,
@@ -465,6 +468,9 @@
   };
 
   const qrzPhotoInFlight = new Map();
+  const callsignGridPending = new Set();
+  let callsignGridTimer = null;
+  let callsignGridInFlight = false;
 
   const base64UrlEncode = (value) => {
     const text = String(value == null ? '' : value);
@@ -1737,6 +1743,11 @@
     }
     const stationCall = deriveStationCallsign(qsos);
     if (stationCall) {
+      const lookupGrid = getCallsignGrid(stationCall);
+      if (lookupGrid) {
+        const loc = gridToLatLon(lookupGrid);
+        if (loc) return { lat: loc.lat, lon: loc.lon, source: 'lookup', value: lookupGrid };
+      }
       const prefix = lookupPrefix(stationCall);
       if (prefix && prefix.lat != null && prefix.lon != null) {
         return { lat: prefix.lat, lon: prefix.lon, source: 'cty', value: stationCall };
@@ -1756,10 +1767,17 @@
   }
 
   function deriveRemoteLatLon(q, prefix) {
-    // Prefer QSO-specific grid; fall back to prefix lat/lon from cty.dat.
+    // Prefer QSO-specific grid; fall back to lookup grid; then prefix lat/lon from cty.dat.
     if (q.grid) {
       const loc = gridToLatLon(q.grid);
       if (loc) return loc;
+    }
+    if (q.call) {
+      const lookupGrid = getCallsignGrid(q.call);
+      if (lookupGrid) {
+        const loc = gridToLatLon(lookupGrid);
+        if (loc) return loc;
+      }
     }
     if (prefix && prefix.lat != null && prefix.lon != null) {
       return { lat: prefix.lat, lon: prefix.lon };
@@ -2432,6 +2450,7 @@
     if (statusEl) statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
     target.rawLogText = text;
     target.qsoData = parseLogFile(text, filename);
+    queueCallsignGridLookup(target.qsoData.qsos);
     target.derived = buildDerived(target.qsoData.qsos);
     target.qsoLite = buildQsoLiteArray(target.qsoData.qsos);
     target.fullQsoData = target.qsoData;
@@ -2704,6 +2723,98 @@
       }
     }
     return null;
+  }
+
+  function getCallsignGridCache() {
+    if (!state.callsignGridCache) state.callsignGridCache = new Map();
+    return state.callsignGridCache;
+  }
+
+  function getCallsignGrid(call) {
+    const key = normalizeCall(call);
+    if (!key) return null;
+    const cache = getCallsignGridCache();
+    if (!cache.has(key)) return null;
+    return cache.get(key) || null;
+  }
+
+  async function fetchCallsignGridBatch(calls) {
+    if (!calls || !calls.length) return;
+    try {
+      const res = await fetch(CALLSIGN_LOOKUP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calls })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const cache = getCallsignGridCache();
+      if (Array.isArray(data.rows)) {
+        data.rows.forEach((row) => {
+          if (!row || row.length < 2) return;
+          const call = normalizeCall(row[0]);
+          const grid = String(row[1] || '').trim().toUpperCase();
+          if (!call) return;
+          cache.set(call, isMaidenheadGrid(grid) ? grid : null);
+        });
+      }
+      if (Array.isArray(data.missing)) {
+        data.missing.forEach((call) => {
+          const key = normalizeCall(call);
+          if (key) cache.set(key, null);
+        });
+      }
+    } catch (err) {
+      console.warn('Callsign lookup failed:', err);
+    }
+  }
+
+  async function flushCallsignGridLookup() {
+    if (callsignGridInFlight) return;
+    const pending = Array.from(callsignGridPending);
+    if (!pending.length) return;
+    callsignGridPending.clear();
+    callsignGridInFlight = true;
+    try {
+      for (let i = 0; i < pending.length; i += CALLSIGN_LOOKUP_BATCH) {
+        const batch = pending.slice(i, i + CALLSIGN_LOOKUP_BATCH);
+        // eslint-disable-next-line no-await-in-loop
+        await fetchCallsignGridBatch(batch);
+      }
+    } finally {
+      callsignGridInFlight = false;
+      recomputeDerived('lookup');
+      if (callsignGridPending.size) {
+        scheduleCallsignGridLookup();
+      }
+    }
+  }
+
+  function scheduleCallsignGridLookup() {
+    if (callsignGridTimer) return;
+    callsignGridTimer = setTimeout(() => {
+      callsignGridTimer = null;
+      flushCallsignGridLookup();
+    }, 250);
+  }
+
+  function queueCallsignGridLookup(qsos) {
+    if (!CALLSIGN_LOOKUP_URL) return;
+    if (!qsos || !qsos.length) return;
+    const cache = getCallsignGridCache();
+    const pending = new Set();
+    qsos.forEach((q) => {
+      const call = normalizeCall(q.call);
+      if (!call) return;
+      if (isMaidenheadGrid(q.grid)) return;
+      if (cache.has(call)) return;
+      pending.add(call);
+    });
+    const stationCall = deriveStationCallsign(qsos);
+    if (stationCall && !cache.has(stationCall)) pending.add(stationCall);
+    if (!pending.size) return;
+    pending.forEach((call) => callsignGridPending.add(call));
+    scheduleCallsignGridLookup();
   }
 
   function getQrzPhotoCache(call) {

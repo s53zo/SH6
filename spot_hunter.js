@@ -6,6 +6,21 @@
   const MODE_TOKENS = ['FT8', 'FT4', 'CW', 'SSB', 'RTTY', 'PSK', 'JT65', 'JT9', 'MSK144', 'Q65', 'AM', 'FM', 'PKT', 'DIGI', 'DATA'];
   const WINDOW_MIN = 10;
   const WINDOW_MAX = 24 * 60;
+  const GROUPING_OPTIONS = [
+    { value: 'band|mode|country', label: 'Band + Mode + DXCC (slot)' },
+    { value: 'band|country', label: 'Band + DXCC' },
+    { value: 'mode|country', label: 'Mode + DXCC' },
+    { value: 'band|mode', label: 'Band + Mode' },
+    { value: 'band', label: 'Band only' },
+    { value: 'mode', label: 'Mode only' },
+    { value: 'country', label: 'DXCC only' }
+  ];
+  const GROUPING_KEYS = GROUPING_OPTIONS.map((opt) => opt.value);
+  const MODE_DIGITAL = new Set([
+    'FT8', 'FT4', 'RTTY', 'PSK', 'PSK31', 'DATA', 'DIGI', 'MFSK',
+    'JT65', 'JT9', 'OLIVIA', 'FSK', 'FSK441', 'AMTOR', 'Q65', 'MSK144'
+  ]);
+  const MODE_PHONE = new Set(['SSB', 'USB', 'LSB', 'AM', 'FM', 'PH', 'PHONE']);
 
   const BAND_PLAN = {
     '160M': [
@@ -82,6 +97,14 @@
     return keys;
   };
 
+  const modeBucket = (mode) => {
+    const m = SH6.normalizeMode(mode || '');
+    if (m === 'CW') return 'CW';
+    if (MODE_PHONE.has(m)) return 'Phone';
+    if (MODE_DIGITAL.has(m)) return 'Digital';
+    return 'Digital';
+  };
+
   const extractMode = (comment, band, freqMHz) => {
     const upper = String(comment || '').toUpperCase();
     for (const token of MODE_TOKENS) {
@@ -105,7 +128,8 @@
     if (!dxCall || !Number.isFinite(ts)) return null;
     const freqMHz = Number.isFinite(freqKHz) ? freqKHz / 1000 : null;
     const band = freqMHz ? SH6.normalizeBandToken(SH6.parseBandFromFreq(freqMHz) || '') : '';
-    const mode = extractMode(comment, band, freqMHz);
+    const rawMode = extractMode(comment, band, freqMHz);
+    const mode = rawMode === 'UNKNOWN' ? 'Unknown' : modeBucket(rawMode);
     return { freqKHz, freqMHz, dxCall, ts, comment, band, mode };
   };
 
@@ -128,6 +152,26 @@
     return payload;
   };
 
+  const formatDayKey = (key) => {
+    const day = parseInt(key.doy, 10);
+    if (!Number.isFinite(day)) return '';
+    const date = new Date(Date.UTC(key.year, 0, 1));
+    date.setUTCDate(date.getUTCDate() + day - 1);
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const formatDateRange = (keys) => {
+    if (!keys.length) return '';
+    const first = formatDayKey(keys[0]);
+    const last = formatDayKey(keys[keys.length - 1]);
+    if (!first || !last) return '';
+    if (first === last) return `${first} (UTC)`;
+    return `${first} to ${last} (UTC)`;
+  };
+
   const fetchSpotsForWindow = async (startTs, endTs) => {
     const keys = getDayKeysInRange(startTs, endTs);
     const all = [];
@@ -137,22 +181,27 @@
       sourceUrl = data.url;
       all.push(...data.spots);
     }
-    return { spots: all, url: sourceUrl };
+    return { spots: all, url: sourceUrl, keys };
   };
 
-  const buildWorkedSlots = (slot) => {
-    const worked = new Set();
+  const buildWorkedIndex = (slot) => {
+    const groups = new Map();
+    GROUPING_KEYS.forEach((key) => groups.set(key, new Set()));
     const qsos = slot?.qsoData?.qsos || [];
     qsos.forEach((q) => {
       const band = SH6.normalizeBandToken(q.band || '') || '';
       if (!band) return;
-      const mode = SH6.normalizeMode(q.mode || '') || 'UNKNOWN';
-      const prefix = q.country ? { country: q.country } : SH6.lookupPrefix(q.call || '');
-      const country = prefix?.country || '';
+      const mode = modeBucket(q.mode || '');
+      const prefix = SH6.lookupPrefix(q.call || '');
+      const country = (prefix?.country || q.country || '').trim();
       if (!country) return;
-      worked.add(`${band}|${mode}|${country}`);
+      const values = { band, mode, country };
+      GROUPING_KEYS.forEach((groupKey) => {
+        const key = groupKey.split('|').map((part) => values[part] || '').join('|');
+        groups.get(groupKey).add(key);
+      });
     });
-    return worked;
+    return groups;
   };
 
   const buildActiveSlots = (spots, now, windowMs) => {
@@ -164,7 +213,7 @@
       const prefix = SH6.lookupPrefix(s.dxCall || '');
       const country = prefix?.country || '';
       if (!country) return;
-      const mode = s.mode || 'UNKNOWN';
+      const mode = s.mode || 'Unknown';
       const key = `${s.band}|${mode}|${country}`;
       let entry = active.get(key);
       if (!entry) {
@@ -178,54 +227,125 @@
     return active;
   };
 
-  const renderTable = (container, active, worked, meta, filterBand) => {
-    const rows = [];
-    active.forEach((entry, key) => {
-      if (worked.has(key)) return;
-      if (filterBand && filterBand !== 'ALL' && entry.band !== filterBand) return;
-      rows.push(entry);
+  const getGroupingParts = (value) => {
+    const allowed = new Set(['band', 'mode', 'country']);
+    const parts = String(value || '').split('|').map((p) => p.trim()).filter((p) => allowed.has(p));
+    return parts.length ? parts : ['band', 'mode', 'country'];
+  };
+
+  const buildGroupingKey = (entry, groupingParts) => (
+    groupingParts.map((part) => entry[part] || '').join('|')
+  );
+
+  const buildGroupedRows = (entries, groupingParts) => {
+    const grouped = new Map();
+    entries.forEach((entry) => {
+      const key = groupingParts.map((part) => entry[part] || '').join('|');
+      let row = grouped.get(key);
+      if (!row) {
+        row = {
+          band: entry.band || '',
+          mode: entry.mode || '',
+          country: entry.country || '',
+          count: 0,
+          lastTs: 0,
+          calls: new Set(),
+          slots: 0
+        };
+        grouped.set(key, row);
+      }
+      row.count += entry.count || 0;
+      row.slots += 1;
+      if (entry.lastTs > row.lastTs) row.lastTs = entry.lastTs;
+      if (entry.calls && entry.calls.size) {
+        entry.calls.forEach((call) => row.calls.add(call));
+      }
     });
+    return Array.from(grouped.values());
+  };
+
+  const renderTable = (container, rows, meta, groupingParts) => {
     rows.sort((a, b) => b.lastTs - a.lastTs || b.count - a.count);
     if (!rows.length) {
-      container.innerHTML = '<p>No new band/mode DXCC slots in the selected window.</p>';
+      container.innerHTML = '<p>No new results in the selected window.</p>';
       return;
     }
+    const showBand = groupingParts.includes('band');
+    const showMode = groupingParts.includes('mode');
+    const showCountry = groupingParts.includes('country');
+    const headerCells = [
+      showBand ? '<th>Band</th>' : '',
+      showMode ? '<th>Mode</th>' : '',
+      showCountry ? '<th>DXCC</th>' : '',
+      '<th>Spots</th>',
+      '<th>Last spot (UTC)</th>',
+      '<th>Example calls</th>'
+    ].filter(Boolean).join('');
     const body = rows.map((row, idx) => {
       const calls = Array.from(row.calls).slice(0, 6).join(' ');
       const last = SH6.formatDateSh6(row.lastTs);
       const bandLabel = SH6.formatBandLabel(row.band || '');
       const bandCls = SH6.bandClass(row.band || '');
+      const rowCells = [
+        showBand ? `<td class="${bandCls}">${bandLabel}</td>` : '',
+        showMode ? `<td>${row.mode}</td>` : '',
+        showCountry ? `<td>${row.country}</td>` : '',
+        `<td>${SH6.formatNumberSh6(row.count)}</td>`,
+        `<td>${last}</td>`,
+        `<td class="spot-hunter-calls">${calls}</td>`
+      ].filter(Boolean).join('');
       return `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-          <td class="${bandCls}">${bandLabel}</td>
-          <td>${row.mode}</td>
-          <td>${row.country}</td>
-          <td>${SH6.formatNumberSh6(row.count)}</td>
-          <td>${last}</td>
-          <td class="spot-hunter-calls">${calls}</td>
+          ${rowCells}
         </tr>
       `;
     }).join('');
+    const dateLabel = meta.dateRange ? meta.dateRange : meta.url;
     container.innerHTML = `
       <div class="spot-hunter-meta">
-        <div><b>Source</b>: ${meta.url}</div>
-        <div><b>Window spots</b>: ${SH6.formatNumberSh6(meta.windowCount)} · <b>New slots</b>: ${SH6.formatNumberSh6(rows.length)}</div>
+        <div><b>Spots date</b>: ${dateLabel}</div>
+        <div><b>Window spots</b>: ${SH6.formatNumberSh6(meta.windowCount)} | <b>New slots</b>: ${SH6.formatNumberSh6(meta.unworkedCount)} | <b>Groups</b>: ${SH6.formatNumberSh6(rows.length)}</div>
       </div>
       <table class="mtc spot-hunter-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Band</th><th>Mode</th><th>DXCC</th><th>Spots</th><th>Last spot (UTC)</th><th>Example calls</th></tr>
+        <tr class="thc">${headerCells}</tr>
         ${body}
       </table>
     `;
   };
 
-  const renderBandFilters = (container, bandCounts, current) => {
+  const renderBandFilters = (container, bandCounts, current, enabled) => {
+    if (!enabled) {
+      container.innerHTML = '';
+      return;
+    }
     const bands = Array.from(bandCounts.entries()).sort((a, b) => b[1] - a[1]).map(([band]) => band);
+    if (current && current !== 'ALL' && !bands.includes(current)) {
+      bands.push(current);
+    }
     const allCount = Array.from(bandCounts.values()).reduce((a, b) => a + b, 0);
     const buttons = ['ALL', ...bands].map((band) => {
       const label = band === 'ALL' ? `All bands (${SH6.formatNumberSh6(allCount)})` : `${SH6.formatBandLabel(band)} (${SH6.formatNumberSh6(bandCounts.get(band) || 0)})`;
       const cls = band === 'ALL' ? '' : SH6.bandClass(band);
       const active = band === current ? 'active' : '';
       return `<button type="button" class="spot-hunter-filter ${active} ${cls}" data-band="${band}">${label}</button>`;
+    }).join('');
+    container.innerHTML = buttons;
+  };
+
+  const renderModeFilters = (container, modeCounts, current, enabled) => {
+    if (!enabled) {
+      container.innerHTML = '';
+      return;
+    }
+    const modes = Array.from(modeCounts.entries()).sort((a, b) => b[1] - a[1]).map(([mode]) => mode);
+    if (current && current !== 'ALL' && !modes.includes(current)) {
+      modes.push(current);
+    }
+    const allCount = Array.from(modeCounts.values()).reduce((a, b) => a + b, 0);
+    const buttons = ['ALL', ...modes].map((mode) => {
+      const label = mode === 'ALL' ? `All modes (${SH6.formatNumberSh6(allCount)})` : `${mode} (${SH6.formatNumberSh6(modeCounts.get(mode) || 0)})`;
+      const active = mode === current ? 'active' : '';
+      return `<button type="button" class="spot-hunter-filter ${active}" data-mode="${mode}">${label}</button>`;
     }).join('');
     container.innerHTML = buttons;
   };
@@ -239,7 +359,12 @@
 
   const getSlotState = (slotId) => {
     if (!stateBySlot.has(slotId)) {
-      stateBySlot.set(slotId, { windowMinutes: 60, bandFilter: 'ALL' });
+      stateBySlot.set(slotId, {
+        windowMinutes: 60,
+        bandFilter: 'ALL',
+        modeFilter: 'ALL',
+        groupBy: 'band|mode|country'
+      });
     }
     return stateBySlot.get(slotId);
   };
@@ -252,57 +377,122 @@
       return;
     }
     const state = getSlotState(slotId);
-    const now = Date.now();
-    const windowMs = Math.min(WINDOW_MAX, Math.max(WINDOW_MIN, state.windowMinutes)) * 60000;
-    const startTs = now - windowMs;
     const controls = document.createElement('div');
     controls.className = 'spot-hunter-controls';
     controls.innerHTML = `
+      <p class="spot-hunter-intro">Spot hunter checks the newest DX spots and compares them with everything already worked in this log.<br>Choose how far back to look, then pick a grouping to see only the still-unworked opportunities for this log.</p>
       <label>Window: <span class="spot-hunter-window">${formatWindowLabel(state.windowMinutes)}</span></label>
       <input type="range" min="${WINDOW_MIN}" max="${WINDOW_MAX}" step="10" value="${state.windowMinutes}">
+      <div class="spot-hunter-group">
+        <span class="spot-hunter-group-label">Group by</span>
+        <div class="spot-hunter-group-buttons">
+          ${GROUPING_OPTIONS.map((opt) => {
+            const active = opt.value === state.groupBy ? 'active' : '';
+            return `<button type="button" class="spot-hunter-group-btn ${active}" data-group="${opt.value}">${opt.label}</button>`;
+          }).join('')}
+        </div>
+      </div>
       <div class="spot-hunter-filters"></div>
-      <div class="spot-hunter-table-wrap"><p>Loading latest spots…</p></div>
+      <div class="spot-hunter-mode-filters"></div>
+      <div class="spot-hunter-table-wrap"><p>Loading latest spots...</p></div>
     `;
     container.innerHTML = '';
     container.appendChild(controls);
 
     const slider = controls.querySelector('input');
     const windowLabel = controls.querySelector('.spot-hunter-window');
+    const groupButtons = controls.querySelectorAll('.spot-hunter-group-btn');
     const filters = controls.querySelector('.spot-hunter-filters');
+    const modeFilters = controls.querySelector('.spot-hunter-mode-filters');
     const tableWrap = controls.querySelector('.spot-hunter-table-wrap');
 
     const refresh = async () => {
       const minutes = Number(slider.value) || 60;
       state.windowMinutes = minutes;
       windowLabel.textContent = formatWindowLabel(minutes);
+      state.groupBy = state.groupBy || 'band|mode|country';
+      const groupingParts = getGroupingParts(state.groupBy);
+      const hasBand = groupingParts.includes('band');
+      const hasMode = groupingParts.includes('mode');
+      if (!hasBand) state.bandFilter = 'ALL';
+      if (!hasMode) state.modeFilter = 'ALL';
       const nowLocal = Date.now();
       const windowMsLocal = minutes * 60000;
       const startLocal = nowLocal - windowMsLocal;
       try {
+        SH6.setSpotHunterStatus('loading', { source: SPOTS_BASE_URL });
         const data = await fetchSpotsForWindow(startLocal, nowLocal);
         const active = buildActiveSlots(data.spots, nowLocal, windowMsLocal);
         let windowCount = 0;
+        const unworked = [];
         const bandCounts = new Map();
+        const modeCounts = new Map();
+        const workedIndex = buildWorkedIndex(slot);
+        const groupKey = groupingParts.join('|');
+        const workedSet = workedIndex.get(groupKey) || new Set();
         active.forEach((entry) => {
           windowCount += entry.count;
-          bandCounts.set(entry.band, (bandCounts.get(entry.band) || 0) + 1);
+          const entryKey = buildGroupingKey(entry, groupingParts);
+          if (!workedSet.has(entryKey)) {
+            unworked.push(entry);
+          }
         });
-        renderBandFilters(filters, bandCounts, state.bandFilter);
-        const worked = buildWorkedSlots(slot);
-        renderTable(tableWrap, active, worked, { url: data.url, windowCount }, state.bandFilter);
-        filters.querySelectorAll('.spot-hunter-filter').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            state.bandFilter = btn.dataset.band || 'ALL';
-            refresh();
+        const baseForBands = unworked.filter((entry) => !hasMode || state.modeFilter === 'ALL' || entry.mode === state.modeFilter);
+        const baseForModes = unworked.filter((entry) => !hasBand || state.bandFilter === 'ALL' || entry.band === state.bandFilter);
+        baseForBands.forEach((entry) => {
+          if (entry.band) {
+            bandCounts.set(entry.band, (bandCounts.get(entry.band) || 0) + 1);
+          }
+        });
+        baseForModes.forEach((entry) => {
+          if (entry.mode) {
+            modeCounts.set(entry.mode, (modeCounts.get(entry.mode) || 0) + 1);
+          }
+        });
+        renderBandFilters(filters, bandCounts, state.bandFilter, hasBand);
+        renderModeFilters(modeFilters, modeCounts, state.modeFilter, hasMode);
+        let filteredEntries = unworked;
+        if (hasBand && state.bandFilter !== 'ALL') {
+          filteredEntries = filteredEntries.filter((entry) => entry.band === state.bandFilter);
+        }
+        if (hasMode && state.modeFilter !== 'ALL') {
+          filteredEntries = filteredEntries.filter((entry) => entry.mode === state.modeFilter);
+        }
+        const groupedRows = buildGroupedRows(filteredEntries, groupingParts);
+        const dateRange = formatDateRange(data.keys || []);
+        renderTable(tableWrap, groupedRows, { url: data.url, windowCount, dateRange, unworkedCount: unworked.length }, groupingParts);
+        SH6.setSpotHunterStatus('ok', { source: SPOTS_BASE_URL });
+        if (hasBand) {
+          filters.querySelectorAll('.spot-hunter-filter').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              state.bandFilter = btn.dataset.band || 'ALL';
+              refresh();
+            });
           });
-        });
+        }
+        if (hasMode) {
+          modeFilters.querySelectorAll('.spot-hunter-filter').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              state.modeFilter = btn.dataset.mode || 'ALL';
+              refresh();
+            });
+          });
+        }
       } catch (err) {
-        tableWrap.innerHTML = '<p>Failed to load today’s spots.</p>';
+        tableWrap.innerHTML = '<p>Failed to load the selected spots window.</p>';
+        SH6.setSpotHunterStatus('error', { source: SPOTS_BASE_URL, error: err ? String(err) : 'Spot fetch failed' });
       }
     };
 
     slider.addEventListener('input', () => {
       refresh();
+    });
+    groupButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.groupBy = btn.dataset.group || state.groupBy;
+        groupButtons.forEach((item) => item.classList.toggle('active', item === btn));
+        refresh();
+      });
     });
 
     refresh();

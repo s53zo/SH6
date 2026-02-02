@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.12';
+  const APP_VERSION = 'v4.2.20';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -461,12 +461,15 @@
     ctyStatus: 'pending',
     masterStatus: 'pending',
     qthStatus: 'pending',
+    spotHunterStatus: 'pending',
     ctyError: null,
     masterError: null,
     qthError: null,
+    spotHunterError: null,
     ctySource: null,
     masterSource: null,
     qthSource: CALLSIGN_LOOKUP_URLS[0],
+    spotHunterSource: null,
     showLoadPanel: false,
     compareEnabled: false,
     compareCount: 1,
@@ -545,6 +548,9 @@
     rbnStatus: document.getElementById('rbnStatus'),
     rbnSourceLabel: document.getElementById('rbnSourceLabel'),
     rbnStatusRow: document.getElementById('rbnStatusRow'),
+    spotHunterStatus: document.getElementById('spotHunterStatus'),
+    spotHunterSourceLabel: document.getElementById('spotHunterSourceLabel'),
+    spotHunterStatusRow: document.getElementById('spotHunterStatusRow'),
     compareHelper: document.getElementById('compareHelper'),
     appVersion: document.getElementById('appVersion'),
     bandRibbon: document.getElementById('bandRibbon'),
@@ -2387,6 +2393,27 @@
       dom.rbnSourceLabel.textContent = info.mark;
       dom.rbnSourceLabel.title = RBN_PROXY_URL;
       dom.rbnSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
+    }
+    if (dom.spotHunterStatus) {
+      const status = mapSpotStatus(state.spotHunterStatus);
+      dom.spotHunterStatus.textContent = formatStatus(status, state.spotHunterSource);
+      dom.spotHunterStatus.title = [state.spotHunterSource, state.spotHunterError].filter(Boolean).join(' ');
+      const proxy = isProxy(state.spotHunterSource);
+      dom.spotHunterStatus.className = [
+        'status-indicator',
+        status === 'ok' ? 'status-ok' : '',
+        status === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        status === 'error' ? 'status-error' : ''
+      ].filter(Boolean).join(' ');
+    }
+    if (dom.spotHunterSourceLabel) {
+      const info = classifySource(state.spotHunterSource);
+      dom.spotHunterSourceLabel.textContent = info.mark;
+      dom.spotHunterSourceLabel.title = state.spotHunterSource || '';
+      dom.spotHunterSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
+    }
+    if (dom.spotHunterStatusRow) {
+      dom.spotHunterStatusRow.classList.toggle('hidden', state.spotHunterStatus === 'pending');
     }
   }
 
@@ -5471,6 +5498,18 @@
     return days;
   }
 
+  function formatSpotDayLabel(day) {
+    if (!day || !Number.isFinite(day.year)) return '';
+    const dayNum = parseInt(day.doy, 10);
+    if (!Number.isFinite(dayNum)) return `${day.year}/${day.doy}`;
+    const date = new Date(Date.UTC(day.year, 0, 1));
+    date.setUTCDate(date.getUTCDate() + dayNum - 1);
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
   function buildRbnDayList(minTs, maxTs) {
     if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return [];
     const days = [];
@@ -5484,6 +5523,15 @@
       days.push(`${y}${m}${day}`);
     }
     return days;
+  }
+
+  function formatRbnDayLabel(day) {
+    const raw = String(day || '');
+    if (!/^\d{8}$/.test(raw)) return raw;
+    const y = raw.slice(0, 4);
+    const m = raw.slice(4, 6);
+    const d = raw.slice(6, 8);
+    return `${y}-${m}-${d}`;
   }
 
   function ensureSpotsState(slot) {
@@ -5994,7 +6042,7 @@
     const days = buildSpotDayList(minTs, maxTs);
     const dayList = options.dayList != null
       ? options.dayList
-      : days.map((d) => `${d.year}/${d.doy}.dat`).join(', ');
+      : days.map((d) => formatSpotDayLabel(d)).join(', ');
     const spotsState = options.spotsState || getSpotsState();
     const windowMinutes = Number(spotsState.windowMinutes) || 15;
     const bandFilterSet = new Set(spotsState.bandFilter || []);
@@ -7035,7 +7083,7 @@
     const slotId = state.renderSlotId || 'A';
     const allDays = buildRbnDayList(minTs, maxTs);
     const selectedDays = selectRbnDaysForSlot(state, minTs, maxTs);
-    const dayList = selectedDays.map((d) => `${d}.zip`).join(', ');
+    const dayList = selectedDays.map((d) => formatRbnDayLabel(d)).join(', ');
     const showPicker = allDays.length > 2;
     const dayPickerHtml = showPicker ? `
       <div class="export-actions export-note">
@@ -7044,11 +7092,11 @@
       <div class="export-actions">
         <label for="rbnDayA">RBN date 1</label>
         <select id="rbnDayA" class="rbn-day-select" data-source="rbn" data-slot="${escapeAttr(slotId)}" data-index="0">
-          ${allDays.map((d) => `<option value="${escapeAttr(d)}" ${selectedDays[0] === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+          ${allDays.map((d) => `<option value="${escapeAttr(d)}" ${selectedDays[0] === d ? 'selected' : ''}>${escapeHtml(formatRbnDayLabel(d))}</option>`).join('')}
         </select>
         <label for="rbnDayB" style="margin-left:12px;">RBN date 2</label>
         <select id="rbnDayB" class="rbn-day-select" data-source="rbn" data-slot="${escapeAttr(slotId)}" data-index="1">
-          ${allDays.map((d) => `<option value="${escapeAttr(d)}" ${selectedDays[1] === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+          ${allDays.map((d) => `<option value="${escapeAttr(d)}" ${selectedDays[1] === d ? 'selected' : ''}>${escapeHtml(formatRbnDayLabel(d))}</option>`).join('')}
         </select>
       </div>
     ` : '';
@@ -9868,6 +9916,8 @@
       loadOperatorPhotos(dom.viewContainer);
     }
     if (reportId === 'spot_hunter') {
+      if (dom.spotHunterStatusRow) dom.spotHunterStatusRow.classList.remove('hidden');
+      updateDataStatus();
       loadSpotHunterModule()
         .then(() => {
           if (typeof window.SpotHunterRender === 'function') {
@@ -11495,7 +11545,13 @@
     normalizeMode,
     lookupPrefix,
     bandClass,
-    getSlotById
+    getSlotById,
+    setSpotHunterStatus: (status, payload = {}) => {
+      state.spotHunterStatus = status || 'pending';
+      state.spotHunterSource = payload.source || state.spotHunterSource || '';
+      state.spotHunterError = payload.error || '';
+      updateDataStatus();
+    }
   });
 
   document.addEventListener('DOMContentLoaded', init);

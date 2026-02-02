@@ -3,6 +3,34 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.20 (2026-02-02)
+- Spot hunter: add grouping buttons, synced band/mode filters, and clearer intro text.
+- Spot hunter: bucket modes, align DXCC matching with prefix lookup, and show spot date range + status indicator.
+- Spot hunter: slider styling aligned to Spots controls.
+- Spots/RBN file lists and RBN date pickers now show dates instead of filenames.
+
+## v4.2.19 (2026-02-02)
+- Spot hunter: keep band/mode filter counts in sync with each other.
+
+## v4.2.18 (2026-02-02)
+- Spot hunter: add mode filter buttons when grouping includes mode.
+
+## v4.2.17 (2026-02-02)
+- Spot hunter: add intro guidance and replace grouping dropdown with quick-select buttons.
+
+## v4.2.16 (2026-02-02)
+- Spot hunter: align DXCC matching with prefix lookup to avoid showing already-worked countries as new.
+
+## v4.2.15 (2026-02-02)
+- Spot hunter: bucket modes into CW/Phone/Digital for grouping consistency.
+
+## v4.2.14 (2026-02-02)
+- Spot hunter: add grouping selector for slot/band/mode/DXCC combinations and keep band filters in sync.
+- Spots/RBN file lists and pickers now show dates instead of filenames.
+
+## v4.2.13 (2026-02-02)
+- Spot hunter: show spot date range (not raw URL), and wire status indicator while loading.
+
 ## v4.2.12 (2026-02-02)
 - Spot hunter: add band-plan mode guessing, per-band filters, and adjustable window (10m–24h) with multi-day spot fetch.
 

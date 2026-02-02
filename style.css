@@ -1472,11 +1472,59 @@ th {
   gap: 8px;
 }
 
-.spot-hunter-controls input[type=\"range\"] {
-  width: min(520px, 100%);
+.spot-hunter-intro {
+  margin: 0;
+  font-size: 12px;
+  color: #34527a;
+  line-height: 1.4;
+}
+
+.spot-hunter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.spot-hunter-group-label {
+  font-size: 12px;
+  color: #23406d;
+}
+
+.spot-hunter-group-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spot-hunter-group-btn {
+  border: 1px solid #d0d7ea;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #23406d;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.spot-hunter-group-btn.active {
+  background: #1e5bd6;
+  border-color: #1e5bd6;
+  color: #ffffff;
+}
+
+.spot-hunter-controls input[type="range"] {
+  width: min(420px, 100%);
+  margin-top: 6px;
 }
 
 .spot-hunter-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spot-hunter-mode-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;

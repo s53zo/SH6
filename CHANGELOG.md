@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.10 (2026-02-02)
+- Hide QTH data status row until a lookup request starts.
+
 ## v4.2.9 (2026-02-02)
 - Remove /lookup fallback; use only /sh6/lookup endpoint.
 

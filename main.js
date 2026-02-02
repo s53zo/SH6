@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.9';
+  const APP_VERSION = 'v4.2.10';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -521,6 +521,7 @@
     masterStatus: document.getElementById('masterStatus'),
     masterSourceLabel: document.getElementById('masterSourceLabel'),
     qthStatus: document.getElementById('qthStatus'),
+    qthStatusRow: document.getElementById('qthStatusRow'),
     qthSourceLabel: document.getElementById('qthSourceLabel'),
     spotsStatus: document.getElementById('spotsStatus'),
     spotsSourceLabel: document.getElementById('spotsSourceLabel'),
@@ -2323,6 +2324,9 @@
         state.qthStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
         state.qthStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
+    }
+    if (dom.qthStatusRow) {
+      dom.qthStatusRow.classList.toggle('hidden', state.qthStatus === 'pending');
     }
     if (dom.qthSourceLabel) {
       const info = classifySource(state.qthSource);

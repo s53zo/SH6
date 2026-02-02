@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.7';
+  const APP_VERSION = 'v4.2.8';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -64,7 +64,8 @@
     'https://azure.s53m.com/sh6/lookup',
     'https://azure.s53m.com/lookup'
   ];
-  const CALLSIGN_LOOKUP_BATCH = 900;
+  const CALLSIGN_LOOKUP_BATCH = 3000;
+  const CALLSIGN_LOOKUP_RETRY_DELAY_MS = 12000;
   const CALLSIGN_LOOKUP_TIMEOUT_MS = 8000;
   const RBN_SUMMARY_ONLY_THRESHOLD = 200000;
   const SPOT_TABLE_LIMIT = 2000;
@@ -2782,11 +2783,20 @@
     try {
       let lastError = null;
       for (const url of CALLSIGN_LOOKUP_URLS) {
-        const res = await fetch(url, {
+        const payload = JSON.stringify({ calls });
+        let res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ calls })
+          body: payload
         });
+        if (res.status === 429) {
+          await new Promise((resolve) => setTimeout(resolve, CALLSIGN_LOOKUP_RETRY_DELAY_MS));
+          res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+          });
+        }
         if (!res.ok) {
           lastError = new Error(`HTTP ${res.status}`);
           continue;

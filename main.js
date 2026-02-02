@@ -43,12 +43,13 @@
     { id: 'export', title: 'EXPORT PDF or HTML' },
     { id: 'session', title: 'Save&Load session' },
     { id: 'qsl_labels', title: 'QSL labels' },
+    { id: 'spot_hunter', title: 'Spot hunter' },
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.10';
+  const APP_VERSION = 'v4.2.11';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -385,6 +386,21 @@
     } catch (err) {
       return null;
     }
+  }
+
+  let spotHunterModulePromise = null;
+  function loadSpotHunterModule() {
+    if (window.SpotHunterRender) return Promise.resolve();
+    if (spotHunterModulePromise) return spotHunterModulePromise;
+    spotHunterModulePromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `spot_hunter.js?v=${encodeURIComponent(APP_VERSION)}`;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Spot hunter module failed to load.'));
+      document.head.appendChild(script);
+    });
+    return spotHunterModulePromise;
   }
 
   function buildFetchUrls(urls) {
@@ -7093,6 +7109,28 @@
     return `${controls}${renderComparePanels(slots, htmlBlocks, source === 'rbn' ? 'rbn_spots' : 'spots')}`;
   }
 
+  function renderSpotHunter() {
+    const slotId = state.renderSlotId || 'A';
+    return `
+      <div class="mtc">
+        <div class="gradient">&nbsp;Spot hunter</div>
+        <div class="spot-hunter" data-slot="${escapeAttr(slotId)}">
+          <p>Loading latest spots for today…</p>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSpotHunterCompare() {
+    const slots = getActiveCompareSnapshots();
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? `<div class="spot-hunter" data-slot="${escapeAttr(entry.id)}"><p>Loading latest spots for today…</p></div>`
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'spot_hunter');
+  }
+
   const CONTINENT_ORDER = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
 
   function continentOrderIndex(code) {
@@ -9142,6 +9180,7 @@
         case 'session': return renderSessionPage();
         case 'spots': return renderSpots();
         case 'rbn_spots': return renderRbnSpots();
+        case 'spot_hunter': return renderSpotHunter();
         case 'charts': return renderChartsIndex();
         case 'charts_qs_by_band': return renderChartQsByBand();
         case 'charts_top_10_countries': return renderChartTop10Countries();
@@ -9709,6 +9748,9 @@
     if (report.id === 'one_minute_rates') {
       return renderOneMinuteRatesCompareAligned();
     }
+    if (report.id === 'spot_hunter') {
+      return renderSpotHunterCompare();
+    }
     if (report.id === 'spots') {
       return renderSpotsCompare('spots');
     }
@@ -9824,6 +9866,21 @@
     }
     if (reportId === 'operators') {
       loadOperatorPhotos(dom.viewContainer);
+    }
+    if (reportId === 'spot_hunter') {
+      loadSpotHunterModule()
+        .then(() => {
+          if (typeof window.SpotHunterRender === 'function') {
+            window.SpotHunterRender();
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+          const containers = dom.viewContainer.querySelectorAll('.spot-hunter');
+          containers.forEach((el) => {
+            el.innerHTML = '<p>Unable to load Spot hunter module.</p>';
+          });
+        });
     }
     if (reportId === 'not_in_master') {
       const buttons = document.querySelectorAll('.not-master-btn');
@@ -11427,6 +11484,19 @@
       setActiveReport(0);
     }
   }
+
+  window.SH6 = Object.assign(window.SH6 || {}, {
+    formatNumberSh6,
+    formatDateSh6,
+    formatBandLabel,
+    parseBandFromFreq,
+    normalizeBandToken,
+    normalizeCall,
+    normalizeMode,
+    lookupPrefix,
+    bandClass,
+    getSlotById
+  });
 
   document.addEventListener('DOMContentLoaded', init);
 })();

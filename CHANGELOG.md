@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.11 (2026-02-02)
+- Add Spot hunter menu with lazy-loaded module for live daily spots vs worked slots.
+
 ## v4.2.10 (2026-02-02)
 - Hide QTH data status row until a lookup request starts.
 

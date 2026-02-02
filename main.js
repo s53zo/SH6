@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.4';
+  const APP_VERSION = 'v4.2.5';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -2856,34 +2856,6 @@
     scheduleCallsignGridLookup();
   }
 
-  async function checkQthLookup() {
-    if (!CALLSIGN_LOOKUP_URL) return;
-    if (state.qthStatus !== 'pending') return;
-    state.qthStatus = 'loading';
-    state.qthSource = CALLSIGN_LOOKUP_URL;
-    state.qthError = null;
-    updateDataStatus();
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort(), CALLSIGN_LOOKUP_TIMEOUT_MS) : null;
-    try {
-      const res = await fetch(CALLSIGN_LOOKUP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calls: [] }),
-        signal: controller ? controller.signal : undefined
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await res.json().catch(() => null);
-      state.qthStatus = 'ok';
-      state.qthError = null;
-    } catch (err) {
-      state.qthStatus = 'error';
-      state.qthError = err && err.message ? err.message : 'Lookup unavailable';
-    } finally {
-      if (timer) clearTimeout(timer);
-      updateDataStatus();
-    }
-  }
 
   function getQrzPhotoCache(call) {
     if (!call) return { hit: false, url: null };
@@ -11393,7 +11365,6 @@
     setupDataFileInputs();
     setupPrevNext();
     initDataFetches();
-    checkQthLookup();
     if (dom.bandRibbon) {
       dom.bandRibbon.addEventListener('click', (evt) => {
         const target = evt.target;

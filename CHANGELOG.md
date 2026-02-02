@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.5 (2026-02-02)
+- Show QTH data status only when lookup is requested (no pre-check error).
+
 ## v4.2.4 (2026-02-02)
 - Add QTH data status line with lookup health check.
 

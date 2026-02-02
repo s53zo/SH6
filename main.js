@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.5';
+  const APP_VERSION = 'v4.2.6';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -60,7 +60,10 @@
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
   const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
-  const CALLSIGN_LOOKUP_URL = 'https://azure.s53m.com/sh6/lookup';
+  const CALLSIGN_LOOKUP_URLS = [
+    'https://azure.s53m.com/sh6/lookup',
+    'https://azure.s53m.com/lookup'
+  ];
   const CALLSIGN_LOOKUP_BATCH = 900;
   const CALLSIGN_LOOKUP_TIMEOUT_MS = 8000;
   const RBN_SUMMARY_ONLY_THRESHOLD = 200000;
@@ -447,7 +450,7 @@
     qthError: null,
     ctySource: null,
     masterSource: null,
-    qthSource: CALLSIGN_LOOKUP_URL,
+    qthSource: CALLSIGN_LOOKUP_URLS[0],
     showLoadPanel: false,
     compareEnabled: false,
     compareCount: 1,
@@ -2764,30 +2767,39 @@
   async function fetchCallsignGridBatch(calls) {
     if (!calls || !calls.length) return;
     try {
-      const res = await fetch(CALLSIGN_LOOKUP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calls })
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const cache = getCallsignGridCache();
-      if (Array.isArray(data.rows)) {
-        data.rows.forEach((row) => {
-          if (!row || row.length < 2) return;
-          const call = normalizeCall(row[0]);
-          const grid = String(row[1] || '').trim().toUpperCase();
-          if (!call) return;
-          cache.set(call, isMaidenheadGrid(grid) ? grid : null);
+      let lastError = null;
+      for (const url of CALLSIGN_LOOKUP_URLS) {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ calls })
         });
+        if (!res.ok) {
+          lastError = new Error(`HTTP ${res.status}`);
+          continue;
+        }
+        const data = await res.json();
+        const cache = getCallsignGridCache();
+        if (Array.isArray(data.rows)) {
+          data.rows.forEach((row) => {
+            if (!row || row.length < 2) return;
+            const call = normalizeCall(row[0]);
+            const grid = String(row[1] || '').trim().toUpperCase();
+            if (!call) return;
+            cache.set(call, isMaidenheadGrid(grid) ? grid : null);
+          });
+        }
+        if (Array.isArray(data.missing)) {
+          data.missing.forEach((call) => {
+            const key = normalizeCall(call);
+            if (key) cache.set(key, null);
+          });
+        }
+        state.qthSource = url;
+        return true;
       }
-      if (Array.isArray(data.missing)) {
-        data.missing.forEach((call) => {
-          const key = normalizeCall(call);
-          if (key) cache.set(key, null);
-        });
-      }
-      return true;
+      if (lastError) throw lastError;
+      return false;
     } catch (err) {
       console.warn('Callsign lookup failed:', err);
       state.qthStatus = 'error';
@@ -2834,7 +2846,7 @@
   }
 
   function queueCallsignGridLookup(qsos) {
-    if (!CALLSIGN_LOOKUP_URL) return;
+    if (!CALLSIGN_LOOKUP_URLS || !CALLSIGN_LOOKUP_URLS.length) return;
     if (!qsos || !qsos.length) return;
     const cache = getCallsignGridCache();
     const pending = new Set();
@@ -2850,7 +2862,7 @@
     if (!pending.size) return;
     pending.forEach((call) => callsignGridPending.add(call));
     state.qthStatus = 'loading';
-    state.qthSource = CALLSIGN_LOOKUP_URL;
+    state.qthSource = CALLSIGN_LOOKUP_URLS[0];
     state.qthError = null;
     updateDataStatus();
     scheduleCallsignGridLookup();

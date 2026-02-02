@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.6 (2026-02-02)
+- Add fallback lookup endpoint to avoid HTTP 404 from /sh6/lookup.
+
 ## v4.2.5 (2026-02-02)
 - Show QTH data status only when lookup is requested (no pre-check error).
 

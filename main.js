@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.1';
+  const APP_VERSION = 'v4.2.2';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1594,8 +1594,8 @@
     const lonSquare = parseInt(g[2], 10);
     const latSquare = parseInt(g[3], 10);
     if (!Number.isFinite(lonSquare) || !Number.isFinite(latSquare)) return null;
-    const lon = (lonField - A) * 20 - 180 + lonSquare * 2 + 1;
-    const lat = (latField - A) * 10 - 90 + latSquare * 1 + 0.5;
+    let lon = (lonField - A) * 20 - 180 + lonSquare * 2;
+    let lat = (latField - A) * 10 - 90 + latSquare * 1;
     if (g.length >= 6) {
       const lonSub = g.charCodeAt(4);
       const latSub = g.charCodeAt(5);
@@ -1604,7 +1604,7 @@
       const latMin = (latSub - A) * (2.5 / 60) + (1.25 / 60);
       return { lat: lat + latMin, lon: lon + lonMin };
     }
-    return { lat, lon };
+    return { lat: lat + 0.5, lon: lon + 1 };
   }
 
   function latLonToField(lat, lon) {

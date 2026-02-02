@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.2 (2026-02-02)
+- Fix Maidenhead 6-character locator centering to remove ~100 km map offset.
+
 ## v4.2.1 (2026-02-01)
 - Narrow Spots/RBN sliders and stack Rates compare panels vertically.
 

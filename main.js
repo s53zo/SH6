@@ -48,7 +48,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.8';
+  const APP_VERSION = 'v4.2.9';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -61,8 +61,7 @@
   const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
   const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
   const CALLSIGN_LOOKUP_URLS = [
-    'https://azure.s53m.com/sh6/lookup',
-    'https://azure.s53m.com/lookup'
+    'https://azure.s53m.com/sh6/lookup'
   ];
   const CALLSIGN_LOOKUP_BATCH = 3000;
   const CALLSIGN_LOOKUP_RETRY_DELAY_MS = 12000;

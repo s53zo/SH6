@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.9 (2026-02-02)
+- Remove /lookup fallback; use only /sh6/lookup endpoint.
+
 ## v4.2.8 (2026-02-02)
 - Reduce lookup request count (bigger batch) and retry once on rate limit responses.
 

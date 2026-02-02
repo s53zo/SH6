@@ -1467,6 +1467,37 @@ th {
   word-break: break-word;
 }
 
+.spot-hunter-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.spot-hunter-controls input[type=\"range\"] {
+  width: min(520px, 100%);
+}
+
+.spot-hunter-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spot-hunter-filter {
+  border: 1px solid #d0d7ea;
+  background: #ffffff;
+  color: #23406d;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.spot-hunter-filter.active {
+  background: #1e5bd6;
+  border-color: #1e5bd6;
+  color: #ffffff;
+}
+
 .rates-grid {
   margin-top: 5px;
   margin-bottom: 10px;

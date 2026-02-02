@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 Dates are taken from the version bump commit date.
 
+## v4.2.12 (2026-02-02)
+- Spot hunter: add band-plan mode guessing, per-band filters, and adjustable window (10m–24h) with multi-day spot fetch.
+
 ## v4.2.11 (2026-02-02)
 - Add Spot hunter menu with lazy-loaded module for live daily spots vs worked slots.
 

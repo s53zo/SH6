@@ -440,10 +440,13 @@
     kmzUrls: {},
     ctyStatus: 'pending',
     masterStatus: 'pending',
+    qthStatus: 'pending',
     ctyError: null,
     masterError: null,
+    qthError: null,
     ctySource: null,
     masterSource: null,
+    qthSource: CALLSIGN_LOOKUP_URL,
     showLoadPanel: false,
     compareEnabled: false,
     compareCount: 1,
@@ -513,6 +516,8 @@
     ctySourceLabel: document.getElementById('ctySourceLabel'),
     masterStatus: document.getElementById('masterStatus'),
     masterSourceLabel: document.getElementById('masterSourceLabel'),
+    qthStatus: document.getElementById('qthStatus'),
+    qthSourceLabel: document.getElementById('qthSourceLabel'),
     spotsStatus: document.getElementById('spotsStatus'),
     spotsSourceLabel: document.getElementById('spotsSourceLabel'),
     spotsStatusRow: document.getElementById('spotsStatusRow'),
@@ -2291,6 +2296,23 @@
       dom.masterSourceLabel.title = state.masterSource || '';
       dom.masterSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
     }
+    if (dom.qthStatus) {
+      dom.qthStatus.textContent = formatStatus(state.qthStatus, state.qthSource);
+      dom.qthStatus.title = [state.qthSource, state.qthError].filter(Boolean).join(' ');
+      const proxy = isProxy(state.qthSource);
+      dom.qthStatus.className = [
+        'status-indicator',
+        state.qthStatus === 'ok' ? 'status-ok' : '',
+        state.qthStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        state.qthStatus === 'error' ? 'status-error' : ''
+      ].filter(Boolean).join(' ');
+    }
+    if (dom.qthSourceLabel) {
+      const info = classifySource(state.qthSource);
+      dom.qthSourceLabel.textContent = info.mark;
+      dom.qthSourceLabel.title = state.qthSource || '';
+      dom.qthSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
+    }
     if (dom.spotsStatus) {
       const spotsState = ensureSpotsState(state);
       const status = mapSpotStatus(spotsState.status);
@@ -2764,8 +2786,13 @@
           if (key) cache.set(key, null);
         });
       }
+      return true;
     } catch (err) {
       console.warn('Callsign lookup failed:', err);
+      state.qthStatus = 'error';
+      state.qthError = err && err.message ? err.message : 'Lookup failed';
+      updateDataStatus();
+      return false;
     }
   }
 
@@ -2775,14 +2802,21 @@
     if (!pending.length) return;
     callsignGridPending.clear();
     callsignGridInFlight = true;
+    let hadError = false;
     try {
       for (let i = 0; i < pending.length; i += CALLSIGN_LOOKUP_BATCH) {
         const batch = pending.slice(i, i + CALLSIGN_LOOKUP_BATCH);
         // eslint-disable-next-line no-await-in-loop
-        await fetchCallsignGridBatch(batch);
+        const ok = await fetchCallsignGridBatch(batch);
+        if (!ok) hadError = true;
       }
     } finally {
       callsignGridInFlight = false;
+      if (!hadError) {
+        state.qthStatus = 'ok';
+        state.qthError = null;
+      }
+      updateDataStatus();
       recomputeDerived('lookup');
       if (callsignGridPending.size) {
         scheduleCallsignGridLookup();
@@ -2814,6 +2848,10 @@
     if (stationCall && !cache.has(stationCall)) pending.add(stationCall);
     if (!pending.size) return;
     pending.forEach((call) => callsignGridPending.add(call));
+    state.qthStatus = 'loading';
+    state.qthSource = CALLSIGN_LOOKUP_URL;
+    state.qthError = null;
+    updateDataStatus();
     scheduleCallsignGridLookup();
   }
 

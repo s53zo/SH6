@@ -1586,11 +1586,22 @@
     if (!grid || grid.length < 4) return null;
     const g = grid.trim().toUpperCase();
     const A = 'A'.charCodeAt(0);
-    const lon = (g.charCodeAt(0) - A) * 20 - 180 + (parseInt(g[2], 10) || 0) * 2 + 1;
-    const lat = (g.charCodeAt(1) - A) * 10 - 90 + (parseInt(g[3], 10) || 0) * 1 + 0.5;
+    const R = 'R'.charCodeAt(0);
+    const X = 'X'.charCodeAt(0);
+    const lonField = g.charCodeAt(0);
+    const latField = g.charCodeAt(1);
+    if (lonField < A || lonField > R || latField < A || latField > R) return null;
+    const lonSquare = parseInt(g[2], 10);
+    const latSquare = parseInt(g[3], 10);
+    if (!Number.isFinite(lonSquare) || !Number.isFinite(latSquare)) return null;
+    const lon = (lonField - A) * 20 - 180 + lonSquare * 2 + 1;
+    const lat = (latField - A) * 10 - 90 + latSquare * 1 + 0.5;
     if (g.length >= 6) {
-      const lonMin = (g.charCodeAt(4) - A) * (5 / 60) + (2 / 60);
-      const latMin = (g.charCodeAt(5) - A) * (2.5 / 60) + (1.25 / 60);
+      const lonSub = g.charCodeAt(4);
+      const latSub = g.charCodeAt(5);
+      if (lonSub < A || lonSub > X || latSub < A || latSub > X) return null;
+      const lonMin = (lonSub - A) * (5 / 60) + (2.5 / 60);
+      const latMin = (latSub - A) * (2.5 / 60) + (1.25 / 60);
       return { lat: lat + latMin, lon: lon + lonMin };
     }
     return { lat, lon };

@@ -1,6 +1,6 @@
 (() => {
   const BASE_REPORTS = [
-    { id: 'load_logs', title: 'Load logs' },
+    { id: 'load_logs', title: 'Start' },
     { id: 'main', title: 'Main' },
     { id: 'summary', title: 'Summary' },
     { id: 'log', title: 'Log' },
@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.23';
+  const APP_VERSION = 'v4.2.24';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -146,6 +146,7 @@
   function createEmptyCompareSlot() {
     return {
       logFile: null,
+      skipped: false,
       qsoData: null,
       qsoLite: null,
       rawLogText: '',
@@ -163,6 +164,7 @@
 
   function resetMainSlot() {
     state.logFile = null;
+    state.skipped = false;
     state.qsoData = null;
     state.qsoLite = null;
     state.rawLogText = '';
@@ -204,7 +206,7 @@
     const slots = slotIds.map((id) => {
       const slot = getSlotById(id);
       if (!slot || !slot.qsoData || !slot.logFile) {
-        return { id, empty: true };
+        return { id, empty: true, skipped: !!slot?.skipped };
       }
       const file = {
         name: slot.logFile?.name || '',
@@ -216,6 +218,7 @@
       const data = {
         id,
         empty: false,
+        skipped: false,
         file,
         sourceType,
         archivePath: path || '',
@@ -333,6 +336,10 @@
       if (!data || data.empty) {
         if (id === 'A') resetMainSlot();
         else resetCompareSlot(id);
+        const slot = getSlotById(id);
+        if (slot) slot.skipped = !!data?.skipped;
+        updateSlotStatus(id);
+        setArchiveCompact(id, false);
         continue;
       }
       if (options.fromPermalink && data.sourceType === 'local') {
@@ -360,6 +367,7 @@
         }
       }
     }
+    updateLoadSummary();
     invalidateCompareLogData();
     updateBandRibbon();
     rebuildReports();
@@ -439,6 +447,7 @@
   const state = {
     activeIndex: 0,
     logFile: null,
+    skipped: false,
     qsoData: null,
     qsoLite: null,
     rawLogText: '',
@@ -546,6 +555,10 @@
     fileInputD: document.getElementById('fileInputD'),
     ctyInput: document.getElementById('ctyInput'),
     masterInput: document.getElementById('masterInput'),
+    slotStatusA: document.getElementById('slotStatusA'),
+    slotStatusB: document.getElementById('slotStatusB'),
+    slotStatusC: document.getElementById('slotStatusC'),
+    slotStatusD: document.getElementById('slotStatusD'),
     fileStatus: document.getElementById('fileStatus'),
     fileStatusB: document.getElementById('fileStatusB'),
     fileStatusC: document.getElementById('fileStatusC'),
@@ -573,23 +586,42 @@
     compareHelper: document.getElementById('compareHelper'),
     appVersion: document.getElementById('appVersion'),
     bandRibbon: document.getElementById('bandRibbon'),
+    loadSummary: document.getElementById('loadSummary'),
+    loadSummaryItems: document.getElementById('loadSummaryItems'),
+    loadSummaryHint: document.getElementById('loadSummaryHint'),
+    viewReportsBtn: document.getElementById('viewReportsBtn'),
     repoSearch: document.getElementById('repoSearch'),
     repoStatus: document.getElementById('repoStatus'),
     repoResults: document.getElementById('repoResults'),
-    repoAutoClose: document.getElementById('repoAutoClose'),
+    repoFilters: document.getElementById('repoFilters'),
+    repoCompact: document.getElementById('repoCompact'),
+    repoCompactText: document.getElementById('repoCompactText'),
+    repoControls: document.getElementById('repoControls'),
     repoSearchB: document.getElementById('repoSearchB'),
     repoStatusB: document.getElementById('repoStatusB'),
     repoResultsB: document.getElementById('repoResultsB'),
-    repoAutoCloseB: document.getElementById('repoAutoCloseB'),
+    repoFiltersB: document.getElementById('repoFiltersB'),
+    repoCompactB: document.getElementById('repoCompactB'),
+    repoCompactTextB: document.getElementById('repoCompactTextB'),
+    repoControlsB: document.getElementById('repoControlsB'),
     repoSearchC: document.getElementById('repoSearchC'),
     repoStatusC: document.getElementById('repoStatusC'),
     repoResultsC: document.getElementById('repoResultsC'),
-    repoAutoCloseC: document.getElementById('repoAutoCloseC'),
+    repoFiltersC: document.getElementById('repoFiltersC'),
+    repoCompactC: document.getElementById('repoCompactC'),
+    repoCompactTextC: document.getElementById('repoCompactTextC'),
+    repoControlsC: document.getElementById('repoControlsC'),
     repoSearchD: document.getElementById('repoSearchD'),
     repoStatusD: document.getElementById('repoStatusD'),
     repoResultsD: document.getElementById('repoResultsD'),
-    repoAutoCloseD: document.getElementById('repoAutoCloseD'),
+    repoFiltersD: document.getElementById('repoFiltersD'),
+    repoCompactD: document.getElementById('repoCompactD'),
+    repoCompactTextD: document.getElementById('repoCompactTextD'),
+    repoControlsD: document.getElementById('repoControlsD'),
     compareModeRadios: document.querySelectorAll('input[name="compareCount"]'),
+    dropReplace: document.getElementById('dropReplace'),
+    dropReplaceActions: document.getElementById('dropReplaceActions'),
+    dropReplaceCancel: document.getElementById('dropReplaceCancel'),
     dragOverlay: document.getElementById('dragOverlay')
   };
 
@@ -634,7 +666,132 @@
   }
 
   function getLoadedCompareSlots() {
-    return getActiveCompareSlots().filter((entry) => entry.slot && entry.slot.qsoData);
+    return getActiveCompareSlots().filter((entry) => entry.slot && entry.slot.qsoData && !entry.slot.skipped);
+  }
+
+  function getSlotPanel(slotId) {
+    const key = String(slotId || 'A').toUpperCase();
+    return document.querySelector(`.log-panel[data-slot="${key}"]`);
+  }
+
+  function getStatusElBySlot(slotId) {
+    const key = String(slotId || 'A').toUpperCase();
+    if (key === 'B') return dom.fileStatusB;
+    if (key === 'C') return dom.fileStatusC;
+    if (key === 'D') return dom.fileStatusD;
+    return dom.fileStatus;
+  }
+
+  function getSlotStatusElBySlot(slotId) {
+    const key = String(slotId || 'A').toUpperCase();
+    if (key === 'B') return dom.slotStatusB;
+    if (key === 'C') return dom.slotStatusC;
+    if (key === 'D') return dom.slotStatusD;
+    return dom.slotStatusA;
+  }
+
+  function getRepoCompactBySlot(slotId) {
+    const key = String(slotId || 'A').toUpperCase();
+    if (key === 'B') return { compact: dom.repoCompactB, text: dom.repoCompactTextB, controls: dom.repoControlsB };
+    if (key === 'C') return { compact: dom.repoCompactC, text: dom.repoCompactTextC, controls: dom.repoControlsC };
+    if (key === 'D') return { compact: dom.repoCompactD, text: dom.repoCompactTextD, controls: dom.repoControlsD };
+    return { compact: dom.repoCompact, text: dom.repoCompactText, controls: dom.repoControls };
+  }
+
+  function formatArchiveBreadcrumb(path) {
+    if (!path) return '';
+    return path.split('/').filter(Boolean).join(' / ');
+  }
+
+  function setArchiveCompact(slotId, show, pathLabel = '') {
+    const { compact, text, controls } = getRepoCompactBySlot(slotId);
+    if (!compact || !controls) return;
+    compact.hidden = !show;
+    controls.hidden = show;
+    if (text) {
+      text.textContent = pathLabel ? `Loaded from archive: ${pathLabel}` : 'Loaded from archive.';
+    }
+  }
+
+  function updateSlotStatus(slotId) {
+    const slot = getSlotById(slotId);
+    const panel = getSlotPanel(slotId);
+    const statusEl = getSlotStatusElBySlot(slotId);
+    const isSkipped = !!slot?.skipped;
+    const isLoaded = !!slot?.qsoData;
+    const isEmpty = !isSkipped && !isLoaded;
+    if (panel) {
+      panel.classList.toggle('is-skipped', isSkipped);
+      panel.classList.toggle('is-loaded', isLoaded);
+      panel.classList.toggle('is-empty', isEmpty);
+    }
+    if (statusEl) {
+      statusEl.textContent = isSkipped ? 'Skipped' : isLoaded ? 'Loaded' : 'Empty';
+      statusEl.className = ['slot-status', isSkipped ? 'status-skipped' : '', isLoaded ? 'status-loaded' : '', isEmpty ? 'status-empty' : ''].filter(Boolean).join(' ');
+    }
+    if (isSkipped) {
+      const summaryEl = getStatusElBySlot(slotId);
+      if (summaryEl) summaryEl.textContent = 'Slot skipped.';
+    } else if (isEmpty) {
+      const summaryEl = getStatusElBySlot(slotId);
+      if (summaryEl) summaryEl.textContent = 'No log loaded';
+    }
+  }
+
+  function setSlotAction(slotId, action) {
+    const panel = getSlotPanel(slotId);
+    if (!panel) return;
+    panel.querySelectorAll('.slot-choice').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.action === action);
+    });
+    panel.querySelectorAll('.slot-panel').forEach((block) => {
+      block.classList.toggle('is-active', block.dataset.panel === action);
+    });
+    if (action !== 'skip') {
+      const slot = getSlotById(slotId);
+      if (slot?.skipped) {
+        slot.skipped = false;
+        updateSlotStatus(slotId);
+        updateLoadSummary();
+      }
+    }
+  }
+
+  function clearSlot(slotId) {
+    if (String(slotId || 'A').toUpperCase() === 'A') resetMainSlot();
+    else resetCompareSlot(slotId);
+    updateSlotStatus(slotId);
+    setArchiveCompact(slotId, false);
+  }
+
+  function skipSlot(slotId) {
+    clearSlot(slotId);
+    const slot = getSlotById(slotId);
+    if (slot) slot.skipped = true;
+    setSlotAction(slotId, 'skip');
+    updateSlotStatus(slotId);
+    updateLoadSummary();
+  }
+
+  function updateLoadSummary() {
+    if (!dom.loadSummaryItems || !dom.viewReportsBtn) return;
+    const active = getActiveCompareSlots();
+    const chips = active.map((entry) => {
+      const slot = entry.slot;
+      const status = slot?.skipped ? 'skipped' : slot?.qsoData ? 'loaded' : 'empty';
+      const label = `${entry.label}: ${status === 'loaded' ? 'Loaded' : status === 'skipped' ? 'Skipped' : 'Empty'}`;
+      return `<span class="summary-chip ${status}">${escapeHtml(label)}</span>`;
+    });
+    dom.loadSummaryItems.innerHTML = chips.join('');
+    const allResolved = active.every((entry) => entry.slot?.skipped || entry.slot?.qsoData);
+    const anyLoaded = active.some((entry) => entry.slot?.qsoData);
+    const ready = allResolved && anyLoaded;
+    dom.viewReportsBtn.disabled = !ready;
+    if (dom.loadSummaryHint) {
+      if (!anyLoaded) dom.loadSummaryHint.textContent = 'Load at least one log to continue.';
+      else if (!allResolved) dom.loadSummaryHint.textContent = 'Finish loading all visible slots.';
+      else dom.loadSummaryHint.textContent = 'Ready to explore reports.';
+    }
   }
 
   function getActiveCompareSnapshots() {
@@ -647,6 +804,7 @@
 
   const renderers = {};
   let overlayNoticeTimer = null;
+  let pendingDropFile = null;
 
   function initNavigation() {
     if (!dom.navList) return;
@@ -667,6 +825,9 @@
       li.classList.add(baseClass);
       li.addEventListener('click', () => {
         const report = reports[idx];
+        if (report?.id === 'load_logs') {
+          state.showLoadPanel = false;
+        }
         trackEvent('menu_click', {
           report_id: report?.id || '',
           report_title: report?.title || title || ''
@@ -802,7 +963,13 @@
         if (dom.bandRibbon) {
           dom.bandRibbon.style.display = report.id === 'load_logs' ? 'none' : '';
         }
-        document.body.classList.toggle('landing-only', report.id === 'load_logs' && !state.showLoadPanel);
+        const isLoadReport = report.id === 'load_logs';
+        document.body.classList.toggle('landing-only', isLoadReport && !state.showLoadPanel);
+        document.body.classList.toggle('load-active', isLoadReport && state.showLoadPanel);
+        const landingPage = document.querySelector('.landing-page');
+        if (landingPage) {
+          landingPage.classList.toggle('is-hidden', isLoadReport && state.showLoadPanel);
+        }
         clearLoadingState();
       }, 0);
     });
@@ -2497,6 +2664,7 @@
       const [file] = evt.dataTransfer?.files || [];
       if (!file) return;
       if (statusEl) statusEl.textContent = `Loading ${file.name}...`;
+      setSlotAction(slotId, 'upload');
       await loadLogFile(file, slotId, statusEl, 'Dropped');
     });
   }
@@ -2506,6 +2674,8 @@
     inputEl.addEventListener('change', async (evt) => {
       const [file] = evt.target.files || [];
       if (!file) return;
+      if (statusEl) statusEl.textContent = `Loading ${file.name}...`;
+      setSlotAction(slotId, 'upload');
       await loadLogFile(file, slotId, statusEl, 'Uploaded');
     });
     const dropEl = inputEl.closest('.drop-zone');
@@ -2542,6 +2712,7 @@
     const safeSize = Number.isFinite(size) ? size : text.length;
     const target = getSlotById(slotId);
     if (!target) return null;
+    target.skipped = false;
     target.spotsState = createSpotsState();
     target.rbnState = createRbnState();
     const reconstructed = typeof sourcePath === 'string' && sourcePath.startsWith('RECONSTRUCTED_LOGS/');
@@ -2552,7 +2723,8 @@
     if (target === state) {
       state.notInMasterPage = 0;
     }
-    if (statusEl) statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
+    const statusTarget = statusEl || getStatusElBySlot(slotId);
+    if (statusTarget) statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
     target.rawLogText = text;
     target.qsoData = parseLogFile(text, filename);
     queueCallsignGridLookup(target.qsoData.qsos);
@@ -2575,9 +2747,16 @@
       state.kmzUrls = {};
     }
     if (!target.qsoData.qsos.length) {
-      if (statusEl) statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs. Check file format.`;
-    } else if (statusEl) {
-      statusEl.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(target.qsoData.qsos.length)} QSOs as ${target.qsoData.type}`;
+      if (statusTarget) statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs. Check file format.`;
+    } else if (statusTarget) {
+      statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(target.qsoData.qsos.length)} QSOs as ${target.qsoData.type}`;
+    }
+    updateSlotStatus(slotId);
+    if (sourceLabel === 'Archive') {
+      const pathLabel = formatArchiveBreadcrumb(sourcePath || '');
+      setArchiveCompact(slotId, true, pathLabel);
+    } else {
+      setArchiveCompact(slotId, false);
     }
     trackEvent('upload_log', {
       log_slot: slotId || 'A',
@@ -2590,11 +2769,58 @@
     updateBandRibbon();
     rebuildReports();
     setActiveReport(state.activeIndex);
+    updateLoadSummary();
     if (Array.isArray(state.sessionNotice) && state.sessionNotice.length) {
       const tag = `slot ${String(slotId || '').toUpperCase()}`;
       state.sessionNotice = state.sessionNotice.filter((msg) => !String(msg).toLowerCase().includes(tag.toLowerCase()));
     }
     return target.qsoData;
+  }
+
+  function getFirstAvailableSlotId() {
+    const active = getActiveCompareSlots();
+    for (const entry of active) {
+      if (!entry.slot?.qsoData && !entry.slot?.skipped) return entry.id;
+    }
+    return null;
+  }
+
+  function showDropReplacePrompt(file) {
+    if (!dom.dropReplace || !dom.dropReplaceActions) return false;
+    pendingDropFile = file;
+    const active = getActiveCompareSlots();
+    const buttons = active.map((entry) => (
+      `<button type="button" class="button" data-slot="${escapeAttr(entry.id)}">Replace ${escapeHtml(entry.label)}</button>`
+    ));
+    dom.dropReplaceActions.innerHTML = buttons.join('');
+    dom.dropReplace.classList.add('active');
+    dom.dropReplace.setAttribute('aria-hidden', 'false');
+    return true;
+  }
+
+  function hideDropReplacePrompt() {
+    pendingDropFile = null;
+    if (!dom.dropReplace) return;
+    dom.dropReplace.classList.remove('active');
+    dom.dropReplace.setAttribute('aria-hidden', 'true');
+  }
+
+  function setupDropReplacePrompt() {
+    if (!dom.dropReplace || !dom.dropReplaceActions) return;
+    dom.dropReplaceActions.addEventListener('click', (evt) => {
+      const target = evt.target instanceof HTMLElement ? evt.target.closest('button') : null;
+      if (!target || !pendingDropFile) return;
+      const slotId = target.dataset.slot || 'A';
+      hideDropReplacePrompt();
+      setSlotAction(slotId, 'upload');
+      loadLogFile(pendingDropFile, slotId, getStatusElBySlot(slotId), 'Dropped');
+    });
+    if (dom.dropReplaceCancel) {
+      dom.dropReplaceCancel.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        hideDropReplacePrompt();
+      });
+    }
   }
 
   function setupGlobalDragOverlay() {
@@ -2639,7 +2865,13 @@
       const [file] = evt.dataTransfer?.files || [];
       if (!file) return;
       maybeRevealLoadPanel();
-      loadLogFile(file, 'A', dom.fileStatus, 'Dropped');
+      const slotId = getFirstAvailableSlotId();
+      if (!slotId) {
+        showDropReplacePrompt(file);
+        return;
+      }
+      setSlotAction(slotId, 'upload');
+      loadLogFile(file, slotId, getStatusElBySlot(slotId), 'Dropped');
     });
   }
 
@@ -4289,40 +4521,16 @@
   }
 
   function renderLoadLogs() {
-    const aMeta = state.derived?.contestMeta;
-    const bSlot = getSlotById('B');
-    const bMeta = bSlot?.derived?.contestMeta;
-    const aText = state.qsoData
-      ? `${aMeta?.stationCallsign || 'Log A'} · ${aMeta?.contestId || 'N/A'} · ${state.qsoData.qsos.length} QSOs`
-      : 'No Log A loaded yet.';
-    const bText = bSlot?.qsoData
-      ? `${bMeta?.stationCallsign || 'Log B'} · ${bMeta?.contestId || 'N/A'} · ${bSlot.qsoData.qsos.length} QSOs`
-      : 'No Log B loaded yet.';
     return `
       <div class="landing-page">
         <section class="landing-hero">
-          <div class="landing-kicker"><img class="landing-logo" src="SH6_logo.png" alt="SH6" decoding="async"></div>
+          <div class="landing-brand">
+            <img class="landing-logo" src="SH6_logo.png" alt="SH6" decoding="async">
+            <span class="landing-brand-text">SH6</span>
+          </div>
           <h1>SH6 — Hamradio log analyzer</h1>
           <p>Analyze hamradio logs in your browser: countries, rates, operators, maps, and side-by-side comparisons.</p>
-          <div class="landing-actions">
-            <div class="landing-action-row">
-              <button type="button" class="button landing-action" data-action="upload-a">Upload log</button>
-              <span class="landing-action-note">Upload your own log or Drag &amp; Drop it to this window</span>
-            </div>
-            <div class="landing-action-row">
-              <button type="button" class="button landing-action" data-action="archive-a">Load from archive</button>
-              <span class="landing-action-note">Public archive of over 1 million contest logs at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a> as a searchable database</span>
-            </div>
-            <div class="landing-action-row">
-              <button type="button" class="button landing-action" data-action="compare">Compare logs</button>
-              <span class="landing-action-note">Compare logs from your computer or the public archive</span>
-            </div>
-            <div class="landing-action-row">
-              <button type="button" class="button demo-log-btn">Demo log</button>
-              <span class="landing-action-note">just a simple demo log to see possibilities</span>
-            </div>
-          </div>
-          <div class="landing-formats">Formats: Cabrillo (.log/.cbr), ADIF (.adi/.adif).</div>
+          <a href="#" class="landing-start-link" data-action="start-load">Start log selection →</a>
         </section>
         <section class="landing-section landing-panel">
           <h3>What you can explore</h3>
@@ -10141,39 +10349,19 @@
       const revealLoadPanel = () => {
         state.showLoadPanel = true;
         document.body.classList.remove('landing-only');
+        document.body.classList.add('load-active');
         if (dom.loadPanel) dom.loadPanel.style.display = 'block';
+        const landingPage = document.querySelector('.landing-page');
+        if (landingPage) landingPage.classList.add('is-hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };
-      const setCompareMode = (enabled) => {
-        if (!dom.compareModeRadios || !dom.compareModeRadios.length) return;
-        const targetValue = enabled ? '2' : '1';
-        const radio = Array.from(dom.compareModeRadios).find((r) => r.value === targetValue);
-        if (!radio) return;
-        radio.checked = true;
-        radio.dispatchEvent(new Event('change', { bubbles: true }));
-      };
-      const landingActions = document.querySelectorAll('.landing-action');
-      landingActions.forEach((btn) => {
-        btn.addEventListener('click', (evt) => {
+      const landingStart = document.querySelectorAll('.landing-start-link');
+      landingStart.forEach((link) => {
+        link.addEventListener('click', (evt) => {
           evt.preventDefault();
-          const action = btn.dataset.action || '';
-          if (action === 'upload-a') {
-            revealLoadPanel();
-            if (dom.fileInput) dom.fileInput.click();
-          } else if (action === 'archive-a') {
-            revealLoadPanel();
-            const search = document.getElementById('repoSearch');
-            if (search) {
-              search.focus();
-              search.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          } else if (action === 'compare') {
-            revealLoadPanel();
-            setCompareMode(true);
-            const inputB = document.getElementById('fileInputB');
-            if (inputB) {
-              inputB.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+          revealLoadPanel();
+          if (dom.loadPanel) {
+            dom.loadPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         });
       });
@@ -11123,7 +11311,9 @@
     demoButtons.forEach((btn) => {
       btn.addEventListener('click', (evt) => {
         evt.preventDefault();
-        loadDemoLog('A');
+        const slotId = btn.dataset.slot || 'A';
+        setSlotAction(slotId, 'demo');
+        loadDemoLog(slotId);
       });
     });
   }
@@ -11189,7 +11379,6 @@
     const searchInput = isA ? dom.repoSearch : slotKey === 'B' ? dom.repoSearchB : slotKey === 'C' ? dom.repoSearchC : dom.repoSearchD;
     const resultsEl = isA ? dom.repoResults : slotKey === 'B' ? dom.repoResultsB : slotKey === 'C' ? dom.repoResultsC : dom.repoResultsD;
     const statusEl = isA ? dom.repoStatus : slotKey === 'B' ? dom.repoStatusB : slotKey === 'C' ? dom.repoStatusC : dom.repoStatusD;
-    const autoCloseEl = isA ? dom.repoAutoClose : slotKey === 'B' ? dom.repoAutoCloseB : slotKey === 'C' ? dom.repoAutoCloseC : dom.repoAutoCloseD;
     const statusTarget = isA ? dom.fileStatus : slotKey === 'B' ? dom.fileStatusB : slotKey === 'C' ? dom.fileStatusC : dom.fileStatusD;
     if (!searchInput || !resultsEl || !statusEl) return;
     let timer = null;
@@ -11423,11 +11612,13 @@
       if (callsign.length < 3) {
         resultsEl.innerHTML = '';
         statusEl.textContent = '';
+        archiveRows = [];
         return;
       }
       if (!shouldQueryArchive(callsign, issuedAt)) {
         resultsEl.innerHTML = '';
         statusEl.textContent = 'Enter full callsign (letters + number) to search.';
+        archiveRows = [];
         return;
       }
       if (shouldQueryArchive(callsign, issuedAt)) {
@@ -11539,10 +11730,6 @@
       const path = target.dataset.path;
       if (!path) return;
       fetchFromArchive(path);
-      if (!autoCloseEl || autoCloseEl.checked) {
-        const details = resultsEl.querySelectorAll('details');
-        details.forEach((d) => d.open = false);
-      }
     });
   }
 
@@ -11567,6 +11754,57 @@
     updateBandRibbon();
     rebuildReports();
     renderActiveReport();
+    updateLoadSummary();
+  }
+
+  function setupSlotActions() {
+    document.querySelectorAll('.slot-choice').forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const slotId = btn.dataset.slot || 'A';
+        const action = btn.dataset.action || 'upload';
+        if (action === 'skip') {
+          skipSlot(slotId);
+          return;
+        }
+        setSlotAction(slotId, action);
+      });
+    });
+    document.querySelectorAll('.repo-change').forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const slotId = btn.dataset.slot || 'A';
+        setArchiveCompact(slotId, false);
+        setSlotAction(slotId, 'archive');
+        const input = slotId === 'B'
+          ? dom.repoSearchB
+          : slotId === 'C'
+            ? dom.repoSearchC
+            : slotId === 'D'
+              ? dom.repoSearchD
+              : dom.repoSearch;
+        if (input) input.focus();
+      });
+    });
+    updateSlotStatus('A');
+    updateSlotStatus('B');
+    updateSlotStatus('C');
+    updateSlotStatus('D');
+    updateLoadSummary();
+  }
+
+  function setupLoadSummaryActions() {
+    if (!dom.viewReportsBtn) return;
+    dom.viewReportsBtn.addEventListener('click', (evt) => {
+      evt.preventDefault();
+      const mainIndex = reports.findIndex((r) => r.id === 'main');
+      if (mainIndex >= 0) {
+        setActiveReport(mainIndex);
+        return;
+      }
+      const container = dom.viewContainer || document.getElementById('viewContainer');
+      if (container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   function setupCompareToggle() {
@@ -11593,11 +11831,14 @@
     setupFileInput(dom.fileInputC, dom.fileStatusC, 'C');
     setupFileInput(dom.fileInputD, dom.fileStatusD, 'D');
     setupGlobalDragOverlay();
+    setupDropReplacePrompt();
     setupRepoSearch('A');
     setupRepoSearch('B');
     setupRepoSearch('C');
     setupRepoSearch('D');
     setupCompareToggle();
+    setupSlotActions();
+    setupLoadSummaryActions();
     setupDataFileInputs();
     setupPrevNext();
     initDataFetches();

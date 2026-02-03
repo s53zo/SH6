@@ -2,11 +2,16 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
-## v4.2.22 (2026-02-03)
-- Enlarge map view and add a full-size map link that opens in a new tab.
+## v4.2.24 (2026-02-03)
+- Refresh log selection and landing flow (Start menu entry, landing copy updates, hide banner when loading logs).
+- Restore archive log tree browsing and streamline log slot controls.
+- Make View reports button more prominent and route it to the Main report.
 
 ## v4.2.23 (2026-02-03)
 - Prefer CQ/ITU zones from the log when present; fall back to cty.dat otherwise.
+
+## v4.2.22 (2026-02-03)
+- Enlarge map view and add a full-size map link that opens in a new tab.
 
 ## v4.2.21 (2026-02-03)
 - Break spot rate timeline lines when a 10-minute bucket is missing.

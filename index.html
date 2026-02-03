@@ -83,11 +83,19 @@
             </div>
             <div class="load-step">
               <div class="load-step-title">Step 2 · Load logs</div>
-              <div class="load-step-note">Upload from your computer or search the public archive for each slot.</div>
-            <div class="log-panel log-a">
-              <div class="log-panel-title">Log A</div>
-              <div class="slot-actions">
-                <div class="slot-action">
+              <div class="load-step-note">Choose a source per slot: upload, archive search, or demo log.</div>
+            <div class="log-panel log-a" data-slot="A">
+              <div class="log-panel-header">
+                <div class="log-panel-title">Log A</div>
+                <div class="slot-status status-empty" id="slotStatusA">Empty</div>
+              </div>
+              <div class="slot-choices" role="tablist" aria-label="Log A source">
+                <button type="button" class="slot-choice is-active" data-slot="A" data-action="upload">Upload</button>
+                <button type="button" class="slot-choice" data-slot="A" data-action="archive">Archive</button>
+                <button type="button" class="slot-choice" data-slot="A" data-action="demo">Demo</button>
+              </div>
+              <div class="slot-panels">
+                <div class="slot-panel is-active" data-panel="upload">
                   <div class="slot-action-title">Upload from computer</div>
                   <div class="controls">
                     <label class="drop-zone" id="dropZoneA">
@@ -97,28 +105,44 @@
                         <span class="drop-hint">Drag &amp; Drop log to load</span>
                       </span>
                     </label>
-                    <div class="status" id="fileStatus">No log loaded</div>
                   </div>
                 </div>
-                <div class="slot-action">
+                <div class="slot-panel" data-panel="archive">
                   <div class="slot-action-title">Search archive</div>
-                  <div class="remote-picker">
-                  <div class="remote-label">Public archive at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>. Search by callsign:</div>
-                    <input id="repoSearch" type="text" placeholder="Type a callsign..." autocomplete="off">
-                    <label class="repo-option">
-                      <input type="checkbox" id="repoAutoClose" checked>
-                      Auto-close tree after selection
-                    </label>
+                  <div class="repo-compact" id="repoCompact" hidden>
+                    <span id="repoCompactText">Loaded from archive.</span>
+                    <button type="button" class="link-button repo-change" data-slot="A">Change</button>
+                  </div>
+                  <div class="repo-controls" id="repoControls">
+                    <div class="remote-label">Public archive at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>. Search by callsign:</div>
+                    <input id="repoSearch" type="text" placeholder="Type a callsign (letters + number)..." autocomplete="off">
+                    <div class="repo-filters" id="repoFilters"></div>
                     <div id="repoStatus" class="status"></div>
                     <div id="repoResults" class="repo-results"></div>
                   </div>
                 </div>
+                <div class="slot-panel" data-panel="demo">
+                  <div class="slot-action-title">Demo log</div>
+                  <div class="controls">
+                    <button type="button" class="button demo-log-btn" data-slot="A">Load demo log</button>
+                    <span class="slot-note">Use a sample log to explore reports.</span>
+                  </div>
+                </div>
               </div>
+              <div class="slot-summary status" id="fileStatus">No log loaded</div>
             </div>
-            <div class="log-panel log-b compare-only compare-only-2">
-              <div class="log-panel-title">Log B</div>
-              <div class="slot-actions">
-                <div class="slot-action">
+            <div class="log-panel log-b compare-only compare-only-2" data-slot="B">
+              <div class="log-panel-header">
+                <div class="log-panel-title">Log B</div>
+                <div class="slot-status status-empty" id="slotStatusB">Empty</div>
+              </div>
+              <div class="slot-choices" role="tablist" aria-label="Log B source">
+                <button type="button" class="slot-choice is-active" data-slot="B" data-action="upload">Upload</button>
+                <button type="button" class="slot-choice" data-slot="B" data-action="archive">Archive</button>
+                <button type="button" class="slot-choice" data-slot="B" data-action="demo">Demo</button>
+              </div>
+              <div class="slot-panels">
+                <div class="slot-panel is-active" data-panel="upload">
                   <div class="slot-action-title">Upload from computer</div>
                   <div class="controls">
                     <label class="drop-zone" id="dropZoneB">
@@ -128,28 +152,44 @@
                         <span class="drop-hint">Drag &amp; Drop log to load</span>
                       </span>
                     </label>
-                    <div class="status" id="fileStatusB">No log loaded</div>
                   </div>
                 </div>
-                <div class="slot-action">
+                <div class="slot-panel" data-panel="archive">
                   <div class="slot-action-title">Search archive</div>
-                  <div class="remote-picker">
-                  <div class="remote-label">Public archive at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>. Search by callsign:</div>
-                    <input id="repoSearchB" type="text" placeholder="Type a callsign..." autocomplete="off">
-                    <label class="repo-option">
-                      <input type="checkbox" id="repoAutoCloseB" checked>
-                      Auto-close tree after selection
-                    </label>
+                  <div class="repo-compact" id="repoCompactB" hidden>
+                    <span id="repoCompactTextB">Loaded from archive.</span>
+                    <button type="button" class="link-button repo-change" data-slot="B">Change</button>
+                  </div>
+                  <div class="repo-controls" id="repoControlsB">
+                    <div class="remote-label">Public archive at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>. Search by callsign:</div>
+                    <input id="repoSearchB" type="text" placeholder="Type a callsign (letters + number)..." autocomplete="off">
+                    <div class="repo-filters" id="repoFiltersB"></div>
                     <div id="repoStatusB" class="status"></div>
                     <div id="repoResultsB" class="repo-results"></div>
                   </div>
                 </div>
+                <div class="slot-panel" data-panel="demo">
+                  <div class="slot-action-title">Demo log</div>
+                  <div class="controls">
+                    <button type="button" class="button demo-log-btn" data-slot="B">Load demo log</button>
+                    <span class="slot-note">Use a sample log to explore reports.</span>
+                  </div>
+                </div>
               </div>
+              <div class="slot-summary status" id="fileStatusB">No log loaded</div>
             </div>
-            <div class="log-panel log-c compare-only compare-only-3">
-              <div class="log-panel-title">Log C</div>
-              <div class="slot-actions">
-                <div class="slot-action">
+            <div class="log-panel log-c compare-only compare-only-3" data-slot="C">
+              <div class="log-panel-header">
+                <div class="log-panel-title">Log C</div>
+                <div class="slot-status status-empty" id="slotStatusC">Empty</div>
+              </div>
+              <div class="slot-choices" role="tablist" aria-label="Log C source">
+                <button type="button" class="slot-choice is-active" data-slot="C" data-action="upload">Upload</button>
+                <button type="button" class="slot-choice" data-slot="C" data-action="archive">Archive</button>
+                <button type="button" class="slot-choice" data-slot="C" data-action="demo">Demo</button>
+              </div>
+              <div class="slot-panels">
+                <div class="slot-panel is-active" data-panel="upload">
                   <div class="slot-action-title">Upload from computer</div>
                   <div class="controls">
                     <label class="drop-zone" id="dropZoneC">
@@ -159,28 +199,44 @@
                         <span class="drop-hint">Drag &amp; Drop log to load</span>
                       </span>
                     </label>
-                    <div class="status" id="fileStatusC">No log loaded</div>
                   </div>
                 </div>
-                <div class="slot-action">
+                <div class="slot-panel" data-panel="archive">
                   <div class="slot-action-title">Search archive</div>
-                  <div class="remote-picker">
-                  <div class="remote-label">Public archive at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>. Search by callsign:</div>
-                    <input id="repoSearchC" type="text" placeholder="Type a callsign..." autocomplete="off">
-                    <label class="repo-option">
-                      <input type="checkbox" id="repoAutoCloseC" checked>
-                      Auto-close tree after selection
-                    </label>
+                  <div class="repo-compact" id="repoCompactC" hidden>
+                    <span id="repoCompactTextC">Loaded from archive.</span>
+                    <button type="button" class="link-button repo-change" data-slot="C">Change</button>
+                  </div>
+                  <div class="repo-controls" id="repoControlsC">
+                    <div class="remote-label">Public archive at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>. Search by callsign:</div>
+                    <input id="repoSearchC" type="text" placeholder="Type a callsign (letters + number)..." autocomplete="off">
+                    <div class="repo-filters" id="repoFiltersC"></div>
                     <div id="repoStatusC" class="status"></div>
                     <div id="repoResultsC" class="repo-results"></div>
                   </div>
                 </div>
+                <div class="slot-panel" data-panel="demo">
+                  <div class="slot-action-title">Demo log</div>
+                  <div class="controls">
+                    <button type="button" class="button demo-log-btn" data-slot="C">Load demo log</button>
+                    <span class="slot-note">Use a sample log to explore reports.</span>
+                  </div>
+                </div>
               </div>
+              <div class="slot-summary status" id="fileStatusC">No log loaded</div>
             </div>
-            <div class="log-panel log-d compare-only compare-only-4">
-              <div class="log-panel-title">Log D</div>
-              <div class="slot-actions">
-                <div class="slot-action">
+            <div class="log-panel log-d compare-only compare-only-4" data-slot="D">
+              <div class="log-panel-header">
+                <div class="log-panel-title">Log D</div>
+                <div class="slot-status status-empty" id="slotStatusD">Empty</div>
+              </div>
+              <div class="slot-choices" role="tablist" aria-label="Log D source">
+                <button type="button" class="slot-choice is-active" data-slot="D" data-action="upload">Upload</button>
+                <button type="button" class="slot-choice" data-slot="D" data-action="archive">Archive</button>
+                <button type="button" class="slot-choice" data-slot="D" data-action="demo">Demo</button>
+              </div>
+              <div class="slot-panels">
+                <div class="slot-panel is-active" data-panel="upload">
                   <div class="slot-action-title">Upload from computer</div>
                   <div class="controls">
                     <label class="drop-zone" id="dropZoneD">
@@ -190,22 +246,38 @@
                         <span class="drop-hint">Drag &amp; Drop log to load</span>
                       </span>
                     </label>
-                    <div class="status" id="fileStatusD">No log loaded</div>
                   </div>
                 </div>
-                <div class="slot-action">
+                <div class="slot-panel" data-panel="archive">
                   <div class="slot-action-title">Search archive</div>
-                  <div class="remote-picker">
-                  <div class="remote-label">Public archive at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>. Search by callsign:</div>
-                    <input id="repoSearchD" type="text" placeholder="Type a callsign..." autocomplete="off">
-                    <label class="repo-option">
-                      <input type="checkbox" id="repoAutoCloseD" checked>
-                      Auto-close tree after selection
-                    </label>
+                  <div class="repo-compact" id="repoCompactD" hidden>
+                    <span id="repoCompactTextD">Loaded from archive.</span>
+                    <button type="button" class="link-button repo-change" data-slot="D">Change</button>
+                  </div>
+                  <div class="repo-controls" id="repoControlsD">
+                    <div class="remote-label">Public archive at <a href="https://github.com/s53zo/Hamradio-Contest-logs-Archives" target="_blank" rel="noopener noreferrer">GitHub</a>. Search by callsign:</div>
+                    <input id="repoSearchD" type="text" placeholder="Type a callsign (letters + number)..." autocomplete="off">
+                    <div class="repo-filters" id="repoFiltersD"></div>
                     <div id="repoStatusD" class="status"></div>
                     <div id="repoResultsD" class="repo-results"></div>
                   </div>
                 </div>
+                <div class="slot-panel" data-panel="demo">
+                  <div class="slot-action-title">Demo log</div>
+                  <div class="controls">
+                    <button type="button" class="button demo-log-btn" data-slot="D">Load demo log</button>
+                    <span class="slot-note">Use a sample log to explore reports.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="slot-summary status" id="fileStatusD">No log loaded</div>
+            </div>
+            <div class="load-summary" id="loadSummary">
+              <div class="load-summary-title">Ready</div>
+              <div class="load-summary-items" id="loadSummaryItems"></div>
+              <div class="load-summary-actions">
+                <button type="button" class="button" id="viewReportsBtn" disabled>View reports</button>
+                <span class="load-summary-hint" id="loadSummaryHint">Load at least one log to continue.</span>
               </div>
             </div>
             </div>
@@ -222,6 +294,14 @@
 
   <div class="drag-overlay" id="dragOverlay" aria-hidden="true">
     <div class="drag-overlay-message">Drag &amp; Drop log to load</div>
+  </div>
+  <div class="drop-replace" id="dropReplace" aria-hidden="true">
+    <div class="drop-replace-card">
+      <div class="drop-replace-title">All slots are filled</div>
+      <div class="drop-replace-text">Choose a slot to replace with the dropped file.</div>
+      <div class="drop-replace-actions" id="dropReplaceActions"></div>
+      <button type="button" class="link-button" id="dropReplaceCancel">Cancel</button>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

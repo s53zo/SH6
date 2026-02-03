@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.22';
+  const APP_VERSION = 'v4.2.23';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -3549,6 +3549,11 @@
         totalPoints += q.points;
       }
 
+      const loggedCq = parseZone(q.raw?.CQZ ?? q.raw?.CQ_ZONE);
+      const loggedItu = parseZone(q.raw?.ITUZ ?? q.raw?.ITU_ZONE);
+      if (loggedCq != null) q.cqZone = loggedCq;
+      if (loggedItu != null) q.ituZone = loggedItu;
+
       // Prefix/country enrich
       const prefix = lookupPrefix(q.call);
       const wpx = wpxPrefix(q.call);
@@ -3556,8 +3561,8 @@
       if (prefix) {
         const cont = normalizeContinent(prefix.continent);
         q.country = prefix.country;
-        q.cqZone = prefix.cqZone;
-        q.ituZone = prefix.ituZone;
+        if (q.cqZone == null) q.cqZone = prefix.cqZone;
+        if (q.ituZone == null) q.ituZone = prefix.ituZone;
         q.continent = cont;
         q.prefix = prefix.prefix;
         if (prefix.country) {
@@ -3605,18 +3610,19 @@
           if (bucket === 'Digital') c.digital += 1;
           if (bucket === 'Phone') c.phone += 1;
         }
-        if (prefix.cqZone) {
-          if (!cqZones.has(prefix.cqZone)) cqZones.set(prefix.cqZone, { qsos: 0, countries: new Set() });
-          const z = cqZones.get(prefix.cqZone);
-          z.qsos += 1;
-          if (prefix.country) z.countries.add(prefix.country);
-        }
-        if (prefix.ituZone) {
-          if (!ituZones.has(prefix.ituZone)) ituZones.set(prefix.ituZone, { qsos: 0, countries: new Set() });
-          const z = ituZones.get(prefix.ituZone);
-          z.qsos += 1;
-          if (prefix.country) z.countries.add(prefix.country);
-        }
+      }
+
+      if (q.cqZone) {
+        if (!cqZones.has(q.cqZone)) cqZones.set(q.cqZone, { qsos: 0, countries: new Set() });
+        const z = cqZones.get(q.cqZone);
+        z.qsos += 1;
+        if (q.country) z.countries.add(q.country);
+      }
+      if (q.ituZone) {
+        if (!ituZones.has(q.ituZone)) ituZones.set(q.ituZone, { qsos: 0, countries: new Set() });
+        const z = ituZones.get(q.ituZone);
+        z.qsos += 1;
+        if (q.country) z.countries.add(q.country);
       }
 
       // Master lookup (only if file successfully loaded and non-empty)
@@ -3768,8 +3774,6 @@
 
       // Possible errors
       const freqBand = Number.isFinite(q.freq) ? parseBandFromFreq(q.freq) : null;
-      const loggedCq = parseZone(q.raw?.CQZ ?? q.raw?.CQ_ZONE);
-      const loggedItu = parseZone(q.raw?.ITUZ ?? q.raw?.ITU_ZONE);
       if (!q.call) {
         possibleErrors.push({ reason: 'Missing callsign', q });
       } else if (classifyCallStructure(q.call) === 'other') {

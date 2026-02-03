@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v4.2.21 (2026-02-03)
+- Break spot rate timeline lines when a 10-minute bucket is missing.
+
 ## v4.2.20 (2026-02-02)
 - Spot hunter: add grouping buttons, synced band/mode filters, and clearer intro text.
 - Spot hunter: bucket modes, align DXCC matching with prefix lookup, and show spot date range + status indicator.

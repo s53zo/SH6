@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.20';
+  const APP_VERSION = 'v4.2.21';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -6847,7 +6847,15 @@
       const plotH = height - margin.top - margin.bottom;
       const xScale = (ts) => margin.left + ((ts - min) / (max - min)) * plotW;
       const yScale = (v) => margin.top + (1 - (v / maxRate)) * plotH;
-      const line = series.map((s, idx) => `${idx === 0 ? 'M' : 'L'} ${xScale(s.ts)} ${yScale(s.qsos)}`).join(' ');
+      let prevTs = null;
+      const line = series.map((s, idx) => {
+        const x = xScale(s.ts);
+        const y = yScale(s.qsos);
+        const jump = prevTs != null && (s.ts - prevTs) > 600000;
+        const cmd = idx === 0 || jump ? 'M' : 'L';
+        prevTs = s.ts;
+        return `${cmd} ${x} ${y}`;
+      }).join(' ');
       const xTicks = 5;
       const xGrid = [];
       const xLabels = [];

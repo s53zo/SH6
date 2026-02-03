@@ -10345,12 +10345,18 @@
           try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
               await navigator.clipboard.writeText(link);
+              trackEvent('session_permalink_copy', { method: 'clipboard' });
               showOverlayNotice('Permalink copied to clipboard.', 2000);
               return;
             }
           } catch (err) {
+            trackEvent('session_permalink_error', {
+              method: 'clipboard',
+              message: err && err.message ? err.message : 'clipboard failed'
+            });
             /* fallback below */
           }
+          trackEvent('session_permalink_copy', { method: 'prompt' });
           window.prompt('Copy permalink:', link);
         });
       }
@@ -10371,8 +10377,16 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            trackEvent('session_save', {
+              size: json.length,
+              compare: state.compareEnabled ? 'yes' : 'no',
+              compare_count: state.compareCount || 1
+            });
             showOverlayNotice('Session saved.', 2000);
           } catch (err) {
+            trackEvent('session_save_error', {
+              message: err && err.message ? err.message : 'save failed'
+            });
             showOverlayNotice('Unable to save session.', 3000);
           }
         });
@@ -10383,11 +10397,20 @@
           const file = fileInput.files && fileInput.files[0];
           if (!file) return;
           try {
+            trackEvent('session_load_start', {
+              size: file.size || 0
+            });
             const text = await file.text();
             const payload = JSON.parse(text);
             await applySessionPayload(payload, { fromPermalink: false });
+            trackEvent('session_load_success', {
+              size: file.size || 0
+            });
             showOverlayNotice('Session loaded.', 2000);
           } catch (err) {
+            trackEvent('session_load_error', {
+              message: err && err.message ? err.message : 'load failed'
+            });
             showOverlayNotice('Failed to load session file.', 3000);
           } finally {
             fileInput.value = '';
@@ -11133,6 +11156,9 @@
     let sqlLoader = null;
     let archiveRows = [];
     let searchSeq = 0;
+    let lastInputValue = '';
+    let lastInputStamp = 0;
+    let lastTrackedSearch = '';
 
     const crc32Table = (() => {
       const table = new Uint32Array(256);
@@ -11343,17 +11369,36 @@
       renderResultsTree();
     };
 
-    const searchArchive = async (input) => {
+    const shouldQueryArchive = (callsign, issuedAt) => {
+      if (!callsign || callsign.length < 4) return false;
+      if (!/\d/.test(callsign)) return false;
+      if (issuedAt && Date.now() - issuedAt < 800) return false;
+      return true;
+    };
+
+    const searchArchive = async (input, issuedAt) => {
+      if (searchInput && searchInput.value !== input) return;
       const callsign = normalizeCallsign(input);
       if (callsign.length < 3) {
         resultsEl.innerHTML = '';
         statusEl.textContent = '';
         return;
       }
-      trackEvent('archive_search', {
-        slot: slotKey || 'A',
-        callsign
-      });
+      if (!shouldQueryArchive(callsign, issuedAt)) {
+        resultsEl.innerHTML = '';
+        statusEl.textContent = 'Enter full callsign (letters + number) to search.';
+        return;
+      }
+      if (shouldQueryArchive(callsign, issuedAt)) {
+        const trackKey = `${slotKey || 'A'}|${callsign}`;
+        if (trackKey !== lastTrackedSearch) {
+          trackEvent('archive_search', {
+            slot: slotKey || 'A',
+            callsign
+          });
+          lastTrackedSearch = trackKey;
+        }
+      }
       const seq = ++searchSeq;
       statusEl.textContent = `Searching archive for ${callsign}...`;
       const shardUrls = getShardUrls(callsign);
@@ -11442,7 +11487,9 @@
 
     searchInput.addEventListener('input', (evt) => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => searchArchive(evt.target.value), 300);
+      lastInputValue = evt.target.value;
+      lastInputStamp = Date.now();
+      timer = setTimeout(() => searchArchive(lastInputValue, lastInputStamp), 900);
     });
 
     resultsEl.addEventListener('click', (evt) => {
@@ -11486,6 +11533,9 @@
     dom.compareModeRadios.forEach((radio) => {
       radio.addEventListener('change', () => {
         if (radio.checked) {
+          trackEvent('compare_mode_change', {
+            count: Number(radio.value) || 1
+          });
           setCompareCount(radio.value, false);
         }
       });
@@ -11546,6 +11596,7 @@
     lookupPrefix,
     bandClass,
     getSlotById,
+    trackEvent,
     setSpotHunterStatus: (status, payload = {}) => {
       state.spotHunterStatus = status || 'pending';
       state.spotHunterSource = payload.source || state.spotHunterSource || '';

@@ -318,12 +318,13 @@
       container.innerHTML = '';
       return;
     }
-    const bands = Array.from(bandCounts.entries()).sort((a, b) => b[1] - a[1]).map(([band]) => band);
+    const bands = SH6.sortBands(Array.from(bandCounts.keys()));
     if (current && current !== 'ALL' && !bands.includes(current)) {
       bands.push(current);
     }
+    const orderedBands = SH6.sortBands(bands);
     const allCount = Array.from(bandCounts.values()).reduce((a, b) => a + b, 0);
-    const buttons = ['ALL', ...bands].map((band) => {
+    const buttons = ['ALL', ...orderedBands].map((band) => {
       const label = band === 'ALL' ? `All bands (${SH6.formatNumberSh6(allCount)})` : `${SH6.formatBandLabel(band)} (${SH6.formatNumberSh6(bandCounts.get(band) || 0)})`;
       const cls = band === 'ALL' ? '' : SH6.bandClass(band);
       const active = band === current ? 'active' : '';

@@ -11370,7 +11370,7 @@
     };
 
     const shouldQueryArchive = (callsign, issuedAt) => {
-      if (!callsign || callsign.length < 4) return false;
+      if (!callsign || callsign.length < 3) return false;
       if (!/\d/.test(callsign)) return false;
       if (issuedAt && Date.now() - issuedAt < 800) return false;
       return true;

@@ -1984,10 +1984,44 @@ body.landing-only .content {
 
 #map {
   width: 100%;
-  height: 420px;
+  height: 60vh;
+  min-height: 520px;
   border: 1px solid #cccccc;
 }
 
 .map-controls {
   margin: 6px 0;
+}
+
+.map-actions {
+  margin: 6px 0 10px;
+}
+
+.map-full-link {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid #c4c9d6;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #23406d;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.map-full-link:hover {
+  border-color: #1e5bd6;
+  color: #1e5bd6;
+}
+
+body.map-full .sidebar {
+  display: none;
+}
+
+body.map-full .ta1 > tbody > tr > td:not(.sidebar) {
+  width: 100% !important;
+}
+
+body.map-full #map {
+  height: 85vh;
+  min-height: 700px;
 }

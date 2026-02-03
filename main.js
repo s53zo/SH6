@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.21';
+  const APP_VERSION = 'v4.2.22';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -376,6 +376,15 @@
     return url.toString();
   }
 
+  function buildMapPermalink(scope, key, full = false) {
+    const url = new URL(buildPermalink());
+    url.searchParams.set('view', 'map');
+    if (scope) url.searchParams.set('mapScope', scope);
+    if (key) url.searchParams.set('mapKey', key);
+    if (full) url.searchParams.set('mapFull', '1');
+    return url.toString();
+  }
+
   function parsePermalinkState() {
     const params = new URLSearchParams(window.location.search || '');
     const encoded = params.get('state');
@@ -386,6 +395,16 @@
     } catch (err) {
       return null;
     }
+  }
+
+  function parseMapViewParams() {
+    const params = new URLSearchParams(window.location.search || '');
+    if (params.get('view') !== 'map') return null;
+    return {
+      scope: params.get('mapScope') || '',
+      key: params.get('mapKey') || '',
+      full: params.get('mapFull') === '1'
+    };
   }
 
   let spotHunterModulePromise = null;
@@ -8231,6 +8250,11 @@
     const title = ctx.scope === 'all'
       ? 'All QSOs'
       : (displayKey ? `${ctx.scope}: ${displayKey}` : ctx.scope || 'Map');
+    const isFull = document.body && document.body.classList.contains('map-full');
+    const fullUrl = buildMapPermalink(ctx.scope, ctx.key, true);
+    const fullLink = isFull
+      ? ''
+      : `<a class="map-full-link" href="${escapeAttr(fullUrl)}" target="_blank" rel="noopener">Open full size</a>`;
     const kmzBands = ['All', ...getAvailableBands(false)];
     const kmzLinks = kmzBands.map((band) => {
       const url = state.kmzUrls?.[band];
@@ -8256,6 +8280,7 @@
           <label><input type="checkbox" id="mapShowPoints" checked> Points</label>
           <label style="margin-left:10px;"><input type="checkbox" id="mapShowLines" checked> Lines</label>
         </div>
+        ${fullLink ? `<div class="map-actions">${fullLink}</div>` : ''}
         ${legend}
         <div id="map"></div>
         <p>Use KMZ downloads below for full path visualization.</p>
@@ -8628,6 +8653,13 @@
       }
     }
     return qsos;
+  }
+
+  function showMapView(scope, key) {
+    state.mapContext = { scope: scope || '', key: key || '' };
+    dom.viewTitle.textContent = 'Map';
+    dom.viewContainer.innerHTML = renderMapView();
+    bindReportInteractions('map_view');
   }
 
   function initLeafletMap(ctx) {
@@ -10549,10 +10581,7 @@
         evt.preventDefault();
         const scope = link.dataset.scope || 'map';
         const key = link.dataset.key || '';
-        state.mapContext = { scope, key };
-        dom.viewTitle.textContent = 'Map';
-        dom.viewContainer.innerHTML = renderMapView();
-        bindReportInteractions('map_view');
+        showMapView(scope, key);
       });
     });
 
@@ -11585,11 +11614,18 @@
     }
     // Export actions are handled in the Export report page.
     updateBandRibbon();
+    const mapParams = parseMapViewParams();
+    if (mapParams && mapParams.full) {
+      document.body.classList.add('map-full');
+    }
     const permalinkState = parsePermalinkState();
     if (permalinkState) {
       await applySessionPayload(permalinkState, { fromPermalink: true });
     } else {
       setActiveReport(0);
+    }
+    if (mapParams) {
+      showMapView(mapParams.scope, mapParams.key);
     }
   }
 

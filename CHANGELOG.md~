@@ -1,6 +1,7 @@
 # Changelog
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
+Dates are taken from the version bump commit date.
 
 ## v4.2.20 (2026-02-02)
 - Spot hunter: add grouping buttons, synced band/mode filters, and clearer intro text.

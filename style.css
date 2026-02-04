@@ -312,7 +312,8 @@ a:hover {
 .slot-status.status-loaded {
   border-color: #7ac16b;
   background: #eaf6ed;
-  color: #1f6b2c;
+  color: #0b3d13;
+  font-weight: 700;
 }
 
 .slot-status.status-empty {
@@ -408,6 +409,7 @@ a:hover {
 
 .log-panel.is-loaded {
   border-color: #6f9dd8;
+  background: #e8f7e8;
 }
 
 @media (max-width: 900px) {

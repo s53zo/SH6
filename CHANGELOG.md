@@ -7,6 +7,9 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 - Restore archive log tree browsing and streamline log slot controls.
 - Make View reports button more prominent and route it to the Main report.
 
+## v4.2.25 (2026-02-03)
+- Add archive-search recommendation sticker in the load panel.
+
 ## v4.2.23 (2026-02-03)
 - Prefer CQ/ITU zones from the log when present; fall back to cty.dat otherwise.
 

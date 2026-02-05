@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.28';
+  const APP_VERSION = 'v4.2.30';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -899,8 +899,9 @@
 
   function updateNavHighlight() {
     const items = dom.navList.querySelectorAll('[data-index]');
+    const mapActive = !!state.mapViewActive;
     items.forEach((el) => {
-      const isActive = Number(el.dataset.index) === state.activeIndex;
+      const isActive = !mapActive && Number(el.dataset.index) === state.activeIndex;
       el.classList.toggle('active', isActive);
       const base = el.dataset.baseClass;
       if (base) el.classList.add(base);
@@ -8488,7 +8489,7 @@
     }).filter(Boolean).join('');
     const kmzBlock = kmzLinks
       ? `<ul>${kmzLinks}</ul>`
-      : '<p>No KMZ files generated yet. Open the KMZ files report to generate them.</p>';
+      : '';
     const compareSlots = getLoadedCompareSlots();
     const legend = state.compareEnabled && compareSlots.length > 1
       ? `<div class="map-legend">
@@ -8496,7 +8497,7 @@
         </div>`
       : '';
     return `
-      <div class="mtc">
+      <div class="mtc map-card">
         <div class="gradient">&nbsp;Map</div>
         <p><b>Selected:</b> ${title || 'Map'}</p>
         <div class="map-controls">
@@ -8506,7 +8507,6 @@
         ${fullLink ? `<div class="map-actions">${fullLink}</div>` : ''}
         ${legend}
         <div id="map"></div>
-        <p>Use KMZ downloads below for full path visualization.</p>
         ${kmzBlock}
         <p><button id="mapBack" type="button">Back</button></p>
       </div>
@@ -8882,6 +8882,7 @@
     state.mapContext = { scope: scope || '', key: key || '' };
     state.mapViewActive = true;
     document.body.classList.add('map-view');
+    updateNavHighlight();
     dom.viewTitle.textContent = 'Map';
     dom.viewContainer.innerHTML = renderMapView();
     bindReportInteractions('map_view');
@@ -11968,14 +11969,14 @@
     // Export actions are handled in the Export report page.
     updateBandRibbon();
     const mapParams = parseMapViewParams();
-    if (mapParams && mapParams.full) {
-      document.body.classList.add('map-full');
-    }
     const permalinkState = parsePermalinkState();
     if (permalinkState) {
       await applySessionPayload(permalinkState, { fromPermalink: true });
     } else {
       setActiveReport(0);
+    }
+    if (mapParams && mapParams.full) {
+      document.body.classList.add('map-full');
     }
     if (mapParams) {
       showMapView(mapParams.scope, mapParams.key);

@@ -2367,6 +2367,11 @@ body.map-view .ta1 > tbody > tr > td:not(.sidebar) {
   width: 100% !important;
 }
 
+body.map-full .mtc,
+body.map-view .mtc {
+  width: 100%;
+}
+
 body.map-full #map {
   height: 85vh;
   min-height: 700px;

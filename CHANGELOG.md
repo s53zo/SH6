@@ -19,6 +19,14 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 ## v4.2.28 (2026-02-03)
 - Make map view card expand to full available width.
 
+## v4.2.30 (2026-02-03)
+- Preserve full-size map layout when opening map permalinks with session state.
+- Clear nav highlight while map view is active to avoid misleading selection.
+- Force map view containers to span full width while in map mode.
+
+## v4.2.29 (2026-02-03)
+- Ensure map view uses full-width layout and map card styling.
+
 ## v4.2.23 (2026-02-03)
 - Prefer CQ/ITU zones from the log when present; fall back to cty.dat otherwise.
 

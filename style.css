@@ -1559,6 +1559,11 @@ th {
   table-layout: auto;
 }
 
+.map-card {
+  width: 100%;
+  max-width: 100%;
+}
+
 .thc th,
 .thc td {
   background: #5266df;

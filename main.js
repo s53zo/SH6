@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.27';
+  const APP_VERSION = 'v4.2.28';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -7410,7 +7410,7 @@
   function renderSpotHunter() {
     const slotId = state.renderSlotId || 'A';
     return `
-      <div class="mtc">
+      <div class="mtc map-card">
         <div class="gradient">&nbsp;Spot hunter</div>
         <div class="spot-hunter" data-slot="${escapeAttr(slotId)}">
           <p>Loading latest spots for today…</p>

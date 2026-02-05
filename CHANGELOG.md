@@ -13,6 +13,9 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 ## v4.2.26 (2026-02-03)
 - Color-code Archive/Demo buttons to match the new sticker style.
 
+## v4.2.27 (2026-02-03)
+- Keep map view active across data refreshes and widen map layout after “Map all”.
+
 ## v4.2.23 (2026-02-03)
 - Prefer CQ/ITU zones from the log when present; fall back to cty.dat otherwise.
 

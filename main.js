@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.26';
+  const APP_VERSION = 'v4.2.27';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1008,12 +1008,20 @@
   }
 
   function renderActiveReport() {
+    if (state.mapViewActive) {
+      dom.viewTitle.textContent = 'Map';
+      dom.viewContainer.innerHTML = renderMapView();
+      bindReportInteractions('map_view');
+      return;
+    }
     const report = reports[state.activeIndex];
     if (!report) return;
     renderReportWithLoading(report);
   }
 
   function setActiveReport(idx) {
+    state.mapViewActive = false;
+    document.body.classList.remove('map-view', 'map-full');
     state.activeIndex = idx;
     const report = reports[idx];
     dom.viewTitle.textContent = report.title;
@@ -8872,6 +8880,8 @@
 
   function showMapView(scope, key) {
     state.mapContext = { scope: scope || '', key: key || '' };
+    state.mapViewActive = true;
+    document.body.classList.add('map-view');
     dom.viewTitle.textContent = 'Map';
     dom.viewContainer.innerHTML = renderMapView();
     bindReportInteractions('map_view');

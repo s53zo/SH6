@@ -2350,11 +2350,24 @@ body.map-full .sidebar {
   display: none;
 }
 
+body.map-view .sidebar {
+  display: none;
+}
+
 body.map-full .ta1 > tbody > tr > td:not(.sidebar) {
+  width: 100% !important;
+}
+
+body.map-view .ta1 > tbody > tr > td:not(.sidebar) {
   width: 100% !important;
 }
 
 body.map-full #map {
   height: 85vh;
   min-height: 700px;
+}
+
+body.map-view #map {
+  height: 70vh;
+  min-height: 620px;
 }

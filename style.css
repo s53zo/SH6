@@ -2351,14 +2351,6 @@ body.landing-only .content {
   color: #1e5bd6;
 }
 
-body.map-full .sidebar {
-  display: none;
-}
-
-body.map-view .sidebar {
-  display: none;
-}
-
 body.map-full .ta1 > tbody > tr > td:not(.sidebar) {
   width: 100% !important;
 }

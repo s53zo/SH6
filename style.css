@@ -377,6 +377,32 @@ a:hover {
   border-color: #2a3f63;
 }
 
+.slot-choice-archive {
+  border-color: #f0c15a;
+  background: #ffe7a1;
+  color: #5b3b00;
+  font-weight: 700;
+}
+
+.slot-choice-archive.is-active {
+  background: #f0c15a;
+  border-color: #e1a83a;
+  color: #4a3100;
+}
+
+.slot-choice-demo {
+  border-color: #7ec9b0;
+  background: #e9fbf4;
+  color: #0f5f47;
+  font-weight: 700;
+}
+
+.slot-choice-demo.is-active {
+  background: #2fa079;
+  border-color: #2fa079;
+  color: #ffffff;
+}
+
 .slot-choice-skip {
   border-color: #d5a2a2;
   color: #8b1f1f;

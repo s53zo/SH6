@@ -10,6 +10,9 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 ## v4.2.25 (2026-02-03)
 - Add archive-search recommendation sticker in the load panel.
 
+## v4.2.26 (2026-02-03)
+- Color-code Archive/Demo buttons to match the new sticker style.
+
 ## v4.2.23 (2026-02-03)
 - Prefer CQ/ITU zones from the log when present; fall back to cty.dat otherwise.
 

@@ -22,6 +22,15 @@
   ]);
   const MODE_PHONE = new Set(['SSB', 'USB', 'LSB', 'AM', 'FM', 'PH', 'PHONE']);
 
+  const escapeHtml = (value) => String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const escapeAttr = (value) => escapeHtml(value).replace(/`/g, '&#96;');
+
   const BAND_PLAN = {
     '160M': [
       { min: 1.8, max: 1.838, mode: 'CW' },
@@ -282,15 +291,17 @@
       '<th>Example calls</th>'
     ].filter(Boolean).join('');
     const body = rows.map((row, idx) => {
-      const calls = Array.from(row.calls).slice(0, 6).join(' ');
-      const last = SH6.formatDateSh6(row.lastTs);
-      const bandLabel = SH6.formatBandLabel(row.band || '');
-      const bandCls = SH6.bandClass(row.band || '');
+      const calls = escapeHtml(Array.from(row.calls).slice(0, 6).join(' '));
+      const last = escapeHtml(SH6.formatDateSh6(row.lastTs));
+      const bandLabel = escapeHtml(SH6.formatBandLabel(row.band || ''));
+      const bandCls = escapeAttr(SH6.bandClass(row.band || ''));
+      const rowMode = escapeHtml(row.mode || '');
+      const rowCountry = escapeHtml(row.country || '');
       const rowCells = [
         showBand ? `<td class="${bandCls}">${bandLabel}</td>` : '',
-        showMode ? `<td>${row.mode}</td>` : '',
-        showCountry ? `<td>${row.country}</td>` : '',
-        `<td>${SH6.formatNumberSh6(row.count)}</td>`,
+        showMode ? `<td>${rowMode}</td>` : '',
+        showCountry ? `<td>${rowCountry}</td>` : '',
+        `<td>${escapeHtml(SH6.formatNumberSh6(row.count))}</td>`,
         `<td>${last}</td>`,
         `<td class="spot-hunter-calls">${calls}</td>`
       ].filter(Boolean).join('');
@@ -300,11 +311,11 @@
         </tr>
       `;
     }).join('');
-    const dateLabel = meta.dateRange ? meta.dateRange : meta.url;
+    const dateLabel = escapeHtml(meta.dateRange ? meta.dateRange : meta.url);
     container.innerHTML = `
       <div class="spot-hunter-meta">
         <div><b>Spots date</b>: ${dateLabel}</div>
-        <div><b>Window spots</b>: ${SH6.formatNumberSh6(meta.windowCount)} | <b>New slots</b>: ${SH6.formatNumberSh6(meta.unworkedCount)} | <b>Groups</b>: ${SH6.formatNumberSh6(rows.length)}</div>
+        <div><b>Window spots</b>: ${escapeHtml(SH6.formatNumberSh6(meta.windowCount))} | <b>New slots</b>: ${escapeHtml(SH6.formatNumberSh6(meta.unworkedCount))} | <b>Groups</b>: ${escapeHtml(SH6.formatNumberSh6(rows.length))}</div>
       </div>
       <table class="mtc spot-hunter-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc">${headerCells}</tr>
@@ -326,9 +337,10 @@
     const allCount = Array.from(bandCounts.values()).reduce((a, b) => a + b, 0);
     const buttons = ['ALL', ...orderedBands].map((band) => {
       const label = band === 'ALL' ? `All bands (${SH6.formatNumberSh6(allCount)})` : `${SH6.formatBandLabel(band)} (${SH6.formatNumberSh6(bandCounts.get(band) || 0)})`;
-      const cls = band === 'ALL' ? '' : SH6.bandClass(band);
+      const safeLabel = escapeHtml(label);
+      const cls = band === 'ALL' ? '' : escapeAttr(SH6.bandClass(band));
       const active = band === current ? 'active' : '';
-      return `<button type="button" class="spot-hunter-filter ${active} ${cls}" data-band="${band}">${label}</button>`;
+      return `<button type="button" class="spot-hunter-filter ${active} ${cls}" data-band="${escapeAttr(band)}">${safeLabel}</button>`;
     }).join('');
     container.innerHTML = buttons;
   };
@@ -345,8 +357,9 @@
     const allCount = Array.from(modeCounts.values()).reduce((a, b) => a + b, 0);
     const buttons = ['ALL', ...modes].map((mode) => {
       const label = mode === 'ALL' ? `All modes (${SH6.formatNumberSh6(allCount)})` : `${mode} (${SH6.formatNumberSh6(modeCounts.get(mode) || 0)})`;
+      const safeLabel = escapeHtml(label);
       const active = mode === current ? 'active' : '';
-      return `<button type="button" class="spot-hunter-filter ${active}" data-mode="${mode}">${label}</button>`;
+      return `<button type="button" class="spot-hunter-filter ${active}" data-mode="${escapeAttr(mode)}">${safeLabel}</button>`;
     }).join('');
     container.innerHTML = buttons;
   };
@@ -380,16 +393,18 @@
     const state = getSlotState(slotId);
     const controls = document.createElement('div');
     controls.className = 'spot-hunter-controls';
+    const windowValue = Math.min(WINDOW_MAX, Math.max(WINDOW_MIN, Number(state.windowMinutes) || 60));
+    state.windowMinutes = windowValue;
     controls.innerHTML = `
       <p class="spot-hunter-intro">Spot hunter checks the newest DX spots and compares them with everything already worked in this log.<br>Choose how far back to look, then pick a grouping to see only the still-unworked opportunities for this log.</p>
-      <label>Window: <span class="spot-hunter-window">${formatWindowLabel(state.windowMinutes)}</span></label>
-      <input type="range" min="${WINDOW_MIN}" max="${WINDOW_MAX}" step="10" value="${state.windowMinutes}">
+      <label>Window: <span class="spot-hunter-window">${escapeHtml(formatWindowLabel(windowValue))}</span></label>
+      <input type="range" min="${WINDOW_MIN}" max="${WINDOW_MAX}" step="10" value="${windowValue}">
       <div class="spot-hunter-group">
         <span class="spot-hunter-group-label">Group by</span>
         <div class="spot-hunter-group-buttons">
           ${GROUPING_OPTIONS.map((opt) => {
             const active = opt.value === state.groupBy ? 'active' : '';
-            return `<button type="button" class="spot-hunter-group-btn ${active}" data-group="${opt.value}">${opt.label}</button>`;
+            return `<button type="button" class="spot-hunter-group-btn ${active}" data-group="${escapeAttr(opt.value)}">${escapeHtml(opt.label)}</button>`;
           }).join('')}
         </div>
       </div>

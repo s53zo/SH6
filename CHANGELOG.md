@@ -2,6 +2,10 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v4.2.31 (2026-02-06)
+- Add compact permalink encoding (`state=v2...`) with shorter key names and default-value omission.
+- Keep backward compatibility: existing legacy `state` permalinks still decode and load.
+
 ## v4.2.24 (2026-02-03)
 - Refresh log selection and landing flow (Start menu entry, landing copy updates, hide banner when loading logs).
 - Restore archive log tree browsing and streamline log slot controls.

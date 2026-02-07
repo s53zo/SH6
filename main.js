@@ -49,7 +49,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v4.2.31';
+  const APP_VERSION = 'v4.2.32';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -184,6 +184,7 @@
     state.rawLogText = '';
     state.derived = null;
     state.logPage = 0;
+    state.allCallsignsCountryFilter = '';
     state.fullQsoData = null;
     state.fullDerived = null;
     state.bandDerivedCache = new Map();
@@ -627,6 +628,7 @@
     const migrated = migrateSessionPayload(payload);
     if (!migrated || typeof migrated !== 'object') return;
     state.sessionNotice = [];
+    state.allCallsignsCountryFilter = '';
     const compareCount = Math.min(4, Math.max(1, Number(migrated.compareCount) || 1));
     setCompareCount(compareCount, true);
     state.compareFocus = migrated.compareFocus || state.compareFocus;
@@ -788,6 +790,7 @@
     logContinentFilter: '',
     logCqFilter: '',
     logItuFilter: '',
+    allCallsignsCountryFilter: '',
     logRange: null,
     logTimeRange: null,
     logHeadingRange: null,
@@ -3043,6 +3046,7 @@
     target.logPage = 0;
     if (target === state) {
       state.notInMasterPage = 0;
+      state.allCallsignsCountryFilter = '';
     }
     const statusTarget = statusEl || getStatusElBySlot(slotId);
     if (statusTarget) statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
@@ -7809,6 +7813,9 @@
       const countryAttr = escapeAttr(info.country || '');
       const mapLink = c ? `<a href="#" class="map-link" data-scope="country" data-key="${countryAttr}">map</a>` : '';
       const countryLabel = c ? `<a href="#" class="log-country" data-country="${countryAttr}">${countryText}</a>` : countryText;
+      const uniqueLabel = c?.uniques
+        ? `<a href="#" class="log-country-unique" data-country="${countryAttr}">${formatNumberSh6(c.uniques)}</a>`
+        : '';
       const continentText = escapeHtml(continent);
       const prefixText = escapeHtml(prefixCode);
       return `
@@ -7823,6 +7830,7 @@
         ${renderCount(c?.phone, info.country, '', 'Phone')}
         ${bandCells.join('')}
         ${renderCount(c?.qsos, info.country, '', '')}
+        <td>${uniqueLabel}</td>
         <td><i>${pct}</i></td>
         <td class="${bandClass}">${bandCount || ''}</td>
         <td class="tac">${mapLink}</td>
@@ -7833,11 +7841,11 @@
 
   function renderCountriesTable(rows) {
     const bandCols = getDisplayBandList();
-    const qsoCols = 3 + bandCols.length + 2;
+    const qsoCols = 3 + bandCols.length + 3;
     const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="40px" span="3" align="center"/><col align="left"/><col span="${bandCols.length + 8}" width="40px" align="center"/></colgroup>
+        <colgroup><col width="40px" span="3" align="center"/><col align="left"/><col span="${bandCols.length + 9}" width="40px" align="center"/></colgroup>
         <tr class="thc">
           <th rowspan="2">#</th>
           <th rowspan="2">Cont.</th>
@@ -7850,7 +7858,7 @@
         <tr class="thc">
           <th>CW</th><th>DIG</th><th>SSB</th>
           ${bandHeaders}
-          <th>All</th><th>%</th>
+          <th>All</th><th>Unique</th><th>%</th>
         </tr>
         ${rows}
         ${mapAllFooter()}
@@ -8825,7 +8833,21 @@
 
   function renderAllCallsigns() {
     if (!state.derived) return renderPlaceholder({ id: 'all_callsigns', title: 'All callsigns' });
-    const rows = state.derived.allCallsList.slice(0, 2000).map((c, idx) => {
+    const countryFilter = (state.allCallsignsCountryFilter || '').trim().toUpperCase();
+    let list = state.derived.allCallsList || [];
+    if (countryFilter && Array.isArray(state.qsoData?.qsos)) {
+      const byCall = new Map();
+      state.qsoData.qsos.forEach((q) => {
+        if (!q || !q.call) return;
+        const qCountry = (q.country || '').trim().toUpperCase();
+        if (qCountry !== countryFilter) return;
+        const entry = byCall.get(q.call);
+        if (entry) entry.qsos += 1;
+        else byCall.set(q.call, { call: q.call, qsos: 1 });
+      });
+      list = Array.from(byCall.values()).sort((a, b) => a.call.localeCompare(b.call));
+    }
+    const rows = list.slice(0, 2000).map((c, idx) => {
       const call = escapeHtml(c.call || '');
       const callAttr = escapeAttr(c.call || '');
       return `
@@ -8836,8 +8858,12 @@
       </tr>
     `;
     }).join('');
-    const note = state.derived.allCallsList.length > 2000 ? `<p>Showing first 2000 of ${state.derived.allCallsList.length} calls.</p>` : '';
+    const filterNote = countryFilter
+      ? `<p>Country filter: <b>${escapeHtml(countryFilter)}</b> (<a href="#" class="all-calls-clear-country">clear</a>)</p>`
+      : '';
+    const note = list.length > 2000 ? `<p>Showing first 2000 of ${list.length} calls.</p>` : '';
     return `
+      ${filterNote}
       ${note}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th>#</th><th>Callsign</th><th>QSOs</th></tr>
@@ -11353,6 +11379,27 @@
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const countryUniqueLinks = document.querySelectorAll('.log-country-unique');
+    countryUniqueLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const country = (link.dataset.country || '').trim().toUpperCase();
+        if (!country) return;
+        state.allCallsignsCountryFilter = country;
+        const reportIndex = reports.findIndex((r) => r.id === 'all_callsigns');
+        if (reportIndex >= 0) setActiveReport(reportIndex);
+      });
+    });
+
+    const clearAllCallsCountryLinks = document.querySelectorAll('.all-calls-clear-country');
+    clearAllCallsCountryLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        state.allCallsignsCountryFilter = '';
+        renderActiveReport();
       });
     });
 

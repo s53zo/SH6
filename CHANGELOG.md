@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v4.2.32 (2026-02-07)
+- Countries report: add a `Unique` column with unique callsign count per DXCC.
+
 ## v4.2.31 (2026-02-06)
 - Add compact permalink encoding (`state=v2...`) with shorter key names and default-value omission.
 - Keep backward compatibility: existing legacy `state` permalinks still decode and load.

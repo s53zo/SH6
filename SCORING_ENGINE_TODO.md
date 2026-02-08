@@ -167,7 +167,7 @@ Status: [x]
   - `feat(scoring): add scoring payload and point time series to derived data`
 
 ### Commit 06 - Main report side-by-side score block
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js` (`renderMain`)
   - `style.css` (if needed)

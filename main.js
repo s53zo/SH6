@@ -5782,9 +5782,30 @@
     const operators = escapeHtml(state.derived.operatorsSummary?.map((o) => o.op).join(' ') || 'N/A');
     const contest = escapeHtml(state.derived.contestMeta?.contestId || 'N/A');
     const category = escapeHtml(state.derived.contestMeta?.category || 'N/A');
-    const claimedScore = Number.isFinite(state.derived.totalPoints) && state.derived.totalPoints > 0
-      ? state.derived.totalPoints
-      : (state.derived.contestMeta?.claimedScore || '0');
+    const scoring = state.derived.scoring || {};
+    const claimedHeader = Number.isFinite(scoring.claimedScoreHeader)
+      ? scoring.claimedScoreHeader
+      : parseClaimedScoreNumber(state.derived.contestMeta?.claimedScore);
+    const claimedDisplay = Number.isFinite(claimedHeader) ? `${formatNumberSh6(claimedHeader)} pts` : 'N/A';
+    const computedScore = Number.isFinite(scoring.computedScore) ? `${formatNumberSh6(scoring.computedScore)} pts` : 'N/A';
+    const deltaDisplay = Number.isFinite(scoring.scoreDeltaAbs)
+      ? `${scoring.scoreDeltaAbs >= 0 ? '+' : ''}${formatNumberSh6(scoring.scoreDeltaAbs)}${Number.isFinite(scoring.scoreDeltaPct) ? ` (${scoring.scoreDeltaPct.toFixed(1)}%)` : ''}`
+      : 'N/A';
+    const loggedPoints = Number.isFinite(scoring.loggedPointsTotal) ? scoring.loggedPointsTotal : state.derived.totalPoints;
+    const loggedPointsDisplay = Number.isFinite(loggedPoints) ? `${formatNumberSh6(loggedPoints)} pts` : 'N/A';
+    const computedPointsDisplay = Number.isFinite(scoring.computedQsoPointsTotal) ? `${formatNumberSh6(scoring.computedQsoPointsTotal)} pts` : 'N/A';
+    const multiplierDisplay = Number.isFinite(scoring.computedMultiplierTotal) ? formatNumberSh6(scoring.computedMultiplierTotal) : 'N/A';
+    const confidenceLabel = escapeHtml(scoring.confidence || 'unknown');
+    const confidenceClass = (scoring.confidence === 'high')
+      ? 'loaded'
+      : (scoring.confidence === 'medium' ? 'empty' : 'skipped');
+    const scoringRule = escapeHtml(scoring.ruleName || 'Unknown');
+    const scoringAssumptions = Array.isArray(scoring.assumptions) && scoring.assumptions.length
+      ? escapeHtml(scoring.assumptions.join(' | '))
+      : '';
+    const scoringWarning = scoring.warning
+      ? `<div class="recon-note scoring-note">${escapeHtml(scoring.warning)}</div>`
+      : '';
     const software = escapeHtml(state.derived.contestMeta?.software || 'N/A');
     const club = escapeHtml(state.derived.contestMeta?.club || 'N/A');
     const stationCall = stationCallRaw ? escapeHtml(stationCallRaw) : 'N/A';
@@ -5812,7 +5833,15 @@
       ['Countries', formatNumberSh6(countries)],
       ['Fields', formatNumberSh6(fields)],
       ['Moves', 'N/A'],
-      ['Claimed score', `<strong>${formatNumberSh6(claimedScore)}</strong> pts`],
+      ['Claimed score (header)', `<strong>${claimedDisplay}</strong>`],
+      ['Computed score (rules)', `<strong>${computedScore}</strong>`],
+      ['Score delta', deltaDisplay],
+      ['Logged points total', loggedPointsDisplay],
+      ['Computed QSO points', computedPointsDisplay],
+      ['Computed multipliers', multiplierDisplay],
+      ['Scoring rule', scoringRule],
+      ['Scoring confidence', `<span class="summary-chip ${confidenceClass}">${confidenceLabel}</span>`],
+      ['Scoring assumptions', scoringAssumptions || 'None'],
       ['Software', software],
       ['Callsigns not found in SH6.master', `${formatNumberSh6(notInMaster)} (${notInMasterPct}%)`],
       ['Prefixes', formatNumberSh6(prefixes)],
@@ -5823,6 +5852,7 @@
       `).join('');
     return `
       ${reconNote}
+      ${scoringWarning}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <tr class="thc"><th>Parameter</th><th>Value</th></tr>
         ${rowHtml}

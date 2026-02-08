@@ -9157,21 +9157,33 @@
       : '';
     return `
       <div class="mtc export-panel">
-        <div class="gradient">&nbsp;Export</div>
-        <p>Export your reports to a standalone HTML file or a PDF via the browser print dialog. You can choose which sections to include to keep exports fast.</p>
-        <div class="export-actions">
-          <button type="button" class="button export-action" data-export="pdf">Export PDF</button>
-          <span>Choose sections and open the print dialog.</span>
+        <div class="gradient">&nbsp;Export PDF, HTML, CBR</div>
+        <p>Create report exports by format. PDF/HTML let you choose sections; CBR exports raw log text for loaded compare slots.</p>
+        <div class="export-group">
+          <div class="export-group-title">PDF export</div>
+          <div class="export-actions">
+            <button type="button" class="button export-action" data-export="pdf">Export PDF</button>
+            <span>Choose report sections, then open browser print.</span>
+          </div>
         </div>
-        <div class="export-actions">
-          <button type="button" class="button export-action" data-export="html">Export HTML</button>
-          <span>Generate a self-contained HTML report.</span>
+        <div class="export-group">
+          <div class="export-group-title">HTML export</div>
+          <div class="export-actions">
+            <button type="button" class="button export-action" data-export="html">Export HTML</button>
+            <span>Generate a self-contained HTML report file.</span>
+          </div>
         </div>
-        <div class="export-actions">
-          ${cbrButtons || '<span>No loaded raw logs available for CBR export.</span>'}
+        <div class="export-group">
+          <div class="export-group-title">CBR export</div>
+          <div class="export-actions">
+            ${cbrButtons || '<span>No loaded raw logs available for CBR export.</span>'}
+          </div>
+          <div class="export-actions export-note">
+            <span>CBR export saves the original raw log text SH6 loaded for each slot.</span>
+          </div>
         </div>
         <div class="export-actions export-note">
-          <span>CBR export saves the original raw log text used by SH6 (same source as the removed Raw log menu).</span>
+          <span>In compare mode, CBR buttons are shown per active loaded slot (Log A/B/C/D).</span>
         </div>
         <div class="export-actions export-note">
           <span>Note: Interactive maps are not included in exports. Use KMZ files or the in-app map view.</span>

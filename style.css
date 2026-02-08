@@ -1714,6 +1714,21 @@ a:hover {
   margin: 10px 8px;
 }
 
+.export-group {
+  margin: 10px 8px;
+  padding: 8px;
+  border: 1px solid #d5deec;
+  border-radius: 8px;
+  background: #f9fbff;
+}
+
+.export-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #25456b;
+  margin-bottom: 4px;
+}
+
 .export-actions {
   display: flex;
   flex-wrap: wrap;

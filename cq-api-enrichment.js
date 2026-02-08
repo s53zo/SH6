@@ -670,50 +670,6 @@
           }
         }
         const preferredCategory = normalizeCategoryLabel(currentScore?.category || fallbackCategory || '');
-        const historyWithRaw = history.map((row) => {
-          const rawMatch = pickRawCandidate(row?.year, row?.category || '') || pickRawCandidate(row?.year, preferredCategory);
-          return {
-            ...row,
-            rawScore: parseNumber(rawMatch?.score),
-            rawCategory: normalizeCategoryLabel(rawMatch?.category || ''),
-            rawOperators: safeString(rawMatch?.operators || ''),
-            rawYear: parseNumber(rawMatch?.effectiveYear)
-          };
-        });
-        if (Number.isFinite(selectedYear) && !historyWithRaw.some((row) => Number(row?.year) === selectedYear)) {
-          const rawYearRow = pickRawCandidate(selectedYear, preferredCategory) || pickRawCandidate(selectedYear, '');
-          if (rawYearRow) {
-            historyWithRaw.unshift({
-              contest: contestId,
-              mode: normalizeModeLabel(mode),
-              year: selectedYear,
-              callsign,
-              category: normalizeCategoryLabel(rawYearRow.category || preferredCategory || ''),
-              score: null,
-              qsos: parseNumber(rawYearRow.qsos),
-              multTotal: parseNumber(rawYearRow.multTotal),
-              multBreakdown: rawYearRow.multBreakdown || {},
-              operators: safeString(rawYearRow.operators || ''),
-              geo: safeString(rawYearRow.geo || '').toUpperCase() || null,
-              rawScore: parseNumber(rawYearRow.score),
-              rawCategory: normalizeCategoryLabel(rawYearRow.category || ''),
-              rawOperators: safeString(rawYearRow.operators || ''),
-              rawYear: parseNumber(rawYearRow.effectiveYear) ?? selectedYear,
-              isOfficialMissing: true,
-              isRawOnly: true,
-              raw: rawYearRow.raw
-            });
-          }
-        }
-        historyWithRaw.sort((a, b) => (Number(b?.year) || 0) - (Number(a?.year) || 0));
-        const rawRowsSorted = rawRows.slice().sort((a, b) => {
-          const ay = Number(a?.effectiveYear) || 0;
-          const by = Number(b?.effectiveYear) || 0;
-          if (by !== ay) return by - ay;
-          const as = Number(a?.score) || 0;
-          const bs = Number(b?.score) || 0;
-          return bs - as;
-        });
         const categoriesTried = dedupe([preferredCategory, ...explicitCategories]
           .map((category) => normalizeCategoryLabel(category))
           .filter((category) => category && category !== '*'));
@@ -795,8 +751,7 @@
           callsign,
           year,
           currentScore,
-          history: historyWithRaw,
-          rawRows: rawRowsSorted,
+          history,
           record,
           matchedCategory,
           matchedGeo,

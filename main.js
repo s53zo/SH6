@@ -6309,12 +6309,6 @@
     return formatNumberSh6(value);
   }
 
-  function parseCqApiNumber(value) {
-    if (value == null || value === '') return null;
-    const parsed = Number(String(value).replace(/,/g, ''));
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
   function findCqApiCategoryLabel(catlist, category) {
     const key = String(category || '').trim().toUpperCase();
     if (!key || !Array.isArray(catlist)) return '';
@@ -6338,16 +6332,8 @@
     return `${total ? `${total} (` : ''}${parts.join(', ')}${total ? ')' : ''}`;
   }
 
-  function formatCqApiDeductionPercent(officialScore, rawScore) {
-    const official = Number(officialScore);
-    const raw = Number(rawScore);
-    if (!Number.isFinite(official) || !Number.isFinite(raw) || raw <= 0) return 'N/A';
-    const pct = ((raw - official) / raw) * 100;
-    return Number.isFinite(pct) ? `${pct.toFixed(1)}%` : 'N/A';
-  }
-
-  function formatCqApiOperatorsCell(primaryOperators, fallbackOperators) {
-    const ops = parseOperatorsList(primaryOperators || fallbackOperators || '');
+  function formatCqApiOperatorsCell(primaryOperators) {
+    const ops = parseOperatorsList(primaryOperators || '');
     if (!ops.length) return { text: 'N/A', title: '' };
     if (ops.length === 1) return { text: ops[0], title: ops[0] };
     return { text: `${ops.length} ops`, title: ops.join(' ') };
@@ -6461,18 +6447,14 @@
     const historyRows = history.map((row, idx) => {
       const isCurrent = selectedYear && Number(row?.year) === selectedYear;
       const trClass = isCurrent ? 'cqapi-history-current' : (idx % 2 === 0 ? 'td1' : 'td0');
-      const officialScore = parseCqApiNumber(row?.score);
-      const rawScore = parseCqApiNumber(row?.rawScore);
-      const operatorsCell = formatCqApiOperatorsCell(row?.operators, row?.rawOperators);
+      const operatorsCell = formatCqApiOperatorsCell(row?.operators);
       const operatorsTitleAttr = operatorsCell.title ? ` title="${escapeAttr(operatorsCell.title)}"` : '';
-      const categoryText = escapeHtml(String(row?.category || row?.rawCategory || 'N/A').toUpperCase());
+      const categoryText = escapeHtml(String(row?.category || 'N/A').toUpperCase());
       return `
         <tr class="${trClass}">
           <td>${formatCqApiNumber(row?.year)}</td>
           <td>${categoryText}</td>
-          <td>${formatCqApiNumber(officialScore)}</td>
-          <td>${formatCqApiNumber(rawScore)}</td>
-          <td>${formatCqApiDeductionPercent(officialScore, rawScore)}</td>
+          <td>${formatCqApiNumber(row?.score)}</td>
           <td>${formatCqApiNumber(row?.qsos)}</td>
           <td>${formatCqApiMultiplierValue(row)}</td>
           <td${operatorsTitleAttr}>${escapeHtml(operatorsCell.text)}</td>
@@ -6503,7 +6485,7 @@
           ${noHistory}
           ${historyRows ? `
             <table class="mtc cqapi-history">
-              <tr class="thc"><th>Year</th><th>Category</th><th>Score</th><th>Raw score</th><th>Deduction %</th><th>QSOs</th><th>Mult</th><th>Ops</th></tr>
+              <tr class="thc"><th>Year</th><th>Category</th><th>Score</th><th>QSOs</th><th>Mult</th><th>Ops</th></tr>
               ${historyRows}
             </table>
           ` : ''}

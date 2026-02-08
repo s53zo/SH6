@@ -51,6 +51,76 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
+  const NAV_SECTIONS = [
+    { id: 'load_core', title: 'Load & Core', openByDefault: true },
+    { id: 'rate_time', title: 'Rates & Time', openByDefault: true },
+    { id: 'geo_analysis', title: 'Geography', openByDefault: true },
+    { id: 'quality_review', title: 'Quality & Review', openByDefault: false },
+    { id: 'maps_charts', title: 'Maps & Charts', openByDefault: false },
+    { id: 'spots_coach', title: 'Spots & Coach', openByDefault: true },
+    { id: 'export_tools', title: 'Export & Tools', openByDefault: false }
+  ];
+
+  const NAV_SECTION_BY_REPORT = Object.freeze({
+    load_logs: 'load_core',
+    main: 'load_core',
+    summary: 'load_core',
+    log: 'load_core',
+    raw_log: 'load_core',
+    operators: 'load_core',
+
+    rates: 'rate_time',
+    points_rates: 'rate_time',
+    qs_by_hour_sheet: 'rate_time',
+    graphs_qs_by_hour: 'rate_time',
+    points_by_hour_sheet: 'rate_time',
+    graphs_points_by_hour: 'rate_time',
+    qs_by_minute: 'rate_time',
+    points_by_minute: 'rate_time',
+    one_minute_rates: 'rate_time',
+    one_minute_point_rates: 'rate_time',
+    breaks: 'rate_time',
+
+    countries: 'geo_analysis',
+    countries_by_time: 'geo_analysis',
+    continents: 'geo_analysis',
+    zones_cq: 'geo_analysis',
+    zones_itu: 'geo_analysis',
+    prefixes: 'geo_analysis',
+    distance: 'geo_analysis',
+    beam_heading: 'geo_analysis',
+    kmz_files: 'geo_analysis',
+    fields_map: 'geo_analysis',
+
+    all_callsigns: 'quality_review',
+    qs_per_station: 'quality_review',
+    passed_qsos: 'quality_review',
+    dupes: 'quality_review',
+    callsign_length: 'quality_review',
+    callsign_structure: 'quality_review',
+    not_in_master: 'quality_review',
+    possible_errors: 'quality_review',
+    comments: 'quality_review',
+
+    charts: 'maps_charts',
+    charts_top_10_countries: 'maps_charts',
+    charts_qs_by_band: 'maps_charts',
+    charts_continents: 'maps_charts',
+    charts_frequencies: 'maps_charts',
+    charts_beam_heading: 'maps_charts',
+    charts_beam_heading_by_hour: 'maps_charts',
+
+    competitor_coach: 'spots_coach',
+    spots: 'spots_coach',
+    rbn_spots: 'spots_coach',
+    spot_hunter: 'spots_coach',
+
+    export: 'export_tools',
+    session: 'export_tools',
+    qsl_labels: 'export_tools',
+    sh6_info: 'export_tools'
+  });
+
   let reports = [];
 
   const APP_VERSION = 'v5.1.17';
@@ -1364,6 +1434,8 @@
       groups.get(r.parentId).push({ report: r, index: idx });
     });
     const groupParentIds = new Set(groups.keys());
+    const sectionMap = new Map(NAV_SECTIONS.map((section) => [section.id, { ...section, items: [] }]));
+    const fallbackSectionId = NAV_SECTIONS[0]?.id || 'load_core';
     const bindKeyboardActivation = (el, onActivate) => {
       if (!el || typeof onActivate !== 'function') return;
       el.tabIndex = 0;
@@ -1374,12 +1446,19 @@
         onActivate();
       });
     };
+    const getSectionIdForReport = (report) => {
+      const direct = NAV_SECTION_BY_REPORT[report?.id];
+      if (direct) return direct;
+      if (report?.parentId && NAV_SECTION_BY_REPORT[report.parentId]) return NAV_SECTION_BY_REPORT[report.parentId];
+      return fallbackSectionId;
+    };
 
     const makeNavItem = (idx, title, baseClass) => {
       const li = document.createElement('li');
       li.textContent = title;
       li.dataset.index = idx;
       li.dataset.baseClass = baseClass;
+      li.dataset.searchText = String(title || '').trim().toLowerCase();
       li.classList.add(baseClass);
       const activate = () => {
         const report = reports[idx];
@@ -1402,6 +1481,7 @@
       summary.textContent = title;
       summary.dataset.index = idx;
       summary.dataset.baseClass = baseClass;
+      summary.dataset.searchText = String(title || '').trim().toLowerCase();
       summary.classList.add(baseClass, 'nav-summary');
       summary.addEventListener('click', () => {
         const report = reports[idx];
@@ -1417,43 +1497,113 @@
 
     reports.forEach((r, idx) => {
       if (r.parentId) return;
-      if (groupParentIds.has(r.id)) {
-        const group = groups.get(r.id) || [];
-        const details = document.createElement('details');
-        details.classList.add('nav-group');
-        details.appendChild(makeSummary(idx, r.title, 'mli'));
-        const sublist = document.createElement('ol');
-        sublist.classList.add('nav-sublist');
-        group.forEach((child) => {
-          if (!child || child.index == null) return;
-          sublist.appendChild(makeNavItem(child.index, child.report.title, 'cli'));
-        });
-        details.appendChild(sublist);
-        const wrapper = document.createElement('li');
-        wrapper.classList.add('nav-group-item');
-        wrapper.appendChild(details);
-        dom.navList.appendChild(wrapper);
-        return;
+      const sectionId = getSectionIdForReport(r);
+      if (!sectionMap.has(sectionId)) {
+        sectionMap.set(sectionId, { id: sectionId, title: sectionId, openByDefault: false, items: [] });
       }
-      const li = document.createElement('li');
-      li.textContent = r.title;
-      li.dataset.index = idx;
-      const activate = () => {
-        const report = reports[idx];
-        trackEvent('menu_click', {
-          report_id: report?.id || '',
-          report_title: report?.title || ''
-        });
-        setActiveReport(idx);
-      };
-      li.addEventListener('click', activate);
-      bindKeyboardActivation(li, activate);
-      li.classList.add('mli');
-      li.dataset.baseClass = 'mli';
-      dom.navList.appendChild(li);
+      sectionMap.get(sectionId).items.push({ report: r, index: idx });
     });
+
+    NAV_SECTIONS.forEach((section, sectionIdx) => {
+      const bucket = sectionMap.get(section.id);
+      if (!bucket || !bucket.items || !bucket.items.length) return;
+      const wrapper = document.createElement('li');
+      wrapper.classList.add('nav-section-item');
+      const details = document.createElement('details');
+      details.classList.add('nav-section');
+      if (section.openByDefault || sectionIdx === 0) details.open = true;
+
+      const summary = document.createElement('summary');
+      summary.classList.add('nav-section-summary');
+      summary.textContent = section.title;
+      details.appendChild(summary);
+
+      const sectionList = document.createElement('ol');
+      sectionList.classList.add('nav-section-list');
+      bucket.items.forEach(({ report, index }) => {
+        if (!report || index == null) return;
+        if (groupParentIds.has(report.id)) {
+          const group = groups.get(report.id) || [];
+          const groupDetails = document.createElement('details');
+          groupDetails.classList.add('nav-group');
+          groupDetails.appendChild(makeSummary(index, report.title, 'mli'));
+          const sublist = document.createElement('ol');
+          sublist.classList.add('nav-sublist');
+          group.forEach((child) => {
+            if (!child || child.index == null) return;
+            sublist.appendChild(makeNavItem(child.index, child.report.title, 'cli'));
+          });
+          groupDetails.appendChild(sublist);
+          const groupWrap = document.createElement('li');
+          groupWrap.classList.add('nav-group-item');
+          groupWrap.appendChild(groupDetails);
+          sectionList.appendChild(groupWrap);
+          return;
+        }
+        sectionList.appendChild(makeNavItem(index, report.title, 'mli'));
+      });
+      details.appendChild(sectionList);
+      wrapper.appendChild(details);
+      dom.navList.appendChild(wrapper);
+    });
+
     updateNavHighlight();
+    applyNavSearchFilter(state.navSearch || dom.navSearchInput?.value || '');
     updatePrevNextButtons();
+  }
+
+  function applyNavSearchFilter(rawTerm = '') {
+    if (!dom.navList) return;
+    const term = String(rawTerm || '').trim().toLowerCase();
+    state.navSearch = term;
+    const navNodes = Array.from(dom.navList.querySelectorAll('[data-index]'));
+    navNodes.forEach((el) => {
+      const text = String(el.dataset.searchText || el.textContent || '').trim().toLowerCase();
+      const visible = !term || text.includes(term);
+      el.classList.toggle('nav-hidden', !visible);
+    });
+
+    const groups = Array.from(dom.navList.querySelectorAll('.nav-group'));
+    groups.forEach((details) => {
+      const visibleChildren = details.querySelectorAll('[data-index]:not(.nav-hidden)');
+      const visible = visibleChildren.length > 0;
+      details.classList.toggle('nav-hidden', !visible);
+      if (term && visible) details.open = true;
+    });
+
+    const sectionItems = Array.from(dom.navList.querySelectorAll('.nav-section-item'));
+    sectionItems.forEach((item) => {
+      const visibleNodes = item.querySelectorAll('[data-index]:not(.nav-hidden)');
+      const visible = visibleNodes.length > 0;
+      item.classList.toggle('nav-hidden', !visible);
+      const sectionDetails = item.querySelector('.nav-section');
+      if (sectionDetails && term && visible) sectionDetails.open = true;
+    });
+  }
+
+  function setupNavSearch() {
+    if (!dom.navSearchInput) return;
+    dom.navSearchInput.value = state.navSearch || '';
+    dom.navSearchInput.addEventListener('input', () => {
+      applyNavSearchFilter(dom.navSearchInput.value);
+    });
+    dom.navSearchInput.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Escape') return;
+      evt.preventDefault();
+      dom.navSearchInput.value = '';
+      applyNavSearchFilter('');
+    });
+    document.addEventListener('keydown', (evt) => {
+      if (evt.defaultPrevented) return;
+      const target = evt.target instanceof HTMLElement ? evt.target : null;
+      const inInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (inInput) return;
+      if (evt.key === '/' || ((evt.ctrlKey || evt.metaKey) && evt.key.toLowerCase() === 'k')) {
+        evt.preventDefault();
+        dom.navSearchInput.focus();
+        dom.navSearchInput.select();
+      }
+    });
   }
 
   function updateNavHighlight() {
@@ -16823,6 +16973,7 @@
   async function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     setupUiThemeToggle();
+    setupNavSearch();
     rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');

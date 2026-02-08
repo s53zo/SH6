@@ -1453,6 +1453,11 @@ a:hover {
   margin: 0 0 12px;
 }
 
+.sidebar #navList {
+  list-style: none;
+  padding-left: 0;
+}
+
 .sidebar li {
   margin: 2px 0;
   padding: 1px 0;
@@ -1461,6 +1466,42 @@ a:hover {
 
 .nav-group-item {
   margin: 4px 0;
+}
+
+.nav-section-item {
+  margin: 0 0 8px;
+  list-style: none;
+}
+
+.nav-section {
+  margin: 0;
+  border: 1px solid #d3dbe8;
+  border-radius: 10px;
+  background: #f9fbff;
+  overflow: hidden;
+}
+
+.nav-section-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 7px 9px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #2d4f79;
+  background: linear-gradient(180deg, #edf3ff 0%, #e3ecfb 100%);
+  border-bottom: 1px solid #d3dbe8;
+}
+
+.nav-section-summary::marker {
+  color: #607b9e;
+}
+
+.nav-section-list {
+  list-style: decimal;
+  padding-left: 22px;
+  margin: 4px 0 6px;
 }
 
 .nav-group {
@@ -1486,6 +1527,10 @@ a:hover {
 .nav-sublist {
   padding-left: 12px;
   margin: 2px 0 6px;
+}
+
+.nav-hidden {
+  display: none !important;
 }
 
 .sidebar li.active {

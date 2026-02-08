@@ -1081,10 +1081,15 @@ a:hover {
 .compare-panel {
   border: 1px solid #cfd8e8;
   background: #fbfcff;
-  padding: 8px 10px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .compare-scroll {
+  padding: 8px 10px 10px;
   overflow-x: auto;
   max-width: 100%;
 }
@@ -1098,32 +1103,109 @@ a:hover {
 }
 
 .compare-panel .compare-head {
-  font-weight: 700;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0;
+  padding: 8px 10px 7px;
   border-bottom: 1px solid #d9e2f1;
+  background: linear-gradient(180deg, #f9fbff 0%, #edf3ff 100%);
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  gap: 3px;
   flex-wrap: wrap;
   line-height: 1.2;
 }
 
-.compare-panel.compare-a .compare-head {
+.compare-head-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.compare-head-call {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.compare-head-meta {
+  font-size: 11px;
+  color: #38557e;
+  font-weight: 600;
+}
+
+.compare-slot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #b9c8e4;
+  background: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.compare-panel.compare-a .compare-head-call,
+.compare-panel.compare-a .compare-slot-badge {
   color: #1e5bd6;
 }
 
-.compare-panel.compare-b .compare-head {
+.compare-panel.compare-a .compare-slot-badge {
+  border-color: #8fa9e8;
+  background: #edf3ff;
+}
+
+.compare-panel.compare-b .compare-head-call,
+.compare-panel.compare-b .compare-slot-badge {
   color: #c62828;
 }
 
-.compare-panel.compare-c .compare-head {
+.compare-panel.compare-b .compare-slot-badge {
+  border-color: #e8acac;
+  background: #fff1f1;
+}
+
+.compare-panel.compare-c .compare-head-call,
+.compare-panel.compare-c .compare-slot-badge {
   color: #2e7d32;
 }
 
-.compare-panel.compare-d .compare-head {
+.compare-panel.compare-c .compare-slot-badge {
+  border-color: #9fc9a2;
+  background: #eef9ee;
+}
+
+.compare-panel.compare-d .compare-head-call,
+.compare-panel.compare-d .compare-slot-badge {
   color: #6a1b9a;
+}
+
+.compare-panel.compare-d .compare-slot-badge {
+  border-color: #d0b3e1;
+  background: #f6edfc;
+}
+
+.compare-scroll.compare-scroll-sync {
+  scrollbar-color: #9db0d9 #eaf0fb;
+}
+
+@media (max-width: 760px) {
+  .compare-panel .compare-head {
+    position: static;
+  }
+
+  .compare-head-meta {
+    font-size: 10px;
+  }
+
+  .compare-scroll {
+    padding: 7px 8px 8px;
+  }
 }
 
 .compare-focus {

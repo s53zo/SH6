@@ -13720,12 +13720,38 @@
     return result;
   }
 
-  function formatCompareHeader(slot, label) {
+  const COMPARE_SCROLL_SYNC_REPORTS = new Set([
+    'summary',
+    'countries',
+    'continents',
+    'zones_cq',
+    'zones_itu',
+    'qs_per_station',
+    'qs_by_hour_sheet',
+    'points_by_hour_sheet',
+    'qs_by_minute',
+    'points_by_minute',
+    'rates',
+    'points_rates',
+    'one_minute_rates',
+    'one_minute_point_rates',
+    'spots',
+    'rbn_spots'
+  ]);
+
+  function renderCompareHeader(slot, label, slotId) {
     const call = escapeHtml(slot.derived?.contestMeta?.stationCallsign || 'N/A');
     const contest = escapeHtml(slot.derived?.contestMeta?.contestId || 'N/A');
     const year = slot.derived?.timeRange?.minTs ? new Date(slot.derived.timeRange.minTs).getUTCFullYear() : 'N/A';
     const qsos = slot.qsoData?.qsos?.length ? formatNumberSh6(slot.qsoData.qsos.length) : '0';
-    return `${label}: ${call} · ${contest} · ${year} · ${qsos} QSOs`;
+    const slotLabel = escapeHtml(label || `Log ${slotId}`);
+    return `
+      <div class="compare-head-main">
+        <span class="compare-slot-badge compare-slot-${String(slotId || '').toLowerCase()}">${slotLabel}</span>
+        <span class="compare-head-call">${call}</span>
+      </div>
+      <div class="compare-head-meta">${contest} · ${year} · ${qsos} QSOs</div>
+    `;
   }
 
   function estimateReportRows(reportId, derived) {
@@ -13819,16 +13845,18 @@
     const isChart = options.chart || baseId.startsWith('charts_');
     const isQuad = isChart || quadReports.has(baseId);
     const shouldStack = stackReports.has(baseId);
+    const syncScroll = !isChart && COMPARE_SCROLL_SYNC_REPORTS.has(baseId);
+    const syncGroup = `compare-sync-${baseId}-${slotEntries.map((entry) => entry.id).join('').toLowerCase()}`;
     const gridClass = `compare-grid compare-count-${slotEntries.length}${isNarrow ? ' compare-narrow' : ''}${isChart ? ' compare-chart' : ''}${isQuad ? ' compare-quad' : ''}${shouldStack ? ' compare-stack' : ''}`;
     return `
-      <div class="${gridClass}">
+      <div class="${gridClass}"${syncScroll ? ` data-compare-sync-group="${escapeAttr(syncGroup)}"` : ''} data-compare-report="${escapeAttr(baseId)}">
         ${slotEntries.map((entry, idx) => {
           const html = htmlBlocks[idx] || '';
           const panelClass = `compare-panel compare-${entry.id.toLowerCase()}`;
           return `
             <div class="${panelClass}">
-              <div class="compare-head">${formatCompareHeader(entry.snapshot, entry.label)}</div>
-              <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}">${html}</div>
+              <div class="compare-head">${renderCompareHeader(entry.snapshot, entry.label, entry.id)}</div>
+              <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}${syncScroll ? ' compare-scroll-sync' : ''}"${syncScroll ? ` data-sync-group="${escapeAttr(syncGroup)}" data-sync-slot="${escapeAttr(entry.id)}"` : ''}>${html}</div>
             </div>
           `;
         }).join('')}
@@ -13909,6 +13937,46 @@
         el.style.minHeight = `${target}px`;
       });
     }
+  }
+
+  function bindCompareScrollSync(reportId) {
+    const baseId = getFocusReportId(reportId);
+    if (!state.compareEnabled) return;
+    if (!COMPARE_SCROLL_SYNC_REPORTS.has(baseId)) return;
+    const scrollers = Array.from(document.querySelectorAll('.compare-scroll-sync[data-sync-group]'));
+    if (scrollers.length < 2) return;
+
+    const groups = new Map();
+    scrollers.forEach((el) => {
+      const key = String(el.dataset.syncGroup || '').trim();
+      if (!key) return;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(el);
+    });
+
+    groups.forEach((items) => {
+      if (!Array.isArray(items) || items.length < 2) return;
+      let syncing = false;
+      const syncTo = (source) => {
+        const left = source.scrollLeft;
+        items.forEach((el) => {
+          if (el === source) return;
+          if (Math.abs((el.scrollLeft || 0) - left) < 1) return;
+          el.scrollLeft = left;
+        });
+      };
+      items.forEach((el) => {
+        if (el.dataset.syncBound === '1') return;
+        el.dataset.syncBound = '1';
+        el.addEventListener('scroll', () => {
+          if (syncing) return;
+          syncing = true;
+          syncTo(el);
+          syncing = false;
+        }, { passive: true });
+      });
+      syncTo(items[0]);
+    });
   }
 
   function getFocusReportId(reportId) {
@@ -14481,6 +14549,7 @@
   function bindReportInteractions(reportId) {
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
+    bindCompareScrollSync(reportId);
     const focusSelects = dom.viewContainer.querySelectorAll('.compare-focus-select');
     if (focusSelects.length) {
       focusSelects.forEach((select) => {

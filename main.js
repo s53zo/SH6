@@ -88,8 +88,13 @@
   const CALLSIGN_LOOKUP_URLS = [
     'https://azure.s53m.com/sh6/lookup'
   ];
-  const CALLSIGN_LOOKUP_BATCH = 3000;
+  const CALLSIGN_LOOKUP_BATCH = 180;
+  const CALLSIGN_LOOKUP_MAX_BATCH_BYTES = 1700;
+  const CALLSIGN_LOOKUP_SPLIT_STATUSES = new Set([400, 404, 413, 414, 429, 431, 500, 502, 503, 504]);
+  const CALLSIGN_LOOKUP_RETRYABLE_STATUSES = new Set([404, 408, 425, 429, 500, 502, 503, 504]);
+  const CALLSIGN_LOOKUP_MAX_ATTEMPTS = 3;
   const CALLSIGN_LOOKUP_RETRY_DELAY_MS = 12000;
+  const CALLSIGN_LOOKUP_MIN_GAP_MS = 280;
   const CALLSIGN_LOOKUP_TIMEOUT_MS = 8000;
   const RBN_SUMMARY_ONLY_THRESHOLD = 200000;
   const SPOT_TABLE_LIMIT = 2000;
@@ -1001,6 +1006,7 @@
   const callsignGridPending = new Set();
   let callsignGridTimer = null;
   let callsignGridInFlight = false;
+  let callsignLookupLastRequestTs = 0;
   const archiveShardDbCache = new Map();
   const archiveRowsByCallCache = new Map();
   let archiveSqlLoader = null;
@@ -5149,57 +5155,172 @@
     return cache.get(key) || null;
   }
 
-  async function fetchCallsignGridBatch(calls) {
-    if (!calls || !calls.length) return;
-    try {
-      let lastError = null;
-      for (const url of CALLSIGN_LOOKUP_URLS) {
-        const payload = JSON.stringify({ calls });
-        let res = await fetch(url, {
+  function setCallsignGridMissing(calls) {
+    const cache = getCallsignGridCache();
+    (calls || []).forEach((call) => {
+      const key = normalizeCall(call);
+      if (key) cache.set(key, null);
+    });
+  }
+
+  function applyCallsignLookupPayload(data) {
+    const cache = getCallsignGridCache();
+    if (Array.isArray(data?.rows)) {
+      data.rows.forEach((row) => {
+        if (!row || row.length < 2) return;
+        const call = normalizeCall(row[0]);
+        const grid = normalizeLookupGrid(row[1]);
+        if (!call) return;
+        cache.set(call, isMaidenheadGrid(grid) ? grid : null);
+      });
+    }
+    if (Array.isArray(data?.missing)) {
+      data.missing.forEach((call) => {
+        const key = normalizeCall(call);
+        if (key) cache.set(key, null);
+      });
+    }
+  }
+
+  function partitionLookupCalls(calls) {
+    const chunks = [];
+    let current = [];
+    for (const rawCall of calls || []) {
+      const call = normalizeCall(rawCall);
+      if (!call) continue;
+      current.push(call);
+      const bytes = JSON.stringify({ calls: current }).length;
+      if (bytes > CALLSIGN_LOOKUP_MAX_BATCH_BYTES && current.length > 1) {
+        const last = current.pop();
+        if (current.length) chunks.push(current);
+        current = [last];
+      }
+      if (current.length >= CALLSIGN_LOOKUP_BATCH) {
+        chunks.push(current);
+        current = [];
+      }
+    }
+    if (current.length) chunks.push(current);
+    return chunks;
+  }
+
+  async function postCallsignLookup(url, calls) {
+    const payload = JSON.stringify({ calls });
+    const doRequest = async () => {
+      const now = Date.now();
+      const minGap = Number(CALLSIGN_LOOKUP_MIN_GAP_MS) || 0;
+      const waitMs = Math.max(0, (callsignLookupLastRequestTs + minGap) - now);
+      if (waitMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+      callsignLookupLastRequestTs = Date.now();
+      const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+      const timer = ctl ? setTimeout(() => ctl.abort(), CALLSIGN_LOOKUP_TIMEOUT_MS) : null;
+      try {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: payload
+          body: payload,
+          signal: ctl ? ctl.signal : undefined
         });
-        if (res.status === 429) {
-          await new Promise((resolve) => setTimeout(resolve, CALLSIGN_LOOKUP_RETRY_DELAY_MS));
-          res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload
-          });
+        const text = await res.text();
+        let data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (err) {
+          return { ok: false, status: res.status, data: null, error: `Invalid JSON (HTTP ${res.status})` };
         }
         if (!res.ok) {
-          lastError = new Error(`HTTP ${res.status}`);
+          const message = String(data?.status_message || data?.message || `HTTP ${res.status}`).trim();
+          return { ok: false, status: res.status, data, error: message || `HTTP ${res.status}` };
+        }
+        return { ok: true, status: res.status, data, error: '' };
+      } catch (err) {
+        return { ok: false, status: 0, data: null, error: err && err.message ? err.message : 'Lookup request failed' };
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+
+    let result = null;
+    for (let attempt = 1; attempt <= CALLSIGN_LOOKUP_MAX_ATTEMPTS; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      result = await doRequest();
+      if (result.ok) return result;
+      const status = Number(result.status);
+      const retryable = CALLSIGN_LOOKUP_RETRYABLE_STATUSES.has(status);
+      if (!retryable || attempt >= CALLSIGN_LOOKUP_MAX_ATTEMPTS) break;
+      const waitMs = (status === 429)
+        ? CALLSIGN_LOOKUP_RETRY_DELAY_MS
+        : Math.min(5000, 450 * (2 ** (attempt - 1)));
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+    return result || { ok: false, status: 0, data: null, error: 'Lookup request failed' };
+  }
+
+  async function fetchCallsignGridBatchViaUrl(url, calls) {
+    if (!calls || !calls.length) return { ok: true, warning: '' };
+    const uniqueCalls = dedupeValues(calls.map((call) => normalizeCall(call)).filter(Boolean));
+    const chunks = partitionLookupCalls(uniqueCalls);
+    let warnings = [];
+    for (const chunk of chunks) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await postCallsignLookup(url, chunk);
+      if (res.ok) {
+        applyCallsignLookupPayload(res.data);
+        continue;
+      }
+      const status = Number(res.status);
+      const canSplit = CALLSIGN_LOOKUP_SPLIT_STATUSES.has(status) && chunk.length > 1;
+      if (canSplit) {
+        const mid = Math.floor(chunk.length / 2);
+        const left = chunk.slice(0, mid);
+        const right = chunk.slice(mid);
+        // eslint-disable-next-line no-await-in-loop
+        const leftResult = await fetchCallsignGridBatchViaUrl(url, left);
+        // eslint-disable-next-line no-await-in-loop
+        const rightResult = await fetchCallsignGridBatchViaUrl(url, right);
+        if (!leftResult.ok || !rightResult.ok) {
+          return { ok: false, warning: [leftResult.warning, rightResult.warning].filter(Boolean).join(' | '), error: res.error || `HTTP ${status}` };
+        }
+        if (leftResult.warning) warnings.push(leftResult.warning);
+        if (rightResult.warning) warnings.push(rightResult.warning);
+        continue;
+      }
+      if (CALLSIGN_LOOKUP_SPLIT_STATUSES.has(status) && chunk.length === 1) {
+        const markMissing = status === 400 || status === 413 || status === 414 || status === 431;
+        if (markMissing) {
+          setCallsignGridMissing(chunk);
+          warnings.push(`Lookup skipped for ${chunk[0]} (${res.error || `HTTP ${status}`})`);
           continue;
         }
-        const data = await res.json();
-        const cache = getCallsignGridCache();
-        if (Array.isArray(data.rows)) {
-          data.rows.forEach((row) => {
-            if (!row || row.length < 2) return;
-            const call = normalizeCall(row[0]);
-            const grid = normalizeLookupGrid(row[1]);
-            if (!call) return;
-            cache.set(call, isMaidenheadGrid(grid) ? grid : null);
-          });
-        }
-        if (Array.isArray(data.missing)) {
-          data.missing.forEach((call) => {
-            const key = normalizeCall(call);
-            if (key) cache.set(key, null);
-          });
-        }
-        state.qthSource = url;
-        return true;
+        return { ok: false, warning: warnings.join(' | '), error: res.error || `HTTP ${status || 0}` };
       }
-      if (lastError) throw lastError;
-      return false;
+      return { ok: false, warning: warnings.join(' | '), error: res.error || `HTTP ${status || 0}` };
+    }
+    return { ok: true, warning: warnings.join(' | ') };
+  }
+
+  async function fetchCallsignGridBatch(calls) {
+    if (!calls || !calls.length) return { ok: true, warning: '' };
+    try {
+      let lastError = '';
+      let warnings = [];
+      for (const url of CALLSIGN_LOOKUP_URLS) {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await fetchCallsignGridBatchViaUrl(url, calls);
+        if (result.ok) {
+          state.qthSource = url;
+          if (result.warning) warnings.push(result.warning);
+          return { ok: true, warning: warnings.join(' | ') };
+        }
+        if (result.warning) warnings.push(result.warning);
+        lastError = result.error || 'Lookup failed';
+      }
+      return { ok: false, warning: warnings.join(' | '), error: lastError || 'Lookup failed' };
     } catch (err) {
-      console.warn('Callsign lookup failed:', err);
-      state.qthStatus = 'error';
-      state.qthError = err && err.message ? err.message : 'Lookup failed';
-      updateDataStatus();
-      return false;
+      return { ok: false, warning: '', error: err && err.message ? err.message : 'Lookup failed' };
     }
   }
 
@@ -5210,18 +5331,30 @@
     callsignGridPending.clear();
     callsignGridInFlight = true;
     let hadError = false;
+    const warnings = [];
+    let lastError = '';
     try {
       for (let i = 0; i < pending.length; i += CALLSIGN_LOOKUP_BATCH) {
         const batch = pending.slice(i, i + CALLSIGN_LOOKUP_BATCH);
         // eslint-disable-next-line no-await-in-loop
-        const ok = await fetchCallsignGridBatch(batch);
-        if (!ok) hadError = true;
+        const result = await fetchCallsignGridBatch(batch);
+        if (!result.ok) {
+          hadError = true;
+          lastError = result.error || lastError || 'Lookup failed';
+        }
+        if (result.warning) warnings.push(result.warning);
       }
     } finally {
       callsignGridInFlight = false;
       if (!hadError) {
         state.qthStatus = 'ok';
         state.qthError = null;
+      } else {
+        state.qthStatus = 'error';
+        state.qthError = lastError || 'Lookup failed';
+      }
+      if (warnings.length) {
+        console.warn('Callsign lookup warnings:', warnings.join(' | '));
       }
       updateDataStatus();
       recomputeDerived('lookup');
@@ -5248,11 +5381,15 @@
       const call = normalizeCall(q.call);
       if (!call) return;
       if (isMaidenheadGrid(q.grid)) return;
+      if (!isCallsignToken(call)) {
+        cache.set(call, null);
+        return;
+      }
       if (cache.has(call)) return;
       pending.add(call);
     });
     const stationCall = deriveStationCallsign(qsos);
-    if (stationCall && !cache.has(stationCall)) pending.add(stationCall);
+    if (stationCall && isCallsignToken(stationCall) && !cache.has(stationCall)) pending.add(stationCall);
     if (!pending.size) return;
     pending.forEach((call) => callsignGridPending.add(call));
     state.qthStatus = 'loading';
@@ -16125,6 +16262,7 @@
     formatNumberSh6,
     formatDateSh6,
     formatBandLabel,
+    sortBands,
     parseBandFromFreq,
     normalizeBandToken,
     normalizeCall,

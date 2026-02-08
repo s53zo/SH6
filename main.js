@@ -78,6 +78,13 @@
   const CQ_API_SCRIPT_URL = 'cq-api-enrichment.js';
   const COMPETITOR_COACH_SCRIPT_URL = 'competitor-coach.js';
   const CQ_API_SUPPORTED_CONTESTS = new Set(['CQWW', 'CQWPX', 'CQWWRTTY', 'CQWPXRTTY', 'CQ160']);
+  const CQ_API_PROXY_KEYS = Object.freeze({
+    CQWW: 'cqww',
+    CQWPX: 'cqwpx',
+    CQWWRTTY: 'cqwwrtty',
+    CQWPXRTTY: 'cqwpxrtty',
+    CQ160: 'cq160'
+  });
   const CALLSIGN_LOOKUP_URLS = [
     'https://azure.s53m.com/sh6/lookup'
   ];
@@ -5487,6 +5494,158 @@
     return 'Scope';
   }
 
+  function encodeCqApiPathSegment(value) {
+    return encodeURIComponent(String(value == null ? '' : value).trim())
+      .replace(/%2A/g, '*')
+      .replace(/%20/g, '+');
+  }
+
+  function parseCoachNumber(value) {
+    if (value == null || value === '') return null;
+    const n = Number(String(value).replace(/,/g, ''));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function parseCoachStatusMessage(payload) {
+    if (!payload || typeof payload !== 'object') return '';
+    return String(payload.status_message || payload['status message'] || payload.message || '').trim();
+  }
+
+  function normalizeCoachRawRow(contestId, mode, year, row) {
+    if (!row || typeof row !== 'object') return null;
+    const score = parseCoachNumber(row.rawscore ?? row.raw_score ?? row.score);
+    if (!Number.isFinite(score)) return null;
+    return {
+      contest: contestId,
+      mode,
+      year: Number.isFinite(parseCoachNumber(row.year ?? row.yr)) ? parseCoachNumber(row.year ?? row.yr) : year,
+      callsign: normalizeCall(row.callsign || row.call || ''),
+      category: normalizeCoachCategory(row.category || row.cat || ''),
+      score,
+      qsos: parseCoachNumber(row.qsos || row.q),
+      multTotal: parseCoachNumber(row.mult || row.m),
+      multBreakdown: {},
+      operators: String(row.operators || ''),
+      geo: String(row.geo || row.cty || '').trim().toUpperCase(),
+      raw: row
+    };
+  }
+
+  function scoreCoachRows(rows) {
+    return (rows || []).map((row) => {
+      const category = normalizeCoachCategory(row?.category || row?.cat || '');
+      const desc = String(row?.description || '').trim();
+      return {
+        row,
+        category,
+        description: String(desc || '').toUpperCase()
+      };
+    });
+  }
+
+  function isCoachMultiCategory(entry) {
+    const category = String(entry?.category || '').toUpperCase();
+    const description = String(entry?.description || '').toUpperCase();
+    if (!category && !description) return false;
+    if (description.includes('MULTI')) return true;
+    return /^M(?:M|2|S|L|O|ULTI|$)/.test(category);
+  }
+
+  function isCoachSingleCategory(entry) {
+    const category = String(entry?.category || '').toUpperCase();
+    const description = String(entry?.description || '').toUpperCase();
+    if (!category && !description) return false;
+    if (description.includes('SINGLE')) return true;
+    return /^(S|AH|AL|SQ|SH|SO)/.test(category);
+  }
+
+  function isCoachChecklogCategory(entry) {
+    const category = String(entry?.category || '').toUpperCase();
+    const description = String(entry?.description || '').toUpperCase();
+    return category.startsWith('CK') || description.includes('CHECK');
+  }
+
+  function resolveCoachRawCategoryCandidates(options = {}) {
+    const out = [];
+    const seen = new Set();
+    const push = (value) => {
+      const key = normalizeCoachCategory(value);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push(key);
+    };
+
+    const categoryMode = options.categoryMode === 'all' ? 'all' : 'same';
+    const targetCategory = normalizeCoachCategory(options.targetCategory || '');
+    const selfRawCategory = normalizeCoachCategory(options.selfRawCategory || '');
+    const catlist = Array.isArray(options.catlist) ? options.catlist : [];
+    const entries = scoreCoachRows(catlist.map((row) => ({
+      category: row?.category || '',
+      description: row?.description || ''
+    })));
+    const categories = entries.map((entry) => entry.category).filter(Boolean);
+
+    if (categoryMode === 'all') {
+      if (selfRawCategory) push(selfRawCategory);
+      categories.forEach(push);
+      if (!out.length && targetCategory) push(targetCategory);
+      return out.slice(0, 40);
+    }
+
+    if (selfRawCategory) push(selfRawCategory);
+    if (targetCategory && categories.includes(targetCategory)) push(targetCategory);
+
+    if (targetCategory && (!out.length || !categories.includes(targetCategory))) {
+      if (targetCategory.includes('MULTI')) {
+        entries.filter(isCoachMultiCategory).forEach((entry) => push(entry.category));
+      } else if (targetCategory.includes('SINGLE')) {
+        entries.filter(isCoachSingleCategory).forEach((entry) => push(entry.category));
+      } else if (targetCategory.includes('CHECK')) {
+        entries.filter(isCoachChecklogCategory).forEach((entry) => push(entry.category));
+      }
+    }
+
+    if (!out.length && targetCategory) push(targetCategory);
+    if (!out.length && categories.length) push(categories[0]);
+    if (!out.length && targetCategory.includes('MULTI')) ['MM', 'M2', 'MSH'].forEach(push);
+    return out.slice(0, 12);
+  }
+
+  async function fetchCoachRawCategoryRows(contestId, mode, category, year) {
+    const proxyKey = CQ_API_PROXY_KEYS[contestId];
+    if (!proxyKey) return { ok: false, rows: [], source: '', statusMessage: 'Unsupported contest' };
+    const safeCategory = normalizeCoachCategory(category || '');
+    if (!safeCategory) return { ok: false, rows: [], source: '', statusMessage: 'Missing category' };
+    const url = `${CQ_API_PROXY_BASE}/${proxyKey}/raw/${encodeCqApiPathSegment(mode)}/category/${encodeCqApiPathSegment(safeCategory)}`;
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      const text = await res.text();
+      let payload = null;
+      try {
+        payload = text ? JSON.parse(text) : null;
+      } catch (err) {
+        return { ok: false, rows: [], source: url, statusMessage: `Invalid JSON (HTTP ${res.status})` };
+      }
+      const status = Number(payload?.status);
+      const statusMessage = parseCoachStatusMessage(payload);
+      if (status !== 200 || !Array.isArray(payload?.data)) {
+        return { ok: false, rows: [], source: url, statusMessage: statusMessage || `HTTP ${res.status}` };
+      }
+      const rows = payload.data
+        .map((row) => normalizeCoachRawRow(contestId, mode, year, row))
+        .filter(Boolean)
+        .filter((row) => !safeCategory || normalizeCoachCategory(row.category) === safeCategory);
+      return { ok: true, rows, source: url, statusMessage };
+    } catch (err) {
+      return {
+        ok: false,
+        rows: [],
+        source: url,
+        statusMessage: err && err.message ? err.message : 'Raw category request failed'
+      };
+    }
+  }
+
   function normalizeContestIdForCoach(contestText, archivePath) {
     const pathFirst = String(archivePath || '').split('/').filter(Boolean)[0] || '';
     const byPath = pathFirst.toUpperCase();
@@ -5649,7 +5808,51 @@
         throw new Error('Competitor coach module unavailable.');
       }
       const scoreRes = await client.score(context.contestId, context.mode, String(context.year), '*');
-      if (!scoreRes?.ok || !Array.isArray(scoreRes.rows)) {
+      let cohortRows = scoreRes?.ok && Array.isArray(scoreRes.rows) ? scoreRes.rows.slice() : [];
+      let source = scoreRes?.source || '';
+      let statusMessage = scoreRes?.statusMessage || '';
+      let sourceKind = 'official';
+
+      const selfRawRes = await client.raw(context.contestId, context.mode, context.callsign);
+      const selfRawCategory = selfRawRes?.ok && Array.isArray(selfRawRes.rows) && selfRawRes.rows.length
+        ? normalizeCoachCategory(selfRawRes.rows[0]?.category || '')
+        : '';
+      const effectiveTargetCategory = normalizeCoachCategory(
+        selfRawCategory
+        || targetCategory
+        || context.targetCategory
+      );
+
+      if (!cohortRows.length) {
+        const catRes = await client.catlist(context.contestId);
+        const catlist = catRes?.ok && Array.isArray(catRes.list) ? catRes.list : [];
+        const categories = resolveCoachRawCategoryCandidates({
+          categoryMode,
+          targetCategory: effectiveTargetCategory,
+          selfRawCategory,
+          catlist
+        });
+        const rawRows = [];
+        const rawMessages = [];
+        let rawSource = '';
+        for (const category of categories) {
+          // eslint-disable-next-line no-await-in-loop
+          const rawRes = await fetchCoachRawCategoryRows(context.contestId, context.mode, category, context.year);
+          if (rawRes.ok && Array.isArray(rawRes.rows) && rawRes.rows.length) {
+            rawRows.push(...rawRes.rows);
+            if (!rawSource && rawRes.source) rawSource = rawRes.source;
+          } else if (rawRes.statusMessage) {
+            rawMessages.push(rawRes.statusMessage);
+          }
+        }
+        cohortRows = rawRows;
+        source = rawSource || source;
+        sourceKind = 'raw';
+        const fallbackMessage = 'Using raw score fallback cohort (unofficial/live).';
+        statusMessage = [statusMessage, fallbackMessage, rawMessages[0] || ''].filter(Boolean).join(' ').trim();
+      }
+
+      if (!Array.isArray(cohortRows) || !cohortRows.length) {
         throw new Error(scoreRes?.statusMessage || 'No competitor rows returned by CQ API.');
       }
 
@@ -5670,11 +5873,11 @@
       };
 
       const model = window.SH6CompetitorCoach.buildModel({
-        rows: scoreRes.rows,
+        rows: cohortRows,
         scopeType,
         scopeValue: targetScopeValue,
         categoryMode,
-        targetCategory,
+        targetCategory: effectiveTargetCategory,
         stationCall: context.callsign,
         operatorCalls: context.operatorCalls,
         fallbackCurrent: state.apiEnrichment?.data?.currentScore || null,
@@ -5686,15 +5889,15 @@
         ...state.competitorCoach,
         status: 'ready',
         error: null,
-        source: scoreRes.source || '',
-        statusMessage: scoreRes.statusMessage || '',
+        source: source || '',
+        statusMessage: statusMessage || '',
         rows: Array.isArray(model?.rows) ? model.rows : [],
         totalRows: Number(model?.totalRows) || 0,
-        sourceRows: Array.isArray(scoreRes.rows) ? scoreRes.rows.length : 0,
+        sourceRows: Array.isArray(cohortRows) ? cohortRows.length : 0,
         currentRow: model?.currentRow || null,
         insights: Array.isArray(model?.insights) ? model.insights.slice(0, 6) : [],
         targetScopeValue: String(model?.targetScopeValue || targetScopeValue || ''),
-        targetCategory: String(model?.targetCategory || targetCategory || ''),
+        targetCategory: String(model?.targetCategory || effectiveTargetCategory || targetCategory || ''),
         scopeLabel: formatCoachScopeTitle(scopeType),
         contestId: context.contestId,
         mode: context.mode,
@@ -5706,6 +5909,7 @@
         year: context.year,
         scope: scopeType,
         category_mode: categoryMode,
+        source_kind: sourceKind,
         cohort_rows: state.competitorCoach.totalRows
       });
     } catch (err) {

@@ -6,6 +6,7 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 - CQ API: improve record matching by scope/category, including `WORLD` fallback handling.
 - CQ API: keep raw score as fallback when official score is missing.
 - CQ API: enrich history table with category/operators and add per-row actions to load matching archive logs into compare slots.
+- Competitor coach: add raw-category fallback when official yearly ranking (`score/<year>/*`) is unavailable, and map broad categories (for example `MULTI-OP`) to CQ category families.
 - CQ API: render year values as plain years (for example `2024`, not `2,024`).
 - Compare mode: render singleton pages only once (`Start`, `Charts`, `EXPORT PDF, HTML, CBR`, `Save&Load session`, `QSL labels`).
 - Export: add CBR export actions for loaded slots.

@@ -67,7 +67,7 @@
     if (!row || typeof row !== 'object') return null;
     const callsign = safeString(row.callsign || row.call).trim().toUpperCase();
     const category = normalizeCategoryKey(row.category || row.cat);
-    const score = parseNumber(row.score);
+    const score = parseNumber(row.score ?? row.rawscore ?? row.raw_score);
     const qsos = parseNumber(row.qsos || row.q);
     const multTotal = sumMultipliers(row);
     const geo = safeString(row.geo || row.cty).trim().toUpperCase();
@@ -83,6 +83,38 @@
       geo,
       raw: row
     };
+  }
+
+  function isMultiCategory(category) {
+    const key = normalizeCategoryKey(category);
+    if (!key) return false;
+    if (key.includes('MULTI')) return true;
+    return /^M(?:M|2|S|L|O|ULTI|$)/.test(key);
+  }
+
+  function isSingleCategory(category) {
+    const key = normalizeCategoryKey(category);
+    if (!key) return false;
+    if (key.includes('SINGLE')) return true;
+    return /^(S|AH|AL|SQ|SH|SO)/.test(key);
+  }
+
+  function isCheckCategory(category) {
+    const key = normalizeCategoryKey(category);
+    if (!key) return false;
+    return key.startsWith('CK') || key.includes('CHECK');
+  }
+
+  function isCategoryMatch(targetCategory, rowCategory) {
+    const target = normalizeCategoryKey(targetCategory);
+    const row = normalizeCategoryKey(rowCategory);
+    if (!target) return true;
+    if (!row) return false;
+    if (target === row) return true;
+    if (isMultiCategory(target) && isMultiCategory(row)) return true;
+    if (isSingleCategory(target) && isSingleCategory(row)) return true;
+    if (isCheckCategory(target) && isCheckCategory(row)) return true;
+    return false;
   }
 
   function dedupeRows(rows) {
@@ -165,7 +197,7 @@
     const scopeType = normalizeScopeType(options.scopeType);
     const targetScopeValue = normalizeScopeValue(scopeType, options.scopeValue);
     const categoryMode = safeString(options.categoryMode).trim().toLowerCase() === 'all' ? 'all' : 'same';
-    const targetCategory = normalizeCategoryKey(options.targetCategory);
+    let targetCategory = normalizeCategoryKey(options.targetCategory);
     const resolveCallMeta = typeof options.resolveCallMeta === 'function'
       ? options.resolveCallMeta
       : () => ({ dxcc: '', continent: '', cqZone: '', ituZone: '' });
@@ -176,6 +208,12 @@
     const rows = dedupeRows((options.rows || [])
       .map((row) => normalizeRow(row))
       .filter(Boolean));
+
+    const callMatched = selectCurrentRow(rows, stationCall, operatorCalls);
+    if (categoryMode === 'same' && (!targetCategory || targetCategory.includes('MULTI') || targetCategory.includes('SINGLE'))) {
+      const callCategory = normalizeCategoryKey(callMatched?.category || '');
+      if (callCategory) targetCategory = callCategory;
+    }
 
     const filtered = rows.map((row) => {
       const meta = resolveCallMeta(row.callsign) || {};
@@ -190,7 +228,7 @@
       };
     }).filter((row) => {
       if (targetScopeValue && row.scopeValue !== targetScopeValue) return false;
-      if (categoryMode === 'same' && targetCategory && normalizeCategoryKey(row.category) !== targetCategory) return false;
+      if (categoryMode === 'same' && targetCategory && !isCategoryMatch(targetCategory, row.category)) return false;
       return true;
     }).sort((a, b) => {
       const scoreA = Number(a.score);
@@ -213,7 +251,7 @@
         else if (scopeType === 'cq_zone') scopeValue = normalizeScopeValue(scopeType, meta.cqZone || '');
         else if (scopeType === 'itu_zone') scopeValue = normalizeScopeValue(scopeType, meta.ituZone || '');
         const scopeOk = !targetScopeValue || scopeValue === targetScopeValue;
-        const categoryOk = categoryMode === 'all' || !targetCategory || normalizeCategoryKey(fallback.category) === targetCategory;
+        const categoryOk = categoryMode === 'all' || !targetCategory || isCategoryMatch(targetCategory, fallback.category);
         if (scopeOk && categoryOk) {
           currentRow = {
             ...fallback,

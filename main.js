@@ -1621,6 +1621,14 @@
     return formatted;
   }
 
+  function formatYearSh6(value, empty = 'N/A') {
+    if (value == null || value === '') return empty;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value);
+    if (Number.isInteger(num)) return String(num);
+    return String(value);
+  }
+
   function formatFrequency(freq) {
     if (freq == null || freq === '') return '';
     const num = Number(freq);
@@ -6666,7 +6674,7 @@
         ? `${escapeHtml(recordCategory)}${recordCategoryLabel ? ` - ${escapeHtml(recordCategoryLabel)}` : ''}`
         : 'N/A';
       const holderText = row?.callsign
-        ? `${escapeHtml(row.callsign)} (${formatCqApiNumber(row?.year)})`
+        ? `${escapeHtml(row.callsign)} (${formatYearSh6(row?.year)})`
         : 'N/A';
       const scopeTitle = scopeKey === 'dxcc'
         ? 'DXCC'
@@ -6698,7 +6706,7 @@
         : '<span class="cqapi-muted">N/A</span>';
       return `
         <tr class="${trClass}">
-          <td>${formatCqApiNumber(row?.year)}</td>
+          <td>${formatYearSh6(row?.year)}</td>
           <td>${categoryText}</td>
           <td>${formatCqApiNumber(row?.score)}</td>
           <td>${formatCqApiNumber(row?.qsos)}</td>
@@ -6718,7 +6726,7 @@
           <table class="mtc cqapi-table">
             <tr class="thc"><th>Metric</th><th>Value</th></tr>
             <tr class="td1"><td>Contest / mode</td><td>${escapeHtml(data.contestId || 'N/A')} / ${escapeHtml((data.mode || '').toUpperCase() || 'N/A')}</td></tr>
-            <tr class="td0"><td>Selected year</td><td>${formatCqApiNumber(currentRankYear || selectedYear)}</td></tr>
+            <tr class="td0"><td>Selected year</td><td>${formatYearSh6(currentRankYear || selectedYear)}</td></tr>
             <tr class="td1"><td>Current score</td><td><strong>${formatCqApiNumber(current?.score)}</strong></td></tr>
             <tr class="td0"><td>Current QSOs</td><td>${formatCqApiNumber(current?.qsos)}</td></tr>
             <tr class="td1"><td>Current multipliers</td><td>${formatCqApiMultiplierValue(current)}</td></tr>

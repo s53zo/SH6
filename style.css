@@ -1436,6 +1436,43 @@ a:hover {
   }
 }
 
+@media (max-width: 768px) {
+  .compare-ui-toggle,
+  .compare-workspace-jump,
+  .compare-insight-chip,
+  .chart-mode-btn,
+  .spots-coach-action,
+  .coach-choice-btn,
+  .cqapi-load-btn {
+    min-height: 44px;
+  }
+
+  .compare-workspace-slot {
+    min-height: 32px;
+  }
+
+  .bar-row {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .bar-label {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .bar-track {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .bar-value {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+  }
+}
+
 .compare-focus {
   display: flex;
   align-items: center;
@@ -4433,5 +4470,19 @@ body.ui-theme-nt .compare-ui-toggle.active {
   body.ui-theme-nt .view-container {
     border-radius: 10px;
     padding: 10px;
+  }
+}
+
+@media (min-width: 1440px) {
+  body.ui-theme-nt .content {
+    padding: 24px 28px;
+  }
+
+  body.ui-theme-nt .view-container {
+    padding: 20px;
+  }
+
+  body.ui-theme-nt .sidebar {
+    padding-top: 16px;
   }
 }

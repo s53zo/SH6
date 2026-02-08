@@ -1072,6 +1072,10 @@
     compareLogFallbackTimer: null,
     compareLogWindowStart: 0,
     compareLogWindowSize: 1000,
+    renderPerf: {
+      last: null,
+      byReport: {}
+    },
     sessionNotice: [],
     renderSlotId: null,
     logVersion: 0,
@@ -1643,6 +1647,7 @@
   function showLoadingState(message) {
     if (!dom.viewContainer) return;
     document.body.classList.add('is-loading');
+    dom.viewContainer.setAttribute('aria-busy', 'true');
     dom.viewContainer.innerHTML = `
       <div class="loading-state" role="status" aria-live="polite">
         <div class="loading-spinner"></div>
@@ -1653,6 +1658,7 @@
 
   function clearLoadingState() {
     document.body.classList.remove('is-loading');
+    if (dom.viewContainer) dom.viewContainer.setAttribute('aria-busy', 'false');
   }
 
   function showOverlayNotice(message, duration = 4500) {
@@ -1666,6 +1672,59 @@
     }, duration);
   }
 
+  function trackRenderPerf(reportId, elapsedMs, htmlLength = 0) {
+    const id = String(reportId || 'unknown');
+    const elapsed = Number(elapsedMs);
+    if (!Number.isFinite(elapsed)) return;
+    const perf = state.renderPerf && typeof state.renderPerf === 'object'
+      ? state.renderPerf
+      : { last: null, byReport: {} };
+    const byReport = perf.byReport && typeof perf.byReport === 'object' ? perf.byReport : {};
+    const prev = byReport[id] || { count: 0, totalMs: 0, avgMs: 0, maxMs: 0, lastMs: 0, lastHtmlSize: 0 };
+    const count = prev.count + 1;
+    const totalMs = prev.totalMs + elapsed;
+    byReport[id] = {
+      count,
+      totalMs,
+      avgMs: totalMs / count,
+      maxMs: Math.max(prev.maxMs || 0, elapsed),
+      lastMs: elapsed,
+      lastHtmlSize: Number(htmlLength) || 0
+    };
+    perf.byReport = byReport;
+    perf.last = {
+      reportId: id,
+      ms: elapsed,
+      htmlSize: Number(htmlLength) || 0,
+      at: Date.now()
+    };
+    state.renderPerf = perf;
+    if (elapsed >= 80) {
+      console.debug(`[SH6] slow render: ${id} ${elapsed.toFixed(1)}ms`);
+    }
+  }
+
+  function getRenderPerfSummary() {
+    const perf = state.renderPerf && typeof state.renderPerf === 'object'
+      ? state.renderPerf
+      : { last: null, byReport: {} };
+    const byReport = perf.byReport && typeof perf.byReport === 'object' ? perf.byReport : {};
+    let hotspotId = '';
+    let hotspot = null;
+    Object.entries(byReport).forEach(([reportId, entry]) => {
+      const maxMs = Number(entry?.maxMs || 0);
+      if (!hotspot || maxMs > Number(hotspot.maxMs || 0)) {
+        hotspotId = reportId;
+        hotspot = entry;
+      }
+    });
+    return {
+      last: perf.last || null,
+      hotspotId,
+      hotspot: hotspot || null
+    };
+  }
+
   function renderReportWithLoading(report) {
     const seq = ++renderSeq;
     const title = report?.title || 'report';
@@ -1673,7 +1732,14 @@
     requestAnimationFrame(() => {
       setTimeout(() => {
         if (seq !== renderSeq) return;
+        const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+          ? performance.now()
+          : Date.now();
         const html = renderReport(report);
+        const elapsedMs = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+          ? (performance.now() - startedAt)
+          : (Date.now() - startedAt);
+        trackRenderPerf(report?.id, elapsedMs, html?.length || 0);
         if (seq !== renderSeq) return;
         dom.viewContainer.innerHTML = html;
         bindReportInteractions(report.id);
@@ -13912,6 +13978,19 @@
   }
 
   function renderAppInfo() {
+    const perfSummary = getRenderPerfSummary();
+    const lastRender = perfSummary.last;
+    const hotspot = perfSummary.hotspot;
+    const reportTitleForId = (reportId) => {
+      const hit = reports.find((entry) => entry.id === reportId);
+      return hit?.title || reportId || 'N/A';
+    };
+    const lastRenderText = lastRender
+      ? `${reportTitleForId(lastRender.reportId)} · ${Number(lastRender.ms).toFixed(1)} ms`
+      : 'N/A';
+    const hotspotText = hotspot
+      ? `${reportTitleForId(perfSummary.hotspotId)} · max ${Number(hotspot.maxMs).toFixed(1)} ms · avg ${Number(hotspot.avgMs || 0).toFixed(1)} ms`
+      : 'N/A';
     const rows = [
       ['Report generator', `SH6 ${APP_VERSION}`],
       ['Generated', formatDateSh6(Date.now())],
@@ -13919,6 +13998,8 @@
       ['QSOs parsed', state.qsoData ? formatNumberSh6(state.qsoData.qsos.length) : '0'],
       ['Event', escapeHtml(state.derived?.contestMeta?.contestId || 'N/A')],
       ['Station callsign', escapeHtml(state.derived?.contestMeta?.stationCallsign || 'N/A')],
+      ['Render (last)', escapeHtml(lastRenderText)],
+      ['Render hotspot', escapeHtml(hotspotText)],
       ['cty.dat', escapeHtml(state.ctyStatus || 'pending')],
       ['MASTER.DTA', escapeHtml(state.masterStatus || 'pending')]
     ];
@@ -17411,6 +17492,8 @@
 
   async function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
+    if (dom.viewTitle) dom.viewTitle.setAttribute('aria-live', 'polite');
+    if (dom.viewContainer) dom.viewContainer.setAttribute('aria-busy', 'false');
     setupUiThemeToggle();
     setupNavSearch();
     rebuildReports();
@@ -17476,6 +17559,7 @@
     getSlotById,
     getUiTheme: () => state.uiTheme,
     setUiTheme: (theme) => applyUiTheme(theme, true),
+    getRenderPerf: () => getRenderPerfSummary(),
     trackEvent,
     setSpotHunterStatus: (status, payload = {}) => {
       state.spotHunterStatus = status || 'pending';

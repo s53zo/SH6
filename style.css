@@ -382,10 +382,12 @@ a:hover {
   color: inherit;
   border-radius: 3px;
   min-width: 24px;
+  min-height: 20px;
   padding: 1px 4px;
   cursor: pointer;
   font-size: 11px;
   line-height: 1.2;
+  font-weight: 700;
 }
 
 .spots-heat-cell:hover {
@@ -455,11 +457,33 @@ a:hover {
   background: #eef5ff;
 }
 
+.spots-drill-filter-btn.type-continent {
+  border-color: #9ec8b4;
+}
+
+.spots-drill-filter-btn.type-cq {
+  border-color: #b8c3eb;
+}
+
+.spots-drill-filter-btn.type-itu {
+  border-color: #d2b8e8;
+}
+
+.spots-drill-filter-all {
+  font-weight: 600;
+}
+
 .spots-drill-filter-btn.active {
   border-color: #2e64b0;
   background: #dce9fb;
   color: #173a66;
   font-weight: 700;
+}
+
+.spots-click-hint {
+  display: inline-block;
+  margin-left: 8px;
+  color: #2f4f76;
 }
 
 .spots-align-block {

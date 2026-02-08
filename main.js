@@ -10815,16 +10815,18 @@
         if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
         return String(a[0]).localeCompare(String(b[0]));
       });
+      const filterTypeClass = `type-${type}`;
+      const allLabel = type === 'continent' ? 'All continents' : (type === 'cq' ? 'All CQ zones' : 'All ITU zones');
       const buttons = entries.map(([value, count]) => {
         const active = selectedValue === value;
         const valueAttr = escapeAttr(String(value));
         const valueLabel = value === 'N/A' ? 'N/A' : escapeHtml(String(value));
-        return `<button type="button" class="spots-drill-filter-btn${active ? ' active' : ''}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="${valueAttr}" aria-pressed="${active ? 'true' : 'false'}">${valueLabel} (${formatNumberSh6(count)})</button>`;
+        return `<button type="button" class="spots-drill-filter-btn ${filterTypeClass}${active ? ' active' : ''}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="${valueAttr}" aria-pressed="${active ? 'true' : 'false'}">${valueLabel} (${formatNumberSh6(count)})</button>`;
       }).join('');
       return `
         <div class="spots-drill-filter-row">
           <span class="spots-drill-filter-label">${escapeHtml(label)}</span>
-          <button type="button" class="spots-drill-filter-btn${selectedValue ? '' : ' active'}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="" aria-pressed="${selectedValue ? 'false' : 'true'}">All</button>
+          <button type="button" class="spots-drill-filter-btn spots-drill-filter-all ${filterTypeClass}${selectedValue ? '' : ' active'}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="" aria-pressed="${selectedValue ? 'false' : 'true'}">${allLabel}</button>
           ${buttons}
         </div>
       `;
@@ -10977,7 +10979,7 @@
         ${summaryNote ? `<div class="export-actions export-note">${escapeHtml(summaryNote)}</div>` : ''}
         ${errorSummary ? `<div class="export-actions export-note"><b>${escapeHtml(errorLabel)}</b>: ${errorSummary}</div>` : ''}
         ${stats ? `
-        <div class="export-actions export-note"><b>Spots of you by band/hour</b></div>
+        <div class="export-actions export-note"><b>Spots of you by band/hour</b><span class="spots-click-hint">Click a value to inspect actual spots and filter by Continent, CQ zone, and ITU zone.</span></div>
         ${renderHeatmap(stats.heatmap)}
         ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
 

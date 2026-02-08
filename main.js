@@ -63,8 +63,10 @@
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SCORING_SPEC_URLS = [
-    'https://raw.githubusercontent.com/s53zo/SH6/main/data/contest_scoring_spec.json',
+    'https://cdn.jsdelivr.net/gh/s53zo/SH6@contest-rules/data/contest_scoring_spec.json',
+    'https://raw.githubusercontent.com/s53zo/SH6/contest-rules/data/contest_scoring_spec.json',
     'https://cdn.jsdelivr.net/gh/s53zo/SH6@main/data/contest_scoring_spec.json',
+    'https://raw.githubusercontent.com/s53zo/SH6/main/data/contest_scoring_spec.json',
     'data/contest_scoring_spec.json',
     './data/contest_scoring_spec.json'
   ];
@@ -797,7 +799,7 @@
     };
     const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
     const basePath = getAppBasePath();
-    if (origin) {
+    if (/^https?:\/\//i.test(origin)) {
       pushUrl(`${origin}${basePath}data/contest_scoring_spec.json`);
     }
     SCORING_SPEC_URLS.forEach(pushUrl);
@@ -5010,7 +5012,7 @@
     const useLocalFirst = isLocalHost();
     const ctyUrls = useLocalFirst ? buildLocalFirstUrls(CTY_URLS) : buildFetchUrls(CTY_URLS);
     const masterUrls = useLocalFirst ? buildLocalFirstUrls(MASTER_URLS) : buildFetchUrls(MASTER_URLS);
-    const scoringUrls = buildLocalFirstUrls(buildScoringSpecUrls());
+    const scoringUrls = useLocalFirst ? buildLocalFirstUrls(buildScoringSpecUrls()) : buildFetchUrls(buildScoringSpecUrls());
     fetchWithFallback(ctyUrls, (status, url) => {
       state.ctyStatus = status;
       if (status === 'error') state.ctySource = url;

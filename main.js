@@ -63,6 +63,8 @@
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SCORING_SPEC_URLS = [
+    'https://raw.githubusercontent.com/s53zo/SH6/main/data/contest_scoring_spec.json',
+    'https://cdn.jsdelivr.net/gh/s53zo/SH6@main/data/contest_scoring_spec.json',
     'data/contest_scoring_spec.json',
     './data/contest_scoring_spec.json'
   ];
@@ -775,6 +777,31 @@
       CORS_PROXIES.forEach((proxy) => proxies.push(proxy(url)));
     });
     return remotes.concat(proxies, locals);
+  }
+
+  function getAppBasePath() {
+    if (typeof window === 'undefined' || !window.location) return '/';
+    const pathname = String(window.location.pathname || '/');
+    if (pathname.endsWith('/')) return pathname;
+    const lastSlash = pathname.lastIndexOf('/');
+    const tail = lastSlash >= 0 ? pathname.slice(lastSlash + 1) : pathname;
+    if (tail.includes('.')) return lastSlash >= 0 ? pathname.slice(0, lastSlash + 1) : '/';
+    return `${pathname}/`;
+  }
+
+  function buildScoringSpecUrls() {
+    const urls = [];
+    const pushUrl = (url) => {
+      if (!url || urls.includes(url)) return;
+      urls.push(url);
+    };
+    const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
+    const basePath = getAppBasePath();
+    if (origin) {
+      pushUrl(`${origin}${basePath}data/contest_scoring_spec.json`);
+    }
+    SCORING_SPEC_URLS.forEach(pushUrl);
+    return urls;
   }
 
   const state = {
@@ -2355,11 +2382,16 @@
     const byId = state.scoringRuleMap;
     const byFolder = state.scoringRuleByFolder;
     if (!(byId instanceof Map) || byId.size === 0 || !(byFolder instanceof Map)) {
+      const failed = state.scoringStatus === 'error';
       return {
         supported: false,
-        reason: 'spec_unavailable',
-        warning: 'Scoring rules are not loaded yet.',
-        assumptions: ['Scoring spec file is not available in runtime.'],
+        reason: failed ? 'spec_error' : 'spec_unavailable',
+        warning: failed
+          ? 'Scoring rules failed to load. Showing logged points only if available.'
+          : 'Scoring rules are still loading. Please retry in a moment.',
+        assumptions: failed
+          ? [state.scoringError ? `Scoring spec load error: ${state.scoringError}` : 'Scoring spec load failed.']
+          : ['Scoring spec file is not loaded in runtime yet.'],
         detectionMethod: 'none'
       };
     }
@@ -4978,7 +5010,7 @@
     const useLocalFirst = isLocalHost();
     const ctyUrls = useLocalFirst ? buildLocalFirstUrls(CTY_URLS) : buildFetchUrls(CTY_URLS);
     const masterUrls = useLocalFirst ? buildLocalFirstUrls(MASTER_URLS) : buildFetchUrls(MASTER_URLS);
-    const scoringUrls = useLocalFirst ? buildLocalFirstUrls(SCORING_SPEC_URLS) : buildLocalFirstUrls(SCORING_SPEC_URLS);
+    const scoringUrls = buildLocalFirstUrls(buildScoringSpecUrls());
     fetchWithFallback(ctyUrls, (status, url) => {
       state.ctyStatus = status;
       if (status === 'error') state.ctySource = url;

@@ -3,6 +3,9 @@
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
 ## v5.1.16 (2026-02-08)
+- Scoring autoheal: fix exchange-aware EU/non-EU detection for EUDX and correct REF multiplier scope for non-French logs.
+- Scoring autoheal: add DARC Fieldday HF high/low band-group multiplier handling and EUHFC band-wise score aggregation.
+- Scoring autoheal: improve Cabrillo/exchange-derived multiplier extraction and annotate WAE logs when QTC lines are missing from archive data.
 - QTH lookup: harden callsign-grid lookups with adaptive request splitting, retries, timeout handling, and paced requests for large logs.
 - QTH lookup: tighten batching by payload size and skip invalid callsign tokens before lookup.
 - Spot hunter: export `sortBands` to the shared `window.SH6` API so Spot hunter no longer fails at runtime.

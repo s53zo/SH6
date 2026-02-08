@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.15 (2026-02-08)
+- Competitor coach: replace row actions with a compact segmented `Load to B/C/D` control and add a per-row `Last loaded to Log X` marker.
+- Spots and RBN spots: make `Spots of you by band/hour` values clickable for bucket drilldown.
+- Spots and RBN spots: add bucket detail view with actual spot rows plus interactive filters and stats by continent, CQ zone, and ITU zone.
+
 ## v5.1.14 (2026-02-08)
 - Competitor coach: add robust fallback to CQ raw category cohorts when yearly official ranking endpoint has no results.
 - Competitor coach: improve category-family matching so broad labels (for example `MULTI-OP`) resolve to practical CQ categories.

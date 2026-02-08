@@ -7472,11 +7472,38 @@
       : '<p class="cqapi-muted">No competitors matched the selected filters.</p>';
 
     const controlsDisabled = context.ok ? '' : ' disabled';
-    const scopeOptions = ['dxcc', 'continent', 'cq_zone', 'itu_zone'].map((key) => {
-      const selected = key === selectedScope ? ' selected' : '';
+    const scopeButtons = ['dxcc', 'continent', 'cq_zone', 'itu_zone'].map((key) => {
+      const selected = key === selectedScope;
       const value = context.ok ? String(context.scopeValues?.[key] || '') : '';
       const suffix = value ? ` (${escapeHtml(value)})` : ' (N/A)';
-      return `<option value="${key}"${selected}>${formatCoachScopeTitle(key)}${suffix}</option>`;
+      return `
+        <button
+          type="button"
+          class="coach-choice-btn coach-scope-btn${selected ? ' active' : ''}"
+          data-scope="${key}"
+          aria-pressed="${selected ? 'true' : 'false'}"
+          ${controlsDisabled}
+        >
+          ${formatCoachScopeTitle(key)}${suffix}
+        </button>
+      `;
+    }).join('');
+    const categoryButtons = [
+      { value: 'same', label: 'Same category only' },
+      { value: 'all', label: 'All categories' }
+    ].map((item) => {
+      const selected = item.value === categoryMode;
+      return `
+        <button
+          type="button"
+          class="coach-choice-btn coach-category-btn${selected ? ' active' : ''}"
+          data-category-mode="${item.value}"
+          aria-pressed="${selected ? 'true' : 'false'}"
+          ${controlsDisabled}
+        >
+          ${item.label}
+        </button>
+      `;
     }).join('');
 
     return `
@@ -7486,18 +7513,21 @@
           <p>Find direct competitors by scope and category, then load selected logs to compare detailed performance.</p>
           ${context.ok ? '' : `<p class="status-error">${escapeHtml(context.reason || 'Competitor context unavailable.')}</p>`}
           <div class="coach-controls">
-            <label>Scope
-              <select id="coachScope"${controlsDisabled}>
-                ${scopeOptions}
-              </select>
-            </label>
-            <label>Category
-              <select id="coachCategoryMode"${controlsDisabled}>
-                <option value="same"${categoryMode === 'same' ? ' selected' : ''}>Same category only</option>
-                <option value="all"${categoryMode === 'all' ? ' selected' : ''}>All categories</option>
-              </select>
-            </label>
-            <button type="button" class="button" id="coachRefresh"${controlsDisabled}>Refresh cohort</button>
+            <div class="coach-control-group">
+              <div class="coach-control-label">Scope</div>
+              <div class="coach-choice-row">
+                ${scopeButtons}
+              </div>
+            </div>
+            <div class="coach-control-group">
+              <div class="coach-control-label">Category</div>
+              <div class="coach-choice-row">
+                ${categoryButtons}
+              </div>
+            </div>
+            <div class="coach-control-actions">
+              <button type="button" class="button" id="coachRefresh"${controlsDisabled}>Refresh cohort</button>
+            </div>
           </div>
           <table class="mtc coach-meta">
             <tr class="thc"><th>Metric</th><th>Value</th></tr>
@@ -13894,8 +13924,8 @@
         });
     }
     if (reportId === 'competitor_coach') {
-      const scopeSelect = document.getElementById('coachScope');
-      const categorySelect = document.getElementById('coachCategoryMode');
+      const scopeButtons = document.querySelectorAll('.coach-scope-btn');
+      const categoryButtons = document.querySelectorAll('.coach-category-btn');
       const refreshBtn = document.getElementById('coachRefresh');
       const loadButtons = document.querySelectorAll('.coach-load-selected');
       const rowChecks = document.querySelectorAll('.coach-row-select');
@@ -13909,24 +13939,44 @@
         });
       });
 
-      const syncCoachControls = () => {
-        state.competitorCoach = state.competitorCoach || createCompetitorCoachState();
-        if (scopeSelect) state.competitorCoach.scopeType = normalizeCoachScopeType(scopeSelect.value);
-        if (categorySelect) state.competitorCoach.categoryMode = categorySelect.value === 'all' ? 'all' : 'same';
+      const setActiveChoice = (buttons, predicate) => {
+        buttons.forEach((btn) => {
+          const active = Boolean(predicate(btn));
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
       };
 
-      if (scopeSelect) {
-        scopeSelect.addEventListener('change', () => {
+      const syncCoachControls = () => {
+        state.competitorCoach = state.competitorCoach || createCompetitorCoachState();
+        const activeScope = Array.from(scopeButtons).find((btn) => btn.classList.contains('active'));
+        const activeCategory = Array.from(categoryButtons).find((btn) => btn.classList.contains('active'));
+        if (activeScope) state.competitorCoach.scopeType = normalizeCoachScopeType(activeScope.dataset.scope || '');
+        if (activeCategory) state.competitorCoach.categoryMode = activeCategory.dataset.categoryMode === 'all' ? 'all' : 'same';
+      };
+
+      scopeButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          if (btn.disabled) return;
+          const nextScope = btn.dataset.scope || '';
+          setActiveChoice(scopeButtons, (item) => item.dataset.scope === nextScope);
           syncCoachControls();
           triggerCompetitorCoachRefresh(true);
         });
-      }
-      if (categorySelect) {
-        categorySelect.addEventListener('change', () => {
+      });
+
+      categoryButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          if (btn.disabled) return;
+          const nextMode = btn.dataset.categoryMode || 'same';
+          setActiveChoice(categoryButtons, (item) => (item.dataset.categoryMode || 'same') === nextMode);
           syncCoachControls();
           triggerCompetitorCoachRefresh(true);
         });
-      }
+      });
+
       if (refreshBtn) {
         refreshBtn.addEventListener('click', (evt) => {
           evt.preventDefault();

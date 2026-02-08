@@ -8,6 +8,7 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 - CQ API: enrich history table with category/operators and add per-row actions to load matching archive logs into compare slots.
 - Competitor coach: add raw-category fallback when official yearly ranking (`score/<year>/*`) is unavailable, and map broad categories (for example `MULTI-OP`) to CQ category families.
 - Competitor coach: hide API source URL in UI, default scope to continent for broader cohorts, and add hints when selected scope/category is too narrow.
+- Competitor coach: replace scope/category dropdowns with always-visible toggle buttons for faster selection.
 - CQ API: render year values as plain years (for example `2024`, not `2,024`).
 - Compare mode: render singleton pages only once (`Start`, `Charts`, `EXPORT PDF, HTML, CBR`, `Save&Load session`, `QSL labels`).
 - Export: add CBR export actions for loaded slots.

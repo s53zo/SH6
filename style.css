@@ -2298,21 +2298,61 @@ th {
 .coach-controls {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px 12px;
   margin: 6px 0 8px;
 }
 
-.coach-controls label {
+.coach-control-group {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.coach-control-label {
   font-size: 11px;
+  font-weight: 700;
   color: #2f4f76;
 }
 
-.coach-controls select {
-  min-width: 160px;
+.coach-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.coach-choice-btn {
+  border: 1px solid #b9cce8;
+  background: #ffffff;
+  color: #25456b;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.coach-choice-btn:hover:not(:disabled) {
+  background: #eef5ff;
+}
+
+.coach-choice-btn.active {
+  border-color: #2e64b0;
+  background: #dce9fb;
+  color: #173a66;
+  font-weight: 700;
+}
+
+.coach-choice-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.coach-control-actions {
+  display: flex;
+  align-items: flex-end;
+  min-height: 54px;
 }
 
 .coach-meta,
@@ -2399,9 +2439,22 @@ th {
     align-items: stretch;
   }
 
-  .coach-controls select {
+  .coach-control-group {
     min-width: 0;
     width: 100%;
+  }
+
+  .coach-choice-row {
+    width: 100%;
+  }
+
+  .coach-choice-btn {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .coach-control-actions {
+    min-height: 0;
   }
 
   .coach-load-actions .button {

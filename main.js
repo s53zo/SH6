@@ -52,7 +52,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.1.12';
+  const APP_VERSION = 'v5.1.13';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'

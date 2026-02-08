@@ -2,6 +2,15 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.13 (2026-02-08)
+- CQ API: improve record matching by scope/category, including `WORLD` fallback handling.
+- CQ API: keep raw score as fallback when official score is missing.
+- CQ API: enrich history table with category/operators and add per-row actions to load matching archive logs into compare slots.
+- CQ API: render year values as plain years (for example `2024`, not `2,024`).
+- Compare mode: render singleton pages only once (`Start`, `Charts`, `EXPORT PDF or HTML`, `Save&Load session`, `QSL labels`).
+- Export: add CBR export actions for loaded slots.
+- Menu: remove `Raw log` entry (raw export remains available from `EXPORT PDF or HTML`).
+
 ## v5.1.12 (2026-02-08)
 - Merge `contest-rules` and `cq_api` into `main`.
 - Add contest scoring engine with computed score details and point-rate reports.

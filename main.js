@@ -10664,6 +10664,10 @@
         ${summaryNote ? `<div class="export-actions export-note">${escapeHtml(summaryNote)}</div>` : ''}
         ${errorSummary ? `<div class="export-actions export-note"><b>${escapeHtml(errorLabel)}</b>: ${errorSummary}</div>` : ''}
         ${stats ? `
+        <div class="export-actions export-note"><b>Spots of you by band/hour</b></div>
+        ${renderHeatmap(stats.heatmap)}
+        ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
+
         <div class="export-actions export-note">
           <span><b>Total spots scanned</b>: ${formatNumberSh6(stats.total)}</span>
         </div>
@@ -10688,10 +10692,6 @@
 
         <div class="export-actions export-note"><b>Top DX you spotted</b></div>
         ${renderDxTable(summarizeGroups(stats.byUsSpots, 'dxCall'))}
-
-        <div class="export-actions export-note"><b>Spots of you by band/hour</b></div>
-        ${renderHeatmap(stats.heatmap)}
-        ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
 
         ${hideRbnExtras ? '' : `
         <div class="export-actions export-note"><b>Unanswered spots (no QSO within ${windowMinutes} minutes)</b></div>

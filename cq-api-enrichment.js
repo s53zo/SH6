@@ -585,9 +585,9 @@
         if (allowWildcardFallback) categoriesTried.push('*');
 
         const scopePlan = [
-          { scope: 'dxcc', scopeLabel: 'DXCC', geo: scopeGeos.dxcc },
-          { scope: 'continent', scopeLabel: 'Continent', geo: scopeGeos.continent },
-          { scope: 'world', scopeLabel: 'World', geo: scopeGeos.world }
+          { scope: 'dxcc', scopeLabel: 'DXCC', geo: scopeGeos.dxcc, geoCandidates: dedupe([scopeGeos.dxcc]) },
+          { scope: 'continent', scopeLabel: 'Continent', geo: scopeGeos.continent, geoCandidates: dedupe([scopeGeos.continent]) },
+          { scope: 'world', scopeLabel: 'World', geo: scopeGeos.world, geoCandidates: dedupe([scopeGeos.world, '*']) }
         ];
         const recordsByScope = [];
         for (const scopeEntry of scopePlan) {
@@ -596,32 +596,40 @@
             scope: scopeEntry.scope,
             scopeLabel: scopeEntry.scopeLabel,
             geo,
+            matchedGeo: null,
             category: null,
             row: null,
             source: null,
             statusMessage: '',
             rawPayload: null
           };
-          if (geo) {
+          const geoCandidates = Array.isArray(scopeEntry.geoCandidates) ? scopeEntry.geoCandidates : [geo];
+          if (geoCandidates.length) {
             let scopeError = '';
-            for (const category of categoriesTried) {
-              try {
-                const attempt = await this.record(contestId, mode, category, geo);
-                if (attempt.ok) {
-                  found = {
-                    scope: scopeEntry.scope,
-                    scopeLabel: scopeEntry.scopeLabel,
-                    geo,
-                    category,
-                    row: attempt.row || null,
-                    source: attempt.source || null,
-                    statusMessage: attempt.statusMessage || '',
-                    rawPayload: attempt.rawPayload || null
-                  };
-                  break;
+            for (const geoCandidate of geoCandidates) {
+              if (found.row) break;
+              const candidateGeo = safeString(geoCandidate).trim().toUpperCase();
+              if (!candidateGeo) continue;
+              for (const category of categoriesTried) {
+                try {
+                  const attempt = await this.record(contestId, mode, category, candidateGeo);
+                  if (attempt.ok) {
+                    found = {
+                      scope: scopeEntry.scope,
+                      scopeLabel: scopeEntry.scopeLabel,
+                      geo,
+                      matchedGeo: attempt?.row?.geo || candidateGeo,
+                      category,
+                      row: attempt.row || null,
+                      source: attempt.source || null,
+                      statusMessage: attempt.statusMessage || '',
+                      rawPayload: attempt.rawPayload || null
+                    };
+                    break;
+                  }
+                } catch (err) {
+                  scopeError = err && err.message ? err.message : String(err);
                 }
-              } catch (err) {
-                scopeError = err && err.message ? err.message : String(err);
               }
             }
             if (!found.row && scopeError) found.statusMessage = scopeError;
@@ -655,6 +663,7 @@
             scope: entry.scope,
             scopeLabel: entry.scopeLabel,
             geo: entry.geo,
+            matchedGeo: entry.matchedGeo,
             category: entry.category,
             row: entry.row,
             source: entry.source,

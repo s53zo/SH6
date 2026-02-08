@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.12 (2026-02-08)
+- Merge `contest-rules` and `cq_api` into `main`.
+- Add contest scoring engine with computed score details and point-rate reports.
+- Add CQ API enrichment with geo/category-aware history/record lookups and fallback handling.
+
 ## v4.3.0 (2026-02-08)
 - Add contest scoring engine scaffold with archive/header rule resolution from `data/contest_scoring_spec.json`.
 - Add computed scoring primitives (QSO points, multipliers, formula evaluation) with fallback to logged points where required.

@@ -78,6 +78,15 @@
         if (!Number.isFinite(Number(result?.currentScore?.score || NaN))) checks.push('Missing numeric current score');
         if (!Array.isArray(result?.history) || result.history.length === 0) checks.push('Missing history rows');
         if (!String(result?.source || '').includes('azure.s53m.com/cors/cqapi')) checks.push('Unexpected source URL');
+        const mainRes = await fetch('../main.js', { cache: 'no-store' });
+        if (!mainRes.ok) {
+          checks.push(`Unable to read main.js (${mainRes.status})`);
+        } else {
+          const mainSource = await mainRes.text();
+          if (!mainSource.includes('function renderCompetitorCoach')) checks.push('Competitor coach renderer missing in main.js');
+          if (!mainSource.includes('function renderSpots(')) checks.push('Spots renderer missing in main.js');
+          if (!mainSource.includes("{ id: 'export', title: 'EXPORT PDF, HTML, CBR' }")) checks.push('Export menu label mismatch');
+        }
 
         if (checks.length) {
           setResult(false, {
@@ -108,7 +117,12 @@
             callsign: result.record.callsign,
             year: result.record.year,
             score: result.record.score
-          } : null
+          } : null,
+          uiChecks: [
+            'renderCompetitorCoach present',
+            'renderSpots present',
+            'EXPORT PDF, HTML, CBR menu label present'
+          ]
         });
       } catch (err) {
         setResult(false, {

@@ -2,6 +2,16 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.17 (2026-02-08)
+- UI/UX foundation: add `design-system/` docs (`MASTER`, page overrides, QA checklist) for consistent future UI work.
+- Global UI polish: introduce shared CSS tokens, unified interaction states, focus rings, and shared card/table styling primitives.
+- Start/compare shell: improve start-page hierarchy, slot status clarity, compare panel spacing, and sidebar active-state readability.
+- Competitor coach UX: clarify row actions with explicit `Log B/C/D` targets and replace technical API wording with user-facing labels.
+- Spots/RBN UX: strengthen band/hour drilldown discoverability and improve filter-chip clarity for continent/CQ/ITU filtering.
+- Export UX: reorganize `EXPORT PDF, HTML, CBR` into clearer format groups with compare-mode guidance.
+- Accessibility/responsive: keyboard activation for sidebar entries, better tab semantics for slot source controls, reduced-motion safeguards, and breakpoint hardening for 375/768/1024/1440 layouts.
+- Tests: extend browser smoke test with UI assertions for competitor coach renderer, spots renderer, and exact export menu label.
+
 ## v5.1.16 (2026-02-08)
 - Scoring autoheal: fix exchange-aware EU/non-EU detection for EUDX and correct REF multiplier scope for non-French logs.
 - Scoring autoheal: add DARC Fieldday HF high/low band-group multiplier handling and EUHFC band-wise score aggregation.

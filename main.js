@@ -6726,7 +6726,7 @@
           ${historyRows ? `
             <div class="cqapi-history-wrap">
               <table class="mtc cqapi-history">
-                <tr class="thc"><th>Year</th><th>Category</th><th>Score</th><th>QSOs</th><th>Mult</th><th>Load</th><th>Ops</th></tr>
+                <tr class="thc"><th>Year</th><th>Category</th><th>Score</th><th>QSOs</th><th>Mult</th><th>Load this log to slot</th><th>Ops</th></tr>
                 ${historyRows}
               </table>
             </div>

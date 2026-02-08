@@ -544,8 +544,13 @@
         if (!callsign) return { ok: false, error: 'Missing callsign' };
         const year = Number.isFinite(Number(params?.year)) ? String(Number(params.year)) : '*';
 
-        const categories = dedupe([...(params?.categories || []), '*']);
-        const geos = dedupe([...(params?.geos || []), 'WORLD']);
+        const explicitCategories = dedupe((params?.categories || [])
+          .map((category) => normalizeCategoryLabel(category))
+          .filter(Boolean));
+        const geos = dedupe((params?.geos || [])
+          .map((geo) => safeString(geo).trim().toUpperCase())
+          .filter(Boolean)
+          .concat(['WORLD']));
 
         const [geoRes, catRes, currentRes, historyRes] = await Promise.all([
           this.geolist(contestId),
@@ -554,11 +559,24 @@
           this.history(contestId, mode, callsign)
         ]);
 
+        const history = (historyRes.rows || []).slice().sort((a, b) => {
+          const ay = Number(a?.year) || 0;
+          const by = Number(b?.year) || 0;
+          return by - ay;
+        });
+        const currentScore = currentRes.ok ? (currentRes.rows[0] || null) : null;
+        const preferredCategory = normalizeCategoryLabel(currentScore?.category || history[0]?.category || '');
+        const categoriesTried = dedupe([preferredCategory, ...explicitCategories]
+          .map((category) => normalizeCategoryLabel(category))
+          .filter((category) => category && category !== '*'));
+        const allowWildcardFallback = explicitCategories.includes('*') || categoriesTried.length === 0;
+        if (allowWildcardFallback) categoriesTried.push('*');
+
         let recordRes = { ok: false, row: null, source: null, statusMessage: '', rawPayload: null };
         let matchedCategory = null;
         let matchedGeo = null;
 
-        for (const category of categories) {
+        for (const category of categoriesTried) {
           if (recordRes.ok) break;
           for (const geo of geos) {
             const attempt = await this.record(contestId, mode, category, geo);
@@ -571,12 +589,6 @@
           }
         }
 
-        const history = (historyRes.rows || []).slice().sort((a, b) => {
-          const ay = Number(a?.year) || 0;
-          const by = Number(b?.year) || 0;
-          return by - ay;
-        });
-
         const source = currentRes.source || historyRes.source || recordRes.source || geoRes.source || catRes.source || '';
         const helperActive = /azure\.s53m\.com/i.test(source);
 
@@ -586,12 +598,12 @@
           mode,
           callsign,
           year,
-          currentScore: currentRes.ok ? (currentRes.rows[0] || null) : null,
+          currentScore,
           history,
           record: recordRes.ok ? recordRes.row : null,
           matchedCategory,
           matchedGeo,
-          categoriesTried: categories,
+          categoriesTried,
           geosTried: geos,
           labels: {
             geolist: geoRes.ok ? geoRes.map : {},
@@ -606,7 +618,9 @@
               mode,
               callsign,
               year,
-              categories,
+              explicitCategories,
+              preferredCategory,
+              categoriesTried,
               geos
             },
             responses: {

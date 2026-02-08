@@ -547,10 +547,22 @@
         const explicitCategories = dedupe((params?.categories || [])
           .map((category) => normalizeCategoryLabel(category))
           .filter(Boolean));
-        const geos = dedupe((params?.geos || [])
+        const requestedGeos = dedupe((params?.geos || [])
           .map((geo) => safeString(geo).trim().toUpperCase())
-          .filter(Boolean)
-          .concat(['WORLD']));
+          .filter(Boolean));
+        const scopeGeoHints = params?.scopeGeos && typeof params.scopeGeos === 'object'
+          ? params.scopeGeos
+          : {};
+        const scopeGeos = {
+          dxcc: safeString(scopeGeoHints.dxcc || requestedGeos[0] || '').trim().toUpperCase(),
+          continent: safeString(
+            scopeGeoHints.continent
+              || requestedGeos.find((geo) => ['AFR', 'ASI', 'EUR', 'NAM', 'OCE', 'SAM'].includes(geo))
+              || ''
+          ).trim().toUpperCase(),
+          world: safeString(scopeGeoHints.world || 'WORLD').trim().toUpperCase() || 'WORLD'
+        };
+        const geos = dedupe([scopeGeos.dxcc, scopeGeos.continent, scopeGeos.world, ...requestedGeos].filter(Boolean));
 
         const [geoRes, catRes, currentRes, historyRes] = await Promise.all([
           this.geolist(contestId),
@@ -572,24 +584,58 @@
         const allowWildcardFallback = explicitCategories.includes('*') || categoriesTried.length === 0;
         if (allowWildcardFallback) categoriesTried.push('*');
 
-        let recordRes = { ok: false, row: null, source: null, statusMessage: '', rawPayload: null };
-        let matchedCategory = null;
-        let matchedGeo = null;
-
-        for (const category of categoriesTried) {
-          if (recordRes.ok) break;
-          for (const geo of geos) {
-            const attempt = await this.record(contestId, mode, category, geo);
-            if (attempt.ok) {
-              recordRes = attempt;
-              matchedCategory = category;
-              matchedGeo = geo;
-              break;
+        const scopePlan = [
+          { scope: 'dxcc', scopeLabel: 'DXCC', geo: scopeGeos.dxcc },
+          { scope: 'continent', scopeLabel: 'Continent', geo: scopeGeos.continent },
+          { scope: 'world', scopeLabel: 'World', geo: scopeGeos.world }
+        ];
+        const recordsByScope = [];
+        for (const scopeEntry of scopePlan) {
+          const geo = safeString(scopeEntry.geo).trim().toUpperCase();
+          let found = {
+            scope: scopeEntry.scope,
+            scopeLabel: scopeEntry.scopeLabel,
+            geo,
+            category: null,
+            row: null,
+            source: null,
+            statusMessage: '',
+            rawPayload: null
+          };
+          if (geo) {
+            let scopeError = '';
+            for (const category of categoriesTried) {
+              try {
+                const attempt = await this.record(contestId, mode, category, geo);
+                if (attempt.ok) {
+                  found = {
+                    scope: scopeEntry.scope,
+                    scopeLabel: scopeEntry.scopeLabel,
+                    geo,
+                    category,
+                    row: attempt.row || null,
+                    source: attempt.source || null,
+                    statusMessage: attempt.statusMessage || '',
+                    rawPayload: attempt.rawPayload || null
+                  };
+                  break;
+                }
+              } catch (err) {
+                scopeError = err && err.message ? err.message : String(err);
+              }
             }
+            if (!found.row && scopeError) found.statusMessage = scopeError;
           }
+          recordsByScope.push(found);
         }
+        const firstRecord = recordsByScope.find((entry) => entry && entry.row) || null;
+        const matchedCategory = firstRecord?.category || null;
+        const matchedGeo = firstRecord?.geo || null;
+        const record = firstRecord?.row || null;
+        const recordSource = firstRecord?.source || recordsByScope.find((entry) => entry?.source)?.source || null;
+        const recordStatusMessage = firstRecord?.statusMessage || recordsByScope.find((entry) => entry?.statusMessage)?.statusMessage || '';
 
-        const source = currentRes.source || historyRes.source || recordRes.source || geoRes.source || catRes.source || '';
+        const source = currentRes.source || historyRes.source || recordSource || geoRes.source || catRes.source || '';
         const helperActive = /azure\.s53m\.com/i.test(source);
 
         return {
@@ -600,18 +646,27 @@
           year,
           currentScore,
           history,
-          record: recordRes.ok ? recordRes.row : null,
+          record,
           matchedCategory,
           matchedGeo,
           categoriesTried,
           geosTried: geos,
+          recordsByScope: recordsByScope.map((entry) => ({
+            scope: entry.scope,
+            scopeLabel: entry.scopeLabel,
+            geo: entry.geo,
+            category: entry.category,
+            row: entry.row,
+            source: entry.source,
+            statusMessage: entry.statusMessage
+          })),
           labels: {
             geolist: geoRes.ok ? geoRes.map : {},
             catlist: catRes.ok ? catRes.list : []
           },
           source,
           helperActive,
-          statusMessage: currentRes.statusMessage || historyRes.statusMessage || recordRes.statusMessage || '',
+          statusMessage: currentRes.statusMessage || historyRes.statusMessage || recordStatusMessage || '',
           debugPayload: this.debug ? {
             request: {
               contestId,
@@ -621,6 +676,7 @@
               explicitCategories,
               preferredCategory,
               categoriesTried,
+              scopeGeos,
               geos
             },
             responses: {
@@ -628,7 +684,11 @@
               catlist: catRes.rawPayload || null,
               currentScore: currentRes.rawPayload || null,
               history: historyRes.rawPayload || null,
-              record: recordRes.rawPayload || null
+              recordsByScope: recordsByScope.reduce((acc, entry) => {
+                if (!entry?.scope) return acc;
+                acc[entry.scope] = entry.rawPayload || null;
+                return acc;
+              }, {})
             }
           } : null
         };

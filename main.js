@@ -3639,24 +3639,27 @@
     return dedupeValues(out);
   }
 
-  function inferApiGeos(slot) {
-    const out = [];
+  function inferApiScopeGeos(slot) {
+    const scope = {
+      dxcc: '',
+      continent: '',
+      world: 'WORLD'
+    };
     const stationCall = normalizeCall(slot?.derived?.contestMeta?.stationCallsign || deriveStationCallsign(slot?.qsoData?.qsos || []));
     if (stationCall) {
-      const usArea = stationCall.match(/^[AKNW](\d)/);
-      if (usArea && usArea[1]) {
-        out.push(`W${usArea[1]}`);
-        out.push('W%');
-      }
       const prefix = lookupPrefix(stationCall);
       if (prefix) {
-        if (prefix.prefix) out.push(String(prefix.prefix).toUpperCase());
+        if (prefix.prefix) scope.dxcc = String(prefix.prefix).toUpperCase();
         const contGeo = mapContinentToCqGeo(prefix.continent);
-        if (contGeo) out.push(contGeo);
+        if (contGeo) scope.continent = contGeo;
       }
     }
-    out.push('WORLD');
-    return dedupeValues(out);
+    return scope;
+  }
+
+  function inferApiGeos(slot) {
+    const scope = inferApiScopeGeos(slot);
+    return dedupeValues([scope.dxcc, scope.continent, scope.world]);
   }
 
   function buildCqApiRequest(slot) {
@@ -3679,6 +3682,7 @@
       year,
       mode,
       categories: inferApiCategories(slot, contestId),
+      scopeGeos: inferApiScopeGeos(slot),
       geos: inferApiGeos(slot)
     };
   }
@@ -4959,17 +4963,15 @@
     if (info.status !== 'ready' || !info.data) return '';
     const data = info.data;
     const current = data.currentScore || null;
-    const record = data.record || null;
     const history = Array.isArray(data.history) ? data.history.slice(0, 8) : [];
+    const recordsByScope = Array.isArray(data.recordsByScope) ? data.recordsByScope : [];
     const source = info.source || data.source || '';
     const sourceLabel = info.helperActive ? 'helper' : 'direct';
     const sourceText = source ? escapeHtml(source) : 'N/A';
     const selectedYear = Number(data.year) || null;
-    const category = current?.category || data.matchedCategory || '';
-    const geo = record?.geo || data.matchedGeo || '';
+    const category = current?.category || history[0]?.category || data.matchedCategory || '';
     const apiStatusMessage = data.statusMessage ? String(data.statusMessage).trim() : '';
     const categoryLabel = findCqApiCategoryLabel(data.labels?.catlist, category);
-    const geoLabel = findCqApiGeoLabel(data.labels?.geolist, geo);
     const currentRankYear = Number(current?.year) || null;
     const debugPayloadText = Boolean(window.SH6_API_DEBUG)
       ? buildCqApiDebugPayloadText(data.debugPayload)
@@ -4977,12 +4979,41 @@
     const debugBlock = debugPayloadText
       ? `<details class="cqapi-debug"><summary>Debug payload</summary><pre>${escapeHtml(debugPayloadText)}</pre></details>`
       : '';
+    const scopeRows = ['dxcc', 'continent', 'world'].map((scopeKey, idx) => {
+      const entry = recordsByScope.find((item) => String(item?.scope || '').toLowerCase() === scopeKey) || null;
+      const geoCode = String(entry?.geo || '').trim().toUpperCase();
+      const geoLabel = findCqApiGeoLabel(data.labels?.geolist, geoCode);
+      const geoText = geoCode ? `${escapeHtml(geoCode)}${geoLabel ? ` - ${escapeHtml(geoLabel)}` : ''}` : 'N/A';
+      const row = entry?.row || null;
+      const recordCategory = String(row?.category || entry?.category || '').trim().toUpperCase();
+      const recordCategoryLabel = findCqApiCategoryLabel(data.labels?.catlist, recordCategory);
+      const categoryText = recordCategory
+        ? `${escapeHtml(recordCategory)}${recordCategoryLabel ? ` - ${escapeHtml(recordCategoryLabel)}` : ''}`
+        : 'N/A';
+      const holderText = row?.callsign
+        ? `${escapeHtml(row.callsign)} (${formatCqApiNumber(row?.year)})`
+        : 'N/A';
+      const scopeTitle = scopeKey === 'dxcc'
+        ? 'DXCC'
+        : (scopeKey === 'continent' ? 'Continent' : 'World');
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td>${scopeTitle}</td>
+          <td>${geoText}</td>
+          <td>${categoryText}</td>
+          <td>${holderText}</td>
+          <td><strong>${formatCqApiNumber(row?.score)}</strong></td>
+          <td>${formatCqApiMultiplierValue(row)}</td>
+        </tr>
+      `;
+    }).join('');
     const historyRows = history.map((row, idx) => {
       const isCurrent = selectedYear && Number(row?.year) === selectedYear;
       const trClass = isCurrent ? 'cqapi-history-current' : (idx % 2 === 0 ? 'td1' : 'td0');
       return `
         <tr class="${trClass}">
           <td>${formatCqApiNumber(row?.year)}</td>
+          <td>${escapeHtml(String(row?.category || 'N/A').toUpperCase())}</td>
           <td>${formatCqApiNumber(row?.score)}</td>
           <td>${formatCqApiNumber(row?.qsos)}</td>
           <td>${formatCqApiMultiplierValue(row)}</td>
@@ -5004,15 +5035,15 @@
             <tr class="td0"><td>Current QSOs</td><td>${formatCqApiNumber(current?.qsos)}</td></tr>
             <tr class="td1"><td>Current multipliers</td><td>${formatCqApiMultiplierValue(current)}</td></tr>
             <tr class="td0"><td>Category</td><td>${escapeHtml(category || 'N/A')}${categoryLabel ? ` - ${escapeHtml(categoryLabel)}` : ''}</td></tr>
-            <tr class="td1"><td>Record holder</td><td>${escapeHtml(record?.callsign || 'N/A')} (${formatCqApiNumber(record?.year)})</td></tr>
-            <tr class="td0"><td>Record score</td><td><strong>${formatCqApiNumber(record?.score)}</strong></td></tr>
-            <tr class="td1"><td>Record multipliers</td><td>${formatCqApiMultiplierValue(record)}</td></tr>
-            <tr class="td0"><td>Geo scope</td><td>${escapeHtml(geo || 'N/A')}${geoLabel ? ` - ${escapeHtml(geoLabel)}` : ''}</td></tr>
+          </table>
+          <table class="mtc cqapi-records">
+            <tr class="thc"><th>Scope</th><th>Geo</th><th>Category</th><th>Record holder</th><th>Score</th><th>Mult</th></tr>
+            ${scopeRows}
           </table>
           ${noHistory}
           ${historyRows ? `
             <table class="mtc cqapi-history">
-              <tr class="thc"><th>Year</th><th>Score</th><th>QSOs</th><th>Mult</th></tr>
+              <tr class="thc"><th>Year</th><th>Category</th><th>Score</th><th>QSOs</th><th>Mult</th></tr>
               ${historyRows}
             </table>
           ` : ''}

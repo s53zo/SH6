@@ -2151,6 +2151,7 @@ th {
 }
 
 .cqapi-table,
+.cqapi-records,
 .cqapi-history {
   width: 100%;
   margin-top: 5px;
@@ -2159,14 +2160,28 @@ th {
 }
 
 .cqapi-table td,
+.cqapi-records td,
 .cqapi-history td,
 .cqapi-table th,
+.cqapi-records th,
 .cqapi-history th {
   padding: 4px 6px;
 }
 
 .cqapi-table td:first-child {
   width: 38%;
+}
+
+.cqapi-records td:nth-child(1) {
+  width: 14%;
+}
+
+.cqapi-records td:nth-child(2) {
+  width: 20%;
+}
+
+.cqapi-records td:nth-child(3) {
+  width: 24%;
 }
 
 .cqapi-history-current {

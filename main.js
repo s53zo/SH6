@@ -4,7 +4,6 @@
     { id: 'main', title: 'Main' },
     { id: 'summary', title: 'Summary' },
     { id: 'log', title: 'Log' },
-    { id: 'raw_log', title: 'Raw log' },
     { id: 'operators', title: 'Operators' },
     { id: 'all_callsigns', title: 'All callsigns' },
     { id: 'rates', title: 'Rates' },
@@ -7846,6 +7845,52 @@
     return `${safe(call)}_${safe(contest)}_${year}.${ext}`;
   }
 
+  function buildExportFilenameForSlot(ext, slotId = 'A') {
+    const key = String(slotId || 'A').toUpperCase();
+    const slot = getSlotById(key) || state;
+    const call = slot?.derived?.contestMeta?.stationCallsign || 'CALL';
+    const contest = slot?.derived?.contestMeta?.contestId || 'CONTEST';
+    const year = slot?.derived?.timeRange?.minTs ? new Date(slot.derived.timeRange.minTs).getUTCFullYear() : 'YEAR';
+    const safe = (val) => String(val || '').trim().replace(/[^A-Za-z0-9_-]+/g, '_');
+    const suffix = key === 'A' ? '' : `_${safe(key)}`;
+    return `${safe(call)}_${safe(contest)}_${year}${suffix}.${ext}`;
+  }
+
+  function downloadTextFile(text, filename, mimeType = 'text/plain;charset=utf-8') {
+    const blob = new Blob([String(text || '')], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCbrForSlot(slotId = 'A') {
+    const key = String(slotId || 'A').toUpperCase();
+    const slot = getSlotById(key) || state;
+    const rawText = slot?.rawLogText || '';
+    if (!rawText) {
+      showOverlayNotice(`No raw log available in Log ${key}.`, 2400);
+      return;
+    }
+    const filename = buildExportFilenameForSlot('cbr', key);
+    downloadTextFile(rawText, filename, 'text/plain;charset=utf-8');
+
+    const compareSlots = getActiveCompareSlots();
+    const logParams = {};
+    compareSlots.forEach((entry) => {
+      logParams[`log_${entry.id.toLowerCase()}`] = entry.slot?.derived?.contestMeta?.stationCallsign || '';
+    });
+    trackEvent('download_cbr', {
+      ...logParams,
+      slot: key,
+      compare: state.compareEnabled ? 'yes' : 'no',
+      compare_count: state.compareCount || 1
+    });
+    showOverlayNotice(`Exported ${filename}.`, 1800);
+  }
+
   function stripLinks(html) {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
@@ -8063,6 +8108,12 @@
     if (!state.qsoData) {
       return '<p>No log loaded yet. Load a log to enable exports.</p>';
     }
+    const loadedSlots = getActiveCompareSlots().filter((entry) => entry.slot?.rawLogText);
+    const cbrButtons = loadedSlots.length
+      ? loadedSlots.map((entry) => (
+        `<button type="button" class="button export-action" data-export="cbr" data-slot="${escapeAttr(entry.id)}">Export ${escapeHtml(entry.label)} CBR</button>`
+      )).join(' ')
+      : '';
     return `
       <div class="mtc export-panel">
         <div class="gradient">&nbsp;Export</div>
@@ -8074,6 +8125,12 @@
         <div class="export-actions">
           <button type="button" class="button export-action" data-export="html">Export HTML</button>
           <span>Generate a self-contained HTML report.</span>
+        </div>
+        <div class="export-actions">
+          ${cbrButtons || '<span>No loaded raw logs available for CBR export.</span>'}
+        </div>
+        <div class="export-actions export-note">
+          <span>CBR export saves the original raw log text used by SH6 (same source as the removed Raw log menu).</span>
         </div>
         <div class="export-actions export-note">
           <span>Note: Interactive maps are not included in exports. Use KMZ files or the in-app map view.</span>
@@ -13203,6 +13260,11 @@
           const mode = btn.dataset.export;
           if (mode === 'pdf' || mode === 'html') {
             openExportDialog(mode);
+            return;
+          }
+          if (mode === 'cbr') {
+            const slotId = btn.dataset.slot || 'A';
+            exportCbrForSlot(slotId);
           }
         });
       });

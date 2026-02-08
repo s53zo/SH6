@@ -128,6 +128,13 @@
     C: '#2e7d32',
     D: '#6a1b9a'
   };
+  const SINGLE_INSTANCE_REPORT_IDS = new Set([
+    'load_logs',
+    'export',
+    'session',
+    'charts',
+    'qsl_labels'
+  ]);
   const SESSION_VERSION = 1;
   const PERMALINK_COMPACT_PREFIX = 'v2.';
   const DEFAULT_COMPARE_FOCUS = Object.freeze({
@@ -13091,7 +13098,7 @@
   }
 
   function renderReport(report) {
-    if (report.id === 'export') return renderReportSingle(report);
+    if (SINGLE_INSTANCE_REPORT_IDS.has(report.id)) return renderReportSingle(report);
     if (state.compareEnabled) {
       return renderReportCompare(report);
     }

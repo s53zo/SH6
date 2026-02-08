@@ -120,7 +120,7 @@ Status: [x]
   - `feat(scoring): implement contest rule resolver from archive path and aliases`
 
 ### Commit 03 - Core scoring primitives
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js`
 - Tasks:

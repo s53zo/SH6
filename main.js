@@ -2106,6 +2106,12 @@
       stationCallsign: null,
       contestId: null,
       category: null,
+      categoryOperator: null,
+      categoryMode: null,
+      categoryBand: null,
+      categoryPower: null,
+      categoryTransmitter: null,
+      categoryStation: null,
       claimedScore: null,
       club: null,
       software: null,
@@ -2116,6 +2122,12 @@
       if (!meta.stationCallsign) meta.stationCallsign = firstNonNull(r.STATION_CALLSIGN, r.OPERATOR, q.op);
       if (!meta.contestId) meta.contestId = firstNonNull(r.CONTEST_ID, r.CONTEST_NAME, r.CONTEST);
       if (!meta.category) meta.category = firstNonNull(r.CATEGORY_OPERATOR, r.CATEGORY, r.CATEGORY_OVERLAY);
+      if (!meta.categoryOperator) meta.categoryOperator = firstNonNull(r.CATEGORY_OPERATOR, r.CATEGORY);
+      if (!meta.categoryMode) meta.categoryMode = firstNonNull(r.CATEGORY_MODE, r.MODE);
+      if (!meta.categoryBand) meta.categoryBand = firstNonNull(r.CATEGORY_BAND, r.BAND);
+      if (!meta.categoryPower) meta.categoryPower = firstNonNull(r.CATEGORY_POWER);
+      if (!meta.categoryTransmitter) meta.categoryTransmitter = firstNonNull(r.CATEGORY_TRANSMITTER);
+      if (!meta.categoryStation) meta.categoryStation = firstNonNull(r.CATEGORY_STATION);
       if (meta.claimedScore == null) meta.claimedScore = firstNonNull(r.CLAIMED_SCORE, r.CLAIMED, r.APP_N1MM_CLAIMED_SCORE);
       if (!meta.club) meta.club = firstNonNull(r.CLUB, r.APP_N1MM_CLUB);
       if (!meta.software) meta.software = firstNonNull(r.APP_N1MM_N1MMVERSION, r.SW_VERSION, r.SOFTWARE);
@@ -2376,6 +2388,707 @@
     ), 0);
   }
 
+  const US_STATE_CODES = new Set([
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+    'DC'
+  ]);
+  const VE_AREA_CODES = new Set(['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT']);
+
+  function normalizeCountryName(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+
+  function hasCountryToken(country, tokens) {
+    const key = normalizeCountryName(country);
+    if (!key) return false;
+    return tokens.some((token) => key.includes(token));
+  }
+
+  function isCountryUs(country) {
+    return hasCountryToken(country, ['UNITED STATES', 'USA', 'K ', 'W ']);
+  }
+
+  function isCountryVe(country) {
+    return hasCountryToken(country, ['CANADA']);
+  }
+
+  function isCountryUsOrVe(country) {
+    return isCountryUs(country) || isCountryVe(country);
+  }
+
+  function isCountryRu(country) {
+    return hasCountryToken(country, ['RUSSIA', 'RUSSIAN FEDERATION']);
+  }
+
+  function isCountryFrench(country) {
+    return hasCountryToken(country, ['FRANCE']);
+  }
+
+  function isCountryDl(country) {
+    return hasCountryToken(country, ['GERMANY', 'FEDERAL REPUBLIC OF GERMANY']);
+  }
+
+  function isPortableStation(contestMeta, stationCall) {
+    const cat = String(contestMeta?.categoryStation || '').toUpperCase();
+    const call = String(stationCall || '').toUpperCase();
+    if (cat.includes('PORTABLE')) return true;
+    if (cat === 'MOBILE') return true;
+    if (call.includes('/P') || call.includes('/M') || call.includes('/MM')) return true;
+    return false;
+  }
+
+  function extractExchangeTokens(q) {
+    const raw = firstNonNull(
+      q?.exchRcvd,
+      q?.srx,
+      q?.raw?.SRX_STRING,
+      q?.raw?.EXCH_RCVD,
+      q?.raw?.STATE,
+      q?.raw?.SECTION,
+      q?.raw?.RDA,
+      q?.raw?.DOK,
+      q?.raw?.EXCHANGE
+    );
+    if (!raw) return [];
+    return String(raw)
+      .toUpperCase()
+      .split(/[\s,;:/]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+
+  function extractWVeQth(tokens) {
+    for (const token of tokens) {
+      if (US_STATE_CODES.has(token)) return token;
+      if (VE_AREA_CODES.has(token)) return token;
+    }
+    return '';
+  }
+
+  function extractDokToken(tokens) {
+    return tokens.find((token) => /^[A-Z]{1,3}\d{1,3}$/.test(token)) || '';
+  }
+
+  function extractRdaToken(tokens) {
+    return tokens.find((token) => /^[A-Z]{2}\d{2,3}$/.test(token)) || '';
+  }
+
+  function extractRccNumber(tokens) {
+    return tokens.find((token) => /^\d{1,4}$/.test(token)) || '';
+  }
+
+  function extractTeamCode(tokens) {
+    return tokens.find((token) => /^[A-Z]{2}\d{1,2}$/.test(token)) || '';
+  }
+
+  function extractYearToken(tokens) {
+    return tokens.find((token) => /^(19|20)\d{2}$/.test(token)) || '';
+  }
+
+  function extractRegionToken(tokens) {
+    return tokens.find((token) => /^[A-Z]{2,4}$/.test(token)) || '';
+  }
+
+  function modeKeyForScoring(mode) {
+    const bucket = modeBucket(mode);
+    if (bucket === 'CW') return 'CW';
+    if (bucket === 'Phone') return 'SSB';
+    return 'DIG';
+  }
+
+  function lookupBandCoefficient(map, bandNorm) {
+    if (!map || typeof map !== 'object') return 1;
+    const key = String(bandNorm || '').toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(map, key)) {
+      const val = Number(map[key]);
+      return Number.isFinite(val) ? val : 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(map, bandNorm)) {
+      const val = Number(map[bandNorm]);
+      return Number.isFinite(val) ? val : 1;
+    }
+    return 1;
+  }
+
+  function buildStationScoringProfile(qsos, contestMeta) {
+    const stationCall = normalizeCall(contestMeta?.stationCallsign || deriveStationCallsign(qsos));
+    const stationPrefix = stationCall ? lookupPrefix(stationCall) : null;
+    const stationCountry = stationPrefix?.country || '';
+    const stationContinent = normalizeContinent(stationPrefix?.continent || '');
+    return {
+      stationCall,
+      stationPrefixToken: stationPrefix?.prefix || '',
+      stationCountry,
+      stationCountryKey: normalizeCountryName(stationCountry),
+      stationContinent,
+      stationCqZone: stationPrefix?.cqZone || null,
+      stationItuZone: stationPrefix?.ituZone || null,
+      stationIsEu: stationContinent === 'EU',
+      stationIsNa: stationContinent === 'NA',
+      stationIsRu: isCountryRu(stationCountry),
+      stationIsFrench: isCountryFrench(stationCountry),
+      stationIsDl: isCountryDl(stationCountry),
+      stationIsWVe: isCountryUsOrVe(stationCountry),
+      stationPortable: isPortableStation(contestMeta, stationCall)
+    };
+  }
+
+  function makeScoringRuntime(station) {
+    return {
+      station,
+      callContacts: new Map(),
+      callBandModes: new Map(),
+      zoneBandSeen: new Set(),
+      rfSubjectSeen: new Set(),
+      unknownWhen: new Set(),
+      unknownMultiplier: new Set()
+    };
+  }
+
+  function buildQsoScoringFacts(q, station, runtime) {
+    const call = normalizeCall(q?.call);
+    const prefix = call ? lookupPrefix(call) : null;
+    const qCountry = q?.country || prefix?.country || '';
+    const qCountryKey = normalizeCountryName(qCountry);
+    const qContinent = normalizeContinent(q?.continent || prefix?.continent || '');
+    const qCqZone = q?.cqZone != null ? q.cqZone : (prefix?.cqZone || null);
+    const qItuZone = q?.ituZone != null ? q.ituZone : (prefix?.ituZone || null);
+    const sameCountry = Boolean(station.stationCountryKey && qCountryKey && station.stationCountryKey === qCountryKey);
+    const sameContinent = Boolean(station.stationContinent && qContinent && station.stationContinent === qContinent);
+    const exchangeTokens = extractExchangeTokens(q);
+    const bandNorm = normalizeBandToken(q?.band);
+    const modeKey = modeKeyForScoring(q?.mode);
+    const bandModeKey = `${bandNorm}|${modeKey}`;
+    const seenCount = runtime.callContacts.get(call) || 0;
+    const seenBandModes = runtime.callBandModes.get(call) || new Set();
+    const zoneBandKey = (qCqZone != null && bandNorm) ? `${bandNorm}|${qCqZone}` : '';
+    const rfSubject = exchangeTokens[0] || '';
+    const qPrefixToken = prefix?.prefix || '';
+    return {
+      q,
+      call,
+      validQso: Boolean(call),
+      qCountry,
+      qCountryKey,
+      qContinent,
+      qCqZone,
+      qItuZone,
+      qIsEu: qContinent === 'EU',
+      qIsNa: qContinent === 'NA',
+      qIsRu: isCountryRu(qCountry),
+      qIsFrench: isCountryFrench(qCountry),
+      qIsDl: isCountryDl(qCountry),
+      qIsWVe: isCountryUsOrVe(qCountry),
+      sameCountry,
+      sameContinent,
+      differentContinent: Boolean(station.stationContinent && qContinent && station.stationContinent !== qContinent),
+      differentCqZone: qCqZone != null && station.stationCqZone != null && Number(qCqZone) !== Number(station.stationCqZone),
+      differentItuZone: qItuZone != null && station.stationItuZone != null && Number(qItuZone) !== Number(station.stationItuZone),
+      exchangeTokens,
+      exchangePrimary: exchangeTokens[0] || '',
+      exchangeWVeQth: extractWVeQth(exchangeTokens),
+      exchangeDok: extractDokToken(exchangeTokens),
+      exchangeRda: extractRdaToken(exchangeTokens),
+      exchangeRccNumber: extractRccNumber(exchangeTokens),
+      exchangeTeamCode: extractTeamCode(exchangeTokens),
+      exchangeYear: extractYearToken(exchangeTokens),
+      exchangeRegion: extractRegionToken(exchangeTokens),
+      bandNorm,
+      modeKey,
+      bandModeKey,
+      isQtc: Boolean(q?.isQtc),
+      isSatellite: bandNorm === 'LIGHT' || normalizeMode(q?.mode).includes('SAT'),
+      isMaritime: /\/MM/.test(call),
+      qPortable: /\/P|\/M/.test(call),
+      wpx: q?.wpxPrefix || wpxPrefix(call),
+      samePrefix: Boolean(station.stationPrefixToken && qPrefixToken && station.stationPrefixToken === qPrefixToken),
+      seenCount,
+      isNewBandModeForCall: Boolean(call) && !seenBandModes.has(bandModeKey),
+      isNewZoneOnBand: Boolean(zoneBandKey) && !runtime.zoneBandSeen.has(zoneBandKey),
+      zoneBandKey,
+      rfSubject,
+      isNewRfSubject: Boolean(rfSubject) && !runtime.rfSubjectSeen.has(rfSubject),
+      isRccMember: /RCC|RC\d{1,3}/.test(exchangeTokens.join(' ')),
+      isRrtcTeam: /^[A-Z]{2}\d{1,2}$/.test(exchangeTokens[0] || '')
+    };
+  }
+
+  function markScoringRuntime(facts, runtime) {
+    if (!facts.call) return;
+    runtime.callContacts.set(facts.call, facts.seenCount + 1);
+    const set = runtime.callBandModes.get(facts.call) || new Set();
+    set.add(facts.bandModeKey);
+    runtime.callBandModes.set(facts.call, set);
+    if (facts.zoneBandKey) runtime.zoneBandSeen.add(facts.zoneBandKey);
+    if (facts.rfSubject) runtime.rfSubjectSeen.add(facts.rfSubject);
+  }
+
+  function evaluateScoringCondition(when, facts, runtime, assumptions) {
+    switch (when) {
+      case 'any_valid_qso':
+      case 'valid_qso':
+        return facts.validQso;
+      case 'valid_qtc_sent_or_received':
+        return facts.validQso && facts.isQtc;
+      case 'same_country':
+        return facts.sameCountry;
+      case 'same_country_same_prefix':
+        return facts.sameCountry && facts.samePrefix;
+      case 'same_country_different_prefix_or_same_continent_different_country':
+        return (facts.sameCountry && !facts.samePrefix) || (facts.sameContinent && !facts.sameCountry);
+      case 'same_continent_different_country':
+      case 'different_country_same_continent':
+        return facts.sameContinent && !facts.sameCountry;
+      case 'same_continent_different_itu_zone':
+        return facts.sameContinent && !facts.sameCountry && facts.differentItuZone;
+      case 'different_continent':
+        return facts.differentContinent;
+      case 'different_continent_and_zone':
+        return facts.differentContinent && facts.differentCqZone;
+      case 'non_eu_same_country':
+        return !runtime.station.stationIsEu && facts.sameCountry;
+      case 'non_eu_other_country_same_continent':
+      case 'same_continent_non_member':
+        return !runtime.station.stationIsEu && facts.sameContinent && !facts.sameCountry;
+      case 'non_eu_other_continent':
+      case 'different_continent_non_member':
+        return !runtime.station.stationIsEu && facts.differentContinent;
+      case 'non_eu_to_eu':
+        return !runtime.station.stationIsEu && facts.qIsEu;
+      case 'eu_to_eu_other_country':
+      case 'eu_or_east_med_to_eu_or_east_med':
+        return runtime.station.stationIsEu && facts.qIsEu && !facts.sameCountry;
+      case 'eu_to_own_country':
+        return runtime.station.stationIsEu && facts.sameCountry;
+      case 'eu_to_non_eu_same_continent':
+        return runtime.station.stationIsEu && !facts.qIsEu && facts.sameContinent;
+      case 'eu_to_other_continent':
+      case 'eu_or_east_med_to_other_continent':
+        return runtime.station.stationIsEu && facts.differentContinent;
+      case 'ru_to_ru_same_continent':
+        return runtime.station.stationIsRu && facts.qIsRu && facts.sameContinent;
+      case 'ru_to_ru_other_continent':
+        return runtime.station.stationIsRu && facts.qIsRu && facts.differentContinent;
+      case 'ru_to_other_country_same_continent':
+        return runtime.station.stationIsRu && !facts.qIsRu && facts.sameContinent;
+      case 'ru_to_other_continent':
+        return runtime.station.stationIsRu && facts.differentContinent;
+      case 'non_ru_same_country':
+        return !runtime.station.stationIsRu && facts.sameCountry;
+      case 'non_ru_same_continent_other_country':
+        return !runtime.station.stationIsRu && facts.sameContinent && !facts.sameCountry;
+      case 'non_ru_other_continent':
+        return !runtime.station.stationIsRu && facts.differentContinent;
+      case 'non_ru_to_ru':
+        return !runtime.station.stationIsRu && facts.qIsRu;
+      case 'fixed_eu':
+        return !runtime.station.stationPortable && runtime.station.stationIsEu;
+      case 'fixed_outside_eu':
+        return !runtime.station.stationPortable && !runtime.station.stationIsEu;
+      case 'portable_eu':
+        return runtime.station.stationPortable && runtime.station.stationIsEu;
+      case 'portable_outside_eu':
+        return runtime.station.stationPortable && !runtime.station.stationIsEu;
+      case 'fixed_to_fixed':
+        return !runtime.station.stationPortable && !facts.qPortable;
+      case 'dl_station_working_dl':
+        return runtime.station.stationIsDl && facts.qIsDl;
+      case 'dl_station_working_europe_non_dl':
+        return runtime.station.stationIsDl && facts.qIsEu && !facts.qIsDl;
+      case 'dl_station_working_dx':
+        return runtime.station.stationIsDl && !facts.qIsEu;
+      case 'non_dl_station_any_valid_qso':
+        return !runtime.station.stationIsDl && facts.validQso;
+      case 'french_station_to_foreign_same_continent':
+        return runtime.station.stationIsFrench && !facts.qIsFrench && facts.sameContinent;
+      case 'french_station_to_foreign_other_continent':
+        return runtime.station.stationIsFrench && !facts.qIsFrench && facts.differentContinent;
+      case 'french_station_to_french_same_continent':
+        return runtime.station.stationIsFrench && facts.qIsFrench && facts.sameContinent;
+      case 'french_station_to_french_other_continent':
+        return runtime.station.stationIsFrench && facts.qIsFrench && facts.differentContinent;
+      case 'non_french_station_to_french_same_continent':
+        return !runtime.station.stationIsFrench && facts.qIsFrench && facts.sameContinent;
+      case 'non_french_station_to_french_other_continent':
+        return !runtime.station.stationIsFrench && facts.qIsFrench && facts.differentContinent;
+      case 'same_p150_country':
+        return facts.sameCountry;
+      case 'with_rcc_member_station':
+        return facts.isRccMember;
+      case 'with_rrtc_team_station':
+        return facts.isRrtcTeam;
+      case 'with_non_team_same_itu_zone':
+        return !facts.isRrtcTeam && !facts.differentItuZone;
+      case 'with_non_team_different_itu_zone':
+        return !facts.isRrtcTeam && facts.differentItuZone;
+      case 'special_station_ok5o':
+        return facts.call === 'OK5O';
+      case 'iss_rs0iss':
+        return facts.call === 'RS0ISS';
+      case 'maritime_mobile':
+        return facts.isMaritime;
+      case 'satellite_qso':
+        return facts.isSatellite;
+      case 'first_contact_with_callsign':
+        return facts.seenCount === 0;
+      case 'second_contact_with_callsign_new_band_or_mode':
+        return facts.seenCount === 1 && facts.isNewBandModeForCall;
+      case 'third_contact_with_callsign_new_band_or_mode':
+        return facts.seenCount === 2 && facts.isNewBandModeForCall;
+      case 'new_zone_on_band':
+        return facts.isNewZoneOnBand;
+      case 'new_rf_subject_once_contest':
+        return facts.isNewRfSubject;
+      case 'other_pairs':
+        return facts.validQso;
+      default:
+        if (!runtime.unknownWhen.has(when)) {
+          runtime.unknownWhen.add(when);
+          assumptions.add(`Unhandled scoring condition: ${when}`);
+        }
+        return false;
+    }
+  }
+
+  function pointsFromConditionRules(rules, facts, runtime, assumptions) {
+    if (!Array.isArray(rules)) return null;
+    for (const row of rules) {
+      const points = Number(row?.points);
+      if (!Number.isFinite(points)) continue;
+      if (!evaluateScoringCondition(String(row?.when || ''), facts, runtime, assumptions)) continue;
+      return points;
+    }
+    return null;
+  }
+
+  function computeRuleQsoPoints(rule, qsos, station, assumptions) {
+    const runtime = makeScoringRuntime(station);
+    const model = String(rule?.qso_points?.model || '').trim();
+    const pointsByIndex = new Array((qsos || []).length).fill(0);
+    let qsoPointsTotal = 0;
+    let weightedQsoPointsTotal = 0;
+    let qsoCount = 0;
+    let qtcCount = 0;
+    let matrixBasePoints = 0;
+    let newZoneBonus = 0;
+    let newRegionBonus = 0;
+    const modePoints = { CW: 0, SSB: 0, DIG: 0 };
+    const uniqueCalls = new Set();
+    const handledTableModels = new Set([
+      'table_by_geography',
+      'table_by_portable_status_and_geography',
+      'table_by_station_region',
+      'table_by_station_region_and_geography',
+      'table_by_eu_membership_and_geography',
+      'table_by_region_pairing',
+      'table_by_country_prefix_continent',
+      'table_by_ru_status_and_geography',
+      'table_by_ru_non_ru',
+      'table_by_station_type_and_itu_relation',
+      'table_with_member_bonus'
+    ]);
+
+    (qsos || []).forEach((q, idx) => {
+      const facts = buildQsoScoringFacts(q, station, runtime);
+      if (facts.call) uniqueCalls.add(facts.call);
+      let points = null;
+      if (handledTableModels.has(model)) {
+        points = pointsFromConditionRules(rule?.qso_points?.rules, facts, runtime, assumptions);
+      } else if (model === 'table_by_geography_and_band_group') {
+        const groups = rule?.qso_points?.band_groups || {};
+        const isLowBand = ['160M', '80M', '40M'].includes(facts.bandNorm);
+        const low = groups.low_bands_40_80_160 || groups.low_bands_40_80 || null;
+        const high = groups.high_bands_10_15_20 || null;
+        const table = isLowBand ? low : high;
+        if (table) {
+          if (facts.differentContinent) points = Number(table.different_continent);
+          else if (facts.sameCountry) points = Number(table.same_country);
+          else if (facts.sameContinent) {
+            if (facts.qIsNa && station.stationIsNa && Number.isFinite(Number(table.na_intra_continent_exception))) {
+              points = Number(table.na_intra_continent_exception);
+            } else {
+              points = Number(table.same_continent_different_country);
+            }
+          }
+        }
+      } else if (model === 'table_by_band_group') {
+        const groups = rule?.qso_points?.band_groups || {};
+        if (['160M', '80M', '40M'].includes(facts.bandNorm)) points = Number(groups['160_80_40']);
+        else points = Number(groups['20_15_10']);
+      } else if (model === 'by_mode') {
+        const rows = Array.isArray(rule?.qso_points?.rules) ? rule.qso_points.rules : [];
+        const key = normalizeMode(q?.mode);
+        const row = rows.find((r) => normalizeMode(r?.mode) === key) || rows.find((r) => modeKeyForScoring(r?.mode) === facts.modeKey);
+        points = Number(row?.points);
+      } else if (model === 'fixed') {
+        points = Number(rule?.qso_points?.rules?.[0]?.points);
+      } else if (model === 'qso_and_qtc_units') {
+        points = facts.validQso ? 1 : 0;
+        if (facts.isQtc) qtcCount += 1;
+      } else if (model === 'zone_matrix_plus_bonuses') {
+        const base = facts.validQso ? (facts.differentContinent && facts.differentCqZone ? 2 : 1) : 0;
+        points = base;
+        matrixBasePoints += base;
+        const bonuses = Array.isArray(rule?.qso_points?.bonuses) ? rule.qso_points.bonuses : [];
+        bonuses.forEach((bonus) => {
+          if (!evaluateScoringCondition(String(bonus?.when || ''), facts, runtime, assumptions)) return;
+          const b = Number(bonus?.points);
+          if (!Number.isFinite(b)) return;
+          points += b;
+          if (String(bonus.when) === 'new_zone_on_band') newZoneBonus += b;
+          else newRegionBonus += b;
+        });
+      } else if (model === 'progressive_per_callsign_plus_geography_bonus') {
+        const base = pointsFromConditionRules(rule?.qso_points?.rules, facts, runtime, assumptions);
+        const modeCoefficients = rule?.qso_points?.mode_coefficients || {};
+        const modeCoeff = Number(modeCoefficients[facts.modeKey] ?? 1);
+        points = Number.isFinite(base) ? (base * modeCoeff) : null;
+        const bonuses = Array.isArray(rule?.qso_points?.geography_bonus) ? rule.qso_points.geography_bonus : [];
+        bonuses.forEach((row) => {
+          if (!evaluateScoringCondition(String(row?.when || ''), facts, runtime, assumptions)) return;
+          const b = Number(row?.bonus);
+          if (!Number.isFinite(b)) return;
+          points = (Number.isFinite(points) ? points : 0) + b;
+        });
+      } else if (model === 'base_points_with_band_and_mode_coefficients') {
+        const base = pointsFromConditionRules(rule?.qso_points?.base_rules, facts, runtime, assumptions);
+        const bandCoeff = lookupBandCoefficient(rule?.qso_points?.band_coefficients, facts.bandNorm);
+        const modeCoeffs = rule?.qso_points?.mode_coefficients || {};
+        const modeCoeff = Number(modeCoeffs[facts.modeKey] ?? 1);
+        points = Number.isFinite(base) ? (base * bandCoeff * modeCoeff) : null;
+      }
+      if (!Number.isFinite(points)) {
+        if (!model) assumptions.add('Missing qso_points.model, using logged points fallback.');
+        else assumptions.add(`Scoring model fallback used for ${model}.`);
+        points = Number.isFinite(q?.points) ? q.points : 0;
+      }
+      pointsByIndex[idx] = points;
+      qsoPointsTotal += points;
+      weightedQsoPointsTotal += points;
+      if (!facts.isQtc && facts.validQso) qsoCount += 1;
+      modePoints[facts.modeKey] = (modePoints[facts.modeKey] || 0) + points;
+      markScoringRuntime(facts, runtime);
+    });
+
+    return {
+      pointsByIndex,
+      qsoPointsTotal,
+      weightedQsoPointsTotal,
+      qsoCount,
+      qtcCount,
+      modePoints,
+      uniqueCallCount: uniqueCalls.size,
+      matrixBasePoints,
+      newZoneBonus,
+      newRegionBonus
+    };
+  }
+
+  function getMultiplierValue(group, facts, station, runtime, assumptions) {
+    switch (group) {
+      case 'country':
+      case 'country_for_ru_entries':
+      case 'dxcc_country':
+      case 'dxcc_entities_for_french_entries':
+      case 'dl_station_uses_country_entities':
+      case 'wae_country_or_dxcc_set_by_station_region':
+        return facts.qCountryKey || '';
+      case 'cq_zone':
+        return facts.qCqZone != null ? String(facts.qCqZone) : '';
+      case 'cq_zone_except_own':
+        if (facts.qCqZone == null || station.stationCqZone == null) return '';
+        return Number(facts.qCqZone) === Number(station.stationCqZone) ? '' : String(facts.qCqZone);
+      case 'itu_zone':
+        return facts.qItuZone != null ? String(facts.qItuZone) : '';
+      case 'itu_zone_plus_locator_sector': {
+        const grid = String(facts.q?.grid || '').slice(0, 2).toUpperCase();
+        return facts.qItuZone != null ? `${facts.qItuZone}|${grid}` : '';
+      }
+      case 'w_ve_qth':
+      case 'us_states_dc':
+      case 've_provinces_areas':
+        return facts.exchangeWVeQth || '';
+      case 'wpx_prefix':
+        return facts.wpx || '';
+      case 'prefix_within_zone':
+        return (facts.wpx && facts.qCqZone != null) ? `${facts.wpx}|${facts.qCqZone}` : '';
+      case 'ok_district':
+      case 'om_district':
+      case 'non_dl_station_uses_dok_districts':
+        return facts.exchangeDok || '';
+      case 'rda_district':
+      case 'russian_oblast':
+        return facts.exchangeRda || '';
+      case 'rcc_number':
+        return facts.exchangeRccNumber || '';
+      case 'rrtc_team_code':
+        return facts.exchangeTeamCode || '';
+      case 'special_station_abbreviation':
+      case 'departments_and_special_prefixes':
+      case 'eu_region_code':
+        return facts.exchangeRegion || '';
+      case 'unique_year_number_exchange':
+        return facts.exchangeYear || '';
+      case 'unique_callsign':
+        return facts.call || '';
+      default:
+        if (!runtime.unknownMultiplier.has(group)) {
+          runtime.unknownMultiplier.add(group);
+          assumptions.add(`Unhandled multiplier group: ${group}`);
+        }
+        return '';
+    }
+  }
+
+  function computeRuleMultipliers(rule, qsos, station, pointState, assumptions) {
+    const model = String(rule?.multipliers?.model || '');
+    const groups = Array.isArray(rule?.multipliers?.groups) ? rule.multipliers.groups : [];
+    const scope = String(rule?.multipliers?.counting_scope || 'once_total');
+    const bandWeights = rule?.multipliers?.band_weights || {};
+    const runtime = makeScoringRuntime(station);
+    const perGroup = new Map();
+    const groupCounts = {};
+    let weightedTotal = 0;
+    const modeMultiplierSets = { CW: new Set(), SSB: new Set(), DIG: new Set() };
+
+    (qsos || []).forEach((q, idx) => {
+      if ((pointState?.pointsByIndex?.[idx] || 0) <= 0) {
+        markScoringRuntime(buildQsoScoringFacts(q, station, runtime), runtime);
+        return;
+      }
+      const facts = buildQsoScoringFacts(q, station, runtime);
+      groups.forEach((group) => {
+        const value = getMultiplierValue(group, facts, station, runtime, assumptions);
+        if (!value) return;
+        let scopeKey = 'ALL';
+        if (scope === 'per_band') scopeKey = facts.bandNorm || 'UNKNOWN';
+        if (scope === 'per_band_per_mode') scopeKey = `${facts.bandNorm || 'UNKNOWN'}|${facts.modeKey}`;
+        const uniqueKey = `${scopeKey}|${value}`;
+        const set = perGroup.get(group) || new Set();
+        if (set.has(uniqueKey)) return;
+        set.add(uniqueKey);
+        perGroup.set(group, set);
+        groupCounts[group] = (groupCounts[group] || 0) + 1;
+        modeMultiplierSets[facts.modeKey].add(uniqueKey);
+        if (model === 'weighted_mults' && scope === 'per_band') {
+          const w = lookupBandCoefficient(bandWeights, facts.bandNorm);
+          weightedTotal += Number.isFinite(w) ? w : 1;
+        }
+      });
+      markScoringRuntime(facts, runtime);
+    });
+
+    const total = Object.values(groupCounts).reduce((acc, n) => acc + (Number(n) || 0), 0);
+    let multiplierTotal = total;
+    if (model === 'single_group') multiplierTotal = Number(groupCounts[groups[0]] || 0);
+    if (model === 'none_multiplicative') multiplierTotal = 0;
+    if (model === 'weighted_mults') multiplierTotal = weightedTotal > 0 ? weightedTotal : total;
+
+    return {
+      groupCounts,
+      total: multiplierTotal,
+      weightedTotal: weightedTotal > 0 ? weightedTotal : multiplierTotal,
+      modeCounts: {
+        CW: modeMultiplierSets.CW.size,
+        SSB: modeMultiplierSets.SSB.size,
+        DIG: modeMultiplierSets.DIG.size
+      }
+    };
+  }
+
+  function evalNumericExpression(expression, vars) {
+    const safe = String(expression || '').replace(/[^A-Za-z0-9_+\-*/().\s]/g, ' ');
+    const replaced = safe.replace(/\b[A-Za-z_][A-Za-z0-9_]*\b/g, (name) => {
+      const val = Number(vars[name]);
+      return Number.isFinite(val) ? String(val) : '0';
+    });
+    try {
+      const out = Function(`"use strict"; return (${replaced});`)();
+      return Number.isFinite(out) ? Math.round(out) : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function evaluateRuleFormula(rule, pointState, multState, station, assumptions) {
+    const vars = {
+      qso_points_total: pointState.qsoPointsTotal || 0,
+      weighted_qso_points_total: pointState.weightedQsoPointsTotal || pointState.qsoPointsTotal || 0,
+      qso_count: pointState.qsoCount || 0,
+      qtc_count: pointState.qtcCount || 0,
+      cw_points: pointState.modePoints?.CW || 0,
+      ssb_points: pointState.modePoints?.SSB || 0,
+      multipliers_total: multState.total || 0,
+      weighted_multiplier_sum: multState.weightedTotal || multState.total || 0,
+      cq_zone_mults: multState.groupCounts?.cq_zone || 0,
+      country_mults:
+        (multState.groupCounts?.country || 0)
+        + (multState.groupCounts?.dxcc_country || 0)
+        + (multState.groupCounts?.country_for_ru_entries || 0),
+      w_ve_qth_mults:
+        (multState.groupCounts?.w_ve_qth || 0)
+        + (multState.groupCounts?.us_states_dc || 0)
+        + (multState.groupCounts?.ve_provinces_areas || 0),
+      wpx_prefix_mults: multState.groupCounts?.wpx_prefix || 0,
+      eu_region_mults: multState.groupCounts?.eu_region_code || 0,
+      oblast_mults: multState.groupCounts?.russian_oblast || 0,
+      rda_mults: multState.groupCounts?.rda_district || 0,
+      cw_mults: multState.modeCounts?.CW || 0,
+      ssb_mults: multState.modeCounts?.SSB || 0,
+      unique_callsigns: multState.groupCounts?.unique_callsign || pointState.uniqueCallCount || 0,
+      section_mults:
+        (multState.groupCounts?.us_states_dc || 0)
+        + (multState.groupCounts?.ve_provinces_areas || 0)
+        + (multState.groupCounts?.w_ve_qth || 0),
+      matrix_base_points: pointState.matrixBasePoints || 0,
+      new_zone_bonus: pointState.newZoneBonus || 0,
+      new_region_bonus: pointState.newRegionBonus || 0
+    };
+    const formulaRaw = String(rule?.formula || '').trim();
+    if (!formulaRaw) {
+      if (String(rule?.multipliers?.model || '') === 'none_multiplicative') {
+        return (vars.matrix_base_points + vars.new_zone_bonus + vars.new_region_bonus);
+      }
+      if (vars.multipliers_total > 0) return vars.qso_points_total * vars.multipliers_total;
+      return vars.qso_points_total;
+    }
+    let expression = formulaRaw;
+    if (formulaRaw.includes(';')) {
+      const parts = formulaRaw.split(';').map((p) => p.trim()).filter(Boolean);
+      const selected = station.stationIsRu
+        ? (parts.find((p) => p.toLowerCase().includes('ru_score')) || parts[parts.length - 1])
+        : (parts.find((p) => p.toLowerCase().includes('non_ru_score')) || parts[0]);
+      expression = selected || formulaRaw;
+    }
+    if (expression.includes('=')) {
+      expression = expression.split('=').slice(1).join('=').trim();
+    }
+    const score = evalNumericExpression(expression, vars);
+    if (score == null) {
+      assumptions.add(`Formula evaluation fallback used: ${formulaRaw}`);
+      if (vars.multipliers_total > 0) return vars.qso_points_total * vars.multipliers_total;
+      return vars.qso_points_total;
+    }
+    return score;
+  }
+
+  function scoreFromRule(rule, qsos, contestMeta, assumptions) {
+    const station = buildStationScoringProfile(qsos, contestMeta);
+    const pointState = computeRuleQsoPoints(rule, qsos, station, assumptions);
+    const multState = computeRuleMultipliers(rule, qsos, station, pointState, assumptions);
+    const computedScore = evaluateRuleFormula(rule, pointState, multState, station, assumptions);
+    return {
+      station,
+      pointState,
+      multState,
+      computedScore
+    };
+  }
+
   function computeContestScoringSummary(qsos, contestMeta, context = {}) {
     const loggedPointsTotal = computeLoggedPointsTotal(qsos);
     const claimedScoreHeader = parseClaimedScoreNumber(contestMeta?.claimedScore);
@@ -2398,27 +3111,61 @@
         scoreDeltaAbs: null,
         scoreDeltaPct: null,
         effectivePointsSource: loggedPointsTotal > 0 ? 'logged' : 'none',
-        bundle: null
+        bundle: null,
+        computedPointsByIndex: []
       };
     }
+    const assumptions = new Set(Array.isArray(resolved.assumptions) ? resolved.assumptions : []);
+    if (resolved.rule?.bundle === true) {
+      assumptions.add('Bundle contest scoring currently uses logged points fallback until subevent scoring is finalized.');
+      return {
+        supported: true,
+        confidence: resolved.confidence || 'unknown',
+        warning: '',
+        assumptions: Array.from(assumptions),
+        detectionMethod: resolved.detectionMethod || '',
+        detectionValue: resolved.detectionValue || '',
+        ruleId: resolved.ruleId || '',
+        ruleName: resolved.rule?.name || resolved.ruleId || '',
+        claimedScoreHeader,
+        loggedPointsTotal,
+        computedQsoPointsTotal: null,
+        computedMultiplierTotal: null,
+        computedScore: null,
+        scoreDeltaAbs: null,
+        scoreDeltaPct: null,
+        effectivePointsSource: loggedPointsTotal > 0 ? 'logged' : 'none',
+        bundle: resolved.bundle || null,
+        computedPointsByIndex: []
+      };
+    }
+    const scored = scoreFromRule(resolved.rule, qsos, contestMeta, assumptions);
+    const computedScore = Number.isFinite(scored.computedScore) ? Math.round(scored.computedScore) : null;
+    const deltaAbs = (computedScore != null && Number.isFinite(claimedScoreHeader))
+      ? computedScore - claimedScoreHeader
+      : null;
+    const deltaPct = (deltaAbs != null && Number.isFinite(claimedScoreHeader) && claimedScoreHeader !== 0)
+      ? (deltaAbs / claimedScoreHeader) * 100
+      : null;
     return {
       supported: true,
       confidence: resolved.confidence || 'unknown',
       warning: '',
-      assumptions: Array.isArray(resolved.assumptions) ? resolved.assumptions : [],
+      assumptions: Array.from(assumptions),
       detectionMethod: resolved.detectionMethod || '',
       detectionValue: resolved.detectionValue || '',
       ruleId: resolved.ruleId || '',
       ruleName: resolved.rule?.name || resolved.ruleId || '',
       claimedScoreHeader,
       loggedPointsTotal,
-      computedQsoPointsTotal: null,
-      computedMultiplierTotal: null,
-      computedScore: null,
-      scoreDeltaAbs: null,
-      scoreDeltaPct: null,
-      effectivePointsSource: 'logged',
-      bundle: resolved.bundle || null
+      computedQsoPointsTotal: Math.round(scored.pointState.qsoPointsTotal || 0),
+      computedMultiplierTotal: Number(scored.multState.total || 0),
+      computedScore,
+      scoreDeltaAbs: deltaAbs,
+      scoreDeltaPct: deltaPct,
+      effectivePointsSource: computedScore != null ? 'computed' : (loggedPointsTotal > 0 ? 'logged' : 'none'),
+      bundle: resolved.bundle || null,
+      computedPointsByIndex: Array.isArray(scored.pointState.pointsByIndex) ? scored.pointState.pointsByIndex : []
     };
   }
 

@@ -8,7 +8,6 @@
     { id: 'operators', title: 'Operators' },
     { id: 'all_callsigns', title: 'All callsigns' },
     { id: 'rates', title: 'Rates' },
-    { id: 'points_rates', title: 'Points rates' },
     { id: 'countries', title: 'Countries' },
     { id: 'countries_by_time', title: 'Countries by time' },
     { id: 'qs_per_station', title: 'Qs per station' },
@@ -16,6 +15,8 @@
     { id: 'dupes', title: 'Dupes' },
     { id: 'qs_by_hour_sheet', title: 'Qs by hour sheet' },
     { id: 'graphs_qs_by_hour', title: 'Qs by hour' },
+    { id: 'points_by_hour_sheet', title: 'Points by hour sheet' },
+    { id: 'graphs_points_by_hour', title: 'Points by hour' },
     { id: 'qs_by_minute', title: 'Qs by minute' },
     { id: 'points_by_minute', title: 'Points by minute' },
     { id: 'one_minute_rates', title: 'One minute rates' },
@@ -1621,6 +1622,12 @@
       parentId: 'graphs_qs_by_hour',
       band
     }));
+    const pointsByHourChildren = bands.map((band) => ({
+      id: `graphs_points_by_hour::${band}`,
+      title: `Points by hour - ${formatBandLabel(band)}`,
+      parentId: 'graphs_points_by_hour',
+      band
+    }));
     const list = [];
     BASE_REPORTS.forEach((r) => {
       list.push(r);
@@ -1629,6 +1636,9 @@
       }
       if (r.id === 'graphs_qs_by_hour') {
         list.push(...qsByHourChildren);
+      }
+      if (r.id === 'graphs_points_by_hour') {
+        list.push(...pointsByHourChildren);
       }
     });
     return list;
@@ -9583,6 +9593,7 @@
           qsos: 0,
           points: 0,
           bands: new Map(),
+          bandPoints: new Map(),
           sampleTs: q.ts
         });
       }
@@ -9591,7 +9602,12 @@
       const points = Array.isArray(pointsByIndex) ? Number(pointsByIndex[idx]) : Number(q.points);
       if (Number.isFinite(points)) entry.points += points;
       const bandKey = q.band ? normalizeBandToken(q.band) : '';
-      if (bandKey) entry.bands.set(bandKey, (entry.bands.get(bandKey) || 0) + 1);
+      if (bandKey) {
+        entry.bands.set(bandKey, (entry.bands.get(bandKey) || 0) + 1);
+        if (Number.isFinite(points)) {
+          entry.bandPoints.set(bandKey, (entry.bandPoints.get(bandKey) || 0) + points);
+        }
+      }
     });
     return map;
   }
@@ -9686,9 +9702,80 @@
     return renderComparePanels(slots, htmlBlocks, 'qs_by_hour_sheet');
   }
 
-  function renderRates() {
-    if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'rates', title: 'Rates' });
+  function renderPointsByHourSheetForSlot(slot, keyOrder, bucketMap) {
+    if (!slot || !slot.derived) return '<p>No log loaded.</p>';
+    const bandCols = getDisplayBandList();
+    const pointCols = bandCols.length + 4;
+    let accum = 0;
+    let lastDay = null;
+    const rows = keyOrder.map((key, idx) => {
+      const entry = bucketMap.get(key);
+      const day = entry ? entry.day : Number(String(key).split('-')[0]);
+      const hour = entry ? entry.hour : Number(String(key).split('-')[1]);
+      const dayLabel = day !== lastDay ? (WEEKDAY_LABELS[day] || '') : '';
+      lastDay = day;
+      const cells = bandCols.map((b) => {
+        const points = entry ? (entry.bandPoints?.get(b) || 0) : 0;
+        if (!points) return '<td></td>';
+        const hourBucket = entry ? Math.floor(entry.sampleTs / 3600000) : null;
+        return hourBucket != null
+          ? `<td><a href="#" class="log-hour-band" data-hour="${hourBucket}" data-band="${b}">${formatPointValue(points)}</a></td>`
+          : `<td>${formatPointValue(points)}</td>`;
+      }).join('');
+      const pts = entry ? entry.points : 0;
+      accum += pts;
+      const qsos = entry ? entry.qsos : 0;
+      const avgPts = pts && qsos ? (pts / qsos).toFixed(1) : '';
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      const hourLabel = `${String(hour).padStart(2, '0')}:00Z`;
+      const hourBucket = entry ? Math.floor(entry.sampleTs / 3600000) : null;
+      const allLink = pts && hourBucket != null
+        ? `<a href="#" class="log-hour" data-hour="${hourBucket}"><b>${formatPointValue(pts)}</b></a>`
+        : (pts ? `<b>${formatPointValue(pts)}</b>` : '');
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hourLabel}</b></td>${cells}<td>${allLink}</td><td>${formatPointValue(accum || '')}</td><td>${formatNumberSh6(qsos || '')}</td><td>${avgPts}</td></tr>`;
+    }).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc">
+          <th rowspan="2">Day</th>
+          <th rowspan="2">Hour</th>
+          <th colspan="${pointCols}">Points</th>
+        </tr>
+        <tr class="thc">
+          ${bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('')}
+          <th>All</th><th>Accum.</th><th>QSOs</th><th>Avg. Pts</th>
+        </tr>
+        ${rows}
+      </table>
+    `;
+  }
+
+  function renderPointsByHourSheet() {
+    if (!state.derived || !state.derived.hourPointSeries) {
+      return renderPlaceholder({ id: 'points_by_hour_sheet', title: 'Points by hour sheet' });
+    }
     const qsos = state.qsoData?.qsos || [];
+    const pointsByIndex = getEffectivePointsByIndex(state.derived, qsos);
+    const map = buildHourBucketMap(qsos, pointsByIndex);
+    const order = buildHourKeyOrderFromMapsList([map], [qsos]);
+    if (!order.length) return '<p>No points to analyze.</p>';
+    return renderPointsByHourSheetForSlot({ derived: state.derived }, order, map);
+  }
+
+  function renderPointsByHourSheetCompare() {
+    const slots = getActiveCompareSnapshots();
+    const maps = slots.map((entry) => buildHourBucketMap(
+      entry.snapshot.qsoData?.qsos || [],
+      getEffectivePointsByIndex(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [])
+    ));
+    const order = buildHourKeyOrderFromMapsList(maps, slots.map((entry) => entry.snapshot.qsoData?.qsos || []));
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready ? renderPointsByHourSheetForSlot(entry.snapshot, order, maps[idx]) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'points_by_hour_sheet');
+  }
+
+  function renderQsoRatesForData(qsos) {
     const windows = [10, 20, 30, 60, 120];
     const rows = windows.map((mins, idx) => {
       const peak = computePeakWindow(qsos, mins);
@@ -9728,6 +9815,17 @@
         </div>
         ${rows}
       </div>
+    `;
+  }
+
+  function renderRates() {
+    if (!state.derived) return renderPlaceholder({ id: 'rates', title: 'Rates' });
+    const qsos = state.qsoData?.qsos || [];
+    return `
+      <div class="gradient">&nbsp;QSO rates</div>
+      ${renderQsoRatesForData(qsos)}
+      <div class="gradient rates-subhead">&nbsp;Point rates</div>
+      ${renderPointsRatesForData(state.derived, qsos)}
     `;
   }
 
@@ -9793,7 +9891,7 @@
       `;
     }).join('');
     return `
-      <div class="rates-grid">
+      <div class="rates-grid rates-grid-points">
         <div class="rates-header thc">
           <div class="rates-cell">Period (min)</div>
           <div class="rates-cell">Points</div>
@@ -9807,11 +9905,6 @@
         ${rows}
       </div>
     `;
-  }
-
-  function renderPointsRates() {
-    if (!state.derived || !state.derived.hourPointSeries) return renderPlaceholder({ id: 'points_rates', title: 'Points rates' });
-    return renderPointsRatesForData(state.derived, state.qsoData?.qsos || []);
   }
 
   function computePeakWindow(qsos, windowMinutes) {
@@ -11448,6 +11541,72 @@
     return renderComparePanels(slots, htmlBlocks, 'graphs_qs_by_hour');
   }
 
+  function renderGraphsPointsByHourForSlot(slot, keyOrder, bucketMap, bandFilter, maxValue) {
+    if (!slot || !slot.derived) return '<p>No log loaded.</p>';
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
+    const rows = keyOrder.map((key, idx) => {
+      const entry = bucketMap.get(key);
+      const day = entry ? entry.day : Number(String(key).split('-')[0]);
+      const hour = entry ? entry.hour : Number(String(key).split('-')[1]);
+      const label = `${WEEKDAY_LABELS[day] || ''} ${String(hour).padStart(2, '0')}:00Z`;
+      const points = entry ? (bandKey ? (entry.bandPoints?.get(bandKey) || 0) : entry.points) : 0;
+      const barWidth = maxValue ? Math.round((points / maxValue) * 100) : 0;
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `
+        <tr class="${cls}">
+          <td>${label}</td>
+          <td>${points ? formatPointValue(points) : ''}</td>
+          <td style="text-align:left"><div class="sum" style="width:${barWidth}%" /></td>
+        </tr>
+      `;
+    }).join('');
+    const subtitle = bandKey ? `Band ${formatBandLabel(bandKey)}` : 'All bands';
+    return `
+      <div class="mtc">
+        <div class="gradient">&nbsp;Points by hour</div>
+        <p>${subtitle}</p>
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>Hour (UTC)</th><th>Points</th><th>&nbsp;</th></tr>
+          ${rows}
+        </table>
+      </div>
+    `;
+  }
+
+  function renderGraphsPointsByHour(bandFilter) {
+    if (!state.derived || !state.derived.hourPointSeries) {
+      return renderPlaceholder({ id: 'graphs_points_by_hour', title: 'Points by hour' });
+    }
+    const qsos = state.qsoData?.qsos || [];
+    const pointsByIndex = getEffectivePointsByIndex(state.derived, qsos);
+    const map = buildHourBucketMap(qsos, pointsByIndex);
+    const order = buildHourKeyOrderFromMapsList([map], [qsos]);
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
+    const values = [];
+    map.forEach((entry) => values.push(bandKey ? (entry.bandPoints?.get(bandKey) || 0) : entry.points));
+    const maxValue = Math.max(1, ...values);
+    return renderGraphsPointsByHourForSlot({ derived: state.derived }, order, map, bandKey, maxValue);
+  }
+
+  function renderGraphsPointsByHourCompare(bandFilter) {
+    const slots = getActiveCompareSnapshots();
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
+    const maps = slots.map((entry) => buildHourBucketMap(
+      entry.snapshot.qsoData?.qsos || [],
+      getEffectivePointsByIndex(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [])
+    ));
+    const order = buildHourKeyOrderFromMapsList(maps, slots.map((entry) => entry.snapshot.qsoData?.qsos || []));
+    const values = [];
+    maps.forEach((map) => {
+      map.forEach((entry) => values.push(bandKey ? (entry.bandPoints?.get(bandKey) || 0) : entry.points));
+    });
+    const maxValue = Math.max(1, ...values);
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready ? renderGraphsPointsByHourForSlot(entry.snapshot, order, maps[idx], bandKey, maxValue) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'graphs_points_by_hour');
+  }
+
   function renderReportSingle(report) {
     return withBandContext(report.id, () => {
       if (report.parentId === 'countries_by_time') {
@@ -11455,6 +11614,9 @@
       }
       if (report.parentId === 'graphs_qs_by_hour') {
         return renderGraphsQsByHour(report.band || null);
+      }
+      if (report.parentId === 'graphs_points_by_hour') {
+        return renderGraphsPointsByHour(report.band || null);
       }
       switch (report.id) {
         case 'load_logs': return renderLoadLogs();
@@ -11471,8 +11633,10 @@
         case 'zones_itu': return renderItuZones();
         case 'qs_by_hour_sheet': return renderQsByHourSheet();
         case 'graphs_qs_by_hour': return renderGraphsQsByHour(null);
+        case 'points_by_hour_sheet': return renderPointsByHourSheet();
+        case 'graphs_points_by_hour': return renderGraphsPointsByHour(null);
         case 'rates': return renderRates();
-        case 'points_rates': return renderPointsRates();
+        case 'points_rates': return renderRates();
         case 'qs_by_minute': return renderQsByMinute();
         case 'points_by_minute': return renderPointsByMinute();
         case 'one_minute_rates': return renderOneMinuteRates();
@@ -11552,12 +11716,14 @@
       case 'dupes': return derived.dupes?.length || 0;
       case 'qs_per_station': return getMaxQsosPerStation(derived) || 0;
       case 'qs_by_hour_sheet': return derived.hourSeries?.length || 0;
+      case 'points_by_hour_sheet': return derived.hourPointSeries?.length || 0;
+      case 'graphs_points_by_hour': return derived.hourPointSeries?.length || 0;
       case 'qs_by_minute': return derived.minuteSeries?.length || 0;
       case 'points_by_minute': return derived.minutePointSeries?.length || 0;
       case 'one_minute_rates': return derived.minuteSeries?.length || 0;
       case 'one_minute_point_rates': return derived.minutePointSeries?.length || 0;
       case 'rates': return derived.hourSeries?.length || 0;
-      case 'points_rates': return derived.hourPointSeries?.length || 0;
+      case 'points_rates': return derived.hourSeries?.length || 0;
       case 'continents': return derived.continentSummary?.length || 0;
       case 'zones_cq': return derived.cqZoneSummary?.length || 0;
       case 'zones_itu': return derived.ituZoneSummary?.length || 0;
@@ -11598,12 +11764,12 @@
       'one_minute_rates',
       'one_minute_point_rates',
       'rates',
-      'points_rates',
       'all_callsigns',
-      'qs_by_hour_sheet'
+      'qs_by_hour_sheet',
+      'points_by_hour_sheet'
     ]);
     const wrapReports = new Set(['one_minute_rates', 'one_minute_point_rates']);
-    const stackReports = new Set(['rates', 'points_rates']);
+    const stackReports = new Set(['rates']);
     const quadReports = new Set([
       'main',
       'summary',
@@ -12077,6 +12243,9 @@
     if (report.parentId === 'graphs_qs_by_hour') {
       return renderGraphsQsByHourCompare(report.band || null);
     }
+    if (report.parentId === 'graphs_points_by_hour') {
+      return renderGraphsPointsByHourCompare(report.band || null);
+    }
     if (report.parentId === 'countries_by_time') {
       return renderCountriesByTimeCompareAligned(report.band || null);
     }
@@ -12097,6 +12266,9 @@
     }
     if (report.id === 'qs_by_hour_sheet') {
       return renderQsByHourSheetCompare();
+    }
+    if (report.id === 'points_by_hour_sheet') {
+      return renderPointsByHourSheetCompare();
     }
     if (report.id === 'qs_by_minute') {
       return renderQsByMinuteCompareAligned();
@@ -12161,6 +12333,9 @@
     }
     if (report.id === 'graphs_qs_by_hour') {
       return renderGraphsQsByHourCompare(null);
+    }
+    if (report.id === 'graphs_points_by_hour') {
+      return renderGraphsPointsByHourCompare(null);
     }
     if (report.id === 'countries_by_time') {
       return renderCountriesByTimeCompareAligned(null);

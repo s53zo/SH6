@@ -1891,6 +1891,10 @@ th {
   font-size: 8pt;
 }
 
+.rates-subhead {
+  margin-top: 10px;
+}
+
 .rates-header,
 .rates-row {
   display: grid;

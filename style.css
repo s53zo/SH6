@@ -305,6 +305,92 @@ a:hover {
   margin: 0;
 }
 
+.spots-heat-cell {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border-radius: 3px;
+  min-width: 24px;
+  padding: 1px 4px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.spots-heat-cell:hover {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.spots-heat-cell.active {
+  border-color: #ffe08a;
+  box-shadow: 0 0 0 1px rgba(255, 224, 138, 0.5);
+  font-weight: 700;
+}
+
+.spots-drill-panel {
+  margin: 8px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid #d6e2f7;
+  background: #f8fbff;
+  border-radius: 8px;
+}
+
+.spots-drill-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  margin-bottom: 6px;
+}
+
+.spots-drill-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #21466d;
+}
+
+.spots-drill-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0;
+}
+
+.spots-drill-filter-label {
+  min-width: 72px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2f4f76;
+}
+
+.spots-drill-filter-btn {
+  border: 1px solid #bdd0ee;
+  background: #ffffff;
+  color: #25456b;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.spots-drill-filter-btn:hover {
+  background: #eef5ff;
+}
+
+.spots-drill-filter-btn.active {
+  border-color: #2e64b0;
+  background: #dce9fb;
+  color: #173a66;
+  font-weight: 700;
+}
+
 .log-panel {
   margin-top: 8px;
   padding: 8px 10px;

@@ -207,7 +207,7 @@ Status: [x]
   - `feat(reports): add single-log point rate reports`
 
 ### Commit 08 - Compare mode for point-rate reports
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js`
 - Tasks:

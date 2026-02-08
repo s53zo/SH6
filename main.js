@@ -126,14 +126,18 @@
   const DEFAULT_COMPARE_FOCUS = Object.freeze({
     countries_by_time: ['A', 'B'],
     qs_by_minute: ['A', 'B'],
-    one_minute_rates: ['A', 'B']
+    one_minute_rates: ['A', 'B'],
+    points_by_minute: ['A', 'B'],
+    one_minute_point_rates: ['A', 'B']
   });
 
   function cloneCompareFocus(source = DEFAULT_COMPARE_FOCUS) {
     return {
       countries_by_time: Array.isArray(source.countries_by_time) ? source.countries_by_time.slice() : ['A', 'B'],
       qs_by_minute: Array.isArray(source.qs_by_minute) ? source.qs_by_minute.slice() : ['A', 'B'],
-      one_minute_rates: Array.isArray(source.one_minute_rates) ? source.one_minute_rates.slice() : ['A', 'B']
+      one_minute_rates: Array.isArray(source.one_minute_rates) ? source.one_minute_rates.slice() : ['A', 'B'],
+      points_by_minute: Array.isArray(source.points_by_minute) ? source.points_by_minute.slice() : ['A', 'B'],
+      one_minute_point_rates: Array.isArray(source.one_minute_point_rates) ? source.one_minute_point_rates.slice() : ['A', 'B']
     };
   }
 
@@ -334,7 +338,9 @@
     const mapping = [
       ['countries_by_time', 'c'],
       ['qs_by_minute', 'm'],
-      ['one_minute_rates', 'o']
+      ['one_minute_rates', 'o'],
+      ['points_by_minute', 'p'],
+      ['one_minute_point_rates', 'q']
     ];
     mapping.forEach(([key, shortKey]) => {
       const now = normalizeCompactSlotList(current[key]);
@@ -350,7 +356,9 @@
     const mapping = {
       c: 'countries_by_time',
       m: 'qs_by_minute',
-      o: 'one_minute_rates'
+      o: 'one_minute_rates',
+      p: 'points_by_minute',
+      q: 'one_minute_point_rates'
     };
     Object.entries(mapping).forEach(([shortKey, key]) => {
       if (!(shortKey in compact)) return;
@@ -9516,10 +9524,9 @@
     return best;
   }
 
-  function renderPointsRates() {
-    if (!state.derived || !state.derived.hourPointSeries) return renderPlaceholder({ id: 'points_rates', title: 'Points rates' });
-    const qsos = state.qsoData?.qsos || [];
-    const pointsByIndex = getEffectivePointsByIndex(state.derived, qsos);
+  function renderPointsRatesForData(derived, qsos) {
+    if (!derived || !derived.hourPointSeries) return '<p>No points to analyze.</p>';
+    const pointsByIndex = getEffectivePointsByIndex(derived, qsos);
     const windows = [10, 20, 30, 60, 120];
     const rows = windows.map((mins, idx) => {
       const peak = computePeakPointsWindow(qsos, pointsByIndex, mins);
@@ -9555,6 +9562,11 @@
         ${rows}
       </div>
     `;
+  }
+
+  function renderPointsRates() {
+    if (!state.derived || !state.derived.hourPointSeries) return renderPlaceholder({ id: 'points_rates', title: 'Points rates' });
+    return renderPointsRatesForData(state.derived, state.qsoData?.qsos || []);
   }
 
   function computePeakWindow(qsos, windowMinutes) {
@@ -9743,6 +9755,32 @@
       entry.ready ? renderOneMinuteRatesForDerived(entry.snapshot.derived) : `<p>No ${entry.label} loaded.</p>`
     ));
     return renderComparePanels(slots, htmlBlocks, 'one_minute_rates');
+  }
+
+  function renderOneMinutePointRatesCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    if (slots.length > 2) {
+      const { pair, entries } = resolveFocusEntries('one_minute_point_rates', slots);
+      const htmlBlocks = entries.map((entry) => (
+        entry.ready ? renderOneMinutePointRatesForDerived(entry.snapshot.derived) : `<p>No ${entry.label} loaded.</p>`
+      ));
+      const focusControls = renderCompareFocusControls('one_minute_point_rates', slots, pair);
+      return `${focusControls}${renderComparePanels(entries, htmlBlocks, 'one_minute_point_rates')}`;
+    }
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready ? renderOneMinutePointRatesForDerived(entry.snapshot.derived) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'one_minute_point_rates');
+  }
+
+  function renderPointsRatesCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? renderPointsRatesForData(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [])
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'points_rates');
   }
 
   function buildPrefixGroups(derived) {
@@ -11313,18 +11351,21 @@
       'possible_errors',
       'not_in_master',
       'one_minute_rates',
+      'one_minute_point_rates',
       'rates',
+      'points_rates',
       'all_callsigns',
       'qs_by_hour_sheet'
     ]);
-    const wrapReports = new Set(['one_minute_rates']);
-    const stackReports = new Set(['rates']);
+    const wrapReports = new Set(['one_minute_rates', 'one_minute_point_rates']);
+    const stackReports = new Set(['rates', 'points_rates']);
     const quadReports = new Set([
       'main',
       'summary',
       'qsl_labels',
       'qs_per_station',
       'one_minute_rates',
+      'one_minute_point_rates',
       'distance',
       'breaks',
       'continents',
@@ -11611,6 +11652,43 @@
     return renderComparePanels(slots, htmlBlocks, 'qs_by_minute');
   }
 
+  function renderPointsByMinuteCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    if (slots.length > 2) {
+      const { pair, entries } = resolveFocusEntries('points_by_minute', slots);
+      const maps = entries.map((entry) => buildMinutePointMapFromDerived(entry.snapshot.derived));
+      const ranges = maps.map((map) => getMinuteRangeFromMap(map)).filter(Boolean);
+      if (!ranges.length) {
+        const htmlBlocks = entries.map((entry) => (entry.ready ? '<p>No points to analyze.</p>' : `<p>No ${entry.label} loaded.</p>`));
+        const focusControls = renderCompareFocusControls('points_by_minute', slots, pair);
+        return `${focusControls}${renderComparePanels(entries, htmlBlocks, 'points_by_minute')}`;
+      }
+      const minMinute = Math.min(...ranges.map((r) => r.minMinute));
+      const maxMinute = Math.max(...ranges.map((r) => r.maxMinute));
+      const startHour = Math.floor(minMinute / 60);
+      const endHour = Math.floor(maxMinute / 60);
+      const htmlBlocks = entries.map((entry, idx) => (
+        entry.ready ? renderQsByMinuteTable(maps[idx], startHour, endHour) : `<p>No ${entry.label} loaded.</p>`
+      ));
+      const focusControls = renderCompareFocusControls('points_by_minute', slots, pair);
+      return `${focusControls}${renderComparePanels(entries, htmlBlocks, 'points_by_minute')}`;
+    }
+    const maps = slots.map((entry) => buildMinutePointMapFromDerived(entry.snapshot.derived));
+    const ranges = maps.map((map) => getMinuteRangeFromMap(map)).filter(Boolean);
+    if (!ranges.length) {
+      const htmlBlocks = slots.map((entry) => (entry.ready ? '<p>No points to analyze.</p>' : `<p>No ${entry.label} loaded.</p>`));
+      return renderComparePanels(slots, htmlBlocks, 'points_by_minute');
+    }
+    const minMinute = Math.min(...ranges.map((r) => r.minMinute));
+    const maxMinute = Math.max(...ranges.map((r) => r.maxMinute));
+    const startHour = Math.floor(minMinute / 60);
+    const endHour = Math.floor(maxMinute / 60);
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready ? renderQsByMinuteTable(maps[idx], startHour, endHour) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return renderComparePanels(slots, htmlBlocks, 'points_by_minute');
+  }
+
   function renderChartFrequenciesForSlot(slot, rangeOverride, qsosOverride) {
     if (!slot.qsoData) {
       return renderPlaceholder({ id: 'charts_frequencies', title: 'Frequencies' });
@@ -11778,8 +11856,17 @@
     if (report.id === 'qs_by_minute') {
       return renderQsByMinuteCompareAligned();
     }
+    if (report.id === 'points_by_minute') {
+      return renderPointsByMinuteCompareAligned();
+    }
     if (report.id === 'one_minute_rates') {
       return renderOneMinuteRatesCompareAligned();
+    }
+    if (report.id === 'one_minute_point_rates') {
+      return renderOneMinutePointRatesCompareAligned();
+    }
+    if (report.id === 'points_rates') {
+      return renderPointsRatesCompareAligned();
     }
     if (report.id === 'spot_hunter') {
       return renderSpotHunterCompare();

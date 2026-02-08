@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.14 (2026-02-08)
+- Competitor coach: add robust fallback to CQ raw category cohorts when yearly official ranking endpoint has no results.
+- Competitor coach: improve category-family matching so broad labels (for example `MULTI-OP`) resolve to practical CQ categories.
+- Competitor coach: hide API source URL from UI and keep source details internal.
+- Competitor coach: default scope to `Continent` to avoid overly narrow first-pass cohorts.
+- Competitor coach: replace scope/category dropdowns with always-visible toggle buttons.
+
 ## v5.1.13 (2026-02-08)
 - CQ API: improve record matching by scope/category, including `WORLD` fallback handling.
 - CQ API: keep raw score as fallback when official score is missing.

@@ -2194,6 +2194,15 @@
     'rrtc',
     'yuri_gagarin'
   ]);
+  const SCORING_PHASE2_RULES = new Set([
+    'darc_fieldday',
+    'darc_wag',
+    'ww_pmc',
+    'ok_om_dx',
+    'rda',
+    'wed_minitest_40m',
+    'wed_minitest_80m'
+  ]);
 
   function normalizeContestKey(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '').trim();
@@ -3169,8 +3178,11 @@
         computedPointsByIndex: []
       };
     }
-    if (!SCORING_PHASE1_RULES.has(String(resolved.ruleId || ''))) {
-      assumptions.add(`Scorer for ${resolved.ruleId} is not enabled in phase-1 rollout.`);
+    const ruleId = String(resolved.ruleId || '');
+    const inPhase1 = SCORING_PHASE1_RULES.has(ruleId);
+    const inPhase2 = SCORING_PHASE2_RULES.has(ruleId);
+    if (!inPhase1 && !inPhase2) {
+      assumptions.add(`Scorer for ${resolved.ruleId} is not enabled in current rollout.`);
       return {
         supported: true,
         confidence: resolved.confidence || 'unknown',
@@ -3191,6 +3203,9 @@
         bundle: resolved.bundle || null,
         computedPointsByIndex: []
       };
+    }
+    if (inPhase2) {
+      assumptions.add('Medium-confidence scorer active: validate assumptions against yearly published rules.');
     }
     const scored = scoreFromRule(resolved.rule, qsos, contestMeta, assumptions);
     const computedScore = Number.isFinite(scored.computedScore) ? Math.round(scored.computedScore) : null;

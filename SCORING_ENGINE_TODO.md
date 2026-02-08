@@ -222,7 +222,7 @@ Status: [x]
   - `feat(compare): add aligned compare views for point rate reports`
 
 ### Commit 09 - Phase 2 scorers (medium confidence)
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js`
 - Tasks:

@@ -2109,6 +2109,79 @@ th {
   padding: 6px;
 }
 
+.cqapi-card {
+  border: 1px solid #d0dbee;
+  background: #f7fbff;
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.cqapi-body {
+  padding: 8px 10px;
+}
+
+.cqapi-source {
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: #35557d;
+  word-break: break-word;
+}
+
+.cqapi-helper {
+  color: #24558d;
+}
+
+.cqapi-source .cqapi-helper {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.cqapi-muted {
+  color: #666666;
+}
+
+.cqapi-table,
+.cqapi-history {
+  width: 100%;
+  margin-top: 5px;
+  margin-bottom: 8px;
+  border-collapse: collapse;
+}
+
+.cqapi-table td,
+.cqapi-history td,
+.cqapi-table th,
+.cqapi-history th {
+  padding: 4px 6px;
+}
+
+.cqapi-table td:first-child {
+  width: 38%;
+}
+
+.cqapi-history-current {
+  background: #e5eefc;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .cqapi-body {
+    padding: 8px;
+  }
+
+  .cqapi-table td:first-child {
+    width: 44%;
+  }
+
+  .cqapi-source {
+    font-size: 10px;
+  }
+}
+
 .map-all-row td {
   background: #f2f2f2;
 }

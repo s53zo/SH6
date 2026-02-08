@@ -61,6 +61,8 @@
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
   const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
+  const CQ_API_PROXY_BASE = 'https://azure.s53m.com/cors/cqapi';
+  const CQ_API_SCRIPT_URL = 'cq-api-enrichment.js';
   const CALLSIGN_LOOKUP_URLS = [
     'https://azure.s53m.com/sh6/lookup'
   ];
@@ -157,6 +159,17 @@
     return createSpotsState('rbn');
   }
 
+  function createApiEnrichmentState() {
+    return {
+      status: 'idle',
+      error: null,
+      source: null,
+      helperActive: false,
+      data: null,
+      requestKey: null
+    };
+  }
+
   function createEmptyCompareSlot() {
     return {
       logFile: null,
@@ -172,7 +185,8 @@
       bandDerivedCache: new Map(),
       logVersion: 0,
       spotsState: createSpotsState(),
-      rbnState: createRbnState()
+      rbnState: createRbnState(),
+      apiEnrichment: createApiEnrichmentState()
     };
   }
 
@@ -191,6 +205,7 @@
     state.logVersion = (state.logVersion || 0) + 1;
     state.spotsState = createSpotsState();
     state.rbnState = createRbnState();
+    state.apiEnrichment = createApiEnrichmentState();
   }
 
   function resetCompareSlot(slotId) {
@@ -733,6 +748,7 @@
   }
 
   let spotHunterModulePromise = null;
+  let cqApiModulePromise = null;
   function loadSpotHunterModule() {
     if (window.SpotHunterRender) return Promise.resolve();
     if (spotHunterModulePromise) return spotHunterModulePromise;
@@ -745,6 +761,20 @@
       document.head.appendChild(script);
     });
     return spotHunterModulePromise;
+  }
+
+  function loadCqApiModule() {
+    if (window.SH6CqApi && typeof window.SH6CqApi.createClient === 'function') return Promise.resolve();
+    if (cqApiModulePromise) return cqApiModulePromise;
+    cqApiModulePromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `${CQ_API_SCRIPT_URL}?v=${encodeURIComponent(APP_VERSION)}`;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('CQ API module failed to load.'));
+      document.head.appendChild(script);
+    });
+    return cqApiModulePromise;
   }
 
   function buildFetchUrls(urls) {
@@ -808,14 +838,17 @@
     ctyStatus: 'pending',
     masterStatus: 'pending',
     qthStatus: 'pending',
+    cqApiStatus: 'pending',
     spotHunterStatus: 'pending',
     ctyError: null,
     masterError: null,
     qthError: null,
+    cqApiError: null,
     spotHunterError: null,
     ctySource: null,
     masterSource: null,
     qthSource: CALLSIGN_LOOKUP_URLS[0],
+    cqApiSource: CQ_API_PROXY_BASE,
     spotHunterSource: null,
     showLoadPanel: false,
     compareEnabled: false,
@@ -831,6 +864,9 @@
     sessionNotice: [],
     renderSlotId: null,
     logVersion: 0,
+    cqApiClient: null,
+    cqApiRequestToken: 0,
+    apiEnrichment: createApiEnrichmentState(),
     spotsState: null,
     rbnState: null,
     compareSlots: [createEmptyCompareSlot(), createEmptyCompareSlot(), createEmptyCompareSlot()]
@@ -889,6 +925,9 @@
     qthStatus: document.getElementById('qthStatus'),
     qthStatusRow: document.getElementById('qthStatusRow'),
     qthSourceLabel: document.getElementById('qthSourceLabel'),
+    cqApiStatus: document.getElementById('cqApiStatus'),
+    cqApiStatusRow: document.getElementById('cqApiStatusRow'),
+    cqApiSourceLabel: document.getElementById('cqApiSourceLabel'),
     spotsStatus: document.getElementById('spotsStatus'),
     spotsSourceLabel: document.getElementById('spotsSourceLabel'),
     spotsStatusRow: document.getElementById('spotsStatusRow'),
@@ -955,7 +994,8 @@
       bandDerivedCache: source.bandDerivedCache,
       logVersion: source.logVersion,
       spotsState: source.spotsState,
-      rbnState: source.rbnState
+      rbnState: source.rbnState,
+      apiEnrichment: source.apiEnrichment
     };
   }
 
@@ -2866,6 +2906,26 @@
       dom.qthSourceLabel.title = state.qthSource || '';
       dom.qthSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
     }
+    if (dom.cqApiStatus) {
+      dom.cqApiStatus.textContent = formatStatus(state.cqApiStatus, state.cqApiSource);
+      dom.cqApiStatus.title = [state.cqApiSource, state.cqApiError].filter(Boolean).join(' ');
+      const proxy = isProxy(state.cqApiSource);
+      dom.cqApiStatus.className = [
+        'status-indicator',
+        state.cqApiStatus === 'ok' ? 'status-ok' : '',
+        state.cqApiStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        state.cqApiStatus === 'error' ? 'status-error' : ''
+      ].filter(Boolean).join(' ');
+    }
+    if (dom.cqApiStatusRow) {
+      dom.cqApiStatusRow.classList.toggle('hidden', state.cqApiStatus === 'pending');
+    }
+    if (dom.cqApiSourceLabel) {
+      const info = classifySource(state.cqApiSource);
+      dom.cqApiSourceLabel.textContent = info.mark;
+      dom.cqApiSourceLabel.title = state.cqApiSource || '';
+      dom.cqApiSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
+    }
     if (dom.spotsStatus) {
       const spotsState = ensureSpotsState(state);
       const status = mapSpotStatus(spotsState.status);
@@ -3039,6 +3099,7 @@
     target.skipped = false;
     target.spotsState = createSpotsState();
     target.rbnState = createRbnState();
+    target.apiEnrichment = createApiEnrichmentState();
     const reconstructed = typeof sourcePath === 'string' && sourcePath.startsWith('RECONSTRUCTED_LOGS/');
     target.logFile = { name: filename, size: safeSize, source: sourceLabel || '' };
     if (sourcePath) target.logFile.path = sourcePath;
@@ -3099,6 +3160,7 @@
       const tag = `slot ${String(slotId || '').toUpperCase()}`;
       state.sessionNotice = state.sessionNotice.filter((msg) => !String(msg).toLowerCase().includes(tag.toLowerCase()));
     }
+    triggerCqApiEnrichmentForSlot(target, String(slotId || 'A').toUpperCase());
     return target.qsoData;
   }
 
@@ -3511,6 +3573,220 @@
     state.qthError = null;
     updateDataStatus();
     scheduleCallsignGridLookup();
+  }
+
+  function dedupeValues(values) {
+    const out = [];
+    const seen = new Set();
+    (values || []).forEach((value) => {
+      const key = String(value == null ? '' : value).trim();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push(key);
+    });
+    return out;
+  }
+
+  function mapContinentToCqGeo(cont) {
+    const c = normalizeContinent(cont);
+    if (c === 'AF') return 'AFR';
+    if (c === 'AS') return 'ASI';
+    if (c === 'EU') return 'EUR';
+    if (c === 'NA') return 'NAM';
+    if (c === 'OC') return 'OCE';
+    if (c === 'SA') return 'SAM';
+    return '';
+  }
+
+  function inferApiMode(slot, contestId) {
+    if (contestId === 'CQWWRTTY' || contestId === 'CQWPXRTTY') return 'rtty';
+    const category = String(slot?.derived?.contestMeta?.category || '').toUpperCase();
+    if (category.includes('CW')) return 'cw';
+    if (category.includes('SSB') || category.includes('PHONE') || category.includes('PH')) return 'ph';
+    const qsos = slot?.qsoData?.qsos || [];
+    let cw = 0;
+    let phone = 0;
+    qsos.forEach((q) => {
+      const bucket = modeBucket(q.mode);
+      if (bucket === 'CW') cw += 1;
+      if (bucket === 'Phone') phone += 1;
+    });
+    if (cw > phone) return 'cw';
+    if (phone > 0) return 'ph';
+    return 'cw';
+  }
+
+  function inferApiCategories(slot, contestId) {
+    const out = [];
+    const metaCategory = String(slot?.derived?.contestMeta?.category || '').trim();
+    if (metaCategory) out.push(metaCategory);
+
+    const firstRaw = slot?.qsoData?.qsos?.[0]?.raw || {};
+    const parts = [
+      firstRaw.CATEGORY_OPERATOR,
+      firstRaw.CATEGORY_ASSISTED,
+      firstRaw.CATEGORY_POWER,
+      firstRaw.CATEGORY_BAND
+    ].filter(Boolean).map((v) => String(v).trim());
+    if (parts.length) out.push(parts.join(' '));
+
+    if (contestId === 'CQ160') {
+      const letter = String(metaCategory || '').trim().toUpperCase().match(/^([A-Z])\b/);
+      if (letter && letter[1]) out.push(letter[1]);
+      const first = String(firstRaw.CATEGORY || '').trim().toUpperCase();
+      if (first.length === 1) out.push(first);
+    }
+    return dedupeValues(out);
+  }
+
+  function inferApiGeos(slot) {
+    const out = [];
+    const stationCall = normalizeCall(slot?.derived?.contestMeta?.stationCallsign || deriveStationCallsign(slot?.qsoData?.qsos || []));
+    if (stationCall) {
+      const usArea = stationCall.match(/^[AKNW](\d)/);
+      if (usArea && usArea[1]) {
+        out.push(`W${usArea[1]}`);
+        out.push('W%');
+      }
+      const prefix = lookupPrefix(stationCall);
+      if (prefix) {
+        if (prefix.prefix) out.push(String(prefix.prefix).toUpperCase());
+        const contGeo = mapContinentToCqGeo(prefix.continent);
+        if (contGeo) out.push(contGeo);
+      }
+    }
+    out.push('WORLD');
+    return dedupeValues(out);
+  }
+
+  function buildCqApiRequest(slot) {
+    if (!slot?.derived || !slot?.qsoData) return null;
+    const contestIdText = String(slot.derived.contestMeta?.contestId || '');
+    const archivePath = String(slot.logFile?.path || '');
+    const contestId = state.cqApiClient?.normalizeContestId
+      ? state.cqApiClient.normalizeContestId(contestIdText, archivePath)
+      : null;
+    if (!contestId) return null;
+    const callsign = normalizeCall(slot.derived.contestMeta?.stationCallsign || deriveStationCallsign(slot.qsoData.qsos));
+    if (!callsign) return null;
+    const minTs = slot.derived.timeRange?.minTs;
+    const year = Number.isFinite(minTs) ? String(new Date(minTs).getUTCFullYear()) : '*';
+    const mode = inferApiMode(slot, contestId);
+    return {
+      contestId,
+      archivePath,
+      callsign,
+      year,
+      mode,
+      categories: inferApiCategories(slot, contestId),
+      geos: inferApiGeos(slot)
+    };
+  }
+
+  async function ensureCqApiClient() {
+    if (state.cqApiClient) return state.cqApiClient;
+    await loadCqApiModule();
+    if (!window.SH6CqApi || typeof window.SH6CqApi.createClient !== 'function') {
+      throw new Error('CQ API client unavailable');
+    }
+    state.cqApiClient = window.SH6CqApi.createClient({
+      proxyBase: CQ_API_PROXY_BASE,
+      useProxy: true,
+      useDirect: true,
+      timeoutMs: 9000,
+      debug: Boolean(window.SH6_API_DEBUG)
+    });
+    return state.cqApiClient;
+  }
+
+  function setCqApiStatus(status, source, error) {
+    state.cqApiStatus = status || 'pending';
+    state.cqApiSource = source || state.cqApiSource || CQ_API_PROXY_BASE;
+    state.cqApiError = error || null;
+    updateDataStatus();
+  }
+
+  async function triggerCqApiEnrichmentForSlot(slot, slotId = 'A') {
+    if (!slot || !slot.qsoData || !slot.derived) return;
+
+    const defaultApiState = createApiEnrichmentState();
+    if (!slot.apiEnrichment) slot.apiEnrichment = defaultApiState;
+
+    let client = null;
+    try {
+      client = await ensureCqApiClient();
+    } catch (err) {
+      slot.apiEnrichment = {
+        ...createApiEnrichmentState(),
+        status: 'error',
+        error: err && err.message ? err.message : 'CQ API module load failed'
+      };
+      setCqApiStatus('error', CQ_API_PROXY_BASE, slot.apiEnrichment.error);
+      renderActiveReport();
+      return;
+    }
+
+    const req = buildCqApiRequest(slot);
+    if (!req || !client.isSupportedContest(req.contestId)) {
+      slot.apiEnrichment = {
+        ...createApiEnrichmentState(),
+        status: 'unsupported',
+        error: 'Contest not supported for CQ API enrichment'
+      };
+      if (String(slotId).toUpperCase() === 'A') {
+        setCqApiStatus('pending', CQ_API_PROXY_BASE, null);
+      }
+      renderActiveReport();
+      return;
+    }
+
+    const token = `${req.contestId}:${req.callsign}:${req.year}:${req.mode}:${Date.now()}`;
+    slot.apiEnrichment = {
+      ...createApiEnrichmentState(),
+      status: 'loading',
+      requestKey: token
+    };
+    setCqApiStatus('loading', CQ_API_PROXY_BASE, null);
+    renderActiveReport();
+
+    try {
+      const result = await client.enrich(req);
+      if (!slot.apiEnrichment || slot.apiEnrichment.requestKey !== token) return;
+
+      if (result?.ok) {
+        slot.apiEnrichment = {
+          ...createApiEnrichmentState(),
+          status: 'ready',
+          source: result.source || null,
+          helperActive: Boolean(result.helperActive),
+          data: result
+        };
+        setCqApiStatus('ok', result.source || CQ_API_PROXY_BASE, null);
+      } else if (result?.unsupported) {
+        slot.apiEnrichment = {
+          ...createApiEnrichmentState(),
+          status: 'unsupported',
+          error: result.reason || 'Unsupported'
+        };
+        setCqApiStatus('pending', CQ_API_PROXY_BASE, null);
+      } else {
+        slot.apiEnrichment = {
+          ...createApiEnrichmentState(),
+          status: 'error',
+          error: result?.error || 'CQ API request failed'
+        };
+        setCqApiStatus('error', result?.source || CQ_API_PROXY_BASE, slot.apiEnrichment.error);
+      }
+    } catch (err) {
+      if (!slot.apiEnrichment || slot.apiEnrichment.requestKey !== token) return;
+      slot.apiEnrichment = {
+        ...createApiEnrichmentState(),
+        status: 'error',
+        error: err && err.message ? err.message : 'CQ API request failed'
+      };
+      setCqApiStatus('error', CQ_API_PROXY_BASE, slot.apiEnrichment.error);
+    }
+    renderActiveReport();
   }
 
 
@@ -4600,6 +4876,130 @@
     return d.toISOString().replace('T', ' ').replace(/\.\d+Z$/, 'Z');
   }
 
+  function formatCqApiNumber(value) {
+    if (value == null || value === '') return 'N/A';
+    return formatNumberSh6(value);
+  }
+
+  function findCqApiCategoryLabel(catlist, category) {
+    const key = String(category || '').trim().toUpperCase();
+    if (!key || !Array.isArray(catlist)) return '';
+    const hit = catlist.find((entry) => String(entry?.category || '').trim().toUpperCase() === key);
+    return hit?.description ? String(hit.description).trim() : '';
+  }
+
+  function findCqApiGeoLabel(geolist, geo) {
+    const key = String(geo || '').trim().toUpperCase();
+    if (!key || !geolist || typeof geolist !== 'object') return '';
+    return String(geolist[key] || '').trim();
+  }
+
+  function formatCqApiMultiplierValue(row) {
+    if (!row) return 'N/A';
+    const parts = Object.entries(row.multBreakdown || {})
+      .filter(([, value]) => Number.isFinite(value))
+      .map(([key, value]) => `${escapeHtml(String(key).toUpperCase())} ${formatNumberSh6(value)}`);
+    if (!parts.length) return formatCqApiNumber(row.multTotal);
+    const total = Number.isFinite(row.multTotal) ? formatNumberSh6(row.multTotal) : '';
+    return `${total ? `${total} (` : ''}${parts.join(', ')}${total ? ')' : ''}`;
+  }
+
+  function renderCqApiEnrichmentCard(enrichment) {
+    const info = enrichment || createApiEnrichmentState();
+    if (info.status === 'idle') return '';
+
+    if (info.status === 'loading') {
+      return `
+        <div class="cqapi-card mtc">
+          <div class="gradient">&nbsp;CQ contest API</div>
+          <div class="cqapi-body">
+            <p>Loading API enrichment data…</p>
+          </div>
+        </div>
+      `;
+    }
+
+    if (info.status === 'unsupported') {
+      return `
+        <div class="cqapi-card mtc">
+          <div class="gradient">&nbsp;CQ contest API</div>
+          <div class="cqapi-body">
+            <p class="cqapi-muted">This log contest is currently not supported by the CQ API endpoints.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    if (info.status === 'error') {
+      const err = escapeHtml(info.error || 'CQ API request failed.');
+      return `
+        <div class="cqapi-card mtc">
+          <div class="gradient">&nbsp;CQ contest API</div>
+          <div class="cqapi-body">
+            <p class="status-error">${err}</p>
+            <p class="cqapi-helper">If CORS blocks direct calls, use the SH6 helper endpoint on azure.s53m.com.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    if (info.status !== 'ready' || !info.data) return '';
+    const data = info.data;
+    const current = data.currentScore || null;
+    const record = data.record || null;
+    const history = Array.isArray(data.history) ? data.history.slice(0, 8) : [];
+    const source = info.source || data.source || '';
+    const sourceLabel = info.helperActive ? 'helper' : 'direct';
+    const sourceText = source ? escapeHtml(source) : 'N/A';
+    const selectedYear = Number(data.year) || null;
+    const category = current?.category || data.matchedCategory || '';
+    const geo = record?.geo || data.matchedGeo || '';
+    const categoryLabel = findCqApiCategoryLabel(data.labels?.catlist, category);
+    const geoLabel = findCqApiGeoLabel(data.labels?.geolist, geo);
+    const currentRankYear = Number(current?.year) || null;
+    const historyRows = history.map((row, idx) => {
+      const isCurrent = selectedYear && Number(row?.year) === selectedYear;
+      const trClass = isCurrent ? 'cqapi-history-current' : (idx % 2 === 0 ? 'td1' : 'td0');
+      return `
+        <tr class="${trClass}">
+          <td>${formatCqApiNumber(row?.year)}</td>
+          <td>${formatCqApiNumber(row?.score)}</td>
+          <td>${formatCqApiNumber(row?.qsos)}</td>
+          <td>${formatCqApiMultiplierValue(row)}</td>
+        </tr>
+      `;
+    }).join('');
+    const noHistory = historyRows ? '' : '<p class="cqapi-muted">No historical rows were returned for this callsign.</p>';
+    return `
+      <div class="cqapi-card mtc">
+        <div class="gradient">&nbsp;CQ contest API</div>
+        <div class="cqapi-body">
+          <div class="cqapi-source" title="${escapeAttr(source || '')}">Source: ${sourceText} <span class="cqapi-helper">${escapeHtml(sourceLabel)}</span></div>
+          <table class="mtc cqapi-table">
+            <tr class="thc"><th>Metric</th><th>Value</th></tr>
+            <tr class="td1"><td>Contest / mode</td><td>${escapeHtml(data.contestId || 'N/A')} / ${escapeHtml((data.mode || '').toUpperCase() || 'N/A')}</td></tr>
+            <tr class="td0"><td>Selected year</td><td>${formatCqApiNumber(currentRankYear || selectedYear)}</td></tr>
+            <tr class="td1"><td>Current score</td><td><strong>${formatCqApiNumber(current?.score)}</strong></td></tr>
+            <tr class="td0"><td>Current QSOs</td><td>${formatCqApiNumber(current?.qsos)}</td></tr>
+            <tr class="td1"><td>Current multipliers</td><td>${formatCqApiMultiplierValue(current)}</td></tr>
+            <tr class="td0"><td>Category</td><td>${escapeHtml(category || 'N/A')}${categoryLabel ? ` - ${escapeHtml(categoryLabel)}` : ''}</td></tr>
+            <tr class="td1"><td>Record holder</td><td>${escapeHtml(record?.callsign || 'N/A')} (${formatCqApiNumber(record?.year)})</td></tr>
+            <tr class="td0"><td>Record score</td><td><strong>${formatCqApiNumber(record?.score)}</strong></td></tr>
+            <tr class="td1"><td>Record multipliers</td><td>${formatCqApiMultiplierValue(record)}</td></tr>
+            <tr class="td0"><td>Geo scope</td><td>${escapeHtml(geo || 'N/A')}${geoLabel ? ` - ${escapeHtml(geoLabel)}` : ''}</td></tr>
+          </table>
+          ${noHistory}
+          ${historyRows ? `
+            <table class="mtc cqapi-history">
+              <tr class="thc"><th>Year</th><th>Score</th><th>QSOs</th><th>Mult</th></tr>
+              ${historyRows}
+            </table>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
   function renderMain() {
     if (!state.qsoData || !state.derived) return renderPlaceholder({ id: 'main', title: 'Main' });
     const totalQsos = state.qsoData.qsos.length;
@@ -4663,6 +5063,7 @@
       ['Prefixes', formatNumberSh6(prefixes)],
       ['Club', club]
     ];
+    const cqApiCard = renderCqApiEnrichmentCard(state.apiEnrichment);
     const rowHtml = rows.map(([label, value], idx) => `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
       `).join('');
@@ -4672,6 +5073,7 @@
         <tr class="thc"><th>Parameter</th><th>Value</th></tr>
         ${rowHtml}
       </table>
+      ${cqApiCard}
     `;
   }
 
@@ -9920,6 +10322,7 @@
       logVersion: state.logVersion,
       spotsState: state.spotsState,
       rbnState: state.rbnState,
+      apiEnrichment: state.apiEnrichment,
       renderSlotId: state.renderSlotId
     };
     Object.assign(state, slot);

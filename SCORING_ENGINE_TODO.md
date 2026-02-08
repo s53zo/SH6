@@ -150,7 +150,7 @@ Status: [x]
   - `feat(scoring): implement phase-1 high-confidence contest scorers`
 
 ### Commit 05 - Integrate scoring into derived pipeline
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js` (`buildDerived` return object)
 - Tasks:

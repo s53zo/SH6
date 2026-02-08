@@ -3210,6 +3210,14 @@
     };
   }
 
+  function getEffectivePointsByIndex(derived, qsos) {
+    const list = Array.isArray(qsos) ? qsos : [];
+    if (derived?.scoring?.effectivePointsSource === 'computed' && Array.isArray(derived?.scoring?.computedPointsByIndex) && derived.scoring.computedPointsByIndex.length === list.length) {
+      return derived.scoring.computedPointsByIndex.slice();
+    }
+    return list.map((q) => (Number.isFinite(q?.points) ? q.points : 0));
+  }
+
   function computeBreakSummary(minutesMap, threshold) {
     const minutes = Array.from(minutesMap.keys()).sort((a, b) => a - b);
     if (!minutes.length) return { totalBreakMin: 0, breaks: [] };
@@ -5683,6 +5691,23 @@
       logFile: context?.logFile || null,
       sourcePath: context?.sourcePath || ''
     });
+    const effectivePointsByIndex = (scoring?.effectivePointsSource === 'computed' && Array.isArray(scoring.computedPointsByIndex) && scoring.computedPointsByIndex.length === qsos.length)
+      ? scoring.computedPointsByIndex
+      : qsos.map((q) => (Number.isFinite(q?.points) ? q.points : 0));
+    const hourPoints = new Map();
+    const minutePoints = new Map();
+    qsos.forEach((q, idx) => {
+      if (!Number.isFinite(q?.ts)) return;
+      const points = Number(effectivePointsByIndex[idx] || 0);
+      if (!Number.isFinite(points)) return;
+      const hourBucket = Math.floor(q.ts / 3600000);
+      const minuteBucket = Math.floor(q.ts / 60000);
+      hourPoints.set(hourBucket, (hourPoints.get(hourBucket) || 0) + points);
+      minutePoints.set(minuteBucket, (minutePoints.get(minuteBucket) || 0) + points);
+    });
+    const hourPointSeries = Array.from(hourPoints.entries()).sort((a, b) => a[0] - b[0]).map(([hour, points]) => ({ hour, points }));
+    const minutePointSeries = Array.from(minutePoints.entries()).sort((a, b) => a[0] - b[0]).map(([minute, points]) => ({ minute, points }));
+    const effectivePointsTotal = effectivePointsByIndex.reduce((sum, p) => sum + (Number.isFinite(p) ? p : 0), 0);
 
     return {
       dupes,
@@ -5695,6 +5720,8 @@
       ituZoneSummary,
       hourSeries,
       minuteSeries,
+      hourPointSeries,
+      minutePointSeries,
       tenMinuteSeries,
       prefixSummary,
       prefixGroups: wpxPrefixGroups,
@@ -5717,7 +5744,8 @@
       possibleErrors,
       timeRange: { minTs, maxTs },
       breakSummary,
-      totalPoints
+      totalPoints,
+      effectivePointsTotal
     };
   }
 
@@ -9216,12 +9244,7 @@
     if (!state.derived || !state.derived.hourSeries) return renderPlaceholder({ id: 'qs_by_hour_sheet', title: 'Qs by hour sheet' });
     const bandCols = getDisplayBandList();
     const qsoCols = bandCols.length + 4;
-    const hourPoints = new Map();
-    (state.qsoData?.qsos || []).forEach((q) => {
-      if (typeof q.ts !== 'number' || !Number.isFinite(q.points)) return;
-      const hourBucket = Math.floor(q.ts / 3600000);
-      hourPoints.set(hourBucket, (hourPoints.get(hourBucket) || 0) + q.points);
-    });
+    const hourPoints = new Map((state.derived.hourPointSeries || []).map((entry) => [entry.hour, entry.points]));
     let accum = 0;
     let lastDay = '';
     const rows = state.derived.hourSeries.map((h, idx) => {
@@ -9258,9 +9281,9 @@
     `;
   }
 
-  function buildHourBucketMap(qsos) {
+  function buildHourBucketMap(qsos, pointsByIndex = null) {
     const map = new Map();
-    (qsos || []).forEach((q) => {
+    (qsos || []).forEach((q, idx) => {
       if (!Number.isFinite(q.ts)) return;
       const d = new Date(q.ts);
       const day = d.getUTCDay();
@@ -9278,7 +9301,8 @@
       }
       const entry = map.get(key);
       entry.qsos += 1;
-      if (Number.isFinite(q.points)) entry.points += q.points;
+      const points = Array.isArray(pointsByIndex) ? Number(pointsByIndex[idx]) : Number(q.points);
+      if (Number.isFinite(points)) entry.points += points;
       const bandKey = q.band ? normalizeBandToken(q.band) : '';
       if (bandKey) entry.bands.set(bandKey, (entry.bands.get(bandKey) || 0) + 1);
     });
@@ -9364,7 +9388,10 @@
 
   function renderQsByHourSheetCompare() {
     const slots = getActiveCompareSnapshots();
-    const maps = slots.map((entry) => buildHourBucketMap(entry.snapshot.qsoData?.qsos || []));
+    const maps = slots.map((entry) => buildHourBucketMap(
+      entry.snapshot.qsoData?.qsos || [],
+      getEffectivePointsByIndex(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [])
+    ));
     const order = buildHourKeyOrderFromMapsList(maps, slots.map((entry) => entry.snapshot.qsoData?.qsos || []));
     const htmlBlocks = slots.map((entry, idx) => (
       entry.ready ? renderQsByHourSheetForSlot(entry.snapshot, order, maps[idx]) : `<p>No ${entry.label} loaded.</p>`

@@ -306,6 +306,11 @@ a:hover {
   box-shadow: 0 4px 10px rgba(30, 91, 214, 0.25);
 }
 
+.compare-option input:focus-visible + span {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
+}
+
 .compare-helper {
   font-size: 12px;
   color: var(--sh6-text-secondary);
@@ -503,6 +508,17 @@ a:hover {
   padding: 5px 12px;
   border-radius: 999px;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.slot-choice:hover:not(.is-active) {
+  background: #eef2f8;
+  border-color: #8ea3c3;
+}
+
+.slot-choice:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
 }
 
 .slot-choice.is-active {
@@ -651,6 +667,16 @@ a:hover {
   padding: 6px 8px;
   border: 1px solid #b9b9b9;
   border-radius: 4px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#repoSearch:focus-visible,
+#repoSearchB:focus-visible,
+#repoSearchC:focus-visible,
+#repoSearchD:focus-visible {
+  outline: none;
+  border-color: #7fa0ce;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
 }
 
 .repo-filters {
@@ -679,6 +705,13 @@ a:hover {
   border-radius: 4px;
   font-size: 12px;
   min-width: 120px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.repo-filter select:focus-visible {
+  outline: none;
+  border-color: #7fa0ce;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
 }
 
 .repo-results {
@@ -740,10 +773,17 @@ a:hover {
   padding: 4px 6px;
   margin: 4px 0;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .repo-tree button.repo-leaf:hover {
   background: #f0f6ff;
+}
+
+.repo-tree button.repo-leaf:focus-visible {
+  outline: none;
+  border-color: #7fa0ce;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
 }
 
 .repo-tree button.repo-leaf {
@@ -765,11 +805,18 @@ a:hover {
   padding: 6px 8px;
   border-radius: 6px;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .repo-row:hover {
   border-color: #2a3f63;
   background: #f3f6fb;
+}
+
+.repo-row:focus-visible {
+  outline: none;
+  border-color: #7fa0ce;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
 }
 
 .repo-path {
@@ -790,6 +837,17 @@ a:hover {
   cursor: pointer;
   padding: 0;
   font-size: 12px;
+  transition: color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.link-button:hover {
+  color: #1d3558;
+}
+
+.link-button:focus-visible {
+  outline: none;
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
 }
 
 .load-summary {
@@ -1345,6 +1403,7 @@ a:hover {
   border: 1px solid #ccc;
   background: #fff;
   cursor: pointer;
+  border-radius: 4px;
 }
 
 .button {
@@ -1352,6 +1411,32 @@ a:hover {
   border: 1px solid #ccc;
   background: #fff;
   cursor: pointer;
+  border-radius: 4px;
+}
+
+.nav-buttons button,
+.button,
+.coach-choice-btn,
+.cqapi-load-btn,
+.spots-drill-filter-btn,
+.spots-heat-cell {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nav-buttons button:hover:not(:disabled),
+.button:hover:not(:disabled) {
+  background: #f2f5fb;
+  border-color: #9aa9c0;
+}
+
+.nav-buttons button:focus-visible,
+.button:focus-visible,
+.coach-choice-btn:focus-visible,
+.cqapi-load-btn:focus-visible,
+.spots-drill-filter-btn:focus-visible,
+.spots-heat-cell:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
 }
 
 .demo-log-btn {
@@ -2382,6 +2467,11 @@ th {
   cursor: pointer;
 }
 
+.cqapi-load-btn:hover:not(:disabled):not(.is-target) {
+  background: #eef5ff;
+  border-color: #91aed8;
+}
+
 .cqapi-load-btn:last-child {
   margin-right: 0;
 }
@@ -2469,6 +2559,10 @@ th {
 
 .coach-choice-btn:hover:not(:disabled) {
   background: #eef5ff;
+}
+
+.coach-choice-btn:focus-visible {
+  border-color: #2e64b0;
 }
 
 .coach-choice-btn.active {

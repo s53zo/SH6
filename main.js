@@ -205,14 +205,14 @@
   }
 
   function createCompetitorCoachState(seed = {}) {
-    const scopeType = String(seed.scopeType || 'dxcc').trim().toLowerCase();
+    const scopeType = String(seed.scopeType || 'continent').trim().toLowerCase();
     return {
       status: 'idle',
       error: null,
       source: null,
       statusMessage: '',
       requestKey: null,
-      scopeType: ['dxcc', 'continent', 'cq_zone', 'itu_zone'].includes(scopeType) ? scopeType : 'dxcc',
+      scopeType: ['dxcc', 'continent', 'cq_zone', 'itu_zone'].includes(scopeType) ? scopeType : 'continent',
       categoryMode: String(seed.categoryMode || 'same').toLowerCase() === 'all' ? 'all' : 'same',
       targetScopeValue: '',
       targetCategory: '',
@@ -5809,9 +5809,9 @@
       }
       const scoreRes = await client.score(context.contestId, context.mode, String(context.year), '*');
       let cohortRows = scoreRes?.ok && Array.isArray(scoreRes.rows) ? scoreRes.rows.slice() : [];
-      let source = scoreRes?.source || '';
       let statusMessage = scoreRes?.statusMessage || '';
       let sourceKind = 'official';
+      let rawSource = '';
 
       const selfRawRes = await client.raw(context.contestId, context.mode, context.callsign);
       const selfRawCategory = selfRawRes?.ok && Array.isArray(selfRawRes.rows) && selfRawRes.rows.length
@@ -5834,7 +5834,6 @@
         });
         const rawRows = [];
         const rawMessages = [];
-        let rawSource = '';
         for (const category of categories) {
           // eslint-disable-next-line no-await-in-loop
           const rawRes = await fetchCoachRawCategoryRows(context.contestId, context.mode, category, context.year);
@@ -5846,10 +5845,12 @@
           }
         }
         cohortRows = rawRows;
-        source = rawSource || source;
-        sourceKind = 'raw';
         const fallbackMessage = 'Using raw score fallback cohort (unofficial/live).';
-        statusMessage = [statusMessage, fallbackMessage, rawMessages[0] || ''].filter(Boolean).join(' ').trim();
+        sourceKind = 'raw';
+        statusMessage = fallbackMessage;
+        if (!cohortRows.length && rawMessages.length) {
+          statusMessage = [fallbackMessage, rawMessages[0]].filter(Boolean).join(' ').trim();
+        }
       }
 
       if (!Array.isArray(cohortRows) || !cohortRows.length) {
@@ -5889,7 +5890,7 @@
         ...state.competitorCoach,
         status: 'ready',
         error: null,
-        source: source || '',
+        source: rawSource || scoreRes?.source || '',
         statusMessage: statusMessage || '',
         rows: Array.isArray(model?.rows) ? model.rows : [],
         totalRows: Number(model?.totalRows) || 0,
@@ -7388,7 +7389,6 @@
     const targetCategory = normalizeCoachCategory(coach.targetCategory || context.targetCategory || '');
     const categoryLabel = findCqApiCategoryLabel(state.apiEnrichment?.data?.labels?.catlist, targetCategory);
     const scopeValueText = context.ok ? String(context.scopeValues?.[selectedScope] || '') : '';
-    const sourceText = coach.source ? escapeHtml(coach.source) : 'N/A';
     const sourceRowsText = Number.isFinite(coach.sourceRows) ? formatNumberSh6(coach.sourceRows) : 'N/A';
     const statusText = coach.status === 'loading'
       ? '<p>Loading competitor cohort...</p>'
@@ -7507,7 +7507,6 @@
             <tr class="td0"><td>Target category</td><td>${escapeHtml(targetCategory || 'N/A')}${categoryLabel ? ` - ${escapeHtml(categoryLabel)}` : ''}</td></tr>
             <tr class="td1"><td>Current in cohort</td><td>${currentSummary}</td></tr>
             <tr class="td0"><td>Cohort size</td><td>${formatCqApiNumber(coach.totalRows)} matched (from ${sourceRowsText} API rows)</td></tr>
-            <tr class="td1"><td>API source</td><td>${sourceText}</td></tr>
           </table>
           ${coach.statusMessage ? `<p class="cqapi-msg">API message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
           ${statusText}

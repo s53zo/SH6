@@ -155,6 +155,9 @@
   function buildInsights(model) {
     const rows = Array.isArray(model?.rows) ? model.rows : [];
     const current = model?.currentRow || null;
+    const scopeType = normalizeScopeType(model?.scopeType);
+    const scopeValue = normalizeScopeValue(scopeType, model?.targetScopeValue);
+    const categoryMode = safeString(model?.categoryMode).trim().toLowerCase() === 'all' ? 'all' : 'same';
     if (!rows.length) {
       return ['No competitors matched the selected scope/category filters.'];
     }
@@ -163,6 +166,11 @@
     }
 
     const insights = [];
+    if (rows.length <= 1 && scopeType === 'dxcc') {
+      insights.push(`DXCC scope ${scopeValue || '(unknown)'} is very narrow. Try Continent, CQ zone, or ITU zone.`);
+    } else if (rows.length <= 2 && categoryMode === 'same') {
+      insights.push('Cohort is very small. Try Category = All categories for wider comparison.');
+    }
     const leaders = rows.filter((row) => Number.isFinite(row.scoreGap) && row.scoreGap > 0);
     if (!leaders.length) {
       insights.push('You are currently leading this filtered cohort by score.');

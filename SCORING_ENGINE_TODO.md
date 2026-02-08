@@ -235,7 +235,7 @@ Status: [x]
   - `feat(scoring): implement phase-2 medium-confidence contest scorers`
 
 ### Commit 10 - Bundle resolvers (ARRL and EU VHF)
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js`
 - Tasks:

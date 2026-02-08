@@ -2366,6 +2366,7 @@
     const archivePath = context?.logFile?.path || context?.sourcePath || '';
     const folder = getArchiveFolderFromPath(archivePath);
     const contestRaw = String(contestMeta?.contestId || '').trim();
+    const bundleHint = `${contestRaw} ${archivePath}`.trim();
     const folderKey = normalizeContestKey(folder);
     let ruleId = folderKey ? byFolder.get(folderKey) : null;
     let detectionMethod = ruleId ? 'archive_folder' : 'contest_id_alias';
@@ -2386,7 +2387,7 @@
     let bundle = null;
     const assumptions = [];
     if (rule.bundle === true && rule.id === 'arrl_family_bundle') {
-      const subevent = resolveArrlSubevent(rule, contestRaw);
+      const subevent = resolveArrlSubevent(rule, bundleHint);
       if (subevent) {
         bundle = {
           type: 'arrl',
@@ -2398,7 +2399,7 @@
       }
     }
     if (rule.bundle === true && rule.id === 'eu_vhf_bundle') {
-      const model = resolveEuVhfModel(rule, contestRaw);
+      const model = resolveEuVhfModel(rule, bundleHint);
       if (model) {
         bundle = {
           type: 'eu_vhf',
@@ -3128,6 +3129,187 @@
     };
   }
 
+  function arlVhfBandFactor(bandNorm) {
+    switch (String(bandNorm || '').toUpperCase()) {
+      case '6M':
+      case '2M':
+        return 1;
+      case '1.25M':
+      case '70CM':
+        return 2;
+      case '33CM':
+      case '23CM':
+        return 4;
+      default:
+        return 8;
+    }
+  }
+
+  function euVhfBandFactor(bandNorm) {
+    switch (String(bandNorm || '').toUpperCase()) {
+      case '6M':
+      case '4M':
+      case '2M':
+        return 1;
+      case '1.25M':
+      case '70CM':
+        return 2;
+      case '33CM':
+      case '23CM':
+        return 3;
+      default:
+        return 4;
+    }
+  }
+
+  function firstGrid4FromFacts(facts) {
+    const direct = String(facts?.q?.grid || '').toUpperCase();
+    if (/^[A-R]{2}\d{2}/.test(direct)) return direct.slice(0, 4);
+    for (const token of (facts?.exchangeTokens || [])) {
+      if (/^[A-R]{2}\d{2}/.test(token)) return token.slice(0, 4);
+    }
+    return '';
+  }
+
+  function scoreArrlBundle(resolved, qsos, contestMeta, assumptions) {
+    const subeventId = String(resolved?.bundle?.subeventId || '');
+    const station = buildStationScoringProfile(qsos, contestMeta);
+    const runtime = makeScoringRuntime(station);
+    const pointsByIndex = new Array((qsos || []).length).fill(0);
+    const multOnce = new Set();
+    const multPerBand = new Set();
+    const multPerMode = { CW: new Set(), SSB: new Set(), DIG: new Set() };
+    const uniqueCalls = new Set();
+    let qsoPointsTotal = 0;
+    let multiplierTotal = 0;
+
+    (qsos || []).forEach((q, idx) => {
+      const facts = buildQsoScoringFacts(q, station, runtime);
+      if (!facts.validQso) {
+        markScoringRuntime(facts, runtime);
+        return;
+      }
+      uniqueCalls.add(facts.call);
+      const distance = Number(q?.distance);
+      let points = 0;
+      if (subeventId === 'arrl_dx') {
+        points = 3;
+        const multVal = station.stationIsWVe ? facts.qCountryKey : (facts.exchangeWVeQth || facts.qCountryKey);
+        if (multVal) multPerBand.add(`${facts.bandNorm}|${multVal}`);
+      } else if (subeventId === 'arrl_sweepstakes') {
+        points = 2;
+        const multVal = facts.exchangeWVeQth || facts.exchangeRegion;
+        if (multVal) multOnce.add(multVal);
+      } else if (subeventId === 'arrl_10m') {
+        points = facts.modeKey === 'CW' ? 4 : 2;
+        const baseVals = [facts.exchangeWVeQth, facts.qCountryKey, facts.qItuZone != null ? String(facts.qItuZone) : ''].filter(Boolean);
+        baseVals.forEach((value) => multPerMode[facts.modeKey].add(value));
+      } else if (subeventId === 'arrl_160m') {
+        points = (station.stationIsWVe && facts.qIsWVe) ? 2 : 5;
+        const multVal = station.stationIsWVe ? (facts.exchangeWVeQth || facts.qCountryKey) : (facts.exchangeWVeQth || '');
+        if (multVal) multOnce.add(multVal);
+      } else if (subeventId === 'arrl_rtty_roundup') {
+        points = 1;
+        const multVal = facts.exchangeWVeQth || facts.qCountryKey;
+        if (multVal) multOnce.add(multVal);
+      } else if (subeventId === 'arrl_intl_digital') {
+        const bonus = Number.isFinite(distance) ? Math.max(1, Math.ceil(distance / 500)) : 1;
+        points = 1 + bonus;
+      } else if (subeventId === 'arrl_vhf_jan_jun_sep') {
+        points = arlVhfBandFactor(facts.bandNorm);
+        const grid4 = firstGrid4FromFacts(facts);
+        if (grid4) multPerBand.add(`${facts.bandNorm}|${grid4}`);
+      } else if (subeventId === 'arrl_222_up_distance') {
+        points = Number.isFinite(distance) ? Math.round(distance * arlVhfBandFactor(facts.bandNorm)) : 0;
+      } else if (subeventId === 'arrl_10ghz_up') {
+        points = Number.isFinite(distance) ? Math.round(distance * arlVhfBandFactor(facts.bandNorm)) : 0;
+      } else if (subeventId === 'arrl_eme') {
+        points = 100;
+        const grid4 = firstGrid4FromFacts(facts);
+        if (grid4) multPerBand.add(`${facts.bandNorm}|${grid4}`);
+      } else {
+        points = Number.isFinite(q?.points) ? q.points : 0;
+        assumptions.add('ARRL subevent fallback to logged points because subevent pattern was not matched.');
+      }
+      pointsByIndex[idx] = points;
+      qsoPointsTotal += points;
+      markScoringRuntime(facts, runtime);
+    });
+
+    if (subeventId === 'arrl_dx') {
+      multiplierTotal = multPerBand.size;
+    } else if (subeventId === 'arrl_10m') {
+      multiplierTotal = multPerMode.CW.size + multPerMode.SSB.size + multPerMode.DIG.size;
+    } else if (subeventId === 'arrl_vhf_jan_jun_sep' || subeventId === 'arrl_eme') {
+      multiplierTotal = multPerBand.size;
+    } else {
+      multiplierTotal = multOnce.size;
+    }
+
+    let computedScore = null;
+    if (subeventId === 'arrl_intl_digital' || subeventId === 'arrl_222_up_distance') {
+      computedScore = qsoPointsTotal;
+    } else if (subeventId === 'arrl_10ghz_up') {
+      computedScore = qsoPointsTotal + (uniqueCalls.size * 100);
+      assumptions.add('ARRL 10 GHz bonus uses heuristic +100 per unique call.');
+    } else if (multiplierTotal > 0) {
+      computedScore = qsoPointsTotal * multiplierTotal;
+    } else {
+      computedScore = qsoPointsTotal;
+    }
+
+    assumptions.add('ARRL bundle scorer uses heuristic interpretation from bundled rules metadata.');
+    return {
+      qsoPointsTotal,
+      multiplierTotal,
+      computedScore,
+      pointsByIndex
+    };
+  }
+
+  function scoreEuVhfBundle(resolved, qsos, contestMeta, assumptions) {
+    const modelId = String(resolved?.bundle?.subeventModelId || '');
+    const station = buildStationScoringProfile(qsos, contestMeta);
+    const runtime = makeScoringRuntime(station);
+    const pointsByIndex = new Array((qsos || []).length).fill(0);
+    const multPerBand = new Set();
+    let qsoPointsTotal = 0;
+
+    (qsos || []).forEach((q, idx) => {
+      const facts = buildQsoScoringFacts(q, station, runtime);
+      const distance = Number(q?.distance);
+      let points = 0;
+      if (modelId === 'distance_only') {
+        points = Number.isFinite(distance) ? Math.max(0, Math.round(distance)) : 0;
+      } else if (modelId === 'distance_times_multipliers') {
+        points = Number.isFinite(distance) ? Math.max(1, Math.round(distance)) : 1;
+        const grid4 = firstGrid4FromFacts(facts);
+        if (grid4) multPerBand.add(`${facts.bandNorm}|${grid4}`);
+      } else if (modelId === 'band_weighted_distance') {
+        points = Number.isFinite(distance) ? Math.max(0, Math.round(distance * euVhfBandFactor(facts.bandNorm))) : 0;
+      } else {
+        points = Number.isFinite(q?.points) ? q.points : 0;
+        assumptions.add('EU VHF bundle fallback to logged points because no subevent model matched.');
+      }
+      pointsByIndex[idx] = points;
+      qsoPointsTotal += points;
+      markScoringRuntime(facts, runtime);
+    });
+
+    const multiplierTotal = multPerBand.size;
+    let computedScore = qsoPointsTotal;
+    if (modelId === 'distance_times_multipliers') {
+      computedScore = multiplierTotal > 0 ? (qsoPointsTotal * multiplierTotal) : qsoPointsTotal;
+    }
+    assumptions.add('EU VHF bundle scorer uses heuristic interpretation from bundled model hints.');
+    return {
+      qsoPointsTotal,
+      multiplierTotal,
+      computedScore,
+      pointsByIndex
+    };
+  }
+
   function computeContestScoringSummary(qsos, contestMeta, context = {}) {
     const loggedPointsTotal = computeLoggedPointsTotal(qsos);
     const claimedScoreHeader = parseClaimedScoreNumber(contestMeta?.claimedScore);
@@ -3156,7 +3338,21 @@
     }
     const assumptions = new Set(Array.isArray(resolved.assumptions) ? resolved.assumptions : []);
     if (resolved.rule?.bundle === true) {
-      assumptions.add('Bundle contest scoring currently uses logged points fallback until subevent scoring is finalized.');
+      let bundleScore = null;
+      if (resolved.bundle?.type === 'arrl') {
+        bundleScore = scoreArrlBundle(resolved, qsos, contestMeta, assumptions);
+      } else if (resolved.bundle?.type === 'eu_vhf') {
+        bundleScore = scoreEuVhfBundle(resolved, qsos, contestMeta, assumptions);
+      } else {
+        assumptions.add('Bundle contest matched but subevent was not detected. Logged points fallback is used.');
+      }
+      const computedScore = Number.isFinite(bundleScore?.computedScore) ? Math.round(bundleScore.computedScore) : null;
+      const deltaAbs = (computedScore != null && Number.isFinite(claimedScoreHeader))
+        ? computedScore - claimedScoreHeader
+        : null;
+      const deltaPct = (deltaAbs != null && Number.isFinite(claimedScoreHeader) && claimedScoreHeader !== 0)
+        ? (deltaAbs / claimedScoreHeader) * 100
+        : null;
       return {
         supported: true,
         confidence: resolved.confidence || 'unknown',
@@ -3168,14 +3364,14 @@
         ruleName: resolved.rule?.name || resolved.ruleId || '',
         claimedScoreHeader,
         loggedPointsTotal,
-        computedQsoPointsTotal: null,
-        computedMultiplierTotal: null,
-        computedScore: null,
-        scoreDeltaAbs: null,
-        scoreDeltaPct: null,
-        effectivePointsSource: loggedPointsTotal > 0 ? 'logged' : 'none',
+        computedQsoPointsTotal: Number.isFinite(bundleScore?.qsoPointsTotal) ? Math.round(bundleScore.qsoPointsTotal) : null,
+        computedMultiplierTotal: Number.isFinite(bundleScore?.multiplierTotal) ? Number(bundleScore.multiplierTotal) : null,
+        computedScore,
+        scoreDeltaAbs: deltaAbs,
+        scoreDeltaPct: deltaPct,
+        effectivePointsSource: computedScore != null ? 'computed' : (loggedPointsTotal > 0 ? 'logged' : 'none'),
         bundle: resolved.bundle || null,
-        computedPointsByIndex: []
+        computedPointsByIndex: Array.isArray(bundleScore?.pointsByIndex) ? bundleScore.pointsByIndex : []
       };
     }
     const ruleId = String(resolved.ruleId || '');

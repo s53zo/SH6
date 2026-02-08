@@ -2385,11 +2385,60 @@ th {
 
 .coach-load-cell {
   white-space: nowrap;
-  min-width: 158px;
+  min-width: 196px;
 }
 
 .coach-load-btn {
-  min-width: 46px;
+  min-width: 34px;
+  margin-right: 0;
+  border-radius: 0;
+  padding: 2px 9px;
+}
+
+.coach-load-btn + .coach-load-btn {
+  border-left: none;
+}
+
+.coach-load-btn:first-child {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.coach-load-btn:last-child {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.coach-load-btn.is-target {
+  border-color: #2e64b0;
+  background: #dce9fb;
+  color: #173a66;
+  font-weight: 700;
+}
+
+.coach-load-control {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.coach-load-prefix {
+  font-size: 10px;
+  color: #355780;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.coach-load-segment {
+  display: inline-flex;
+  align-items: center;
+}
+
+.coach-last-loaded {
+  font-size: 10px;
+  color: #1f4e83;
+  font-weight: 700;
 }
 
 .coach-table {
@@ -2450,6 +2499,18 @@ th {
 
   .coach-meta td:first-child {
     width: 42%;
+  }
+
+  .coach-load-cell {
+    min-width: 166px;
+  }
+
+  .coach-load-prefix {
+    font-size: 9px;
+  }
+
+  .coach-last-loaded {
+    font-size: 9px;
   }
 }
 

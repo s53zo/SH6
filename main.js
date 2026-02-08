@@ -206,6 +206,12 @@
 
   function createCompetitorCoachState(seed = {}) {
     const scopeType = String(seed.scopeType || 'continent').trim().toLowerCase();
+    const seedSlotRows = seed.loadedSlotRows && typeof seed.loadedSlotRows === 'object' ? seed.loadedSlotRows : {};
+    const loadedSlotRows = COMPARE_SLOT_IDS.reduce((acc, slotId) => {
+      acc[slotId] = String(seedSlotRows[slotId] || '').trim();
+      return acc;
+    }, {});
+    const lastLoadedSlot = String(seed.lastLoadedSlot || '').trim().toUpperCase();
     return {
       status: 'idle',
       error: null,
@@ -224,7 +230,10 @@
       insights: [],
       contestId: '',
       mode: '',
-      year: null
+      year: null,
+      loadedSlotRows,
+      lastLoadedSlot: COMPARE_SLOT_IDS.includes(lastLoadedSlot) ? lastLoadedSlot : '',
+      lastLoadedRowKey: String(seed.lastLoadedRowKey || '').trim()
     };
   }
 
@@ -5733,6 +5742,15 @@
     ].join('|');
   }
 
+  function buildCoachRowKey({ callsign, year, contestId, mode }) {
+    const call = normalizeCall(callsign || '');
+    const y = Number(year);
+    const contest = String(contestId || '').trim().toUpperCase();
+    const normalizedMode = String(mode || '').trim().toLowerCase();
+    if (!call || !Number.isFinite(y) || !contest || !normalizedMode) return '';
+    return `${call}|${Math.round(y)}|${contest}|${normalizedMode}`;
+  }
+
   async function triggerCompetitorCoachRefresh(force = false) {
     if (!state.qsoData || !state.derived) return;
     const previous = state.competitorCoach || createCompetitorCoachState();
@@ -7413,16 +7431,35 @@
       const rowYear = Number(row?.year);
       const rowCall = normalizeCall(row?.callsign || '');
       const rowCategory = normalizeCoachCategory(row?.category || '');
+      const rowContest = String(coach.contestId || context.contestId || '').trim().toUpperCase();
+      const rowMode = String(coach.mode || context.mode || '').trim().toLowerCase();
+      const rowKey = buildCoachRowKey({
+        callsign: rowCall,
+        year: rowYear,
+        contestId: rowContest,
+        mode: rowMode
+      });
       const isCurrent = current
         && rowCall
         && rowCall === normalizeCall(current.callsign || '')
         && rowCategory === normalizeCoachCategory(current.category || '');
       const trClass = isCurrent ? 'coach-row-current' : (idx % 2 === 0 ? 'td1' : 'td0');
-      const canLoadCompare = Number.isFinite(rowYear) && Boolean(rowCall) && Boolean(coach?.contestId || context?.contestId) && Boolean(coach?.mode || context?.mode);
+      const canLoadCompare = Number.isFinite(rowYear) && Boolean(rowCall) && Boolean(rowContest) && Boolean(rowMode);
+      const lastLoadedHere = rowKey && rowKey === String(coach.lastLoadedRowKey || '');
+      const lastLoadedSlot = lastLoadedHere ? String(coach.lastLoadedSlot || '') : '';
       const loadActions = canLoadCompare
-        ? ['B', 'C', 'D'].map((slotId) => (
-          `<button type="button" class="cqapi-load-btn coach-load-btn" data-slot="${slotId}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(String(coach.contestId || context.contestId || ''))}" data-mode="${escapeAttr(String(coach.mode || context.mode || ''))}" title="Load this log into Log ${slotId}">Log ${slotId}</button>`
-        )).join('')
+        ? `
+          <div class="coach-load-control">
+            <span class="coach-load-prefix">Load to</span>
+            <span class="coach-load-segment" role="group" aria-label="Load this log to compare slot">
+              ${COMPARE_SLOT_IDS.map((slotId) => {
+          const slotAssignedToRow = rowKey && rowKey === String(coach.loadedSlotRows?.[slotId] || '');
+          return `<button type="button" class="cqapi-load-btn coach-load-btn${slotAssignedToRow ? ' is-target' : ''}" data-slot="${slotId}" data-row-key="${escapeAttr(rowKey)}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(rowContest)}" data-mode="${escapeAttr(rowMode)}" title="Load this log into Log ${slotId}" aria-label="Load this log into Log ${slotId}" aria-pressed="${slotAssignedToRow ? 'true' : 'false'}">${slotId}</button>`;
+        }).join('')}
+            </span>
+            ${lastLoadedSlot ? `<span class="coach-last-loaded">Last loaded to Log ${escapeHtml(lastLoadedSlot)}</span>` : ''}
+          </div>
+        `
         : '<span class="cqapi-muted">N/A</span>';
       const operatorsCell = formatCqApiOperatorsCell(row?.operators || '');
       const operatorsTitleAttr = operatorsCell.title ? ` title="${escapeAttr(operatorsCell.title)}"` : '';
@@ -14530,6 +14567,21 @@
             mode,
             year
           });
+          if (btn.classList.contains('coach-load-btn')) {
+            const rowKey = String(btn.dataset.rowKey || '').trim()
+              || buildCoachRowKey({ callsign, year, contestId, mode });
+            if (rowKey) {
+              const coach = state.competitorCoach || createCompetitorCoachState();
+              const nextLoadedSlots = { ...(coach.loadedSlotRows || {}) };
+              nextLoadedSlots[slotId] = rowKey;
+              state.competitorCoach = {
+                ...coach,
+                loadedSlotRows: nextLoadedSlots,
+                lastLoadedSlot: slotId,
+                lastLoadedRowKey: rowKey
+              };
+            }
+          }
           btn.classList.remove('is-loading');
           btn.classList.add('is-ok');
           btn.textContent = 'OK';
@@ -14542,6 +14594,10 @@
             year,
             path: result.path || ''
           });
+          if (btn.classList.contains('coach-load-btn') && reports[state.activeIndex]?.id === 'competitor_coach') {
+            renderActiveReport();
+            return;
+          }
           setTimeout(() => {
             btn.textContent = originalText;
             btn.classList.remove('is-ok');

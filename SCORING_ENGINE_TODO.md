@@ -265,7 +265,7 @@ Status: [x]
   - `feat(ui): finalize scoring integration and report/export consistency`
 
 ## Manual QA Checklist (run after each major phase)
-Status: [ ]
+Status: [x]
 - Load local Cabrillo and ADIF logs.
 - Load archive log and verify resolver uses archive folder.
 - Compare mode with A/B and A/B/C for:

@@ -237,6 +237,8 @@
       totalRows: 0,
       sourceRows: 0,
       currentRow: null,
+      closestRivals: [],
+      gapDriver: null,
       insights: [],
       contestId: '',
       mode: '',
@@ -6254,6 +6256,8 @@
         totalRows: Number(model?.totalRows) || 0,
         sourceRows: Array.isArray(cohortRows) ? cohortRows.length : 0,
         currentRow: model?.currentRow || null,
+        closestRivals: Array.isArray(model?.closestRivals) ? model.closestRivals.slice(0, 5) : [],
+        gapDriver: model?.gapDriver || null,
         insights: Array.isArray(model?.insights) ? model.insights.slice(0, 6) : [],
         targetScopeValue: String(model?.targetScopeValue || targetScopeValue || ''),
         targetCategory: String(model?.targetCategory || effectiveTargetCategory || targetCategory || ''),
@@ -6279,6 +6283,8 @@
         rows: [],
         totalRows: 0,
         currentRow: null,
+        closestRivals: [],
+        gapDriver: null,
         insights: []
       };
     }
@@ -7767,6 +7773,138 @@
       : 'Current entry not detected in filtered cohort.';
 
     const rows = Array.isArray(coach.rows) ? coach.rows : [];
+    const closestRivals = Array.isArray(coach.closestRivals) ? coach.closestRivals : [];
+    const nearestAhead = closestRivals.find((row) => Number.isFinite(Number(row?.scoreGap)) && Number(row.scoreGap) > 0) || null;
+    const nearestAny = closestRivals[0] || null;
+    const preferredSlot = COMPARE_SLOT_IDS.find((slotId) => !getSlotById(slotId)?.qsoData) || 'B';
+    const coachContest = String(coach.contestId || context.contestId || '').trim().toUpperCase();
+    const coachMode = String(coach.mode || context.mode || '').trim().toLowerCase();
+    const quickActionRow = nearestAhead || nearestAny;
+    const quickActionYear = Number(quickActionRow?.year);
+    const quickActionCall = normalizeCall(quickActionRow?.callsign || '');
+    const quickActionReady = Boolean(quickActionRow) && Number.isFinite(quickActionYear) && Boolean(quickActionCall) && Boolean(coachContest) && Boolean(coachMode);
+    const quickActionGap = quickActionRow && Number.isFinite(Number(quickActionRow?.scoreGap))
+      ? `${Number(quickActionRow.scoreGap) >= 0 ? '+' : ''}${formatNumberSh6(Math.round(Math.abs(Number(quickActionRow.scoreGap))))}`
+      : 'N/A';
+    const quickActionHint = !rows.length
+      ? 'No cohort rows yet. Switch scope/category to widen competitor coverage.'
+      : !current
+        ? 'Current station is not present in this filtered cohort. Try Category = All categories.'
+        : rows.length === 1
+          ? 'Only one row in cohort. Switch to a wider scope to find direct rivals.'
+          : quickActionRow
+            ? `Nearest rival is ${quickActionCall} (${quickActionGap} score gap). Load it to Log ${preferredSlot} for direct comparison.`
+            : 'Select any row below and load it to Log B/C/D for side-by-side analysis.';
+    const quickActionButton = quickActionReady
+      ? (() => {
+        const rowKey = buildCoachRowKey({
+          callsign: quickActionCall,
+          year: quickActionYear,
+          contestId: coachContest,
+          mode: coachMode
+        });
+        const slotAssigned = rowKey && rowKey === String(coach.loadedSlotRows?.[preferredSlot] || '');
+        return `
+          <button
+            type="button"
+            class="cqapi-load-btn coach-load-btn coach-quick-load${slotAssigned ? ' is-target' : ''}"
+            data-slot="${preferredSlot}"
+            data-row-key="${escapeAttr(rowKey)}"
+            data-year="${escapeAttr(String(quickActionYear))}"
+            data-callsign="${escapeAttr(quickActionCall)}"
+            data-contest="${escapeAttr(coachContest)}"
+            data-mode="${escapeAttr(coachMode)}"
+            aria-pressed="${slotAssigned ? 'true' : 'false'}"
+          >
+            Load nearest rival to Log ${preferredSlot}
+          </button>
+        `;
+      })()
+      : '';
+
+    const gapDriver = coach.gapDriver && typeof coach.gapDriver === 'object' ? coach.gapDriver : null;
+    const gapDriverDirection = gapDriver?.direction === 'defending' ? 'Defend lead vs' : 'Chasing';
+    const gapDriverCall = escapeHtml(gapDriver?.targetCallsign || 'N/A');
+    const gapDriverScore = Number.isFinite(gapDriver?.scoreGap)
+      ? formatNumberSh6(Math.round(Number(gapDriver.scoreGap)))
+      : 'N/A';
+    const gapDriverQso = Number.isFinite(gapDriver?.qsoGap)
+      ? `${Number(gapDriver.qsoGap) >= 0 ? '+' : ''}${formatNumberSh6(Math.round(Number(gapDriver.qsoGap)))}`
+      : 'N/A';
+    const gapDriverMult = Number.isFinite(gapDriver?.multGap)
+      ? `${Number(gapDriver.multGap) >= 0 ? '+' : ''}${formatNumberSh6(Math.round(Number(gapDriver.multGap)))}`
+      : 'N/A';
+    const gapDriverShare = Number.isFinite(gapDriver?.driverSharePct) ? `${Number(gapDriver.driverSharePct).toFixed(1)}%` : 'N/A';
+    const gapDriverPrimary = gapDriver?.driver === 'qso'
+      ? 'QSO volume'
+      : (gapDriver?.driver === 'mult' ? 'Multipliers' : 'Mixed');
+    const gapDriverAction = gapDriver?.driver === 'qso'
+      ? (Number.isFinite(gapDriver?.neededQsos) ? `${formatNumberSh6(Math.round(Number(gapDriver.neededQsos)))} extra QSOs at current efficiency.` : 'Increase sustained rate in high-value hours.')
+      : (gapDriver?.driver === 'mult'
+          ? (Number.isFinite(gapDriver?.neededMults) ? `${formatNumberSh6(Math.round(Number(gapDriver.neededMults)))} additional multipliers at current efficiency.` : 'Prioritize multiplier hunting windows.')
+          : 'Balance rate and multiplier runs to close the gap faster.');
+    const gapDriverBlock = gapDriver
+      ? `
+        <div class="coach-driver-card">
+          <h4>Gap driver</h4>
+          <ul class="coach-driver-list">
+            <li>${gapDriverDirection} <b>${gapDriverCall}</b> (score gap: <b>${gapDriverScore}</b>).</li>
+            <li>Primary driver: <b>${gapDriverPrimary}</b> (estimated share: ${gapDriverShare}).</li>
+            <li>QSO gap: ${gapDriverQso} | Mult gap: ${gapDriverMult}</li>
+            <li>Recommended next move: ${escapeHtml(gapDriverAction)}</li>
+          </ul>
+        </div>
+      `
+      : '';
+
+    const rivalsBlock = closestRivals.length
+      ? `
+        <div class="coach-rivals-card">
+          <h4>Closest rivals</h4>
+          <table class="mtc coach-rivals-table">
+            <tr class="thc"><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap</th><th>Action</th></tr>
+            ${closestRivals.slice(0, 5).map((row, idx) => {
+          const rowYear = Number(row?.year);
+          const rowCall = normalizeCall(row?.callsign || '');
+          const rowCategory = normalizeCoachCategory(row?.category || '');
+          const rowGap = Number(row?.scoreGap);
+          const rowGapText = Number.isFinite(rowGap)
+            ? `${rowGap >= 0 ? '+' : ''}${formatNumberSh6(Math.round(Math.abs(rowGap)))}`
+            : 'N/A';
+          const canLoad = Number.isFinite(rowYear) && Boolean(rowCall) && Boolean(coachContest) && Boolean(coachMode);
+          const rowKey = canLoad ? buildCoachRowKey({
+            callsign: rowCall,
+            year: rowYear,
+            contestId: coachContest,
+            mode: coachMode
+          }) : '';
+          const slotAssigned = rowKey && rowKey === String(coach.loadedSlotRows?.[preferredSlot] || '');
+          const action = canLoad
+            ? `<button type="button" class="cqapi-load-btn coach-load-btn coach-quick-load${slotAssigned ? ' is-target' : ''}" data-slot="${preferredSlot}" data-row-key="${escapeAttr(rowKey)}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(coachContest)}" data-mode="${escapeAttr(coachMode)}" aria-pressed="${slotAssigned ? 'true' : 'false'}">Load to Log ${preferredSlot}</button>`
+            : '<span class="cqapi-muted">N/A</span>';
+          return `
+              <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+                <td>${formatCqApiNumber(row?.rank)}</td>
+                <td>${escapeHtml(rowCall || 'N/A')}</td>
+                <td>${escapeHtml(rowCategory || 'N/A')}</td>
+                <td>${formatCqApiNumber(row?.score)}</td>
+                <td>${rowGapText}</td>
+                <td>${action}</td>
+              </tr>
+            `;
+        }).join('')}
+          </table>
+        </div>
+      `
+      : '';
+
+    const quickActionBlock = `
+      <div class="coach-quick-actions">
+        <div class="coach-quick-hint">${escapeHtml(quickActionHint)}</div>
+        ${quickActionButton}
+      </div>
+    `;
+
     const tableRows = rows.map((row, idx) => {
       const rowYear = Number(row?.year);
       const rowCall = normalizeCall(row?.callsign || '');
@@ -7912,6 +8050,9 @@
           </table>
           ${coach.statusMessage ? `<p class="cqapi-msg">Data message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
           ${statusText}
+          ${quickActionBlock}
+          ${rivalsBlock}
+          ${gapDriverBlock}
           <div class="coach-insights-wrap">
             <h4>Coaching hints</h4>
             ${insightList}

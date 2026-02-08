@@ -2,6 +2,15 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v4.3.0 (2026-02-08)
+- Add contest scoring engine scaffold with archive/header rule resolution from `data/contest_scoring_spec.json`.
+- Add computed scoring primitives (QSO points, multipliers, formula evaluation) with fallback to logged points where required.
+- Add scoring details to Main report with separate `Claimed score (header)` and `Computed score (rules)` rows.
+- Show clear warning for unknown contest rules and keep logged-points fallback behavior.
+- Add new point-rate reports: `Points rates`, `Points by minute`, and `One minute point rates`.
+- Add compare-mode alignment and focus controls for point-rate reports.
+- Add heuristic bundle scoring for ARRL family and EU VHF contest bundles.
+
 ## v4.2.32 (2026-02-07)
 - Countries report: add a `Unique` column with unique callsign count per DXCC.
 

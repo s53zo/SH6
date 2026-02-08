@@ -249,7 +249,7 @@ Status: [x]
   - `feat(scoring): add bundle resolver dispatch for ARRL and EU VHF families`
 
 ### Commit 11 - UX polish, export, and final consistency
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js`
   - `style.css`

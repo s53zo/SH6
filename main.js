@@ -54,6 +54,9 @@
   let reports = [];
 
   const APP_VERSION = 'v5.1.17';
+  const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
+  const UI_THEME_CLASSIC = 'classic';
+  const UI_THEME_NT = 'nt';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -984,6 +987,8 @@
     showLoadPanel: false,
     compareEnabled: false,
     compareCount: 1,
+    uiTheme: UI_THEME_NT,
+    navSearch: '',
     compareFocus: cloneCompareFocus(),
     compareWorker: null,
     compareLogData: null,
@@ -1036,6 +1041,7 @@
 
   const dom = {
     navList: document.getElementById('navList'),
+    navSearchInput: document.getElementById('navSearchInput'),
     loadPanel: document.getElementById('loadPanel'),
     fileInput: document.getElementById('fileInput'),
     fileInputB: document.getElementById('fileInputB'),
@@ -1110,6 +1116,9 @@
     repoCompactTextD: document.getElementById('repoCompactTextD'),
     repoControlsD: document.getElementById('repoControlsD'),
     compareModeRadios: document.querySelectorAll('input[name="compareCount"]'),
+    uiThemeSwitch: document.getElementById('uiThemeSwitch'),
+    uiThemeClassicBtn: document.getElementById('uiThemeClassicBtn'),
+    uiThemeNtBtn: document.getElementById('uiThemeNtBtn'),
     dropReplace: document.getElementById('dropReplace'),
     dropReplaceActions: document.getElementById('dropReplaceActions'),
     dropReplaceCancel: document.getElementById('dropReplaceCancel'),
@@ -1155,6 +1164,46 @@
         slot
       };
     });
+  }
+
+  function normalizeUiTheme(value) {
+    const key = String(value || '').trim().toLowerCase();
+    return key === UI_THEME_CLASSIC ? UI_THEME_CLASSIC : UI_THEME_NT;
+  }
+
+  function getPreferredUiTheme() {
+    try {
+      const saved = localStorage.getItem(UI_THEME_STORAGE_KEY);
+      return normalizeUiTheme(saved);
+    } catch (err) {
+      return UI_THEME_NT;
+    }
+  }
+
+  function syncUiThemeButtons() {
+    const active = normalizeUiTheme(state.uiTheme);
+    [dom.uiThemeClassicBtn, dom.uiThemeNtBtn].forEach((btn) => {
+      if (!btn) return;
+      const selected = normalizeUiTheme(btn.dataset.theme) === active;
+      btn.classList.toggle('active', selected);
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      btn.tabIndex = selected ? 0 : -1;
+    });
+  }
+
+  function applyUiTheme(nextTheme, persist = true) {
+    const theme = normalizeUiTheme(nextTheme);
+    state.uiTheme = theme;
+    document.body.classList.toggle('ui-theme-classic', theme === UI_THEME_CLASSIC);
+    document.body.classList.toggle('ui-theme-nt', theme === UI_THEME_NT);
+    syncUiThemeButtons();
+    if (persist) {
+      try {
+        localStorage.setItem(UI_THEME_STORAGE_KEY, theme);
+      } catch (err) {
+        // Ignore storage failures in restricted contexts.
+      }
+    }
   }
 
   function getLoadedCompareSlots() {
@@ -16745,8 +16794,35 @@
     setCompareCount(selected ? selected.value : 1, true);
   }
 
+  function setupUiThemeToggle() {
+    applyUiTheme(getPreferredUiTheme(), false);
+    if (!dom.uiThemeSwitch) return;
+    const buttons = dom.uiThemeSwitch.querySelectorAll('.ui-theme-btn');
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const theme = normalizeUiTheme(btn.dataset.theme || '');
+        if (theme === state.uiTheme) return;
+        applyUiTheme(theme, true);
+        trackEvent('ui_theme_change', { theme });
+      });
+      btn.addEventListener('keydown', (evt) => {
+        if (evt.key !== 'ArrowLeft' && evt.key !== 'ArrowRight') return;
+        evt.preventDefault();
+        const order = [UI_THEME_CLASSIC, UI_THEME_NT];
+        const current = order.indexOf(normalizeUiTheme(state.uiTheme));
+        const dir = evt.key === 'ArrowRight' ? 1 : -1;
+        const next = order[(current + dir + order.length) % order.length];
+        applyUiTheme(next, true);
+        trackEvent('ui_theme_change', { theme: next });
+      });
+    });
+    syncUiThemeButtons();
+  }
+
   async function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
+    setupUiThemeToggle();
     rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
@@ -16808,6 +16884,8 @@
     lookupPrefix,
     bandClass,
     getSlotById,
+    getUiTheme: () => state.uiTheme,
+    setUiTheme: (theme) => applyUiTheme(theme, true),
     trackEvent,
     setSpotHunterStatus: (status, payload = {}) => {
       state.spotHunterStatus = status || 'pending';

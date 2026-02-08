@@ -75,7 +75,7 @@ Normalization requirements:
 ## Commit Plan (granular)
 
 ### Commit 00 - Track planning artifacts
-Status: [ ]
+Status: [x]
 - Scope:
   - `data/scoring_engine_plan.json` (currently untracked)
   - `SCORING_ENGINE_TODO.md`
@@ -87,7 +87,7 @@ Status: [ ]
   - `docs: add scoring engine plan and implementation todo`
 
 ### Commit 01 - Introduce scoring runtime skeleton
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js` (or new `scoring_engine.js` + `index.html` include)
 - Tasks:
@@ -106,7 +106,7 @@ Status: [ ]
   - `feat(scoring): add scoring runtime skeleton and unsupported fallback`
 
 ### Commit 02 - Rule loading and resolver wiring
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js`
   - optional `data` loader helper if needed

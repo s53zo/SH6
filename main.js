@@ -59,6 +59,11 @@
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
+  const SCORING_SPEC_URLS = [
+    'data/contest_scoring_spec.json',
+    './data/contest_scoring_spec.json'
+  ];
+  const SCORING_UNKNOWN_WARNING = 'Rules for this contest are unknown. Showing logged points only if available.';
   const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
   const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
   const CALLSIGN_LOOKUP_URLS = [
@@ -807,14 +812,21 @@
     kmzUrls: {},
     ctyStatus: 'pending',
     masterStatus: 'pending',
+    scoringStatus: 'pending',
     qthStatus: 'pending',
     spotHunterStatus: 'pending',
     ctyError: null,
     masterError: null,
+    scoringError: null,
     qthError: null,
     spotHunterError: null,
     ctySource: null,
     masterSource: null,
+    scoringSource: null,
+    scoringSpec: null,
+    scoringRuleMap: new Map(),
+    scoringRuleByFolder: new Map(),
+    scoringAliasMap: new Map(),
     qthSource: CALLSIGN_LOOKUP_URLS[0],
     spotHunterSource: null,
     showLoadPanel: false,
@@ -2113,6 +2125,303 @@
     return meta;
   }
 
+  const SCORING_RULE_ALIASES = Object.freeze({
+    cqww: ['CQWW', 'CQ-WW', 'CQ WW', 'CQ WORLD WIDE'],
+    cqwpx: ['CQWPX', 'CQ-WPX', 'CQ WPX'],
+    cqwwrtty: ['CQWWRTTY', 'CQ-WW-RTTY', 'CQ WW RTTY'],
+    cqwpxrtty: ['CQWPXRTTY', 'CQ-WPX-RTTY', 'CQ WPX RTTY'],
+    cq160: ['CQ160', 'CQ 160', 'CQ-160'],
+    wae: ['WAE', 'WORKED ALL EUROPE'],
+    darc_fieldday: ['DARC FIELDDAY', 'DARC FIELD DAY'],
+    darc_wag: ['DARC WAG', 'WAG CONTEST'],
+    ref: ['COUPE DU REF', 'REF CONTEST'],
+    eudx: ['EU DX', 'EUDX', 'EU DX CONTEST'],
+    euhfc: ['EUHFC', 'EUROPEAN HF CHAMPIONSHIP'],
+    eu_vhf_bundle: ['IARU REGION 1 VHF', 'EU VHF', 'ALPE ADRIA'],
+    ww_pmc: ['WW PMC', 'WORLDWIDE PEACE MESSENGER'],
+    zrs_kvp: ['ZRS KVP'],
+    ok_om_dx: ['OK OM DX', 'OK-OM DX', 'OK DX', 'OM DX'],
+    rdxc: ['RDXC', 'RUSSIAN DX'],
+    rf_championship_cw: ['RF CHAMPIONSHIP CW', 'CHAMPIONSHIP OF RUSSIA CW'],
+    ham_spirit: ['HAM SPIRIT'],
+    rcc_cup: ['RCC CUP'],
+    rda: ['RDA CONTEST', 'RUSSIAN DISTRICT AWARD'],
+    rrtc: ['RRTC', 'RUSSIAN RADIO TEAM CHAMPIONSHIP'],
+    yuri_gagarin: ['YURI GAGARIN', 'GAGARIN'],
+    wed_minitest_40m: ['WEDNESDAY MINITEST 40M', 'WED MINI 40M'],
+    wed_minitest_80m: ['WEDNESDAY MINITEST 80M', 'WED MINI 80M'],
+    arrl_family_bundle: ['ARRL']
+  });
+
+  function normalizeContestKey(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '').trim();
+  }
+
+  function parseClaimedScoreNumber(value) {
+    if (value == null || value === '') return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    const normalized = raw.replace(/,/g, '');
+    const num = Number(normalized.replace(/[^\d.\-]/g, ''));
+    if (!Number.isFinite(num)) return null;
+    return Math.round(num);
+  }
+
+  function getArchiveFolderFromPath(path) {
+    const raw = String(path || '').trim();
+    if (!raw) return '';
+    const clean = raw.replace(/^\/+|\/+$/g, '');
+    if (!clean) return '';
+    const folder = clean.split('/')[0] || '';
+    return folder.trim();
+  }
+
+  function addScoringAlias(aliasMap, alias, ruleId, bias = 0) {
+    const key = normalizeContestKey(alias);
+    if (!key || !ruleId) return;
+    const list = aliasMap.get(key) || [];
+    list.push({ ruleId, score: key.length + bias });
+    aliasMap.set(key, list);
+  }
+
+  function pickBestAliasCandidate(candidates) {
+    if (!Array.isArray(candidates) || !candidates.length) return null;
+    return candidates.slice().sort((a, b) => {
+      if ((b.score || 0) !== (a.score || 0)) return (b.score || 0) - (a.score || 0);
+      return String(a.ruleId || '').localeCompare(String(b.ruleId || ''));
+    })[0] || null;
+  }
+
+  function buildScoringIndexes(spec) {
+    const byId = new Map();
+    const byFolder = new Map();
+    const aliasMap = new Map();
+    const list = Array.isArray(spec?.rule_sets) ? spec.rule_sets : [];
+    list.forEach((rule) => {
+      if (!rule || !rule.id) return;
+      byId.set(rule.id, rule);
+      if (rule.archive_folder) {
+        byFolder.set(normalizeContestKey(rule.archive_folder), rule.id);
+      }
+      addScoringAlias(aliasMap, rule.id, rule.id, 70);
+      addScoringAlias(aliasMap, rule.archive_folder, rule.id, 80);
+      addScoringAlias(aliasMap, rule.name, rule.id, 10);
+      if (Array.isArray(rule.aliases)) {
+        rule.aliases.forEach((alias) => addScoringAlias(aliasMap, alias, rule.id, 90));
+      }
+      const builtIn = SCORING_RULE_ALIASES[rule.id];
+      if (Array.isArray(builtIn)) {
+        builtIn.forEach((alias) => addScoringAlias(aliasMap, alias, rule.id, 100));
+      }
+      if (Array.isArray(rule?.subevents)) {
+        rule.subevents.forEach((sub) => {
+          if (!sub) return;
+          addScoringAlias(aliasMap, sub.id, rule.id, 50);
+          if (Array.isArray(sub.slug_patterns)) {
+            sub.slug_patterns.forEach((pattern) => addScoringAlias(aliasMap, pattern, rule.id, 60));
+          }
+        });
+      }
+    });
+    return { byId, byFolder, aliasMap };
+  }
+
+  function applyScoringSpec(spec, sourceLabel) {
+    const indexes = buildScoringIndexes(spec);
+    state.scoringSpec = spec;
+    state.scoringRuleMap = indexes.byId;
+    state.scoringRuleByFolder = indexes.byFolder;
+    state.scoringAliasMap = indexes.aliasMap;
+    state.scoringStatus = 'ok';
+    state.scoringError = null;
+    state.scoringSource = sourceLabel || '';
+  }
+
+  function resolveRuleIdByContestName(contestIdRaw) {
+    const key = normalizeContestKey(contestIdRaw);
+    if (!key) return null;
+    const aliasMap = state.scoringAliasMap instanceof Map ? state.scoringAliasMap : new Map();
+    if (aliasMap.has(key)) {
+      const best = pickBestAliasCandidate(aliasMap.get(key));
+      return best ? best.ruleId : null;
+    }
+    let winner = null;
+    aliasMap.forEach((candidates, alias) => {
+      if (!alias) return;
+      if (!key.includes(alias) && !alias.includes(key)) return;
+      const best = pickBestAliasCandidate(candidates);
+      if (!best) return;
+      const matchScore = (best.score || 0) + Math.min(alias.length, key.length);
+      if (!winner || matchScore > winner.score) {
+        winner = { ruleId: best.ruleId, score: matchScore };
+      }
+    });
+    return winner ? winner.ruleId : null;
+  }
+
+  function getConfidenceLabel(rule) {
+    const raw = String(rule?.confidence || '').trim().toLowerCase();
+    if (raw === 'high') return 'high';
+    if (raw.startsWith('medium')) return 'medium';
+    if (raw === 'low') return 'low';
+    return 'unknown';
+  }
+
+  function resolveArrlSubevent(rule, contestIdRaw) {
+    if (!rule || !Array.isArray(rule.subevents)) return null;
+    const key = normalizeContestKey(contestIdRaw);
+    if (!key) return null;
+    let winner = null;
+    rule.subevents.forEach((sub) => {
+      const patterns = Array.isArray(sub?.slug_patterns) ? sub.slug_patterns : [];
+      patterns.forEach((pattern) => {
+        const patternKey = normalizeContestKey(pattern);
+        if (!patternKey) return;
+        if (!key.includes(patternKey) && !patternKey.includes(key)) return;
+        const score = patternKey.length;
+        if (!winner || score > winner.score) {
+          winner = { subevent: sub, score };
+        }
+      });
+    });
+    return winner ? winner.subevent : null;
+  }
+
+  function resolveEuVhfModel(rule, contestIdRaw) {
+    const key = normalizeContestKey(contestIdRaw);
+    if (!key || !Array.isArray(rule?.subevent_models)) return null;
+    if (key.includes('ALPEADRIA')) return rule.subevent_models.find((m) => m.model_id === 'distance_times_multipliers') || null;
+    if (key.includes('MICROWAVE') || key.includes('MARATON') || key.includes('SHF')) {
+      return rule.subevent_models.find((m) => m.model_id === 'band_weighted_distance') || null;
+    }
+    if (key.includes('IARU') || key.includes('REGION1') || key.includes('VHF')) {
+      return rule.subevent_models.find((m) => m.model_id === 'distance_only') || null;
+    }
+    return null;
+  }
+
+  function resolveContestRuleSet(contestMeta, context = {}) {
+    const byId = state.scoringRuleMap;
+    const byFolder = state.scoringRuleByFolder;
+    if (!(byId instanceof Map) || byId.size === 0 || !(byFolder instanceof Map)) {
+      return {
+        supported: false,
+        reason: 'spec_unavailable',
+        warning: 'Scoring rules are not loaded yet.',
+        assumptions: ['Scoring spec file is not available in runtime.'],
+        detectionMethod: 'none'
+      };
+    }
+    const archivePath = context?.logFile?.path || context?.sourcePath || '';
+    const folder = getArchiveFolderFromPath(archivePath);
+    const contestRaw = String(contestMeta?.contestId || '').trim();
+    const folderKey = normalizeContestKey(folder);
+    let ruleId = folderKey ? byFolder.get(folderKey) : null;
+    let detectionMethod = ruleId ? 'archive_folder' : 'contest_id_alias';
+    if (!ruleId) {
+      ruleId = resolveRuleIdByContestName(contestRaw);
+    }
+    const rule = ruleId ? byId.get(ruleId) : null;
+    if (!rule) {
+      return {
+        supported: false,
+        reason: 'unknown_rule',
+        warning: SCORING_UNKNOWN_WARNING,
+        assumptions: ['No matching contest rule set found for this log.'],
+        detectionMethod,
+        detectionValue: contestRaw || folder || ''
+      };
+    }
+    let bundle = null;
+    const assumptions = [];
+    if (rule.bundle === true && rule.id === 'arrl_family_bundle') {
+      const subevent = resolveArrlSubevent(rule, contestRaw);
+      if (subevent) {
+        bundle = {
+          type: 'arrl',
+          subeventId: subevent.id,
+          subevent
+        };
+      } else {
+        assumptions.push('ARRL bundle matched but exact subevent slug was not detected.');
+      }
+    }
+    if (rule.bundle === true && rule.id === 'eu_vhf_bundle') {
+      const model = resolveEuVhfModel(rule, contestRaw);
+      if (model) {
+        bundle = {
+          type: 'eu_vhf',
+          subeventModelId: model.model_id,
+          subeventModel: model
+        };
+      } else {
+        assumptions.push('EU VHF bundle matched but subevent model could not be inferred from contest name.');
+      }
+    }
+    return {
+      supported: true,
+      rule,
+      ruleId: rule.id,
+      confidence: getConfidenceLabel(rule),
+      detectionMethod,
+      detectionValue: detectionMethod === 'archive_folder' ? folder : contestRaw,
+      assumptions,
+      bundle
+    };
+  }
+
+  function computeLoggedPointsTotal(qsos) {
+    return (qsos || []).reduce((sum, q) => (
+      Number.isFinite(q?.points) ? sum + q.points : sum
+    ), 0);
+  }
+
+  function computeContestScoringSummary(qsos, contestMeta, context = {}) {
+    const loggedPointsTotal = computeLoggedPointsTotal(qsos);
+    const claimedScoreHeader = parseClaimedScoreNumber(contestMeta?.claimedScore);
+    const resolved = resolveContestRuleSet(contestMeta, context);
+    if (!resolved.supported) {
+      return {
+        supported: false,
+        confidence: 'unknown',
+        warning: resolved.warning || SCORING_UNKNOWN_WARNING,
+        assumptions: Array.isArray(resolved.assumptions) ? resolved.assumptions : [],
+        detectionMethod: resolved.detectionMethod || 'none',
+        detectionValue: resolved.detectionValue || '',
+        ruleId: null,
+        ruleName: 'Unknown contest',
+        claimedScoreHeader,
+        loggedPointsTotal,
+        computedQsoPointsTotal: null,
+        computedMultiplierTotal: null,
+        computedScore: null,
+        scoreDeltaAbs: null,
+        scoreDeltaPct: null,
+        effectivePointsSource: loggedPointsTotal > 0 ? 'logged' : 'none',
+        bundle: null
+      };
+    }
+    return {
+      supported: true,
+      confidence: resolved.confidence || 'unknown',
+      warning: '',
+      assumptions: Array.isArray(resolved.assumptions) ? resolved.assumptions : [],
+      detectionMethod: resolved.detectionMethod || '',
+      detectionValue: resolved.detectionValue || '',
+      ruleId: resolved.ruleId || '',
+      ruleName: resolved.rule?.name || resolved.ruleId || '',
+      claimedScoreHeader,
+      loggedPointsTotal,
+      computedQsoPointsTotal: null,
+      computedMultiplierTotal: null,
+      computedScore: null,
+      scoreDeltaAbs: null,
+      scoreDeltaPct: null,
+      effectivePointsSource: 'logged',
+      bundle: resolved.bundle || null
+    };
+  }
+
   function computeBreakSummary(minutesMap, threshold) {
     const minutes = Array.from(minutesMap.keys()).sort((a, b) => a - b);
     if (!minutes.length) return { totalBreakMin: 0, breaks: [] };
@@ -3053,7 +3362,7 @@
     target.rawLogText = text;
     target.qsoData = parseLogFile(text, filename);
     queueCallsignGridLookup(target.qsoData.qsos);
-    target.derived = buildDerived(target.qsoData.qsos);
+    target.derived = buildDerived(target.qsoData.qsos, { logFile: target.logFile });
     target.qsoLite = buildQsoLiteArray(target.qsoData.qsos);
     target.fullQsoData = target.qsoData;
     target.fullDerived = target.derived;
@@ -3266,7 +3575,7 @@
 
   function recomputeDerived(reason) {
     if (state.qsoData) {
-      state.derived = buildDerived(state.qsoData.qsos);
+      state.derived = buildDerived(state.qsoData.qsos, { logFile: state.logFile });
       state.qsoLite = buildQsoLiteArray(state.qsoData.qsos);
       state.fullQsoData = state.qsoData;
       state.fullDerived = state.derived;
@@ -3275,7 +3584,7 @@
     }
     state.compareSlots.forEach((slot) => {
       if (slot && slot.qsoData) {
-        slot.derived = buildDerived(slot.qsoData.qsos);
+        slot.derived = buildDerived(slot.qsoData.qsos, { logFile: slot.logFile });
         slot.qsoLite = buildQsoLiteArray(slot.qsoData.qsos);
         slot.fullQsoData = slot.qsoData;
         slot.fullDerived = slot.derived;
@@ -3321,7 +3630,7 @@
     let qsos;
     if (!derived) {
       qsos = getBandFilteredQsos(band);
-      derived = buildDerived(qsos);
+      derived = buildDerived(qsos, { logFile: state.logFile, sourcePath: state.logFile?.path || '' });
       cache.set(band, derived);
     } else {
       qsos = getBandFilteredQsos(band);
@@ -3650,6 +3959,7 @@
     const useLocalFirst = isLocalHost();
     const ctyUrls = useLocalFirst ? buildLocalFirstUrls(CTY_URLS) : buildFetchUrls(CTY_URLS);
     const masterUrls = useLocalFirst ? buildLocalFirstUrls(MASTER_URLS) : buildFetchUrls(MASTER_URLS);
+    const scoringUrls = useLocalFirst ? buildLocalFirstUrls(SCORING_SPEC_URLS) : buildLocalFirstUrls(SCORING_SPEC_URLS);
     fetchWithFallback(ctyUrls, (status, url) => {
       state.ctyStatus = status;
       if (status === 'error') state.ctySource = url;
@@ -3711,6 +4021,29 @@
         }
       }
       updateDataStatus();
+    });
+
+    fetchWithFallback(scoringUrls, (status, url) => {
+      state.scoringStatus = status;
+      if (status === 'error' || status === 'loading') state.scoringSource = url;
+    }).then((res) => {
+      if (res.error) {
+        state.scoringError = res.error;
+        state.scoringStatus = 'error';
+        recomputeDerived('scoring');
+        return;
+      }
+      try {
+        const parsed = JSON.parse(res.text || '{}');
+        if (!Array.isArray(parsed?.rule_sets) || parsed.rule_sets.length === 0) {
+          throw new Error('Scoring spec has no rule_sets');
+        }
+        applyScoringSpec(parsed, res.url);
+      } catch (err) {
+        state.scoringStatus = 'error';
+        state.scoringError = err && err.message ? err.message : 'Failed to parse scoring spec';
+      }
+      recomputeDerived('scoring');
     });
   }
 
@@ -4037,7 +4370,7 @@
     return dupes;
   }
 
-  function buildDerived(qsos) {
+  function buildDerived(qsos, context = {}) {
     if (!qsos) return null;
     const dupes = markDupes(qsos);
     const calls = new Set();
@@ -4558,6 +4891,11 @@
     const fieldsSummary = Array.from(fields.entries()).map(([field, count]) => ({ field, count }))
       .sort((a, b) => b.count - a.count || a.field.localeCompare(b.field));
 
+    const scoring = computeContestScoringSummary(qsos, contestMeta, {
+      logFile: context?.logFile || null,
+      sourcePath: context?.sourcePath || ''
+    });
+
     return {
       dupes,
       uniqueCallsCount: calls.size,
@@ -4586,6 +4924,7 @@
       fieldsSummary,
       station,
       contestMeta,
+      scoring,
       comments: Array.from(comments),
       possibleErrors,
       timeRange: { minTs, maxTs },

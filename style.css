@@ -1006,7 +1006,7 @@ a:hover {
 .compare-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
 @media (min-width: 768px) {
@@ -1025,7 +1025,7 @@ a:hover {
 
 .compare-grid.compare-narrow {
   justify-content: start;
-  gap: 10px;
+  gap: 12px;
 }
 
 .compare-grid.compare-stack {
@@ -1055,9 +1055,9 @@ a:hover {
 }
 
 .compare-panel {
-  border: 1px dotted #999999;
-  background: #ffffff;
-  padding: 6px 8px;
+  border: 1px solid #cfd8e8;
+  background: #fbfcff;
+  padding: 8px 10px;
 }
 
 .compare-scroll {
@@ -1075,11 +1075,15 @@ a:hover {
 
 .compare-panel .compare-head {
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #d9e2f1;
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
+  line-height: 1.2;
 }
 
 .compare-panel.compare-a .compare-head {

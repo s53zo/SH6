@@ -1060,6 +1060,12 @@ a:hover {
   word-break: break-word;
 }
 
+.scoring-note {
+  border-color: #b26a00;
+  background: #fff8e6;
+  color: #6f4100;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -1883,6 +1889,10 @@ th {
   margin-top: 5px;
   margin-bottom: 10px;
   font-size: 8pt;
+}
+
+.rates-subhead {
+  margin-top: 10px;
 }
 
 .rates-header,

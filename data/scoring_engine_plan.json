@@ -1,0 +1,763 @@
+{
+  "plan_version": "2026-02-08",
+  "generated_at_utc": "2026-02-08T02:28:59Z",
+  "source_spec_path": "data/contest_scoring_spec.json",
+  "source_status": "research-draft",
+  "target_branch": "contest-rules",
+  "objective": "Implement a deterministic claimed-score engine for SH6 from contest_scoring_spec.json.",
+  "core_engine": {
+    "required_qso_fields": [
+      "call",
+      "band",
+      "mode",
+      "ts",
+      "country",
+      "continent",
+      "cq_zone",
+      "itu_zone",
+      "exchange_sent",
+      "exchange_rcvd"
+    ],
+    "required_station_context": [
+      "station_country",
+      "station_continent",
+      "category_operator",
+      "category_mode",
+      "category_band"
+    ],
+    "scoring_primitives": [
+      "qso_point_table",
+      "multiplier_counter",
+      "band_scope_counter",
+      "mode_scope_counter",
+      "bundle_dispatch",
+      "formula_evaluator"
+    ]
+  },
+  "phase_plan": [
+    {
+      "phase_id": "phase_1_high_confidence_non_bundle",
+      "target_rule_ids": [
+        "cqww",
+        "cqwpx",
+        "cqwwrtty",
+        "cqwpxrtty",
+        "cq160",
+        "wae",
+        "ref",
+        "eudx",
+        "euhfc",
+        "zrs_kvp",
+        "rdxc",
+        "rf_championship_cw",
+        "ham_spirit",
+        "rcc_cup",
+        "rrtc",
+        "yuri_gagarin"
+      ],
+      "deliverables": [
+        "core scoring engine interfaces",
+        "per-contest scorers for high-confidence contests",
+        "fixture tests for points and multipliers",
+        "claimed-score parity checks against known logs"
+      ],
+      "gate": "all phase-1 contests produce deterministic scores with passing fixtures"
+    },
+    {
+      "phase_id": "phase_2_medium_confidence_non_bundle",
+      "target_rule_ids": [
+        "darc_fieldday",
+        "darc_wag",
+        "ww_pmc",
+        "ok_om_dx",
+        "rda",
+        "wed_minitest_40m",
+        "wed_minitest_80m"
+      ],
+      "deliverables": [
+        "medium-confidence contest scorers",
+        "rule-ambiguity flags in output",
+        "regression tests and documented assumptions"
+      ],
+      "gate": "all assumptions are codified and test-covered"
+    },
+    {
+      "phase_id": "phase_3_bundle_resolvers",
+      "target_rule_ids": [
+        "eu_vhf_bundle",
+        "arrl_family_bundle"
+      ],
+      "deliverables": [
+        "ARRL slug-based resolver",
+        "EU_VHF bundle resolver",
+        "subevent scorer dispatch tests"
+      ],
+      "gate": "bundle dispatch selects correct sub-scoring model for fixture logs"
+    }
+  ],
+  "contest_tasks": [
+    {
+      "id": "cqww",
+      "archive_folder": "CQWW",
+      "name": "CQ World Wide DX Contest (CW/SSB)",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * (cq_zone_mults + country_mults)",
+      "official_rules_urls": [
+        "https://cqww.com/rules.htm",
+        "https://cqww.com/rules/2025_rules_cqww.pdf"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "CQWW"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "cqwpx",
+      "archive_folder": "CQWPX",
+      "name": "CQ WPX Contest (CW/SSB)",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * wpx_prefix_mults",
+      "official_rules_urls": [
+        "https://cqwpx.com/rules/",
+        "https://cqwpx.com/rules/2025_cqwpx_rules.pdf"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "CQWPX"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "cqwwrtty",
+      "archive_folder": "CQWWRTTY",
+      "name": "CQ WW RTTY",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * (cq_zone_mults + country_mults + w_ve_qth_mults)",
+      "official_rules_urls": [
+        "https://cqwwrtty.com/rules.htm",
+        "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2025.pdf"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "CQWWRTTY"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "cqwpxrtty",
+      "archive_folder": "CQWPXRTTY",
+      "name": "CQ WPX RTTY",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * wpx_prefix_mults",
+      "official_rules_urls": [
+        "https://cqwpxrtty.com/rules.htm",
+        "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2026_en.pdf"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "CQWPXRTTY"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "cq160",
+      "archive_folder": "CQ160",
+      "name": "CQ 160 (CW/SSB)",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "https://cq160.com/rules/index.htm",
+        "https://cq160.com/rules/rules_cq160_2026.pdf"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "CQ160"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "wae",
+      "archive_folder": "WAE",
+      "name": "Worked All Europe",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = (qso_count + qtc_count) * weighted_multiplier_sum",
+      "official_rules_urls": [
+        "https://www.darc.de/en/der-club/referate/conteste/wae-dx-contest/en/wae-rules/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "WAE"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "darc_fieldday",
+      "archive_folder": "DARC_Fieldday",
+      "name": "DARC Fieldday",
+      "bundle": false,
+      "confidence": "medium-high",
+      "implementation_tier": "p2",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * country_mults",
+      "official_rules_urls": [
+        "https://www.darc.de/der-club/referate/conteste/iaru-region-1-fieldday/rules/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "DARC_Fieldday"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 6,
+      "open_questions": []
+    },
+    {
+      "id": "darc_wag",
+      "archive_folder": "DARC_WAG",
+      "name": "DARC WAG",
+      "bundle": false,
+      "confidence": "medium-high",
+      "implementation_tier": "p2",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "https://www.darc.de/der-club/referate/conteste/wag-contest/en/rules/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "DARC_WAG"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 6,
+      "open_questions": []
+    },
+    {
+      "id": "ref",
+      "archive_folder": "REF",
+      "name": "Coupe du REF HF",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "https://concours.r-e-f.org/reglements/actuels/reg_cdfhf_fr_20250205.pdf"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "REF"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "eudx",
+      "archive_folder": "EUDX_contest",
+      "name": "EU DX Contest",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * (eu_region_mults + country_mults)",
+      "official_rules_urls": [
+        "https://www.eudx-contest.com/rules/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "EUDX_contest"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "euhfc",
+      "archive_folder": "EUHFC",
+      "name": "European HF Championship",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "https://www.euhf.s5cc.eu/euhfc-rules.pdf"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "EUHFC"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "eu_vhf_bundle",
+      "archive_folder": "EU_VHF_CONTESTS",
+      "name": "EU VHF Contest Bundle",
+      "bundle": true,
+      "confidence": "high",
+      "implementation_tier": "resolver",
+      "scoring_pattern": "bundle",
+      "formula": null,
+      "official_rules_urls": [
+        "https://lea.hamradio.si/~s53m/ukv/",
+        "https://www.iaru-r1.org/wp-content/uploads/2023/03/VHF-UHF-SHF-contest-handbook-v9.11.pdf"
+      ],
+      "detection": {
+        "method": "match_archive_folder_then_detect_subevent",
+        "examples": [
+          {
+            "model_id": "distance_only",
+            "formula": "score = sum(km_points)",
+            "examples": [
+              "IARU Region 1 style subregional events"
+            ]
+          },
+          {
+            "model_id": "distance_times_multipliers",
+            "formula": "score = sum(qso_points_or_km) * multipliers",
+            "examples": [
+              "Alpe-Adria variants",
+              "some national VHF championships"
+            ]
+          },
+          {
+            "model_id": "band_weighted_distance",
+            "formula": "score = sum(km * band_factor) + optional_bonus",
+            "examples": [
+              "specialized microwave or maraton variants"
+            ]
+          }
+        ]
+      },
+      "depends_on": [
+        "bundle_dispatch",
+        "core_engine"
+      ],
+      "test_fixture_minimum": 6,
+      "open_questions": []
+    },
+    {
+      "id": "ww_pmc",
+      "archive_folder": "WW_PMC",
+      "name": "Worldwide Peace Messenger Contest",
+      "bundle": false,
+      "confidence": "medium-high",
+      "implementation_tier": "p2",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "http://www.yt7aw.org/contestrules/WWPMC/rules_wwpmc.htm"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "WW_PMC"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 6,
+      "open_questions": []
+    },
+    {
+      "id": "zrs_kvp",
+      "archive_folder": "ZRS_KVP",
+      "name": "ZRS KVP",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = (cw_points + ssb_points) * (cw_mults + ssb_mults)",
+      "official_rules_urls": [
+        "http://kvp.hamradio.si/pravila.html"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "ZRS_KVP"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "ok_om_dx",
+      "archive_folder": "OK_OM_DX_Contest",
+      "name": "OK-OM DX Contest (plus related OK/RTTY variants in source scripts)",
+      "bundle": false,
+      "confidence": "medium",
+      "implementation_tier": "p3",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "http://okomdx.crk.cz/",
+        "https://www.p3k.hu/contest/rules/okomdx.htm"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "OK_OM_DX_Contest"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 8,
+      "open_questions": [
+        "Official source site has intermittent availability; confirm latest annual bulletin before production lock."
+      ]
+    },
+    {
+      "id": "rdxc",
+      "archive_folder": "RussianDXContest",
+      "name": "Russian DX Contest",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * (oblast_mults + country_mults)",
+      "official_rules_urls": [
+        "https://www.rdxc.org/rules_eng"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "RussianDXContest"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "rf_championship_cw",
+      "archive_folder": "RFChampionshipCW",
+      "name": "Russian Federation Championship CW",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "additive",
+      "formula": "score = matrix_base_points + new_zone_bonus + new_region_bonus",
+      "official_rules_urls": [
+        "https://srr.ru/wp-content/uploads/2025/03/Reglament_CHR_KV-TLG_2025.pdf"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "RFChampionshipCW"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "ham_spirit",
+      "archive_folder": "HamSpiritContest",
+      "name": "Ham Spirit Contest",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "https://hamspiritcontest.ru/rules-ham-spirit-contest/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "HamSpiritContest"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "rcc_cup",
+      "archive_folder": "RCCCup",
+      "name": "RCC Cup",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "https://www.contest.ru/rcc-cup-rules/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "RCCCup"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "rda",
+      "archive_folder": "RDAContest",
+      "name": "RDA Contest",
+      "bundle": false,
+      "confidence": "medium-high",
+      "implementation_tier": "p2",
+      "scoring_pattern": "multiply",
+      "formula": "non_ru_score = qso_points_total * rda_mults; ru_score = qso_points_total * (rda_mults + country_mults)",
+      "official_rules_urls": [
+        "https://rdaward.org/rdac1.htm"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "RDAContest"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 6,
+      "open_questions": [
+        "Legacy encoding on official page; verify latest annual exact constants."
+      ]
+    },
+    {
+      "id": "rrtc",
+      "archive_folder": "RussianRadioTeamChampionship",
+      "name": "Russian Radio Team Championship",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "https://srr.ru/reglament-rules/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "RussianRadioTeamChampionship"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "yuri_gagarin",
+      "archive_folder": "YuriGagarinDXContest",
+      "name": "Yuri Gagarin International DX Contest",
+      "bundle": false,
+      "confidence": "high",
+      "implementation_tier": "p1",
+      "scoring_pattern": "multiply",
+      "formula": "score = weighted_qso_points_total * multipliers_total",
+      "official_rules_urls": [
+        "https://gccontest.ru/rules/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "YuriGagarinDXContest"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 4,
+      "open_questions": []
+    },
+    {
+      "id": "wed_minitest_40m",
+      "archive_folder": "WednesdayMiniTest40m",
+      "name": "Wednesday Mini-Test 40m",
+      "bundle": false,
+      "confidence": "medium",
+      "implementation_tier": "p3",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_count * unique_callsigns",
+      "official_rules_urls": [
+        "https://minitest.narod.ru/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "WednesdayMiniTest40m"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 8,
+      "open_questions": []
+    },
+    {
+      "id": "wed_minitest_80m",
+      "archive_folder": "WednesdayMiniTest80m",
+      "name": "Wednesday Mini-Test 80m",
+      "bundle": false,
+      "confidence": "medium",
+      "implementation_tier": "p3",
+      "scoring_pattern": "multiply",
+      "formula": "score = qso_count * unique_callsigns",
+      "official_rules_urls": [
+        "https://minitest.narod.ru/"
+      ],
+      "detection": {
+        "method": "archive_folder_equals",
+        "value": "WednesdayMiniTest80m"
+      },
+      "depends_on": [
+        "core_engine"
+      ],
+      "test_fixture_minimum": 8,
+      "open_questions": []
+    },
+    {
+      "id": "arrl_family_bundle",
+      "archive_folder": "ARRL",
+      "name": "ARRL Contest Family Bundle",
+      "bundle": true,
+      "confidence": "high",
+      "implementation_tier": "resolver",
+      "scoring_pattern": "bundle",
+      "formula": null,
+      "official_rules_urls": null,
+      "detection": {
+        "method": "match_archive_slug_to_subevent",
+        "examples": [
+          {
+            "subevent_id": "arrl_dx",
+            "slug_patterns": [
+              "arrl_international_dx_cw_contest",
+              "arrl_international_dx_phone_contest"
+            ]
+          },
+          {
+            "subevent_id": "arrl_sweepstakes",
+            "slug_patterns": [
+              "arrl_november_cw_sweepstakes",
+              "arrl_november_phone_sweepstakes"
+            ]
+          },
+          {
+            "subevent_id": "arrl_10m",
+            "slug_patterns": [
+              "arrl_10_meter_contest"
+            ]
+          },
+          {
+            "subevent_id": "arrl_160m",
+            "slug_patterns": [
+              "arrl_160_meter_contest"
+            ]
+          },
+          {
+            "subevent_id": "arrl_rtty_roundup",
+            "slug_patterns": [
+              "arrl_rtty_roundup"
+            ]
+          },
+          {
+            "subevent_id": "arrl_intl_digital",
+            "slug_patterns": [
+              "arrl_international_digital_contest"
+            ]
+          },
+          {
+            "subevent_id": "arrl_vhf_jan_jun_sep",
+            "slug_patterns": [
+              "arrl_january_vhf_contest",
+              "arrl_june_vhf_contest",
+              "arrl_september_vhf_contest"
+            ]
+          },
+          {
+            "subevent_id": "arrl_222_up_distance",
+            "slug_patterns": [
+              "arrl_222_mhz_and_up_distance_contest"
+            ]
+          },
+          {
+            "subevent_id": "arrl_10ghz_up",
+            "slug_patterns": [
+              "arrl_10_ghz_and_up_contest"
+            ]
+          },
+          {
+            "subevent_id": "arrl_eme",
+            "slug_patterns": [
+              "arrl_international_eme_contest"
+            ]
+          }
+        ]
+      },
+      "depends_on": [
+        "bundle_dispatch",
+        "core_engine"
+      ],
+      "test_fixture_minimum": 6,
+      "open_questions": []
+    }
+  ],
+  "cross_cutting_validation": {
+    "required_outputs": [
+      "qso_points_total",
+      "multiplier_totals_by_group",
+      "final_score",
+      "explain_trace"
+    ],
+    "explain_trace_minimum_fields": [
+      "contest_rule_id",
+      "qso_id",
+      "point_reason",
+      "multiplier_events"
+    ]
+  }
+}

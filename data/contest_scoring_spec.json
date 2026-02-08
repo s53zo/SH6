@@ -1,0 +1,1115 @@
+{
+  "spec_version": "2026-02-08",
+  "status": "research-draft",
+  "intended_use": "Compute claimed score from parsed QSOs in SH6.",
+  "sources_note": "Rules summarized from official contest pages discovered during parallel research. Some contests need annual refresh before strict production scoring.",
+  "normalization": {
+    "band_scope_terms": {
+      "per_band": "Counted separately on each band",
+      "per_band_per_mode": "Counted separately on each band and each mode",
+      "once_total": "Counted once for full contest"
+    },
+    "score_patterns": {
+      "multiply": "final_score = qso_points_total * multiplier_total",
+      "additive": "final_score = additive_components_sum",
+      "distance": "final_score primarily derived from distance/km model"
+    }
+  },
+  "rule_sets": [
+    {
+      "id": "cqww",
+      "archive_folder": "CQWW",
+      "name": "CQ World Wide DX Contest (CW/SSB)",
+      "official_rules_urls": [
+        "https://cqww.com/rules.htm",
+        "https://cqww.com/rules/2025_rules_cqww.pdf"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_geography",
+        "rules": [
+          {
+            "when": "different_continent",
+            "points": 3
+          },
+          {
+            "when": "same_continent_different_country",
+            "points": 1,
+            "notes": "North America intra-continental exception may score 2 in rulebook edge cases."
+          },
+          {
+            "when": "same_country",
+            "points": 0,
+            "notes": "QSO may still be valid for multiplier credit depending on contest rules."
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "cq_zone",
+          "country"
+        ]
+      },
+      "formula": "score = qso_points_total * (cq_zone_mults + country_mults)",
+      "key_variants": [
+        "CW and SSB weekends share scoring model.",
+        "Maritime mobile entries may have special multiplier handling."
+      ]
+    },
+    {
+      "id": "cqwpx",
+      "archive_folder": "CQWPX",
+      "name": "CQ WPX Contest (CW/SSB)",
+      "official_rules_urls": [
+        "https://cqwpx.com/rules/",
+        "https://cqwpx.com/rules/2025_cqwpx_rules.pdf"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_geography_and_band_group",
+        "band_groups": {
+          "high_bands_10_15_20": {
+            "different_continent": 3,
+            "same_continent_different_country": 1,
+            "same_country": 1,
+            "na_intra_continent_exception": 2
+          },
+          "low_bands_40_80_160": {
+            "different_continent": 6,
+            "same_continent_different_country": 2,
+            "same_country": 1,
+            "na_intra_continent_exception": 4
+          }
+        }
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "once_total",
+        "groups": [
+          "wpx_prefix"
+        ]
+      },
+      "formula": "score = qso_points_total * wpx_prefix_mults"
+    },
+    {
+      "id": "cqwwrtty",
+      "archive_folder": "CQWWRTTY",
+      "name": "CQ WW RTTY",
+      "official_rules_urls": [
+        "https://cqwwrtty.com/rules.htm",
+        "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2025.pdf"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_geography",
+        "rules": [
+          {
+            "when": "different_continent",
+            "points": 3
+          },
+          {
+            "when": "same_continent_different_country",
+            "points": 2
+          },
+          {
+            "when": "same_country",
+            "points": 1
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "cq_zone",
+          "country",
+          "w_ve_qth"
+        ]
+      },
+      "formula": "score = qso_points_total * (cq_zone_mults + country_mults + w_ve_qth_mults)",
+      "notes": [
+        "W/VE QTH includes US states/DC and VE areas as defined by rules."
+      ]
+    },
+    {
+      "id": "cqwpxrtty",
+      "archive_folder": "CQWPXRTTY",
+      "name": "CQ WPX RTTY",
+      "official_rules_urls": [
+        "https://cqwpxrtty.com/rules.htm",
+        "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2026_en.pdf"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_geography_and_band_group",
+        "band_groups": {
+          "high_bands_10_15_20": {
+            "different_continent": 3,
+            "same_continent_different_country": 2,
+            "same_country": 1
+          },
+          "low_bands_40_80": {
+            "different_continent": 6,
+            "same_continent_different_country": 4,
+            "same_country": 2
+          }
+        }
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "once_total",
+        "groups": [
+          "wpx_prefix"
+        ]
+      },
+      "formula": "score = qso_points_total * wpx_prefix_mults"
+    },
+    {
+      "id": "cq160",
+      "archive_folder": "CQ160",
+      "name": "CQ 160 (CW/SSB)",
+      "official_rules_urls": [
+        "https://cq160.com/rules/index.htm",
+        "https://cq160.com/rules/rules_cq160_2026.pdf"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_geography",
+        "rules": [
+          {
+            "when": "same_country",
+            "points": 2
+          },
+          {
+            "when": "different_country_same_continent",
+            "points": 5
+          },
+          {
+            "when": "different_continent",
+            "points": 10
+          },
+          {
+            "when": "maritime_mobile",
+            "points": 5
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "once_total_or_rule_defined",
+        "groups": [
+          "us_states_dc",
+          "ve_provinces_areas",
+          "dxcc_country"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "key_variants": [
+        "CW and SSB are separate events but share the same scoring model."
+      ]
+    },
+    {
+      "id": "wae",
+      "archive_folder": "WAE",
+      "name": "Worked All Europe",
+      "official_rules_urls": [
+        "https://www.darc.de/en/der-club/referate/conteste/wae-dx-contest/en/wae-rules/"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "qso_and_qtc_units",
+        "rules": [
+          {
+            "when": "valid_qso",
+            "points": 1
+          },
+          {
+            "when": "valid_qtc_sent_or_received",
+            "points": 1
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "weighted_mults",
+        "counting_scope": "per_band",
+        "groups": [
+          "wae_country_or_dxcc_set_by_station_region"
+        ],
+        "band_weights": {
+          "80m": 4,
+          "40m": 3,
+          "20m": 2,
+          "15m": 2,
+          "10m": 2
+        }
+      },
+      "formula": "score = (qso_count + qtc_count) * weighted_multiplier_sum",
+      "key_variants": [
+        "CW/SSB primarily EU<->non-EU QSOs.",
+        "RTTY has wider QSO allowance and specific QTC constraints."
+      ]
+    },
+    {
+      "id": "darc_fieldday",
+      "archive_folder": "DARC_Fieldday",
+      "name": "DARC Fieldday",
+      "official_rules_urls": [
+        "https://www.darc.de/der-club/referate/conteste/iaru-region-1-fieldday/rules/"
+      ],
+      "confidence": "medium-high",
+      "qso_points": {
+        "model": "table_by_portable_status_and_geography",
+        "rules": [
+          {
+            "when": "fixed_to_fixed",
+            "points": 0
+          },
+          {
+            "when": "fixed_eu",
+            "points": 2
+          },
+          {
+            "when": "fixed_outside_eu",
+            "points": 3
+          },
+          {
+            "when": "portable_eu",
+            "points": 4
+          },
+          {
+            "when": "portable_outside_eu",
+            "points": 6
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "country"
+        ]
+      },
+      "formula": "score = qso_points_total * country_mults"
+    },
+    {
+      "id": "darc_wag",
+      "archive_folder": "DARC_WAG",
+      "name": "DARC WAG",
+      "official_rules_urls": [
+        "https://www.darc.de/der-club/referate/conteste/wag-contest/en/rules/"
+      ],
+      "confidence": "medium-high",
+      "qso_points": {
+        "model": "table_by_station_region",
+        "rules": [
+          {
+            "when": "non_dl_station_any_valid_qso",
+            "points": 3
+          },
+          {
+            "when": "dl_station_working_dl",
+            "points": 1
+          },
+          {
+            "when": "dl_station_working_europe_non_dl",
+            "points": 3
+          },
+          {
+            "when": "dl_station_working_dx",
+            "points": 5
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "station_dependent_group",
+        "counting_scope": "per_band_per_mode",
+        "groups": [
+          "dl_station_uses_country_entities",
+          "non_dl_station_uses_dok_districts"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total"
+    },
+    {
+      "id": "ref",
+      "archive_folder": "REF",
+      "name": "Coupe du REF HF",
+      "official_rules_urls": [
+        "https://concours.r-e-f.org/reglements/actuels/reg_cdfhf_fr_20250205.pdf"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_station_region_and_geography",
+        "rules": [
+          {
+            "when": "french_station_to_french_same_continent",
+            "points": 6
+          },
+          {
+            "when": "french_station_to_french_other_continent",
+            "points": 15
+          },
+          {
+            "when": "french_station_to_foreign_same_continent",
+            "points": 1
+          },
+          {
+            "when": "french_station_to_foreign_other_continent",
+            "points": 2
+          },
+          {
+            "when": "non_french_station_to_french_same_continent",
+            "points": 1
+          },
+          {
+            "when": "non_french_station_to_french_other_continent",
+            "points": 3
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "station_dependent_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "departments_and_special_prefixes",
+          "dxcc_entities_for_french_entries"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total"
+    },
+    {
+      "id": "eudx",
+      "archive_folder": "EUDX_contest",
+      "name": "EU DX Contest",
+      "official_rules_urls": [
+        "https://www.eudx-contest.com/rules/"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_eu_membership_and_geography",
+        "rules": [
+          {
+            "when": "eu_to_eu_other_country",
+            "points": 10
+          },
+          {
+            "when": "eu_to_own_country",
+            "points": 2
+          },
+          {
+            "when": "eu_to_non_eu_same_continent",
+            "points": 3
+          },
+          {
+            "when": "eu_to_other_continent",
+            "points": 5
+          },
+          {
+            "when": "non_eu_to_eu",
+            "points": 10
+          },
+          {
+            "when": "non_eu_same_country",
+            "points": 2
+          },
+          {
+            "when": "non_eu_other_country_same_continent",
+            "points": 3
+          },
+          {
+            "when": "non_eu_other_continent",
+            "points": 5
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "eu_region_code",
+          "country"
+        ]
+      },
+      "formula": "score = qso_points_total * (eu_region_mults + country_mults)"
+    },
+    {
+      "id": "euhfc",
+      "archive_folder": "EUHFC",
+      "name": "European HF Championship",
+      "official_rules_urls": [
+        "https://www.euhf.s5cc.eu/euhfc-rules.pdf"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_band_group",
+        "band_groups": {
+          "160_80_40": 1,
+          "20_15_10": 2
+        },
+        "notes": "EU-to-EU one QSO per station per band (mode independent in mixed categories)."
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "country",
+          "cq_zone_except_own"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total"
+    },
+    {
+      "id": "eu_vhf_bundle",
+      "archive_folder": "EU_VHF_CONTESTS",
+      "name": "EU VHF Contest Bundle",
+      "official_rules_urls": [
+        "https://lea.hamradio.si/~s53m/ukv/",
+        "https://www.iaru-r1.org/wp-content/uploads/2023/03/VHF-UHF-SHF-contest-handbook-v9.11.pdf"
+      ],
+      "confidence": "high",
+      "bundle": true,
+      "notes": [
+        "This folder contains multiple distinct contests with different formulas.",
+        "Scoring model must be selected by detected subevent (contest id/name)."
+      ],
+      "subevent_models": [
+        {
+          "model_id": "distance_only",
+          "formula": "score = sum(km_points)",
+          "examples": [
+            "IARU Region 1 style subregional events"
+          ]
+        },
+        {
+          "model_id": "distance_times_multipliers",
+          "formula": "score = sum(qso_points_or_km) * multipliers",
+          "examples": [
+            "Alpe-Adria variants",
+            "some national VHF championships"
+          ]
+        },
+        {
+          "model_id": "band_weighted_distance",
+          "formula": "score = sum(km * band_factor) + optional_bonus",
+          "examples": [
+            "specialized microwave or maraton variants"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ww_pmc",
+      "archive_folder": "WW_PMC",
+      "name": "Worldwide Peace Messenger Contest",
+      "official_rules_urls": [
+        "http://www.yt7aw.org/contestrules/WWPMC/rules_wwpmc.htm"
+      ],
+      "confidence": "medium-high",
+      "qso_points": {
+        "model": "table_by_region_pairing",
+        "rules": [
+          {
+            "when": "eu_or_east_med_to_eu_or_east_med",
+            "points": 1
+          },
+          {
+            "when": "eu_or_east_med_to_other_continent",
+            "points": 2
+          },
+          {
+            "when": "other_pairs",
+            "points": 3
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "itu_zone",
+          "prefix_within_zone"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total"
+    },
+    {
+      "id": "zrs_kvp",
+      "archive_folder": "ZRS_KVP",
+      "name": "ZRS KVP",
+      "official_rules_urls": [
+        "http://kvp.hamradio.si/pravila.html"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "by_mode",
+        "rules": [
+          {
+            "mode": "SSB",
+            "points": 1
+          },
+          {
+            "mode": "CW",
+            "points": 2
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_mode",
+        "groups": [
+          "unique_year_number_exchange"
+        ],
+        "notes": "Own sent number counts as multiplier in contest tradition."
+      },
+      "formula": "score = (cw_points + ssb_points) * (cw_mults + ssb_mults)"
+    },
+    {
+      "id": "ok_om_dx",
+      "archive_folder": "OK_OM_DX_Contest",
+      "name": "OK-OM DX Contest (plus related OK/RTTY variants in source scripts)",
+      "official_rules_urls": [
+        "http://okomdx.crk.cz/",
+        "https://www.p3k.hu/contest/rules/okomdx.htm"
+      ],
+      "confidence": "medium",
+      "qso_points": {
+        "model": "table_by_country_prefix_continent",
+        "rules": [
+          {
+            "when": "same_country_same_prefix",
+            "points": 1
+          },
+          {
+            "when": "same_country_different_prefix_or_same_continent_different_country",
+            "points": 3
+          },
+          {
+            "when": "different_continent",
+            "points": 5
+          },
+          {
+            "when": "special_station_ok5o",
+            "points": 10
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "category_dependent",
+        "groups": [
+          "ok_district",
+          "om_district",
+          "dxcc_country"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "open_questions": [
+        "Official source site has intermittent availability; confirm latest annual bulletin before production lock."
+      ]
+    },
+    {
+      "id": "rdxc",
+      "archive_folder": "RussianDXContest",
+      "name": "Russian DX Contest",
+      "official_rules_urls": [
+        "https://www.rdxc.org/rules_eng"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_ru_status_and_geography",
+        "rules": [
+          {
+            "when": "ru_to_ru_same_continent",
+            "points": 2
+          },
+          {
+            "when": "ru_to_ru_other_continent",
+            "points": 5
+          },
+          {
+            "when": "ru_to_other_country_same_continent",
+            "points": 3
+          },
+          {
+            "when": "ru_to_other_continent",
+            "points": 5
+          },
+          {
+            "when": "non_ru_to_ru",
+            "points": 10
+          },
+          {
+            "when": "non_ru_same_country",
+            "points": 2
+          },
+          {
+            "when": "non_ru_same_continent_other_country",
+            "points": 3
+          },
+          {
+            "when": "non_ru_other_continent",
+            "points": 5
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "russian_oblast",
+          "country"
+        ]
+      },
+      "formula": "score = qso_points_total * (oblast_mults + country_mults)"
+    },
+    {
+      "id": "rf_championship_cw",
+      "archive_folder": "RFChampionshipCW",
+      "name": "Russian Federation Championship CW",
+      "official_rules_urls": [
+        "https://srr.ru/wp-content/uploads/2025/03/Reglament_CHR_KV-TLG_2025.pdf"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "zone_matrix_plus_bonuses",
+        "matrix_rule": "Use official 7x7 zone matrix for base point distance class.",
+        "bonuses": [
+          {
+            "when": "new_zone_on_band",
+            "points": 50
+          },
+          {
+            "when": "new_rf_subject_once_contest",
+            "points": 50
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "none_multiplicative"
+      },
+      "formula": "score = matrix_base_points + new_zone_bonus + new_region_bonus"
+    },
+    {
+      "id": "ham_spirit",
+      "archive_folder": "HamSpiritContest",
+      "name": "Ham Spirit Contest",
+      "official_rules_urls": [
+        "https://hamspiritcontest.ru/rules-ham-spirit-contest/"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "progressive_per_callsign_plus_geography_bonus",
+        "rules": [
+          {
+            "when": "first_contact_with_callsign",
+            "points": 1
+          },
+          {
+            "when": "second_contact_with_callsign_new_band_or_mode",
+            "points": 2
+          },
+          {
+            "when": "third_contact_with_callsign_new_band_or_mode",
+            "points": 3
+          }
+        ],
+        "geography_bonus": [
+          {
+            "when": "same_continent_different_itu_zone",
+            "bonus": 1
+          },
+          {
+            "when": "different_continent_and_zone",
+            "bonus": 2
+          },
+          {
+            "when": "maritime_mobile",
+            "bonus": 3
+          }
+        ],
+        "mode_coefficients": {
+          "SSB": 1.2,
+          "CW": 1.0
+        }
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band_per_mode",
+        "groups": [
+          "itu_zone_plus_locator_sector"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total"
+    },
+    {
+      "id": "rcc_cup",
+      "archive_folder": "RCCCup",
+      "name": "RCC Cup",
+      "official_rules_urls": [
+        "https://www.contest.ru/rcc-cup-rules/"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_with_member_bonus",
+        "rules": [
+          {
+            "when": "with_rcc_member_station",
+            "points": 10
+          },
+          {
+            "when": "same_continent_non_member",
+            "points": 3
+          },
+          {
+            "when": "different_continent_non_member",
+            "points": 5
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band_per_mode",
+        "groups": [
+          "rcc_number",
+          "itu_zone"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total"
+    },
+    {
+      "id": "rda",
+      "archive_folder": "RDAContest",
+      "name": "RDA Contest",
+      "official_rules_urls": [
+        "https://rdaward.org/rdac1.htm"
+      ],
+      "confidence": "medium-high",
+      "qso_points": {
+        "model": "table_by_ru_non_ru",
+        "rules": [
+          {
+            "when": "ru_to_ru_same_continent",
+            "points": 1
+          },
+          {
+            "when": "ru_to_ru_other_continent",
+            "points": 2
+          },
+          {
+            "when": "ru_to_other_country_same_continent",
+            "points": 3
+          },
+          {
+            "when": "ru_to_other_continent",
+            "points": 5
+          },
+          {
+            "when": "non_ru_to_ru",
+            "points": 10
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "station_dependent_group",
+        "groups": [
+          "rda_district",
+          "country_for_ru_entries"
+        ]
+      },
+      "formula": "non_ru_score = qso_points_total * rda_mults; ru_score = qso_points_total * (rda_mults + country_mults)",
+      "open_questions": [
+        "Legacy encoding on official page; verify latest annual exact constants."
+      ]
+    },
+    {
+      "id": "rrtc",
+      "archive_folder": "RussianRadioTeamChampionship",
+      "name": "Russian Radio Team Championship",
+      "official_rules_urls": [
+        "https://srr.ru/reglament-rules/"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "table_by_station_type_and_itu_relation",
+        "rules": [
+          {
+            "when": "with_rrtc_team_station",
+            "points": 1
+          },
+          {
+            "when": "with_non_team_same_itu_zone",
+            "points": 2
+          },
+          {
+            "when": "with_non_team_different_itu_zone",
+            "points": 3
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "itu_zone",
+          "rrtc_team_code"
+        ],
+        "notes": "Team stations may not provide ITU multiplier in some category sections."
+      },
+      "formula": "score = qso_points_total * multipliers_total"
+    },
+    {
+      "id": "yuri_gagarin",
+      "archive_folder": "YuriGagarinDXContest",
+      "name": "Yuri Gagarin International DX Contest",
+      "official_rules_urls": [
+        "https://gccontest.ru/rules/"
+      ],
+      "confidence": "high",
+      "qso_points": {
+        "model": "base_points_with_band_and_mode_coefficients",
+        "base_rules": [
+          {
+            "when": "same_p150_country",
+            "points": 2
+          },
+          {
+            "when": "different_country_same_continent",
+            "points": 3
+          },
+          {
+            "when": "different_continent",
+            "points": 4
+          },
+          {
+            "when": "satellite_qso",
+            "points": 50
+          },
+          {
+            "when": "iss_rs0iss",
+            "points": 200
+          }
+        ],
+        "band_coefficients": {
+          "160m": 3,
+          "80m": 3,
+          "40m": 2,
+          "20m": 1,
+          "15m": 1,
+          "10m": 1
+        },
+        "mode_coefficients": {
+          "SSB": 2,
+          "CW": 1,
+          "DIG": 1
+        }
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band_per_mode",
+        "groups": [
+          "itu_zone",
+          "special_station_abbreviation"
+        ]
+      },
+      "formula": "score = weighted_qso_points_total * multipliers_total"
+    },
+    {
+      "id": "wed_minitest_40m",
+      "archive_folder": "WednesdayMiniTest40m",
+      "name": "Wednesday Mini-Test 40m",
+      "official_rules_urls": [
+        "https://minitest.narod.ru/"
+      ],
+      "confidence": "medium",
+      "qso_points": {
+        "model": "fixed",
+        "rules": [
+          {
+            "when": "any_valid_qso",
+            "points": 1
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "once_total",
+        "groups": [
+          "unique_callsign"
+        ]
+      },
+      "formula": "score = qso_count * unique_callsigns",
+      "key_variants": [
+        "Tour-based repeat allowance (10-minute blocks)."
+      ]
+    },
+    {
+      "id": "wed_minitest_80m",
+      "archive_folder": "WednesdayMiniTest80m",
+      "name": "Wednesday Mini-Test 80m",
+      "official_rules_urls": [
+        "https://minitest.narod.ru/"
+      ],
+      "confidence": "medium",
+      "qso_points": {
+        "model": "fixed",
+        "rules": [
+          {
+            "when": "any_valid_qso",
+            "points": 1
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "once_total",
+        "groups": [
+          "unique_callsign"
+        ]
+      },
+      "formula": "score = qso_count * unique_callsigns",
+      "key_variants": [
+        "Tour-based repeat allowance (10-minute blocks)."
+      ]
+    },
+    {
+      "id": "arrl_family_bundle",
+      "archive_folder": "ARRL",
+      "name": "ARRL Contest Family Bundle",
+      "bundle": true,
+      "confidence": "high",
+      "subevents": [
+        {
+          "id": "arrl_dx",
+          "slug_patterns": [
+            "arrl_international_dx_cw_contest",
+            "arrl_international_dx_phone_contest"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/DX-Rules.pdf"
+          ],
+          "qso_points": "3 per valid QSO",
+          "multipliers": "per band; W/VE use DXCC entities, DX use states+DC+provinces/territories",
+          "formula": "score = qso_points_total * multipliers_total"
+        },
+        {
+          "id": "arrl_sweepstakes",
+          "slug_patterns": [
+            "arrl_november_cw_sweepstakes",
+            "arrl_november_phone_sweepstakes"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/SS-Rules.pdf"
+          ],
+          "qso_points": "2 per valid QSO",
+          "multipliers": "ARRL/RAC sections (+NT) once total",
+          "formula": "score = qso_points_total * section_mults"
+        },
+        {
+          "id": "arrl_10m",
+          "slug_patterns": [
+            "arrl_10_meter_contest"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/10M-Rules.pdf"
+          ],
+          "qso_points": "CW=4, Phone=2",
+          "multipliers": "states/DC/provinces+DXCC+ITU regions; counted separately by mode",
+          "formula": "score = qso_points_total * multipliers_total"
+        },
+        {
+          "id": "arrl_160m",
+          "slug_patterns": [
+            "arrl_160_meter_contest"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/160M-Rules.pdf"
+          ],
+          "qso_points": "W/VE with W/VE=2, with DX=5",
+          "multipliers": "W/VE use sections+DXCC, DX use sections",
+          "formula": "score = qso_points_total * multipliers_total"
+        },
+        {
+          "id": "arrl_rtty_roundup",
+          "slug_patterns": [
+            "arrl_rtty_roundup"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/RTTY-RU-Rules.pdf"
+          ],
+          "qso_points": "1 per valid QSO",
+          "multipliers": "states+provinces+DXCC (once total)",
+          "formula": "score = qso_points_total * multipliers_total"
+        },
+        {
+          "id": "arrl_intl_digital",
+          "slug_patterns": [
+            "arrl_international_digital_contest"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/Digital-Rules.pdf"
+          ],
+          "qso_points": "1 base + distance bonus (ceil(km/500), minimum bonus 1)",
+          "multipliers": "none",
+          "formula": "score = qso_points_total"
+        },
+        {
+          "id": "arrl_vhf_jan_jun_sep",
+          "slug_patterns": [
+            "arrl_january_vhf_contest",
+            "arrl_june_vhf_contest",
+            "arrl_september_vhf_contest"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/JanJunSep-VHF-Rules.pdf"
+          ],
+          "qso_points": "band-dependent point table",
+          "multipliers": "gridsquare multipliers per band",
+          "formula": "fixed stations: points * mults; rover has rover-specific formula"
+        },
+        {
+          "id": "arrl_222_up_distance",
+          "slug_patterns": [
+            "arrl_222_mhz_and_up_distance_contest"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/222-MHz-Rules.pdf"
+          ],
+          "qso_points": "distance km * band factor",
+          "multipliers": "none",
+          "formula": "score = sum(distance_points)"
+        },
+        {
+          "id": "arrl_10ghz_up",
+          "slug_patterns": [
+            "arrl_10_ghz_and_up_contest"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/10-GHz-Rules.pdf"
+          ],
+          "qso_points": "distance km * band factor + per-unique-call bonus",
+          "multipliers": "none",
+          "formula": "score = distance_points + qso_bonus_points"
+        },
+        {
+          "id": "arrl_eme",
+          "slug_patterns": [
+            "arrl_international_eme_contest"
+          ],
+          "official_rules_urls": [
+            "https://contests.arrl.org/ContestRules/EME-Rules.pdf"
+          ],
+          "qso_points": "100 per valid EME QSO",
+          "multipliers": "unique 4-char grids by band",
+          "formula": "score = qso_points_total * multiplier_total"
+        }
+      ]
+    }
+  ],
+  "implementation_order_hint": [
+    "Implement direct single-rule folders first: CQWW/CQWPX/CQ160/CQWWRTTY/CQWPXRTTY/WAE/REF/EUDX/EUHFC/RDXC/RCC/RDA/mini-tests.",
+    "Implement medium-confidence folders with one validation pass: DARC_Fieldday, DARC_WAG, WW_PMC, OK_OM_DX_Contest.",
+    "Implement bundle resolvers next: ARRL (slug-based), EU_VHF_CONTESTS (subevent detection).",
+    "Add annual rule versioning and effective-date switch once baseline engine passes fixture tests."
+  ]
+}

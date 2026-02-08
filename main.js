@@ -127,6 +127,8 @@
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
+  const CHART_MODE_ABSOLUTE = 'absolute';
+  const CHART_MODE_NORMALIZED = 'normalized';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1059,6 +1061,7 @@
     compareCount: 1,
     compareSyncEnabled: true,
     compareStickyEnabled: true,
+    chartMetricMode: CHART_MODE_ABSOLUTE,
     uiTheme: UI_THEME_NT,
     navSearch: '',
     compareFocus: cloneCompareFocus(),
@@ -1241,6 +1244,11 @@
   function normalizeUiTheme(value) {
     const key = String(value || '').trim().toLowerCase();
     return key === UI_THEME_CLASSIC ? UI_THEME_CLASSIC : UI_THEME_NT;
+  }
+
+  function normalizeChartMetricMode(value) {
+    const key = String(value || '').trim().toLowerCase();
+    return key === CHART_MODE_NORMALIZED ? CHART_MODE_NORMALIZED : CHART_MODE_ABSOLUTE;
   }
 
   function getPreferredUiTheme() {
@@ -13925,25 +13933,72 @@
     `;
   }
 
-  function renderBars(data, labelField, valueField, maxOverride) {
+  function renderBars(data, labelField, valueField, maxOverride, options = {}) {
     const values = data.map((d) => Number(d[valueField]) || 0);
     const computedMax = Math.max(...values, 1);
     const max = Number.isFinite(maxOverride) && maxOverride > 0
       ? Math.max(maxOverride, computedMax)
       : computedMax;
+    const valueTextField = String(options.valueTextField || '').trim();
+    const barClass = String(options.barClass || '').trim();
     return data.map((d) => {
-      const w = Math.max(4, (d[valueField] / max) * 200);
+      const value = Number(d[valueField]) || 0;
+      const w = value > 0 ? Math.max(4, (value / max) * 200) : 0;
       const label = escapeHtml(d[labelField] ?? '');
       const labelAttr = escapeAttr(d[labelField] ?? '');
-      const valueText = escapeHtml(d[valueField] ?? '');
+      const valueRaw = valueTextField ? d[valueTextField] : d[valueField];
+      const valueText = escapeHtml(valueRaw ?? '');
       return `
         <div class="bar-row">
           <div class="bar-label" title="${labelAttr}">${label}</div>
-          <div class="bar" style="width:${w}px"></div>
-          <div>${valueText}</div>
+          <div class="bar-track"><div class="bar${barClass ? ` ${barClass}` : ''}" style="width:${w}px"></div></div>
+          <div class="bar-value">${valueText}</div>
         </div>
       `;
     }).join('');
+  }
+
+  function renderChartModeControls(reportId, mode) {
+    const normalizedMode = normalizeChartMetricMode(mode);
+    return `
+      <div class="chart-mode-controls" role="group" aria-label="Chart metric mode">
+        <span class="chart-mode-label">Metric view</span>
+        <button type="button" class="chart-mode-btn${normalizedMode === CHART_MODE_ABSOLUTE ? ' active' : ''}" data-chart-mode="${CHART_MODE_ABSOLUTE}" data-chart-report="${escapeAttr(reportId)}" aria-pressed="${normalizedMode === CHART_MODE_ABSOLUTE ? 'true' : 'false'}">Absolute</button>
+        <button type="button" class="chart-mode-btn${normalizedMode === CHART_MODE_NORMALIZED ? ' active' : ''}" data-chart-mode="${CHART_MODE_NORMALIZED}" data-chart-report="${escapeAttr(reportId)}" aria-pressed="${normalizedMode === CHART_MODE_NORMALIZED ? 'true' : 'false'}">Normalized %</button>
+      </div>
+    `;
+  }
+
+  function resolveChartRowsWithMetric(data, valueField, mode, totalOverride = null) {
+    const list = Array.isArray(data) ? data : [];
+    const metricMode = normalizeChartMetricMode(mode);
+    const derivedTotal = Number(totalOverride);
+    const total = Number.isFinite(derivedTotal) && derivedTotal > 0
+      ? derivedTotal
+      : list.reduce((sum, row) => sum + (Number(row?.[valueField]) || 0), 0);
+    return list.map((row) => {
+      const raw = Number(row?.[valueField]) || 0;
+      if (metricMode === CHART_MODE_NORMALIZED) {
+        const pct = total > 0 ? (raw / total) * 100 : 0;
+        return {
+          ...row,
+          chartValue: pct,
+          chartText: `${pct.toFixed(1)}% (${formatNumberSh6(raw)})`
+        };
+      }
+      return {
+        ...row,
+        chartValue: raw,
+        chartText: formatNumberSh6(raw)
+      };
+    });
+  }
+
+  function resolveDerivedQsoTotal(derived) {
+    const bandSummary = Array.isArray(derived?.bandSummary) ? derived.bandSummary : [];
+    const sum = bandSummary.reduce((total, row) => total + (Number(row?.qsos) || 0), 0);
+    if (sum > 0) return sum;
+    return 0;
   }
 
   function renderChartsIndex() {
@@ -13957,15 +14012,18 @@
     return derived.bandSummary.map((b) => ({ ...b, bandLabel: formatBandLabel(b.band) }));
   }
 
-  function renderChartQsByBandForDerived(derived, maxOverride) {
+  function renderChartQsByBandForDerived(derived, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!derived) return '<p>No data.</p>';
     const data = buildChartQsByBandData(derived);
-    return `<div class="mtc"><div class="gradient">&nbsp;Qs by band</div>${renderBars(data, 'bandLabel', 'qsos', maxOverride)}</div>`;
+    const metricRows = resolveChartRowsWithMetric(data, 'qsos', mode, resolveDerivedQsoTotal(derived));
+    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
+    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Qs by band</div>${renderBars(metricRows, 'bandLabel', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartQsByBand() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_qs_by_band', title: 'Qs by band' });
-    return renderChartQsByBandForDerived(state.derived);
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
+    return `${renderChartModeControls('charts_qs_by_band', mode)}${renderChartQsByBandForDerived(state.derived, null, mode)}`;
   }
 
   function buildChartTop10CountriesData(derived) {
@@ -13973,15 +14031,18 @@
     return derived.countrySummary.slice().sort((a, b) => (b.qsos || 0) - (a.qsos || 0)).slice(0, 10);
   }
 
-  function renderChartTop10CountriesForDerived(derived, maxOverride) {
+  function renderChartTop10CountriesForDerived(derived, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!derived) return '<p>No data.</p>';
     const top = buildChartTop10CountriesData(derived);
-    return `<div class="mtc"><div class="gradient">&nbsp;Top 10 countries</div>${renderBars(top, 'country', 'qsos', maxOverride)}</div>`;
+    const metricRows = resolveChartRowsWithMetric(top, 'qsos', mode, resolveDerivedQsoTotal(derived));
+    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
+    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Top 10 countries</div>${renderBars(metricRows, 'country', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartTop10Countries() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_top_10_countries', title: 'Top 10 countries' });
-    return renderChartTop10CountriesForDerived(state.derived);
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
+    return `${renderChartModeControls('charts_top_10_countries', mode)}${renderChartTop10CountriesForDerived(state.derived, null, mode)}`;
   }
 
   function buildChartContinentsData(derived) {
@@ -13989,44 +14050,56 @@
     return derived.continentSummary;
   }
 
-  function renderChartContinentsForDerived(derived, maxOverride) {
+  function renderChartContinentsForDerived(derived, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!derived) return '<p>No data.</p>';
-    return `<div class="mtc"><div class="gradient">&nbsp;Continents</div>${renderBars(buildChartContinentsData(derived), 'continent', 'qsos', maxOverride)}</div>`;
+    const metricRows = resolveChartRowsWithMetric(buildChartContinentsData(derived), 'qsos', mode, resolveDerivedQsoTotal(derived));
+    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
+    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Continents</div>${renderBars(metricRows, 'continent', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartContinents() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_continents', title: 'Continents chart' });
-    return renderChartContinentsForDerived(state.derived);
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
+    return `${renderChartModeControls('charts_continents', mode)}${renderChartContinentsForDerived(state.derived, null, mode)}`;
   }
 
   function renderChartQsByBandCompareAligned() {
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
     const dataSets = slots.map((entry) => buildChartQsByBandData(entry.snapshot.derived));
-    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const maxValue = mode === CHART_MODE_NORMALIZED
+      ? 100
+      : Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartQsByBandForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartQsByBandForDerived(entry.snapshot.derived, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'charts_qs_by_band', { chart: true });
+    return `${renderChartModeControls('charts_qs_by_band', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_qs_by_band', { chart: true })}`;
   }
 
   function renderChartTop10CountriesCompareAligned() {
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
     const dataSets = slots.map((entry) => buildChartTop10CountriesData(entry.snapshot.derived));
-    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const maxValue = mode === CHART_MODE_NORMALIZED
+      ? 100
+      : Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartTop10CountriesForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartTop10CountriesForDerived(entry.snapshot.derived, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'charts_top_10_countries', { chart: true });
+    return `${renderChartModeControls('charts_top_10_countries', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_top_10_countries', { chart: true })}`;
   }
 
   function renderChartContinentsCompareAligned() {
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
     const dataSets = slots.map((entry) => buildChartContinentsData(entry.snapshot.derived));
-    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const maxValue = mode === CHART_MODE_NORMALIZED
+      ? 100
+      : Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartContinentsForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartContinentsForDerived(entry.snapshot.derived, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'charts_continents', { chart: true });
+    return `${renderChartModeControls('charts_continents', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_continents', { chart: true })}`;
   }
 
   function renderFrequencyScatterChart(qsos, rangeOverride, title) {
@@ -14109,8 +14182,11 @@
 
   function renderChartBeamHeading() {
     if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
-    const data = state.derived.headingSummary.map((h) => ({ label: h.sector, value: h.count }));
-    return `<div class="mtc"><div class="gradient">&nbsp;Beam heading</div>${renderBars(data, 'label', 'value')}</div>`;
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
+    const rawData = state.derived.headingSummary.map((h) => ({ label: h.sector, value: h.count }));
+    const metricRows = resolveChartRowsWithMetric(rawData, 'value', mode);
+    const maxForMode = mode === CHART_MODE_NORMALIZED ? 100 : null;
+    return `${renderChartModeControls('charts_beam_heading', mode)}<div class="mtc chart-card"><div class="gradient">&nbsp;Beam heading</div>${renderBars(metricRows, 'label', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartBeamHeadingByHour() {
@@ -15061,32 +15137,35 @@
     return Array.from(starts).sort((a, b) => a - b);
   }
 
-  function renderChartBeamHeadingForSlot(slot, order, maxOverride) {
+  function renderChartBeamHeadingForSlot(slot, order, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!slot.derived || !slot.derived.headingSummary) {
       return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     }
     const map = buildHeadingChartMap(slot.derived);
-    const data = order.map((start) => {
+    const rawData = order.map((start) => {
       const entry = map.get(start);
       return {
         label: entry ? entry.label : `${start}-${start + 29}`,
         value: entry ? entry.value : 0
       };
     });
-    return `<div class="mtc"><div class="gradient">&nbsp;Beam heading</div>${renderBars(data, 'label', 'value', maxOverride)}</div>`;
+    const metricRows = resolveChartRowsWithMetric(rawData, 'value', mode);
+    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
+    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Beam heading</div>${renderBars(metricRows, 'label', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartBeamHeadingCompareAligned() {
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
     const maps = slots.map((entry) => buildHeadingChartMap(entry.snapshot.derived));
     const order = buildHeadingChartOrderFromMaps(maps);
     const values = [];
     maps.forEach((map) => map.forEach((entry) => values.push(entry.value || 0)));
-    const maxValue = Math.max(1, ...values);
+    const maxValue = mode === CHART_MODE_NORMALIZED ? 100 : Math.max(1, ...values);
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, order, maxValue) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, order, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'charts_beam_heading', { chart: true });
+    return `${renderChartModeControls('charts_beam_heading', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_beam_heading', { chart: true })}`;
   }
 
   function buildHeadingByHourMap(derived) {
@@ -15332,6 +15411,16 @@
           return;
         }
         setActiveReport(idx);
+      });
+    });
+    const chartModeButtons = dom.viewContainer.querySelectorAll('.chart-mode-btn');
+    chartModeButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const nextMode = normalizeChartMetricMode(btn.dataset.chartMode || '');
+        if (nextMode === state.chartMetricMode) return;
+        state.chartMetricMode = nextMode;
+        renderReportWithLoading(reports[state.activeIndex]);
       });
     });
     const focusSelects = dom.viewContainer.querySelectorAll('.compare-focus-select');

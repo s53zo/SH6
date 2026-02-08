@@ -1299,20 +1299,21 @@ a:hover {
 }
 
 .sidebar {
-  border-right: 1px dotted #cccccc;
-  background: #dddddd;
-  padding: 12px;
+  border-right: 1px solid #d3dbe8;
+  background: #f1f4f8;
+  padding: 12px 10px;
   overflow-y: auto;
   vertical-align: top;
 }
 
 .sidebar ol {
-  padding-left: 18px;
+  padding-left: 20px;
   margin: 0 0 12px;
 }
 
 .sidebar li {
-  margin: 4px 0;
+  margin: 2px 0;
+  padding: 1px 0;
   cursor: pointer;
 }
 
@@ -1327,20 +1328,45 @@ a:hover {
 .nav-group summary {
   cursor: pointer;
   list-style: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
 }
 
 .nav-group summary::marker {
   color: #666666;
 }
 
+.nav-group summary:hover {
+  background: #e8eef8;
+}
+
 .nav-sublist {
-  padding-left: 16px;
-  margin: 4px 0 6px;
+  padding-left: 12px;
+  margin: 2px 0 6px;
 }
 
 .sidebar li.active {
+  color: #0b4ca5;
+}
+
+.sidebar [data-index] {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar li:hover > [data-index],
+.sidebar li:hover[data-index] {
+  background: #e8eef8;
+}
+
+.sidebar [data-index].active {
+  color: #0f4fb6;
+  background: #dce9ff;
+  border-color: #bfd3f6;
   font-weight: 700;
-  color: #1c6dd0;
 }
 
 .data-status {
@@ -2308,16 +2334,25 @@ th {
 .mli,
 .cli,
 .sli {
-  color: #000000;
+  color: #1f2937;
   font-size: 8pt;
-  border-bottom: 1px dotted #cccccc;
-  margin-top: 2px;
-  text-transform: uppercase;
+  border-bottom: 0;
+  margin-top: 1px;
+  text-transform: none;
+  line-height: 1.3;
+}
+
+.mli {
+  font-weight: 600;
 }
 
 .cli {
-  text-transform: none;
-  margin-left: 14px;
+  margin-left: 8px;
+  color: #33455f;
+}
+
+.sli {
+  font-weight: 700;
 }
 
 .nav-sublist .cli {

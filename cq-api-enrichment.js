@@ -37,6 +37,7 @@
   const LIST_TTL_MS = 1000 * 60 * 60 * 24;
   const SCORE_TTL_MS = 1000 * 60 * 30;
   const RECORD_TTL_MS = 1000 * 60 * 60;
+  const RAW_TTL_MS = 1000 * 60 * 5;
   const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
   function safeString(value) {
@@ -243,6 +244,27 @@
       multTotal,
       multBreakdown,
       operators: safeString(row.operators || ''),
+      raw: row
+    };
+  }
+
+  function normalizeRawScoreRow(contestId, mode, row) {
+    if (!row || typeof row !== 'object') return null;
+    const score = parseNumber(row.rawscore ?? row.raw_score ?? row.score);
+    if (!Number.isFinite(score)) return null;
+    return {
+      contest: contestId,
+      mode: normalizeModeLabel(mode || row.mode),
+      year: parseNumber(row.year ?? row.yr),
+      callsign: safeString(row.callsign || row.call || '').toUpperCase(),
+      category: normalizeCategoryLabel(row.category || row.cat || ''),
+      score,
+      qsos: parseNumber(row.qsos || row.q),
+      multTotal: parseNumber(row.mult || row.m),
+      multBreakdown: {},
+      operators: safeString(row.operators || ''),
+      geo: safeString(row.geo || row.cty || '').toUpperCase() || null,
+      isRaw: true,
       raw: row
     };
   }
@@ -514,6 +536,19 @@
       return { ok: true, rows, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
     }
 
+    async raw(contestId, mode, callsign) {
+      const callPath = encodeCallPath(callsign);
+      const path = `raw/${encodePathSegment(mode)}/callsign/${callPath}`;
+      const resp = await this._request(contestId, path, `raw:${mode}:${callsign}`, RAW_TTL_MS, false);
+      if (resp.status !== 200 || !Array.isArray(resp.payload?.data)) {
+        return { ok: false, rows: [], source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
+      }
+      const rows = resp.payload.data
+        .map((row) => normalizeRawScoreRow(contestId, mode, row))
+        .filter(Boolean);
+      return { ok: true, rows, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
+    }
+
     async history(contestId, mode, callsign) {
       return this.score(contestId, mode, '*', callsign);
     }
@@ -576,7 +611,34 @@
           const by = Number(b?.year) || 0;
           return by - ay;
         });
-        const currentScore = currentRes.ok ? (currentRes.rows[0] || null) : null;
+        const selectedYear = Number.isFinite(Number(year)) ? Number(year) : null;
+        const maxOfficialYear = history.length
+          ? history.reduce((max, row) => {
+            const y = Number(row?.year) || 0;
+            return y > max ? y : max;
+          }, 0)
+          : 0;
+        const nowYear = new Date().getUTCFullYear();
+        let currentScore = currentRes.ok ? (currentRes.rows[0] || null) : null;
+        let currentScoreSource = currentScore ? 'final' : null;
+        let rawRes = null;
+        const shouldTryRawFallback = !currentScore
+          && Number.isFinite(selectedYear)
+          && selectedYear >= (nowYear - 1)
+          && selectedYear > maxOfficialYear;
+        if (shouldTryRawFallback) {
+          rawRes = await this.raw(contestId, mode, callsign);
+          if (rawRes.ok) {
+            const exactCall = rawRes.rows.find((row) => safeString(row?.callsign).toUpperCase() === callsign) || null;
+            if (exactCall) {
+              currentScore = {
+                ...exactCall,
+                year: Number.isFinite(selectedYear) ? selectedYear : exactCall.year
+              };
+              currentScoreSource = 'raw';
+            }
+          }
+        }
         const preferredCategory = normalizeCategoryLabel(currentScore?.category || history[0]?.category || '');
         const categoriesTried = dedupe([preferredCategory, ...explicitCategories]
           .map((category) => normalizeCategoryLabel(category))
@@ -646,6 +708,11 @@
         const source = currentRes.source || historyRes.source || recordSource || geoRes.source || catRes.source || '';
         const helperActive = /azure\.s53m\.com/i.test(source);
 
+        const statusMessage = [
+          currentRes.statusMessage || '',
+          currentScoreSource === 'raw' ? 'Showing raw score fallback (unofficial/live).' : ''
+        ].filter(Boolean).join(' ').trim();
+
         return {
           ok: true,
           contestId,
@@ -675,13 +742,18 @@
           },
           source,
           helperActive,
-          statusMessage: currentRes.statusMessage || historyRes.statusMessage || recordStatusMessage || '',
+          currentScoreSource,
+          statusMessage,
           debugPayload: this.debug ? {
             request: {
               contestId,
               mode,
               callsign,
               year,
+              selectedYear,
+              maxOfficialYear,
+              nowYear,
+              shouldTryRawFallback,
               explicitCategories,
               preferredCategory,
               categoriesTried,
@@ -693,6 +765,7 @@
               catlist: catRes.rawPayload || null,
               currentScore: currentRes.rawPayload || null,
               history: historyRes.rawPayload || null,
+              rawScore: rawRes?.rawPayload || null,
               recordsByScope: recordsByScope.reduce((acc, entry) => {
                 if (!entry?.scope) return acc;
                 acc[entry.scope] = entry.rawPayload || null;

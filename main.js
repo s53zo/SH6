@@ -4968,6 +4968,10 @@
     const source = info.source || data.source || '';
     const sourceLabel = info.helperActive ? 'helper' : 'direct';
     const sourceText = source ? escapeHtml(source) : 'N/A';
+    const currentScoreSource = String(data.currentScoreSource || '').toLowerCase();
+    const currentSourceText = currentScoreSource === 'raw'
+      ? 'Raw (unofficial/live)'
+      : (current ? 'Final (official)' : 'N/A');
     const selectedYear = Number(data.year) || null;
     const category = current?.category || history[0]?.category || data.matchedCategory || '';
     const apiStatusMessage = data.statusMessage ? String(data.statusMessage).trim() : '';
@@ -4982,8 +4986,12 @@
     const scopeRows = ['dxcc', 'continent', 'world'].map((scopeKey, idx) => {
       const entry = recordsByScope.find((item) => String(item?.scope || '').toLowerCase() === scopeKey) || null;
       const geoCode = String(entry?.geo || '').trim().toUpperCase();
+      const matchedGeoCode = String(entry?.matchedGeo || '').trim().toUpperCase();
+      const geoSuffix = matchedGeoCode && geoCode && matchedGeoCode !== geoCode
+        ? ` (via ${escapeHtml(matchedGeoCode)})`
+        : '';
       const geoLabel = findCqApiGeoLabel(data.labels?.geolist, geoCode);
-      const geoText = geoCode ? `${escapeHtml(geoCode)}${geoLabel ? ` - ${escapeHtml(geoLabel)}` : ''}` : 'N/A';
+      const geoText = geoCode ? `${escapeHtml(geoCode)}${geoLabel ? ` - ${escapeHtml(geoLabel)}` : ''}${geoSuffix}` : 'N/A';
       const row = entry?.row || null;
       const recordCategory = String(row?.category || entry?.category || '').trim().toUpperCase();
       const recordCategoryLabel = findCqApiCategoryLabel(data.labels?.catlist, recordCategory);
@@ -5034,7 +5042,8 @@
             <tr class="td1"><td>Current score</td><td><strong>${formatCqApiNumber(current?.score)}</strong></td></tr>
             <tr class="td0"><td>Current QSOs</td><td>${formatCqApiNumber(current?.qsos)}</td></tr>
             <tr class="td1"><td>Current multipliers</td><td>${formatCqApiMultiplierValue(current)}</td></tr>
-            <tr class="td0"><td>Category</td><td>${escapeHtml(category || 'N/A')}${categoryLabel ? ` - ${escapeHtml(categoryLabel)}` : ''}</td></tr>
+            <tr class="td0"><td>Current score source</td><td>${escapeHtml(currentSourceText)}</td></tr>
+            <tr class="td1"><td>Category</td><td>${escapeHtml(category || 'N/A')}${categoryLabel ? ` - ${escapeHtml(categoryLabel)}` : ''}</td></tr>
           </table>
           <table class="mtc cqapi-records">
             <tr class="thc"><th>Scope</th><th>Geo</th><th>Category</th><th>Record holder</th><th>Score</th><th>Mult</th></tr>

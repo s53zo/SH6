@@ -2199,6 +2199,22 @@ th {
   font-weight: 700;
 }
 
+.cqapi-history td:nth-child(1) {
+  width: 8%;
+}
+
+.cqapi-history td:nth-child(2) {
+  width: 14%;
+}
+
+.cqapi-history td:nth-child(5) {
+  white-space: nowrap;
+}
+
+.cqapi-history td:nth-child(8) {
+  white-space: nowrap;
+}
+
 .cqapi-debug {
   margin-top: 6px;
 }

@@ -599,11 +599,12 @@
         };
         const geos = dedupe([scopeGeos.dxcc, scopeGeos.continent, scopeGeos.world, ...requestedGeos].filter(Boolean));
 
-        const [geoRes, catRes, currentRes, historyRes] = await Promise.all([
+        const [geoRes, catRes, currentRes, historyRes, rawRes] = await Promise.all([
           this.geolist(contestId),
           this.catlist(contestId),
           this.score(contestId, mode, year, callsign),
-          this.history(contestId, mode, callsign)
+          this.history(contestId, mode, callsign),
+          this.raw(contestId, mode, callsign)
         ]);
 
         const history = (historyRes.rows || []).slice().sort((a, b) => {
@@ -619,27 +620,100 @@
           }, 0)
           : 0;
         const nowYear = new Date().getUTCFullYear();
+        const rawRows = (rawRes.rows || [])
+          .filter((row) => {
+            const rowCall = safeString(row?.callsign).trim().toUpperCase();
+            return !rowCall || rowCall === callsign;
+          })
+          .map((row) => {
+            const rowYear = parseNumber(row?.year);
+            const effectiveYear = Number.isFinite(rowYear)
+              ? rowYear
+              : (Number.isFinite(selectedYear) ? selectedYear : null);
+            return {
+              ...row,
+              effectiveYear
+            };
+          });
+        const pickRawCandidate = (yearValue, categoryValue = '') => {
+          const yearNum = Number(yearValue);
+          if (!Number.isFinite(yearNum)) return null;
+          const candidates = rawRows.filter((row) => Number(row?.effectiveYear) === yearNum);
+          if (!candidates.length) return null;
+          const pickTopScore = (rows) => rows.reduce((best, row) => {
+            const rowScore = Number(row?.score);
+            const bestScore = Number(best?.score);
+            if (!best) return row;
+            if (Number.isFinite(rowScore) && (!Number.isFinite(bestScore) || rowScore > bestScore)) return row;
+            return best;
+          }, null);
+          const targetCategory = normalizeCategoryLabel(categoryValue || '');
+          if (targetCategory) {
+            const exactCategoryRows = candidates.filter((row) => normalizeCategoryLabel(row?.category || '') === targetCategory);
+            const exactCategoryTop = pickTopScore(exactCategoryRows);
+            if (exactCategoryTop) return exactCategoryTop;
+          }
+          return pickTopScore(candidates);
+        };
         let currentScore = currentRes.ok ? (currentRes.rows[0] || null) : null;
         let currentScoreSource = currentScore ? 'final' : null;
-        let rawRes = null;
-        const shouldTryRawFallback = !currentScore
-          && Number.isFinite(selectedYear)
-          && selectedYear >= (nowYear - 1)
-          && selectedYear > maxOfficialYear;
-        if (shouldTryRawFallback) {
-          rawRes = await this.raw(contestId, mode, callsign);
-          if (rawRes.ok) {
-            const exactCall = rawRes.rows.find((row) => safeString(row?.callsign).toUpperCase() === callsign) || null;
-            if (exactCall) {
-              currentScore = {
-                ...exactCall,
-                year: Number.isFinite(selectedYear) ? selectedYear : exactCall.year
-              };
-              currentScoreSource = 'raw';
-            }
+        const fallbackCategory = normalizeCategoryLabel(history[0]?.category || '');
+        const shouldTryRawFallback = !currentScore && Number.isFinite(selectedYear);
+        if (shouldTryRawFallback && rawRes.ok) {
+          const rawCurrent = pickRawCandidate(selectedYear, fallbackCategory) || pickRawCandidate(selectedYear, '');
+          if (rawCurrent) {
+            currentScore = {
+              ...rawCurrent,
+              year: Number.isFinite(selectedYear) ? selectedYear : rawCurrent.effectiveYear
+            };
+            currentScoreSource = 'raw';
           }
         }
-        const preferredCategory = normalizeCategoryLabel(currentScore?.category || history[0]?.category || '');
+        const preferredCategory = normalizeCategoryLabel(currentScore?.category || fallbackCategory || '');
+        const historyWithRaw = history.map((row) => {
+          const rawMatch = pickRawCandidate(row?.year, row?.category || '') || pickRawCandidate(row?.year, preferredCategory);
+          return {
+            ...row,
+            rawScore: parseNumber(rawMatch?.score),
+            rawCategory: normalizeCategoryLabel(rawMatch?.category || ''),
+            rawOperators: safeString(rawMatch?.operators || ''),
+            rawYear: parseNumber(rawMatch?.effectiveYear)
+          };
+        });
+        if (Number.isFinite(selectedYear) && !historyWithRaw.some((row) => Number(row?.year) === selectedYear)) {
+          const rawYearRow = pickRawCandidate(selectedYear, preferredCategory) || pickRawCandidate(selectedYear, '');
+          if (rawYearRow) {
+            historyWithRaw.unshift({
+              contest: contestId,
+              mode: normalizeModeLabel(mode),
+              year: selectedYear,
+              callsign,
+              category: normalizeCategoryLabel(rawYearRow.category || preferredCategory || ''),
+              score: null,
+              qsos: parseNumber(rawYearRow.qsos),
+              multTotal: parseNumber(rawYearRow.multTotal),
+              multBreakdown: rawYearRow.multBreakdown || {},
+              operators: safeString(rawYearRow.operators || ''),
+              geo: safeString(rawYearRow.geo || '').toUpperCase() || null,
+              rawScore: parseNumber(rawYearRow.score),
+              rawCategory: normalizeCategoryLabel(rawYearRow.category || ''),
+              rawOperators: safeString(rawYearRow.operators || ''),
+              rawYear: parseNumber(rawYearRow.effectiveYear) ?? selectedYear,
+              isOfficialMissing: true,
+              isRawOnly: true,
+              raw: rawYearRow.raw
+            });
+          }
+        }
+        historyWithRaw.sort((a, b) => (Number(b?.year) || 0) - (Number(a?.year) || 0));
+        const rawRowsSorted = rawRows.slice().sort((a, b) => {
+          const ay = Number(a?.effectiveYear) || 0;
+          const by = Number(b?.effectiveYear) || 0;
+          if (by !== ay) return by - ay;
+          const as = Number(a?.score) || 0;
+          const bs = Number(b?.score) || 0;
+          return bs - as;
+        });
         const categoriesTried = dedupe([preferredCategory, ...explicitCategories]
           .map((category) => normalizeCategoryLabel(category))
           .filter((category) => category && category !== '*'));
@@ -705,11 +779,12 @@
         const recordSource = firstRecord?.source || recordsByScope.find((entry) => entry?.source)?.source || null;
         const recordStatusMessage = firstRecord?.statusMessage || recordsByScope.find((entry) => entry?.statusMessage)?.statusMessage || '';
 
-        const source = currentRes.source || historyRes.source || recordSource || geoRes.source || catRes.source || '';
+        const source = currentRes.source || historyRes.source || rawRes.source || recordSource || geoRes.source || catRes.source || '';
         const helperActive = /azure\.s53m\.com/i.test(source);
 
         const statusMessage = [
           currentRes.statusMessage || '',
+          recordStatusMessage || '',
           currentScoreSource === 'raw' ? 'Showing raw score fallback (unofficial/live).' : ''
         ].filter(Boolean).join(' ').trim();
 
@@ -720,7 +795,8 @@
           callsign,
           year,
           currentScore,
-          history,
+          history: historyWithRaw,
+          rawRows: rawRowsSorted,
           record,
           matchedCategory,
           matchedGeo,

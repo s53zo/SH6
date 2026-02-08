@@ -486,6 +486,42 @@ a:hover {
   color: #2f4f76;
 }
 
+.spots-coach-grid {
+  margin: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.spots-coach-card {
+  border: 1px solid #d3deef;
+  border-radius: 8px;
+  background: #fcfdff;
+  padding: 8px 10px;
+}
+
+.spots-coach-card h4 {
+  margin: 0 0 4px;
+  color: #22456e;
+  font-size: 12px;
+}
+
+.spots-coach-note {
+  margin: 0 0 5px;
+  font-size: 11px;
+  color: #395980;
+}
+
+.spots-coach-list {
+  margin: 0;
+  padding-left: 16px;
+  color: #2e4d74;
+}
+
+.spots-coach-list li {
+  margin: 2px 0;
+}
+
 .spots-align-block {
   width: 100%;
 }

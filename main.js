@@ -10636,8 +10636,8 @@
         </table>
       `;
     };
-    const renderSpotterReliabilityTable = (spots) => {
-      if (!spots || !spots.length) return '<p>No data.</p>';
+    const computeSpotterReliabilityEntries = (spots, minSpots = 3) => {
+      if (!spots || !spots.length) return [];
       const map = new Map();
       spots.forEach((s) => {
         if (!map.has(s.spotter)) map.set(s.spotter, { spotter: s.spotter, spots: 0, matched: 0 });
@@ -10645,9 +10645,69 @@
         entry.spots += 1;
         if (s.matched) entry.matched += 1;
       });
-      const rows = Array.from(map.values()).filter((e) => e.spots >= 3)
+      return Array.from(map.values())
+        .filter((e) => e.spots >= minSpots)
         .map((e) => ({ ...e, pct: e.spots ? (e.matched / e.spots) * 100 : 0 }))
-        .sort((a, b) => b.pct - a.pct || b.spots - a.spots)
+        .sort((a, b) => b.pct - a.pct || b.spots - a.spots);
+    };
+
+    const buildMissedMultEntries = (spots, analysis) => {
+      if (!spots || !spots.length) return [];
+      const missed = [];
+      spots.forEach((s) => {
+        if (s.matchedDx) return;
+        const prefix = lookupPrefix(s.dxCall || '');
+        const country = prefix?.country || '';
+        if (!country) return;
+        const first = analysis.firstCountryTime.get(country);
+        if (first != null && first < s.ts) return;
+        missed.push({
+          ts: s.ts,
+          band: s.band,
+          dx: s.dxCall,
+          country
+        });
+      });
+      return missed;
+    };
+
+    const buildBestBandHourWindows = (spots, limit = 3) => {
+      if (!spots || !spots.length) return [];
+      const map = new Map();
+      spots.forEach((spot) => {
+        if (!Number.isFinite(spot.ts)) return;
+        const band = normalizeBandToken(spot.band || '') || 'unknown';
+        const hour = new Date(spot.ts).getUTCHours();
+        const key = `${band}|${hour}`;
+        if (!map.has(key)) map.set(key, { band, hour, spots: 0, matched: 0 });
+        const entry = map.get(key);
+        entry.spots += 1;
+        if (spot.matched) entry.matched += 1;
+      });
+      return Array.from(map.values())
+        .map((entry) => ({
+          ...entry,
+          conv: entry.spots ? (entry.matched / entry.spots) * 100 : 0
+        }))
+        .filter((entry) => entry.spots >= 3)
+        .sort((a, b) => {
+          if (b.matched !== a.matched) return b.matched - a.matched;
+          if (b.conv !== a.conv) return b.conv - a.conv;
+          if (b.spots !== a.spots) return b.spots - a.spots;
+          return bandOrderIndex(a.band) - bandOrderIndex(b.band);
+        })
+        .slice(0, Math.max(1, Math.min(5, Number(limit) || 3)));
+    };
+
+    const estimateWindowConfidence = (spots) => {
+      if (spots >= 30) return 'high';
+      if (spots >= 12) return 'medium';
+      return 'low';
+    };
+
+    const renderSpotterReliabilityTable = (spots) => {
+      const entries = computeSpotterReliabilityEntries(spots, 3);
+      const rows = entries
         .slice(0, 15)
         .map((e, idx) => {
           const cls = idx % 2 === 0 ? 'td1' : 'td0';
@@ -10686,22 +10746,7 @@
       return false;
     };
     const renderMissedMultTable = (spots, analysis) => {
-      if (!spots || !spots.length) return '<p>No data.</p>';
-      const missed = [];
-      spots.forEach((s) => {
-        if (s.matchedDx) return;
-        const prefix = lookupPrefix(s.dxCall || '');
-        const country = prefix?.country || '';
-        if (!country) return;
-        const first = analysis.firstCountryTime.get(country);
-        if (first != null && first < s.ts) return;
-        missed.push({
-          ts: s.ts,
-          band: s.band,
-          dx: s.dxCall,
-          country
-        });
-      });
+      const missed = buildMissedMultEntries(spots, analysis);
       if (!missed.length) return '<p>No missed mult candidates found.</p>';
       const rows = missed.slice(0, 20).map((s, idx) => {
         const cls = idx % 2 === 0 ? 'td1' : 'td0';
@@ -10968,6 +11013,63 @@
       `;
     };
 
+    const renderSpotsCoachCards = (statsData, analysis) => {
+      if (!statsData || !analysis) return '';
+
+      const bestWindows = buildBestBandHourWindows(statsData.ofUsSpots || [], 3);
+      const bestWindowRows = bestWindows.length
+        ? bestWindows.map((entry) => {
+          const hour = String(entry.hour).padStart(2, '0');
+          const conv = Number.isFinite(entry.conv) ? `${entry.conv.toFixed(1)}%` : 'N/A';
+          return `<li><b>${escapeHtml(formatBandLabel(entry.band || ''))} ${hour}:00Z</b> · ${formatNumberSh6(entry.matched)}/${formatNumberSh6(entry.spots)} matched (${conv})</li>`;
+        }).join('')
+        : '<li>No strong hour/band window found yet. Try broader band filters.</li>';
+      const confidenceSpots = bestWindows.reduce((sum, entry) => sum + (Number(entry.spots) || 0), 0);
+      const confidenceLabel = estimateWindowConfidence(confidenceSpots);
+      const confidenceText = confidenceLabel === 'high'
+        ? 'high confidence'
+        : (confidenceLabel === 'medium' ? 'medium confidence' : 'low confidence');
+
+      const reliableSpotters = computeSpotterReliabilityEntries(statsData.ofUsSpots || [], 4).slice(0, 3);
+      const reliableRows = reliableSpotters.length
+        ? reliableSpotters.map((entry) => `<li><b>${escapeHtml(entry.spotter || '')}</b> · ${entry.pct.toFixed(1)}% conversion (${formatNumberSh6(entry.matched)}/${formatNumberSh6(entry.spots)})</li>`).join('')
+        : '<li>No spotter with enough sample size yet (need at least 4 spots).</li>';
+
+      const missedMults = buildMissedMultEntries(statsData.byUsSpots || [], analysis);
+      const topMissedCountries = Array.from(missedMults.reduce((map, entry) => {
+        const key = String(entry.country || '').trim();
+        if (!key) return map;
+        map.set(key, (map.get(key) || 0) + 1);
+        return map;
+      }, new Map()).entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+      const missedRows = topMissedCountries.length
+        ? topMissedCountries.map(([country, count]) => `<li><b>${escapeHtml(country)}</b> · ${formatNumberSh6(count)} potential mult misses</li>`).join('')
+        : '<li>No clear missed multiplier concentration detected.</li>';
+      const missedTotalText = missedMults.length ? formatNumberSh6(missedMults.length) : '0';
+
+      return `
+        <div class="spots-coach-grid">
+          <article class="spots-coach-card">
+            <h4>Best hour/band windows</h4>
+            <p class="spots-coach-note">Top match windows from your current band filter (${confidenceText}; ${formatNumberSh6(confidenceSpots)} spots sampled).</p>
+            <ul class="spots-coach-list">${bestWindowRows}</ul>
+          </article>
+          <article class="spots-coach-card">
+            <h4>Spotter reliability leaders</h4>
+            <p class="spots-coach-note">Spotters with the best QSO conversion for your station.</p>
+            <ul class="spots-coach-list">${reliableRows}</ul>
+          </article>
+          <article class="spots-coach-card">
+            <h4>Missed multiplier opportunities</h4>
+            <p class="spots-coach-note">Raw candidates: ${missedTotalText}. Focus first on these repeat countries.</p>
+            <ul class="spots-coach-list">${missedRows}</ul>
+          </article>
+        </div>
+      `;
+    };
+
     const resolveSpotterGeo = (spotterCall) => {
       const key = normalizeCall(spotterCall || '');
       const prefix = key ? (lookupPrefix(key) || lookupPrefix(baseCall(key))) : null;
@@ -11109,6 +11211,9 @@
         </div>
       `;
     };
+    const analysisContext = stats ? buildAnalysisContext() : null;
+    const spotsCoachCards = stats && analysisContext ? renderSpotsCoachCards(stats, analysisContext) : '';
+
     return `
       <div class="mtc export-panel spots-panel" data-slot="${slotAttr}">
         <div class="gradient">&nbsp;${escapeHtml(title)}</div>
@@ -11155,6 +11260,9 @@
         ${summaryNote ? `<div class="export-actions export-note">${escapeHtml(summaryNote)}</div>` : ''}
         ${errorSummary ? `<div class="export-actions export-note"><b>${escapeHtml(errorLabel)}</b>: ${errorSummary}</div>` : ''}
         ${stats ? `
+        <div class="export-actions export-note"><b>Spots coach summary</b></div>
+        ${spotsCoachCards}
+
         <div class="export-actions export-note"><b>Spots of you by band/hour</b><span class="spots-click-hint">Click a value to inspect actual spots and filter by Continent, CQ zone, and ITU zone.</span></div>
         ${renderHeatmap(stats.heatmap)}
         ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
@@ -11190,7 +11298,8 @@
         `}
 
         ${(() => {
-          const analysis = buildAnalysisContext();
+          const analysis = analysisContext;
+          if (!analysis) return '';
           const concurrentBands = hasConcurrentBands(state.qsoData?.qsos || []);
           return `
             ${hideRbnExtras ? '' : `

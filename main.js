@@ -1057,6 +1057,8 @@
     showLoadPanel: false,
     compareEnabled: false,
     compareCount: 1,
+    compareSyncEnabled: true,
+    compareStickyEnabled: true,
     uiTheme: UI_THEME_NT,
     navSearch: '',
     compareFocus: cloneCompareFocus(),
@@ -14270,6 +14272,113 @@
     `;
   }
 
+  function renderCompareWorkspaceToolbar(reportId, slotEntries) {
+    const safeReportId = String(reportId || '').split('::')[0];
+    const reportTitle = reports.find((entry) => entry.id === safeReportId)?.title || safeReportId;
+    const slotSummary = (slotEntries || []).map((entry) => {
+      const call = escapeHtml(entry.snapshot?.derived?.contestMeta?.stationCallsign || 'N/A');
+      const contest = escapeHtml(entry.snapshot?.derived?.contestMeta?.contestId || 'N/A');
+      const qsos = entry.snapshot?.qsoData?.qsos?.length || 0;
+      return `<span class="compare-workspace-slot compare-${entry.id.toLowerCase()}">${escapeHtml(entry.label)} · ${call} · ${contest} · ${formatNumberSh6(qsos)} QSOs</span>`;
+    }).join('');
+    const insightStrip = renderCompareInsightStrip(slotEntries, safeReportId);
+    return `
+      <div class="compare-workspace">
+        <div class="compare-workspace-head">
+          <span class="compare-workspace-title">Compare workspace</span>
+          <span class="compare-workspace-report">Report: ${escapeHtml(reportTitle)}</span>
+        </div>
+        <div class="compare-workspace-slot-row">${slotSummary}</div>
+        <div class="compare-workspace-controls" role="group" aria-label="Compare workspace controls">
+          <button type="button" class="compare-ui-toggle${state.compareSyncEnabled ? ' active' : ''}" data-compare-toggle="sync" aria-pressed="${state.compareSyncEnabled ? 'true' : 'false'}">Sync scroll ${state.compareSyncEnabled ? 'ON' : 'OFF'}</button>
+          <button type="button" class="compare-ui-toggle${state.compareStickyEnabled ? ' active' : ''}" data-compare-toggle="sticky" aria-pressed="${state.compareStickyEnabled ? 'true' : 'false'}">Sticky headers ${state.compareStickyEnabled ? 'ON' : 'OFF'}</button>
+        </div>
+        ${insightStrip}
+      </div>
+    `;
+  }
+
+  function resolveCompareScore(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return null;
+    const scoring = snapshot?.derived?.scoring || {};
+    const computed = Number(scoring.computedScore);
+    if (Number.isFinite(computed) && computed > 0) return computed;
+    const claimed = parseClaimedScoreNumber(snapshot?.derived?.contestMeta?.claimedScore);
+    if (Number.isFinite(claimed) && claimed > 0) return claimed;
+    const effective = Number(snapshot?.derived?.effectivePointsTotal);
+    if (Number.isFinite(effective) && effective > 0) return Math.round(effective);
+    return null;
+  }
+
+  function resolveCompareMultiplier(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return null;
+    const scoring = snapshot?.derived?.scoring || {};
+    const mult = Number(scoring.computedMultiplierTotal);
+    if (Number.isFinite(mult) && mult >= 0) return mult;
+    return null;
+  }
+
+  function buildCompareInsightChip(slotMetrics, key, label, reportJump) {
+    const values = slotMetrics
+      .map((entry) => ({
+        ...entry,
+        metricValue: Number(entry[key])
+      }))
+      .filter((entry) => Number.isFinite(entry.metricValue));
+    if (values.length < 2) {
+      return `<button type="button" class="compare-insight-chip" disabled>${escapeHtml(label)}: N/A</button>`;
+    }
+    const leader = values.reduce((best, entry) => (
+      !best || entry.metricValue > best.metricValue ? entry : best
+    ), null);
+    const minValue = Math.min(...values.map((entry) => entry.metricValue));
+    const spread = Math.max(0, Math.round((leader?.metricValue || 0) - minValue));
+    const baseline = values.find((entry) => entry.id === 'A') || values[0];
+    const gap = Number.isFinite(baseline?.metricValue) && Number.isFinite(leader?.metricValue)
+      ? Math.round((leader.metricValue || 0) - (baseline.metricValue || 0))
+      : null;
+    const gapPct = Number.isFinite(gap) && Number.isFinite(baseline?.metricValue) && baseline.metricValue > 0
+      ? (gap / baseline.metricValue) * 100
+      : null;
+    const baselineText = Number.isFinite(gap)
+      ? (gap > 0
+          ? `${formatNumberSh6(Math.abs(gap))} behind Log ${escapeHtml(String(baseline?.id || '').toUpperCase())}${Number.isFinite(gapPct) ? ` (${gapPct.toFixed(1)}%)` : ''}`
+          : `Leading from Log ${escapeHtml(String(baseline?.id || '').toUpperCase())}`)
+      : 'No baseline';
+    const summary = `${label} spread ${formatNumberSh6(spread)} · leader ${escapeHtml(leader?.call || 'N/A')} · ${baselineText}`;
+    return `<button type="button" class="compare-insight-chip" data-compare-jump="${escapeAttr(reportJump)}">${summary}</button>`;
+  }
+
+  function renderCompareInsightStrip(slotEntries, currentReportId) {
+    const metrics = (slotEntries || []).map((entry) => ({
+      id: String(entry.id || '').toUpperCase(),
+      call: String(entry.snapshot?.derived?.contestMeta?.stationCallsign || 'N/A').trim().toUpperCase() || 'N/A',
+      score: resolveCompareScore(entry.snapshot),
+      qsos: Number(entry.snapshot?.qsoData?.qsos?.length || 0),
+      mult: resolveCompareMultiplier(entry.snapshot)
+    }));
+    if (metrics.length < 2) return '';
+    const chips = [
+      buildCompareInsightChip(metrics, 'score', 'Score', 'main'),
+      buildCompareInsightChip(metrics, 'qsos', 'QSOs', 'summary'),
+      buildCompareInsightChip(metrics, 'mult', 'Multipliers', 'summary')
+    ];
+    const quickLinks = [
+      { report: 'main', label: 'Open Main' },
+      { report: 'summary', label: 'Open Summary' },
+      { report: 'rates', label: 'Open Rates' },
+      { report: 'spots', label: 'Open Spots' }
+    ].filter((entry) => entry.report !== currentReportId)
+      .map((entry) => `<button type="button" class="compare-workspace-jump" data-compare-jump="${escapeAttr(entry.report)}">${escapeHtml(entry.label)}</button>`)
+      .join('');
+    return `
+      <div class="compare-insight-strip">
+        <div class="compare-insight-row">${chips.join('')}</div>
+        <div class="compare-insight-jumps">${quickLinks}</div>
+      </div>
+    `;
+  }
+
   function estimateReportRows(reportId, derived) {
     if (!derived) return 0;
     const baseId = String(reportId || '').split('::')[0];
@@ -14361,10 +14470,14 @@
     const isChart = options.chart || baseId.startsWith('charts_');
     const isQuad = isChart || quadReports.has(baseId);
     const shouldStack = stackReports.has(baseId);
-    const syncScroll = !isChart && COMPARE_SCROLL_SYNC_REPORTS.has(baseId);
+    const syncScroll = state.compareSyncEnabled && !isChart && COMPARE_SCROLL_SYNC_REPORTS.has(baseId);
     const syncGroup = `compare-sync-${baseId}-${slotEntries.map((entry) => entry.id).join('').toLowerCase()}`;
-    const gridClass = `compare-grid compare-count-${slotEntries.length}${isNarrow ? ' compare-narrow' : ''}${isChart ? ' compare-chart' : ''}${isQuad ? ' compare-quad' : ''}${shouldStack ? ' compare-stack' : ''}`;
+    const gridClass = `compare-grid compare-count-${slotEntries.length}${isNarrow ? ' compare-narrow' : ''}${isChart ? ' compare-chart' : ''}${isQuad ? ' compare-quad' : ''}${shouldStack ? ' compare-stack' : ''}${state.compareStickyEnabled ? '' : ' compare-sticky-off'}`;
+    const toolbar = slotEntries.length > 1 && !options.hideToolbar
+      ? renderCompareWorkspaceToolbar(baseId, slotEntries)
+      : '';
     return `
+      ${toolbar}
       <div class="${gridClass}"${syncScroll ? ` data-compare-sync-group="${escapeAttr(syncGroup)}"` : ''} data-compare-report="${escapeAttr(baseId)}">
         ${slotEntries.map((entry, idx) => {
           const html = htmlBlocks[idx] || '';
@@ -15066,6 +15179,36 @@
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
     bindCompareScrollSync(reportId);
+    const compareToggleButtons = dom.viewContainer.querySelectorAll('.compare-ui-toggle');
+    compareToggleButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const toggle = String(btn.dataset.compareToggle || '').trim().toLowerCase();
+        if (toggle === 'sync') {
+          state.compareSyncEnabled = !state.compareSyncEnabled;
+        } else if (toggle === 'sticky') {
+          state.compareStickyEnabled = !state.compareStickyEnabled;
+        } else {
+          return;
+        }
+        renderReportWithLoading(reports[state.activeIndex]);
+      });
+    });
+    const compareJumpButtons = dom.viewContainer.querySelectorAll('[data-compare-jump]');
+    compareJumpButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const targetId = String(btn.dataset.compareJump || '').trim();
+        if (!targetId) return;
+        const idx = reports.findIndex((entry) => entry.id === targetId);
+        if (idx < 0) return;
+        if (idx === state.activeIndex) {
+          renderReportWithLoading(reports[state.activeIndex]);
+          return;
+        }
+        setActiveReport(idx);
+      });
+    });
     const focusSelects = dom.viewContainer.querySelectorAll('.compare-focus-select');
     if (focusSelects.length) {
       focusSelects.forEach((select) => {

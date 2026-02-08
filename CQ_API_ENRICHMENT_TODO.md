@@ -112,7 +112,6 @@ Backup created on server:
 
 ## 6. Remaining follow-up tasks
 
-- [ ] Add optional debug view to display raw CQ API payload when `window.SH6_API_DEBUG` is enabled.
-- [ ] Add defensive retry with short backoff for transient contest API failures.
-- [ ] Add lightweight end-to-end browser test for one known call/year scenario.
-
+- [x] Add optional debug view to display raw CQ API payload when `window.SH6_API_DEBUG` is enabled.
+- [x] Add defensive retry with short backoff for transient contest API failures.
+- [x] Add lightweight end-to-end browser test for one known call/year scenario.

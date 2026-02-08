@@ -3694,6 +3694,8 @@
       useProxy: true,
       useDirect: true,
       timeoutMs: 9000,
+      maxAttempts: 3,
+      retryBackoffMs: 220,
       debug: Boolean(window.SH6_API_DEBUG)
     });
     return state.cqApiClient;
@@ -4904,6 +4906,17 @@
     return `${total ? `${total} (` : ''}${parts.join(', ')}${total ? ')' : ''}`;
   }
 
+  function buildCqApiDebugPayloadText(payload, maxChars = 18000) {
+    if (!payload) return '';
+    try {
+      const text = JSON.stringify(payload, null, 2);
+      if (text.length <= maxChars) return text;
+      return `${text.slice(0, maxChars)}\n... [truncated ${text.length - maxChars} chars]`;
+    } catch (err) {
+      return `Could not stringify debug payload: ${err && err.message ? err.message : String(err)}`;
+    }
+  }
+
   function renderCqApiEnrichmentCard(enrichment) {
     const info = enrichment || createApiEnrichmentState();
     if (info.status === 'idle') return '';
@@ -4954,9 +4967,16 @@
     const selectedYear = Number(data.year) || null;
     const category = current?.category || data.matchedCategory || '';
     const geo = record?.geo || data.matchedGeo || '';
+    const apiStatusMessage = data.statusMessage ? String(data.statusMessage).trim() : '';
     const categoryLabel = findCqApiCategoryLabel(data.labels?.catlist, category);
     const geoLabel = findCqApiGeoLabel(data.labels?.geolist, geo);
     const currentRankYear = Number(current?.year) || null;
+    const debugPayloadText = Boolean(window.SH6_API_DEBUG)
+      ? buildCqApiDebugPayloadText(data.debugPayload)
+      : '';
+    const debugBlock = debugPayloadText
+      ? `<details class="cqapi-debug"><summary>Debug payload</summary><pre>${escapeHtml(debugPayloadText)}</pre></details>`
+      : '';
     const historyRows = history.map((row, idx) => {
       const isCurrent = selectedYear && Number(row?.year) === selectedYear;
       const trClass = isCurrent ? 'cqapi-history-current' : (idx % 2 === 0 ? 'td1' : 'td0');
@@ -4975,6 +4995,7 @@
         <div class="gradient">&nbsp;CQ contest API</div>
         <div class="cqapi-body">
           <div class="cqapi-source" title="${escapeAttr(source || '')}">Source: ${sourceText} <span class="cqapi-helper">${escapeHtml(sourceLabel)}</span></div>
+          ${apiStatusMessage ? `<div class="cqapi-msg">API message: ${escapeHtml(apiStatusMessage)}</div>` : ''}
           <table class="mtc cqapi-table">
             <tr class="thc"><th>Metric</th><th>Value</th></tr>
             <tr class="td1"><td>Contest / mode</td><td>${escapeHtml(data.contestId || 'N/A')} / ${escapeHtml((data.mode || '').toUpperCase() || 'N/A')}</td></tr>
@@ -4995,6 +5016,7 @@
               ${historyRows}
             </table>
           ` : ''}
+          ${debugBlock}
         </div>
       </div>
     `;

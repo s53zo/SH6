@@ -37,6 +37,7 @@
   const LIST_TTL_MS = 1000 * 60 * 60 * 24;
   const SCORE_TTL_MS = 1000 * 60 * 30;
   const RECORD_TTL_MS = 1000 * 60 * 60;
+  const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
   function safeString(value) {
     return value == null ? '' : String(value);
@@ -93,6 +94,19 @@
   function parseStatusMessage(payload) {
     if (!payload || typeof payload !== 'object') return '';
     return safeString(payload.status_message || payload['status message'] || payload.message || '').trim();
+  }
+
+  function resolveApiStatus(payload, httpStatus) {
+    const status = Number(payload?.status);
+    return Number.isFinite(status) ? status : Number(httpStatus);
+  }
+
+  function isRetryableStatus(status) {
+    return RETRYABLE_STATUSES.has(Number(status));
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
   }
 
   function normalizeContestFromText(text) {
@@ -246,6 +260,8 @@
       this.useProxy = options.useProxy !== false;
       this.useDirect = options.useDirect !== false;
       this.debug = Boolean(options.debug);
+      this.maxAttempts = Math.max(1, Number(options.maxAttempts) || 3);
+      this.retryBackoffMs = Math.max(60, Number(options.retryBackoffMs) || 220);
       this.storagePrefix = safeString(options.storagePrefix || 'sh6_cq_api_v1_');
       this.cache = new Map();
       this.inFlight = new Map();
@@ -388,23 +404,44 @@
         let lastNetworkErr = null;
         for (const source of sources) {
           const url = this._buildUrl(source, endpointPath);
-          if (this.debug) console.log('[CQAPI] request', url);
-          try {
-            const { httpStatus, payload } = await this._fetchJson(url);
-            const result = {
-              status: Number.isFinite(Number(payload?.status)) ? Number(payload.status) : httpStatus,
-              statusMessage: parseStatusMessage(payload),
-              payload,
-              url,
-              sourceKind: source.kind,
-              helperActive: /azure\.s53m\.com/i.test(url)
-            };
-            this._cacheSet(key, result, ttlMs);
-            if (useStorageCache) this._storageSet(key, result, ttlMs);
-            return result;
-          } catch (err) {
-            lastNetworkErr = err;
-            if (this.debug) console.warn('[CQAPI] source failed', url, err);
+          for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+            if (this.debug) console.log('[CQAPI] request', { url, attempt, maxAttempts: this.maxAttempts });
+            try {
+              const { httpStatus, payload } = await this._fetchJson(url);
+              const status = resolveApiStatus(payload, httpStatus);
+              const statusMessage = parseStatusMessage(payload);
+              if (isRetryableStatus(status)) {
+                lastNetworkErr = new Error(`Transient API status ${status}${statusMessage ? `: ${statusMessage}` : ''}`);
+                if (attempt < this.maxAttempts) {
+                  const waitMs = (this.retryBackoffMs * (2 ** (attempt - 1))) + Math.floor(Math.random() * 120);
+                  if (this.debug) console.warn('[CQAPI] transient status, retrying', { url, attempt, status, waitMs });
+                  await sleep(waitMs);
+                  continue;
+                }
+                if (this.debug) console.warn('[CQAPI] transient status, trying next source', { url, status });
+                break;
+              }
+              const result = {
+                status,
+                statusMessage,
+                payload,
+                url,
+                sourceKind: source.kind,
+                helperActive: /azure\.s53m\.com/i.test(url)
+              };
+              this._cacheSet(key, result, ttlMs);
+              if (useStorageCache) this._storageSet(key, result, ttlMs);
+              return result;
+            } catch (err) {
+              lastNetworkErr = err;
+              if (attempt < this.maxAttempts) {
+                const waitMs = (this.retryBackoffMs * (2 ** (attempt - 1))) + Math.floor(Math.random() * 120);
+                if (this.debug) console.warn('[CQAPI] source failed, retrying', { url, attempt, waitMs, error: String(err?.message || err) });
+                await sleep(waitMs);
+                continue;
+              }
+              if (this.debug) console.warn('[CQAPI] source failed, trying next source', url, err);
+            }
           }
         }
         throw lastNetworkErr || new Error('All API sources failed');
@@ -431,50 +468,50 @@
     async geolist(contestId) {
       const resp = await this._request(contestId, 'geolist', 'geolist', LIST_TTL_MS, true);
       if (resp.status !== 200 || !resp.payload || typeof resp.payload !== 'object') {
-        return { ok: false, map: {}, source: resp.url, statusMessage: resp.statusMessage };
+        return { ok: false, map: {}, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
       }
       const map = {};
       Object.keys(resp.payload).forEach((key) => {
         if (key === 'status' || key === 'status_message' || key === 'status message') return;
         map[key.toUpperCase()] = safeString(resp.payload[key]);
       });
-      return { ok: true, map, source: resp.url, statusMessage: resp.statusMessage };
+      return { ok: true, map, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
     }
 
     async catlist(contestId) {
       const resp = await this._request(contestId, 'catlist', 'catlist', LIST_TTL_MS, true);
       if (resp.status !== 200 || !Array.isArray(resp.payload?.data)) {
-        return { ok: false, list: [], source: resp.url, statusMessage: resp.statusMessage };
+        return { ok: false, list: [], source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
       }
       const list = resp.payload.data.map((row) => ({
         category: normalizeCategoryLabel(row?.category || ''),
         description: safeString(row?.description || '').trim()
       })).filter((row) => row.category);
-      return { ok: true, list, source: resp.url, statusMessage: resp.statusMessage };
+      return { ok: true, list, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
     }
 
     async clublist(contestId) {
       const resp = await this._request(contestId, 'clublist', 'clublist', LIST_TTL_MS, true);
       if (resp.status !== 200 || !Array.isArray(resp.payload?.data)) {
-        return { ok: false, list: [], source: resp.url, statusMessage: resp.statusMessage };
+        return { ok: false, list: [], source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
       }
       const list = resp.payload.data.map((row) => ({
         name: safeString(row?.name || '').trim(),
         region: safeString(row?.region || '').trim().toUpperCase()
       })).filter((row) => row.name);
-      return { ok: true, list, source: resp.url, statusMessage: resp.statusMessage };
+      return { ok: true, list, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
     }
 
     async score(contestId, mode, year, callsign) {
       const path = this._buildScorePath(mode, year, callsign);
       const resp = await this._request(contestId, path, `score:${mode}:${year}:${callsign}`, SCORE_TTL_MS, false);
       if (resp.status !== 200 || !Array.isArray(resp.payload?.data)) {
-        return { ok: false, rows: [], source: resp.url, statusMessage: resp.statusMessage };
+        return { ok: false, rows: [], source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
       }
       const rows = resp.payload.data
         .map((row) => normalizeScoreRow(contestId, mode, row))
         .filter(Boolean);
-      return { ok: true, rows, source: resp.url, statusMessage: resp.statusMessage };
+      return { ok: true, rows, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
     }
 
     async history(contestId, mode, callsign) {
@@ -485,11 +522,11 @@
       const path = this._buildRecordPath(mode, category, geo);
       const resp = await this._request(contestId, path, `record:${mode}:${category}:${geo}`, RECORD_TTL_MS, false);
       if (resp.status !== 200 || !resp.payload || typeof resp.payload !== 'object') {
-        return { ok: false, row: null, source: resp.url, statusMessage: resp.statusMessage };
+        return { ok: false, row: null, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
       }
       const row = normalizeRecordRow(contestId, mode, resp.payload);
-      if (!row) return { ok: false, row: null, source: resp.url, statusMessage: resp.statusMessage };
-      return { ok: true, row, source: resp.url, statusMessage: resp.statusMessage };
+      if (!row) return { ok: false, row: null, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
+      return { ok: true, row, source: resp.url, statusMessage: resp.statusMessage, rawPayload: this.debug ? resp.payload : null };
     }
 
     async enrich(params) {
@@ -517,7 +554,7 @@
           this.history(contestId, mode, callsign)
         ]);
 
-        let recordRes = { ok: false, row: null, source: null, statusMessage: '' };
+        let recordRes = { ok: false, row: null, source: null, statusMessage: '', rawPayload: null };
         let matchedCategory = null;
         let matchedGeo = null;
 
@@ -562,7 +599,24 @@
           },
           source,
           helperActive,
-          statusMessage: currentRes.statusMessage || historyRes.statusMessage || recordRes.statusMessage || ''
+          statusMessage: currentRes.statusMessage || historyRes.statusMessage || recordRes.statusMessage || '',
+          debugPayload: this.debug ? {
+            request: {
+              contestId,
+              mode,
+              callsign,
+              year,
+              categories,
+              geos
+            },
+            responses: {
+              geolist: geoRes.rawPayload || null,
+              catlist: catRes.rawPayload || null,
+              currentScore: currentRes.rawPayload || null,
+              history: historyRes.rawPayload || null,
+              record: recordRes.rawPayload || null
+            }
+          } : null
         };
       } catch (err) {
         return {

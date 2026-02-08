@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CQ API Browser Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>CQ API Browser Smoke</h1>
+  <p>Scenario: `CQWW` / `cw` / year `2024` / callsign `S53ZO` via SH6 proxy helper.</p>
+  <div id="status" class="status">RUNNING</div>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script src="../cq-api-enrichment.js"></script>
+  <script>
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const resultEl = document.getElementById('result');
+      const request = {
+        contestId: 'CQWW',
+        mode: 'cw',
+        callsign: 'S53ZO',
+        year: '2024',
+        categories: ['AH ALL', '*'],
+        geos: ['S5', 'EUR', 'WORLD']
+      };
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        if (!window.SH6CqApi || typeof window.SH6CqApi.createClient !== 'function') {
+          throw new Error('window.SH6CqApi.createClient is unavailable');
+        }
+        const client = window.SH6CqApi.createClient({
+          proxyBase: 'https://azure.s53m.com/cors/cqapi',
+          useProxy: true,
+          useDirect: false,
+          timeoutMs: 9000,
+          maxAttempts: 3,
+          retryBackoffMs: 220,
+          debug: true
+        });
+        const startedAt = Date.now();
+        const result = await client.enrich(request);
+        const elapsedMs = Date.now() - startedAt;
+
+        const checks = [];
+        if (!result || result.ok !== true) checks.push('Result is not ok=true');
+        if (result?.contestId !== 'CQWW') checks.push('Unexpected contestId');
+        if (!Number.isFinite(Number(result?.currentScore?.score || NaN))) checks.push('Missing numeric current score');
+        if (!Array.isArray(result?.history) || result.history.length === 0) checks.push('Missing history rows');
+        if (!String(result?.source || '').includes('azure.s53m.com/cors/cqapi')) checks.push('Unexpected source URL');
+
+        if (checks.length) {
+          setResult(false, {
+            checksFailed: checks,
+            elapsedMs,
+            request,
+            result
+          });
+          return;
+        }
+
+        setResult(true, {
+          elapsedMs,
+          request,
+          source: result.source,
+          currentScore: {
+            year: result.currentScore.year,
+            score: result.currentScore.score,
+            qsos: result.currentScore.qsos,
+            category: result.currentScore.category
+          },
+          historyTop3: result.history.slice(0, 3).map((row) => ({
+            year: row.year,
+            score: row.score,
+            qsos: row.qsos
+          })),
+          record: result.record ? {
+            callsign: result.record.callsign,
+            year: result.record.year,
+            score: result.record.score
+          } : null
+        });
+      } catch (err) {
+        setResult(false, {
+          error: err && err.message ? err.message : String(err),
+          request
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

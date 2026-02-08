@@ -7399,7 +7399,7 @@
     const insights = Array.isArray(coach.insights) ? coach.insights : [];
     const insightList = insights.length
       ? `<ul class="coach-insights">${insights.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
-      : '<p class="cqapi-muted">No coaching insight yet. Refresh to analyze the selected cohort.</p>';
+      : '<p class="cqapi-muted">No coaching insight yet. Adjust scope/category to analyze a cohort.</p>';
 
     const current = coach.currentRow || null;
     const currentRank = Number.isFinite(current?.rank) ? current.rank : null;
@@ -7418,7 +7418,12 @@
         && rowCall === normalizeCall(current.callsign || '')
         && rowCategory === normalizeCoachCategory(current.category || '');
       const trClass = isCurrent ? 'coach-row-current' : (idx % 2 === 0 ? 'td1' : 'td0');
-      const canSelect = Number.isFinite(rowYear) && !!rowCall;
+      const canLoadCompare = Number.isFinite(rowYear) && Boolean(rowCall) && Boolean(coach?.contestId || context?.contestId) && Boolean(coach?.mode || context?.mode);
+      const loadActions = canLoadCompare
+        ? ['B', 'C', 'D'].map((slotId) => (
+          `<button type="button" class="cqapi-load-btn coach-load-btn" data-slot="${slotId}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(String(coach.contestId || context.contestId || ''))}" data-mode="${escapeAttr(String(coach.mode || context.mode || ''))}" title="Load this log into Log ${slotId}">Log ${slotId}</button>`
+        )).join('')
+        : '<span class="cqapi-muted">N/A</span>';
       const operatorsCell = formatCqApiOperatorsCell(row?.operators || '');
       const operatorsTitleAttr = operatorsCell.title ? ` title="${escapeAttr(operatorsCell.title)}"` : '';
       const scoreGap = Number(row?.scoreGap);
@@ -7437,9 +7442,6 @@
       };
       return `
         <tr class="${trClass}">
-          <td>${canSelect
-            ? `<input type="checkbox" class="coach-row-select" data-callsign="${escapeAttr(rowCall)}" data-year="${escapeAttr(String(rowYear))}" data-contest="${escapeAttr(String(coach.contestId || context.contestId || ''))}" data-mode="${escapeAttr(String(coach.mode || context.mode || ''))}">`
-            : '<span class="cqapi-muted">N/A</span>'}</td>
           <td>${formatCqApiNumber(row?.rank)}</td>
           <td>${escapeHtml(rowCall || 'N/A')}</td>
           <td>${escapeHtml(rowCategory || 'N/A')}</td>
@@ -7449,6 +7451,7 @@
           <td>${formatSmallGap(qsoGap)}</td>
           <td>${formatCqApiMultiplierValue(row)}</td>
           <td>${formatSmallGap(multGap)}</td>
+          <td class="coach-load-cell">${loadActions}</td>
           <td${operatorsTitleAttr}>${escapeHtml(operatorsCell.text)}</td>
         </tr>
       `;
@@ -7456,15 +7459,9 @@
 
     const tableBlock = rows.length
       ? `
-        <div class="coach-load-actions">
-          <button type="button" class="button coach-load-selected" data-slot="B">Load selected to Log B</button>
-          <button type="button" class="button coach-load-selected" data-slot="C">Load selected to Log C</button>
-          <button type="button" class="button coach-load-selected" data-slot="D">Load selected to Log D</button>
-          <span class="cqapi-muted">Select one row first, then choose the target slot.</span>
-        </div>
         <div class="cqapi-history-wrap">
           <table class="mtc coach-table">
-            <tr class="thc"><th>Select</th><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap to you</th><th>QSOs</th><th>QSO gap</th><th>Mult</th><th>Mult gap</th><th>Ops</th></tr>
+            <tr class="thc"><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap to you</th><th>QSOs</th><th>QSO gap</th><th>Mult</th><th>Mult gap</th><th>Load this log to slot</th><th>Ops</th></tr>
             ${tableRows}
           </table>
         </div>
@@ -7510,7 +7507,7 @@
       <div class="cqapi-card mtc coach-card">
         <div class="gradient">&nbsp;Competitor coach</div>
         <div class="cqapi-body">
-          <p>Find direct competitors by scope and category, then load selected logs to compare detailed performance.</p>
+          <p>Find direct competitors by scope and category, then load any row directly to Log B, C, or D for side-by-side comparison.</p>
           ${context.ok ? '' : `<p class="status-error">${escapeHtml(context.reason || 'Competitor context unavailable.')}</p>`}
           <div class="coach-controls">
             <div class="coach-control-group">
@@ -7524,9 +7521,6 @@
               <div class="coach-choice-row">
                 ${categoryButtons}
               </div>
-            </div>
-            <div class="coach-control-actions">
-              <button type="button" class="button" id="coachRefresh"${controlsDisabled}>Refresh cohort</button>
             </div>
           </div>
           <table class="mtc coach-meta">
@@ -13926,18 +13920,6 @@
     if (reportId === 'competitor_coach') {
       const scopeButtons = document.querySelectorAll('.coach-scope-btn');
       const categoryButtons = document.querySelectorAll('.coach-category-btn');
-      const refreshBtn = document.getElementById('coachRefresh');
-      const loadButtons = document.querySelectorAll('.coach-load-selected');
-      const rowChecks = document.querySelectorAll('.coach-row-select');
-
-      rowChecks.forEach((input) => {
-        input.addEventListener('change', () => {
-          if (!input.checked) return;
-          rowChecks.forEach((other) => {
-            if (other !== input) other.checked = false;
-          });
-        });
-      });
 
       const setActiveChoice = (buttons, predicate) => {
         buttons.forEach((btn) => {
@@ -13974,88 +13956,6 @@
           setActiveChoice(categoryButtons, (item) => (item.dataset.categoryMode || 'same') === nextMode);
           syncCoachControls();
           triggerCompetitorCoachRefresh(true);
-        });
-      });
-
-      if (refreshBtn) {
-        refreshBtn.addEventListener('click', (evt) => {
-          evt.preventDefault();
-          syncCoachControls();
-          triggerCompetitorCoachRefresh(true);
-        });
-      }
-
-      loadButtons.forEach((btn) => {
-        btn.addEventListener('click', async (evt) => {
-          evt.preventDefault();
-          const selected = Array.from(document.querySelectorAll('.coach-row-select:checked'));
-          if (selected.length !== 1) {
-            showOverlayNotice('Select exactly one competitor row first.', 2200);
-            return;
-          }
-          const row = selected[0];
-          const slotId = String(btn.dataset.slot || '').toUpperCase();
-          const callsign = normalizeCall(row.dataset.callsign || '');
-          const year = Number(row.dataset.year);
-          const contestId = String(row.dataset.contest || state.competitorCoach?.contestId || '').trim().toUpperCase();
-          const mode = String(row.dataset.mode || state.competitorCoach?.mode || '').trim().toLowerCase();
-          if (!slotId || !COMPARE_SLOT_IDS.includes(slotId)) {
-            showOverlayNotice('Invalid target slot selected.', 2200);
-            return;
-          }
-          if (!callsign || !contestId || !mode || !Number.isFinite(year)) {
-            showOverlayNotice('Selected row is missing load details.', 2600);
-            return;
-          }
-          const original = btn.textContent;
-          btn.disabled = true;
-          btn.textContent = '...';
-          trackEvent('competitor_coach_load_click', {
-            slot: slotId,
-            callsign,
-            contest: contestId,
-            mode,
-            year
-          });
-          try {
-            const result = await loadCqApiHistoryArchiveToSlot({
-              slotId,
-              callsign,
-              contestId,
-              mode,
-              year
-            });
-            btn.textContent = 'OK';
-            showOverlayNotice(`Loaded ${callsign} ${contestId} ${year} into Log ${slotId}.`, 2200);
-            trackEvent('competitor_coach_load_success', {
-              slot: slotId,
-              callsign,
-              contest: contestId,
-              mode,
-              year,
-              path: result?.path || ''
-            });
-            setTimeout(() => {
-              btn.textContent = original;
-              btn.disabled = false;
-            }, 900);
-          } catch (err) {
-            const message = err && err.message ? err.message : 'Unable to load selected archive log';
-            btn.textContent = 'ERR';
-            showOverlayNotice(message, 3200);
-            trackEvent('competitor_coach_load_error', {
-              slot: slotId,
-              callsign,
-              contest: contestId,
-              mode,
-              year,
-              message
-            });
-            setTimeout(() => {
-              btn.textContent = original;
-              btn.disabled = false;
-            }, 1200);
-          }
         });
       });
 

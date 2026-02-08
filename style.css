@@ -2349,12 +2349,6 @@ th {
   cursor: not-allowed;
 }
 
-.coach-control-actions {
-  display: flex;
-  align-items: flex-end;
-  min-height: 54px;
-}
-
 .coach-meta,
 .coach-table {
   width: 100%;
@@ -2389,12 +2383,13 @@ th {
   margin: 2px 0;
 }
 
-.coach-load-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  margin-bottom: 6px;
+.coach-load-cell {
+  white-space: nowrap;
+  min-width: 158px;
+}
+
+.coach-load-btn {
+  min-width: 46px;
 }
 
 .coach-table {
@@ -2451,14 +2446,6 @@ th {
   .coach-choice-btn {
     flex: 1 1 auto;
     text-align: center;
-  }
-
-  .coach-control-actions {
-    min-height: 0;
-  }
-
-  .coach-load-actions .button {
-    width: 100%;
   }
 
   .coach-meta td:first-child {

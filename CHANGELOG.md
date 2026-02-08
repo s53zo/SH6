@@ -7,9 +7,9 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 - CQ API: keep raw score as fallback when official score is missing.
 - CQ API: enrich history table with category/operators and add per-row actions to load matching archive logs into compare slots.
 - CQ API: render year values as plain years (for example `2024`, not `2,024`).
-- Compare mode: render singleton pages only once (`Start`, `Charts`, `EXPORT PDF or HTML`, `Save&Load session`, `QSL labels`).
+- Compare mode: render singleton pages only once (`Start`, `Charts`, `EXPORT PDF, HTML, CBR`, `Save&Load session`, `QSL labels`).
 - Export: add CBR export actions for loaded slots.
-- Menu: remove `Raw log` entry (raw export remains available from `EXPORT PDF or HTML`).
+- Menu: remove `Raw log` entry (raw export remains available from `EXPORT PDF, HTML, CBR`).
 
 ## v5.1.12 (2026-02-08)
 - Merge `contest-rules` and `cq_api` into `main`.
@@ -148,7 +148,7 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 - Add session permalink migration layer to preserve compatibility across upgrades.
 
 ## v4.1.5 (2026-02-01)
-- Rename Export menu to "EXPORT PDF or HTML".
+- Rename Export menu to "EXPORT PDF, HTML, CBR".
 - Move Export and Save&Load session menus just above QSL labels.
 
 ## v4.1.4 (2026-02-01)

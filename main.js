@@ -2,6 +2,7 @@
   const BASE_REPORTS = [
     { id: 'load_logs', title: 'Start' },
     { id: 'main', title: 'Main' },
+    { id: 'competitor_coach', title: 'Competitor coach' },
     { id: 'summary', title: 'Summary' },
     { id: 'log', title: 'Log' },
     { id: 'operators', title: 'Operators' },
@@ -43,7 +44,7 @@
     { id: 'comments', title: 'Comments' },
     { id: 'spots', title: 'Spots' },
     { id: 'rbn_spots', title: 'RBN spots' },
-    { id: 'export', title: 'EXPORT PDF or HTML' },
+    { id: 'export', title: 'EXPORT PDF, HTML, CBR' },
     { id: 'session', title: 'Save&Load session' },
     { id: 'qsl_labels', title: 'QSL labels' },
     { id: 'spot_hunter', title: 'Spot hunter' },
@@ -75,6 +76,8 @@
   const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
   const CQ_API_PROXY_BASE = 'https://azure.s53m.com/cors/cqapi';
   const CQ_API_SCRIPT_URL = 'cq-api-enrichment.js';
+  const COMPETITOR_COACH_SCRIPT_URL = 'competitor-coach.js';
+  const CQ_API_SUPPORTED_CONTESTS = new Set(['CQWW', 'CQWPX', 'CQWWRTTY', 'CQWPXRTTY', 'CQ160']);
   const CALLSIGN_LOOKUP_URLS = [
     'https://azure.s53m.com/sh6/lookup'
   ];
@@ -132,7 +135,8 @@
     'export',
     'session',
     'charts',
-    'qsl_labels'
+    'qsl_labels',
+    'competitor_coach'
   ]);
   const SESSION_VERSION = 1;
   const PERMALINK_COMPACT_PREFIX = 'v2.';
@@ -193,6 +197,30 @@
     };
   }
 
+  function createCompetitorCoachState(seed = {}) {
+    const scopeType = String(seed.scopeType || 'dxcc').trim().toLowerCase();
+    return {
+      status: 'idle',
+      error: null,
+      source: null,
+      statusMessage: '',
+      requestKey: null,
+      scopeType: ['dxcc', 'continent', 'cq_zone', 'itu_zone'].includes(scopeType) ? scopeType : 'dxcc',
+      categoryMode: String(seed.categoryMode || 'same').toLowerCase() === 'all' ? 'all' : 'same',
+      targetScopeValue: '',
+      targetCategory: '',
+      scopeLabel: '',
+      rows: [],
+      totalRows: 0,
+      sourceRows: 0,
+      currentRow: null,
+      insights: [],
+      contestId: '',
+      mode: '',
+      year: null
+    };
+  }
+
   function createEmptyCompareSlot() {
     return {
       logFile: null,
@@ -229,6 +257,7 @@
     state.spotsState = createSpotsState();
     state.rbnState = createRbnState();
     state.apiEnrichment = createApiEnrichmentState();
+    state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
   }
 
   function resetCompareSlot(slotId) {
@@ -776,6 +805,7 @@
 
   let spotHunterModulePromise = null;
   let cqApiModulePromise = null;
+  let competitorCoachModulePromise = null;
   function loadSpotHunterModule() {
     if (window.SpotHunterRender) return Promise.resolve();
     if (spotHunterModulePromise) return spotHunterModulePromise;
@@ -802,6 +832,20 @@
       document.head.appendChild(script);
     });
     return cqApiModulePromise;
+  }
+
+  function loadCompetitorCoachModule() {
+    if (window.SH6CompetitorCoach && typeof window.SH6CompetitorCoach.buildModel === 'function') return Promise.resolve();
+    if (competitorCoachModulePromise) return competitorCoachModulePromise;
+    competitorCoachModulePromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `${COMPETITOR_COACH_SCRIPT_URL}?v=${encodeURIComponent(APP_VERSION)}`;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Competitor coach module failed to load.'));
+      document.head.appendChild(script);
+    });
+    return competitorCoachModulePromise;
   }
 
   function buildFetchUrls(urls) {
@@ -926,6 +970,7 @@
     cqApiClient: null,
     cqApiRequestToken: 0,
     apiEnrichment: createApiEnrichmentState(),
+    competitorCoach: createCompetitorCoachState(),
     spotsState: null,
     rbnState: null,
     compareSlots: [createEmptyCompareSlot(), createEmptyCompareSlot(), createEmptyCompareSlot()]
@@ -4484,6 +4529,7 @@
 
   function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl, sourcePath) {
     const safeSize = Number.isFinite(size) ? size : text.length;
+    const slotKey = String(slotId || 'A').toUpperCase();
     const target = getSlotById(slotId);
     if (!target) return null;
     target.skipped = false;
@@ -4498,6 +4544,7 @@
     if (target === state) {
       state.notInMasterPage = 0;
       state.allCallsignsCountryFilter = '';
+      state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
     }
     const statusTarget = statusEl || getStatusElBySlot(slotId);
     if (statusTarget) statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes)`;
@@ -4550,7 +4597,7 @@
       const tag = `slot ${String(slotId || '').toUpperCase()}`;
       state.sessionNotice = state.sessionNotice.filter((msg) => !String(msg).toLowerCase().includes(tag.toLowerCase()));
     }
-    triggerCqApiEnrichmentForSlot(target, String(slotId || 'A').toUpperCase());
+    triggerCqApiEnrichmentForSlot(target, slotKey);
     return target.qsoData;
   }
 
@@ -4737,6 +4784,7 @@
     });
     const hasAny = state.qsoData || state.compareSlots.some((slot) => slot && slot.qsoData);
     if (!hasAny) return;
+    state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
     invalidateCompareLogData();
     updateBandRibbon();
     rebuildReports();
@@ -4748,7 +4796,8 @@
     const excluded = new Set([
       'kmz_files',
       'comments',
-      'sh6_info'
+      'sh6_info',
+      'competitor_coach'
     ]);
     return !excluded.has(reportId);
   }
@@ -5410,6 +5459,268 @@
       setCqApiStatus('error', CQ_API_PROXY_BASE, slot.apiEnrichment.error);
     }
     renderActiveReport();
+  }
+
+  function normalizeCoachCategory(value) {
+    return String(value || '')
+      .replace(/%20/gi, ' ')
+      .replace(/\+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toUpperCase();
+  }
+
+  function normalizeCoachScopeType(value) {
+    const key = String(value || '').trim().toLowerCase();
+    if (key === 'dxcc') return 'dxcc';
+    if (key === 'continent') return 'continent';
+    if (key === 'cq_zone' || key === 'cqzone' || key === 'cq') return 'cq_zone';
+    if (key === 'itu_zone' || key === 'ituzone' || key === 'itu') return 'itu_zone';
+    return 'dxcc';
+  }
+
+  function formatCoachScopeTitle(scopeType) {
+    if (scopeType === 'dxcc') return 'DXCC';
+    if (scopeType === 'continent') return 'Continent';
+    if (scopeType === 'cq_zone') return 'CQ zone';
+    if (scopeType === 'itu_zone') return 'ITU zone';
+    return 'Scope';
+  }
+
+  function normalizeContestIdForCoach(contestText, archivePath) {
+    const pathFirst = String(archivePath || '').split('/').filter(Boolean)[0] || '';
+    const byPath = pathFirst.toUpperCase();
+    if (CQ_API_SUPPORTED_CONTESTS.has(byPath)) return byPath;
+    const raw = String(contestText || '').toUpperCase().replace(/[_\s]+/g, '-');
+    if (!raw) return '';
+    if (raw.includes('CQ-WPX-RTTY') || raw === 'CQWPXRTTY') return 'CQWPXRTTY';
+    if (raw.includes('CQ-WW-RTTY') || raw === 'CQWWRTTY') return 'CQWWRTTY';
+    if (raw.includes('CQ-WPX') || raw === 'CQWPX') return 'CQWPX';
+    if (raw.includes('CQ-WW') || raw === 'CQWW') return 'CQWW';
+    if (raw.includes('CQ-160') || raw === 'CQ160') return 'CQ160';
+    return '';
+  }
+
+  function buildCompetitorCoachContext(client) {
+    if (!state.qsoData || !state.derived) {
+      return { ok: false, reason: 'Load Log A first.' };
+    }
+    const contestIdText = String(state.derived.contestMeta?.contestId || '');
+    const archivePath = String(state.logFile?.path || '');
+    const contestId = client?.normalizeContestId
+      ? client.normalizeContestId(contestIdText, archivePath)
+      : normalizeContestIdForCoach(contestIdText, archivePath);
+    if (!contestId || !CQ_API_SUPPORTED_CONTESTS.has(contestId)) {
+      return { ok: false, reason: 'This contest is not supported for CQ competitor analysis.' };
+    }
+    const callsign = normalizeCall(state.derived.contestMeta?.stationCallsign || deriveStationCallsign(state.qsoData.qsos));
+    if (!callsign) {
+      return { ok: false, reason: 'Station callsign not found in the loaded log.' };
+    }
+    const mode = inferApiMode(state, contestId);
+    if (!mode) {
+      return { ok: false, reason: 'Unable to infer mode for CQ competitor lookup.' };
+    }
+    const minTs = state.derived.timeRange?.minTs;
+    const year = Number.isFinite(minTs) ? new Date(minTs).getUTCFullYear() : null;
+    if (!Number.isFinite(year)) {
+      return { ok: false, reason: 'Unable to infer contest year from the loaded log.' };
+    }
+
+    const stationPrefix = lookupPrefix(callsign) || lookupPrefix(baseCall(callsign));
+    const scopeValues = {
+      dxcc: String(stationPrefix?.prefix || '').trim().toUpperCase(),
+      continent: normalizeContinent(stationPrefix?.continent || ''),
+      cq_zone: Number.isFinite(stationPrefix?.cqZone) ? String(stationPrefix.cqZone) : '',
+      itu_zone: Number.isFinite(stationPrefix?.ituZone) ? String(stationPrefix.ituZone) : ''
+    };
+
+    const targetCategory = normalizeCoachCategory(
+      state.apiEnrichment?.data?.currentScore?.category
+      || state.apiEnrichment?.data?.history?.[0]?.category
+      || state.apiEnrichment?.data?.matchedCategory
+      || state.derived.contestMeta?.category
+    );
+
+    const operatorCalls = dedupeValues([
+      ...parseOperatorsList(state.derived?.contestMeta?.operators || ''),
+      ...(state.derived?.operatorsSummary || []).map((item) => normalizeCall(item?.op || '')),
+      callsign
+    ].filter(Boolean)).map((value) => normalizeCall(value));
+
+    return {
+      ok: true,
+      contestId,
+      mode,
+      year,
+      callsign,
+      scopeValues,
+      targetCategory,
+      operatorCalls
+    };
+  }
+
+  function buildCompetitorCoachRequestKey(context, scopeType, categoryMode, targetCategory) {
+    return [
+      state.logVersion || 0,
+      context.contestId || '',
+      context.mode || '',
+      context.year || '',
+      context.callsign || '',
+      scopeType || '',
+      context.scopeValues?.[scopeType] || '',
+      categoryMode || '',
+      normalizeCoachCategory(targetCategory || '')
+    ].join('|');
+  }
+
+  async function triggerCompetitorCoachRefresh(force = false) {
+    if (!state.qsoData || !state.derived) return;
+    const previous = state.competitorCoach || createCompetitorCoachState();
+
+    let client;
+    try {
+      client = await ensureCqApiClient();
+    } catch (err) {
+      state.competitorCoach = {
+        ...createCompetitorCoachState(previous),
+        status: 'error',
+        error: err && err.message ? err.message : 'CQ API client unavailable'
+      };
+      if (reports[state.activeIndex]?.id === 'competitor_coach') renderActiveReport();
+      return;
+    }
+
+    const context = buildCompetitorCoachContext(client);
+    if (!context.ok) {
+      state.competitorCoach = {
+        ...createCompetitorCoachState(previous),
+        status: 'error',
+        error: context.reason || 'Competitor context unavailable'
+      };
+      if (reports[state.activeIndex]?.id === 'competitor_coach') renderActiveReport();
+      return;
+    }
+
+    const requestedScope = normalizeCoachScopeType(previous.scopeType || 'dxcc');
+    const scopeType = context.scopeValues?.[requestedScope]
+      ? requestedScope
+      : (['dxcc', 'continent', 'cq_zone', 'itu_zone'].find((key) => context.scopeValues?.[key]) || requestedScope);
+    const targetScopeValue = String(context.scopeValues?.[scopeType] || '');
+    const categoryMode = previous.categoryMode === 'all' ? 'all' : 'same';
+    const targetCategory = normalizeCoachCategory(previous.targetCategory || context.targetCategory || '');
+
+    if (!targetScopeValue) {
+      state.competitorCoach = {
+        ...createCompetitorCoachState(previous),
+        status: 'error',
+        scopeType,
+        categoryMode,
+        targetCategory,
+        error: `No ${formatCoachScopeTitle(scopeType)} value found for the station.`
+      };
+      if (reports[state.activeIndex]?.id === 'competitor_coach') renderActiveReport();
+      return;
+    }
+
+    const requestKey = buildCompetitorCoachRequestKey(context, scopeType, categoryMode, targetCategory);
+    if (!force && previous.requestKey === requestKey && (previous.status === 'loading' || previous.status === 'ready')) {
+      return;
+    }
+
+    state.competitorCoach = {
+      ...createCompetitorCoachState(previous),
+      status: 'loading',
+      requestKey,
+      scopeType,
+      categoryMode,
+      targetScopeValue,
+      targetCategory,
+      scopeLabel: formatCoachScopeTitle(scopeType),
+      contestId: context.contestId,
+      mode: context.mode,
+      year: context.year
+    };
+    if (reports[state.activeIndex]?.id === 'competitor_coach') renderActiveReport();
+
+    try {
+      await loadCompetitorCoachModule();
+      if (!window.SH6CompetitorCoach || typeof window.SH6CompetitorCoach.buildModel !== 'function') {
+        throw new Error('Competitor coach module unavailable.');
+      }
+      const scoreRes = await client.score(context.contestId, context.mode, String(context.year), '*');
+      if (!scoreRes?.ok || !Array.isArray(scoreRes.rows)) {
+        throw new Error(scoreRes?.statusMessage || 'No competitor rows returned by CQ API.');
+      }
+
+      const callMetaCache = new Map();
+      const resolveCallMeta = (callsign) => {
+        const key = normalizeCall(callsign);
+        if (!key) return { dxcc: '', continent: '', cqZone: '', ituZone: '' };
+        if (callMetaCache.has(key)) return callMetaCache.get(key);
+        const prefix = lookupPrefix(key) || lookupPrefix(baseCall(key));
+        const meta = {
+          dxcc: String(prefix?.prefix || '').trim().toUpperCase(),
+          continent: normalizeContinent(prefix?.continent || ''),
+          cqZone: Number.isFinite(prefix?.cqZone) ? String(prefix.cqZone) : '',
+          ituZone: Number.isFinite(prefix?.ituZone) ? String(prefix.ituZone) : ''
+        };
+        callMetaCache.set(key, meta);
+        return meta;
+      };
+
+      const model = window.SH6CompetitorCoach.buildModel({
+        rows: scoreRes.rows,
+        scopeType,
+        scopeValue: targetScopeValue,
+        categoryMode,
+        targetCategory,
+        stationCall: context.callsign,
+        operatorCalls: context.operatorCalls,
+        fallbackCurrent: state.apiEnrichment?.data?.currentScore || null,
+        resolveCallMeta,
+        limit: 60
+      });
+
+      state.competitorCoach = {
+        ...state.competitorCoach,
+        status: 'ready',
+        error: null,
+        source: scoreRes.source || '',
+        statusMessage: scoreRes.statusMessage || '',
+        rows: Array.isArray(model?.rows) ? model.rows : [],
+        totalRows: Number(model?.totalRows) || 0,
+        sourceRows: Array.isArray(scoreRes.rows) ? scoreRes.rows.length : 0,
+        currentRow: model?.currentRow || null,
+        insights: Array.isArray(model?.insights) ? model.insights.slice(0, 6) : [],
+        targetScopeValue: String(model?.targetScopeValue || targetScopeValue || ''),
+        targetCategory: String(model?.targetCategory || targetCategory || ''),
+        scopeLabel: formatCoachScopeTitle(scopeType),
+        contestId: context.contestId,
+        mode: context.mode,
+        year: context.year
+      };
+      trackEvent('competitor_coach_refresh', {
+        contest: context.contestId,
+        mode: context.mode,
+        year: context.year,
+        scope: scopeType,
+        category_mode: categoryMode,
+        cohort_rows: state.competitorCoach.totalRows
+      });
+    } catch (err) {
+      state.competitorCoach = {
+        ...state.competitorCoach,
+        status: 'error',
+        error: err && err.message ? err.message : 'Competitor cohort fetch failed.',
+        rows: [],
+        totalRows: 0,
+        currentRow: null,
+        insights: []
+      };
+    }
+
+    if (reports[state.activeIndex]?.id === 'competitor_coach') renderActiveReport();
   }
 
 
@@ -6855,6 +7166,154 @@
         ${rowHtml}
       </table>
       ${cqApiCard}
+    `;
+  }
+
+  function renderCompetitorCoach() {
+    if (!state.qsoData || !state.derived) {
+      return renderPlaceholder({ id: 'competitor_coach', title: 'Competitor coach' });
+    }
+    const context = buildCompetitorCoachContext(state.cqApiClient || null);
+    const coach = state.competitorCoach || createCompetitorCoachState();
+    const selectedScope = context.ok
+      ? (context.scopeValues?.[normalizeCoachScopeType(coach.scopeType)]
+          ? normalizeCoachScopeType(coach.scopeType)
+          : (['dxcc', 'continent', 'cq_zone', 'itu_zone'].find((key) => context.scopeValues?.[key]) || normalizeCoachScopeType(coach.scopeType)))
+      : normalizeCoachScopeType(coach.scopeType);
+    const categoryMode = coach.categoryMode === 'all' ? 'all' : 'same';
+    const targetCategory = normalizeCoachCategory(coach.targetCategory || context.targetCategory || '');
+    const categoryLabel = findCqApiCategoryLabel(state.apiEnrichment?.data?.labels?.catlist, targetCategory);
+    const scopeValueText = context.ok ? String(context.scopeValues?.[selectedScope] || '') : '';
+    const sourceText = coach.source ? escapeHtml(coach.source) : 'N/A';
+    const sourceRowsText = Number.isFinite(coach.sourceRows) ? formatNumberSh6(coach.sourceRows) : 'N/A';
+    const statusText = coach.status === 'loading'
+      ? '<p>Loading competitor cohort...</p>'
+      : coach.status === 'error'
+        ? `<p class="status-error">${escapeHtml(coach.error || 'Unable to load competitor cohort.')}</p>`
+        : '';
+
+    const insights = Array.isArray(coach.insights) ? coach.insights : [];
+    const insightList = insights.length
+      ? `<ul class="coach-insights">${insights.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
+      : '<p class="cqapi-muted">No coaching insight yet. Refresh to analyze the selected cohort.</p>';
+
+    const current = coach.currentRow || null;
+    const currentRank = Number.isFinite(current?.rank) ? current.rank : null;
+    const currentRankText = Number.isFinite(currentRank) ? formatNumberSh6(currentRank) : 'N/A';
+    const currentSummary = current
+      ? `${escapeHtml(current.callsign || 'N/A')} · rank ${currentRankText} · ${formatCqApiNumber(current.score)}`
+      : 'Current entry not detected in filtered cohort.';
+
+    const rows = Array.isArray(coach.rows) ? coach.rows : [];
+    const tableRows = rows.map((row, idx) => {
+      const rowYear = Number(row?.year);
+      const rowCall = normalizeCall(row?.callsign || '');
+      const rowCategory = normalizeCoachCategory(row?.category || '');
+      const isCurrent = current
+        && rowCall
+        && rowCall === normalizeCall(current.callsign || '')
+        && rowCategory === normalizeCoachCategory(current.category || '');
+      const trClass = isCurrent ? 'coach-row-current' : (idx % 2 === 0 ? 'td1' : 'td0');
+      const canSelect = Number.isFinite(rowYear) && !!rowCall;
+      const operatorsCell = formatCqApiOperatorsCell(row?.operators || '');
+      const operatorsTitleAttr = operatorsCell.title ? ` title="${escapeAttr(operatorsCell.title)}"` : '';
+      const scoreGap = Number(row?.scoreGap);
+      const scoreGapPct = Number(row?.scoreGapPct);
+      const qsoGap = Number(row?.qsoGap);
+      const multGap = Number(row?.multGap);
+      const formatGap = (value, pct) => {
+        if (!Number.isFinite(value)) return 'N/A';
+        const signed = `${value >= 0 ? '+' : ''}${formatNumberSh6(Math.round(value))}`;
+        if (!Number.isFinite(pct)) return signed;
+        return `${signed} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)`;
+      };
+      const formatSmallGap = (value) => {
+        if (!Number.isFinite(value)) return 'N/A';
+        return `${value >= 0 ? '+' : ''}${formatNumberSh6(Math.round(value))}`;
+      };
+      return `
+        <tr class="${trClass}">
+          <td>${canSelect
+            ? `<input type="checkbox" class="coach-row-select" data-callsign="${escapeAttr(rowCall)}" data-year="${escapeAttr(String(rowYear))}" data-contest="${escapeAttr(String(coach.contestId || context.contestId || ''))}" data-mode="${escapeAttr(String(coach.mode || context.mode || ''))}">`
+            : '<span class="cqapi-muted">N/A</span>'}</td>
+          <td>${formatCqApiNumber(row?.rank)}</td>
+          <td>${escapeHtml(rowCall || 'N/A')}</td>
+          <td>${escapeHtml(rowCategory || 'N/A')}</td>
+          <td><strong>${formatCqApiNumber(row?.score)}</strong></td>
+          <td>${formatGap(scoreGap, scoreGapPct)}</td>
+          <td>${formatCqApiNumber(row?.qsos)}</td>
+          <td>${formatSmallGap(qsoGap)}</td>
+          <td>${formatCqApiMultiplierValue(row)}</td>
+          <td>${formatSmallGap(multGap)}</td>
+          <td${operatorsTitleAttr}>${escapeHtml(operatorsCell.text)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const tableBlock = rows.length
+      ? `
+        <div class="coach-load-actions">
+          <button type="button" class="button coach-load-selected" data-slot="B">Load selected to Log B</button>
+          <button type="button" class="button coach-load-selected" data-slot="C">Load selected to Log C</button>
+          <button type="button" class="button coach-load-selected" data-slot="D">Load selected to Log D</button>
+          <span class="cqapi-muted">Select one row first, then choose the target slot.</span>
+        </div>
+        <div class="cqapi-history-wrap">
+          <table class="mtc coach-table">
+            <tr class="thc"><th>Select</th><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap to you</th><th>QSOs</th><th>QSO gap</th><th>Mult</th><th>Mult gap</th><th>Ops</th></tr>
+            ${tableRows}
+          </table>
+        </div>
+      `
+      : '<p class="cqapi-muted">No competitors matched the selected filters.</p>';
+
+    const controlsDisabled = context.ok ? '' : ' disabled';
+    const scopeOptions = ['dxcc', 'continent', 'cq_zone', 'itu_zone'].map((key) => {
+      const selected = key === selectedScope ? ' selected' : '';
+      const value = context.ok ? String(context.scopeValues?.[key] || '') : '';
+      const suffix = value ? ` (${escapeHtml(value)})` : ' (N/A)';
+      return `<option value="${key}"${selected}>${formatCoachScopeTitle(key)}${suffix}</option>`;
+    }).join('');
+
+    return `
+      <div class="cqapi-card mtc coach-card">
+        <div class="gradient">&nbsp;Competitor coach</div>
+        <div class="cqapi-body">
+          <p>Find direct competitors by scope and category, then load selected logs to compare detailed performance.</p>
+          ${context.ok ? '' : `<p class="status-error">${escapeHtml(context.reason || 'Competitor context unavailable.')}</p>`}
+          <div class="coach-controls">
+            <label>Scope
+              <select id="coachScope"${controlsDisabled}>
+                ${scopeOptions}
+              </select>
+            </label>
+            <label>Category
+              <select id="coachCategoryMode"${controlsDisabled}>
+                <option value="same"${categoryMode === 'same' ? ' selected' : ''}>Same category only</option>
+                <option value="all"${categoryMode === 'all' ? ' selected' : ''}>All categories</option>
+              </select>
+            </label>
+            <button type="button" class="button" id="coachRefresh"${controlsDisabled}>Refresh cohort</button>
+          </div>
+          <table class="mtc coach-meta">
+            <tr class="thc"><th>Metric</th><th>Value</th></tr>
+            <tr class="td1"><td>Contest / mode / year</td><td>${escapeHtml(context.contestId || coach.contestId || 'N/A')} / ${escapeHtml(String(context.mode || coach.mode || '').toUpperCase() || 'N/A')} / ${formatYearSh6(context.year || coach.year)}</td></tr>
+            <tr class="td0"><td>Station</td><td>${escapeHtml(context.callsign || 'N/A')}</td></tr>
+            <tr class="td1"><td>Selected scope</td><td>${escapeHtml(formatCoachScopeTitle(selectedScope))} ${scopeValueText ? `(${escapeHtml(scopeValueText)})` : '(N/A)'}</td></tr>
+            <tr class="td0"><td>Target category</td><td>${escapeHtml(targetCategory || 'N/A')}${categoryLabel ? ` - ${escapeHtml(categoryLabel)}` : ''}</td></tr>
+            <tr class="td1"><td>Current in cohort</td><td>${currentSummary}</td></tr>
+            <tr class="td0"><td>Cohort size</td><td>${formatCqApiNumber(coach.totalRows)} matched (from ${sourceRowsText} API rows)</td></tr>
+            <tr class="td1"><td>API source</td><td>${sourceText}</td></tr>
+          </table>
+          ${coach.statusMessage ? `<p class="cqapi-msg">API message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
+          ${statusText}
+          <div class="coach-insights-wrap">
+            <h4>Coaching hints</h4>
+            ${insightList}
+          </div>
+          ${tableBlock}
+        </div>
+      </div>
     `;
   }
 
@@ -12410,6 +12869,7 @@
       switch (report.id) {
         case 'load_logs': return renderLoadLogs();
         case 'main': return renderMain();
+        case 'competitor_coach': return renderCompetitorCoach();
         case 'summary': return renderSummary();
         case 'log': return renderLog();
         case 'raw_log': return renderRawLog();
@@ -13229,6 +13689,126 @@
             el.innerHTML = '<p>Unable to load Spot hunter module.</p>';
           });
         });
+    }
+    if (reportId === 'competitor_coach') {
+      const scopeSelect = document.getElementById('coachScope');
+      const categorySelect = document.getElementById('coachCategoryMode');
+      const refreshBtn = document.getElementById('coachRefresh');
+      const loadButtons = document.querySelectorAll('.coach-load-selected');
+      const rowChecks = document.querySelectorAll('.coach-row-select');
+
+      rowChecks.forEach((input) => {
+        input.addEventListener('change', () => {
+          if (!input.checked) return;
+          rowChecks.forEach((other) => {
+            if (other !== input) other.checked = false;
+          });
+        });
+      });
+
+      const syncCoachControls = () => {
+        state.competitorCoach = state.competitorCoach || createCompetitorCoachState();
+        if (scopeSelect) state.competitorCoach.scopeType = normalizeCoachScopeType(scopeSelect.value);
+        if (categorySelect) state.competitorCoach.categoryMode = categorySelect.value === 'all' ? 'all' : 'same';
+      };
+
+      if (scopeSelect) {
+        scopeSelect.addEventListener('change', () => {
+          syncCoachControls();
+          triggerCompetitorCoachRefresh(true);
+        });
+      }
+      if (categorySelect) {
+        categorySelect.addEventListener('change', () => {
+          syncCoachControls();
+          triggerCompetitorCoachRefresh(true);
+        });
+      }
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          syncCoachControls();
+          triggerCompetitorCoachRefresh(true);
+        });
+      }
+
+      loadButtons.forEach((btn) => {
+        btn.addEventListener('click', async (evt) => {
+          evt.preventDefault();
+          const selected = Array.from(document.querySelectorAll('.coach-row-select:checked'));
+          if (selected.length !== 1) {
+            showOverlayNotice('Select exactly one competitor row first.', 2200);
+            return;
+          }
+          const row = selected[0];
+          const slotId = String(btn.dataset.slot || '').toUpperCase();
+          const callsign = normalizeCall(row.dataset.callsign || '');
+          const year = Number(row.dataset.year);
+          const contestId = String(row.dataset.contest || state.competitorCoach?.contestId || '').trim().toUpperCase();
+          const mode = String(row.dataset.mode || state.competitorCoach?.mode || '').trim().toLowerCase();
+          if (!slotId || !COMPARE_SLOT_IDS.includes(slotId)) {
+            showOverlayNotice('Invalid target slot selected.', 2200);
+            return;
+          }
+          if (!callsign || !contestId || !mode || !Number.isFinite(year)) {
+            showOverlayNotice('Selected row is missing load details.', 2600);
+            return;
+          }
+          const original = btn.textContent;
+          btn.disabled = true;
+          btn.textContent = '...';
+          trackEvent('competitor_coach_load_click', {
+            slot: slotId,
+            callsign,
+            contest: contestId,
+            mode,
+            year
+          });
+          try {
+            const result = await loadCqApiHistoryArchiveToSlot({
+              slotId,
+              callsign,
+              contestId,
+              mode,
+              year
+            });
+            btn.textContent = 'OK';
+            showOverlayNotice(`Loaded ${callsign} ${contestId} ${year} into Log ${slotId}.`, 2200);
+            trackEvent('competitor_coach_load_success', {
+              slot: slotId,
+              callsign,
+              contest: contestId,
+              mode,
+              year,
+              path: result?.path || ''
+            });
+            setTimeout(() => {
+              btn.textContent = original;
+              btn.disabled = false;
+            }, 900);
+          } catch (err) {
+            const message = err && err.message ? err.message : 'Unable to load selected archive log';
+            btn.textContent = 'ERR';
+            showOverlayNotice(message, 3200);
+            trackEvent('competitor_coach_load_error', {
+              slot: slotId,
+              callsign,
+              contest: contestId,
+              mode,
+              year,
+              message
+            });
+            setTimeout(() => {
+              btn.textContent = original;
+              btn.disabled = false;
+            }, 1200);
+          }
+        });
+      });
+
+      if (state.competitorCoach?.status === 'idle') {
+        triggerCompetitorCoachRefresh(false);
+      }
     }
     if (reportId === 'not_in_master') {
       const buttons = document.querySelectorAll('.not-master-btn');

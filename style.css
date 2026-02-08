@@ -2290,6 +2290,82 @@ th {
   word-break: break-word;
 }
 
+.coach-card {
+  border-color: #c7d9f3;
+  background: #f6fbff;
+}
+
+.coach-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  margin: 6px 0 8px;
+}
+
+.coach-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: #2f4f76;
+}
+
+.coach-controls select {
+  min-width: 160px;
+}
+
+.coach-meta,
+.coach-table {
+  width: 100%;
+  margin-top: 5px;
+  margin-bottom: 8px;
+  border-collapse: collapse;
+}
+
+.coach-meta td,
+.coach-meta th,
+.coach-table td,
+.coach-table th {
+  padding: 4px 6px;
+}
+
+.coach-meta td:first-child {
+  width: 34%;
+}
+
+.coach-insights-wrap h4 {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  color: #2a4568;
+}
+
+.coach-insights {
+  margin: 0 0 8px 16px;
+  padding: 0;
+}
+
+.coach-insights li {
+  margin: 2px 0;
+}
+
+.coach-load-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 6px;
+}
+
+.coach-table {
+  min-width: 980px;
+}
+
+.coach-row-current {
+  background: #e5eefc;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   .cqapi-body {
     padding: 8px;
@@ -2316,6 +2392,24 @@ th {
     min-height: 26px;
     padding: 1px 6px;
     font-size: 10px;
+  }
+
+  .coach-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .coach-controls select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .coach-load-actions .button {
+    width: 100%;
+  }
+
+  .coach-meta td:first-child {
+    width: 42%;
   }
 }
 

@@ -1773,6 +1773,34 @@
     `;
   }
 
+  function normalizeCoachSeverity(level) {
+    const key = String(level || '').trim().toLowerCase();
+    if (key === 'critical') return 'critical';
+    if (key === 'high') return 'high';
+    if (key === 'medium') return 'medium';
+    if (key === 'opportunity') return 'opportunity';
+    return 'info';
+  }
+
+  function coachSeverityLabel(level) {
+    const key = normalizeCoachSeverity(level);
+    if (key === 'critical') return 'Critical';
+    if (key === 'high') return 'High';
+    if (key === 'medium') return 'Medium';
+    if (key === 'opportunity') return 'Opportunity';
+    return 'Info';
+  }
+
+  function inferCoachInsightSeverity(text) {
+    const key = String(text || '').toLowerCase();
+    if (!key) return 'info';
+    if (key.includes('not found') || key.includes('no competitors') || key.includes('unable')) return 'critical';
+    if (key.includes('very narrow') || key.includes('very small') || key.includes('need about')) return 'high';
+    if (key.includes('main gap driver') || key.includes('gap driver') || key.includes('multiplier deficit')) return 'medium';
+    if (key.includes('nearest rival') || key.includes('leading') || key.includes('rows analyzed')) return 'opportunity';
+    return 'info';
+  }
+
   function renderPlaceholder(report) {
     const hasLog = !!state.logFile && !!state.qsoData && state.qsoData.qsos && state.qsoData.qsos.length;
     if (!hasLog) {
@@ -8002,7 +8030,15 @@
 
     const insights = Array.isArray(coach.insights) ? coach.insights : [];
     const insightList = insights.length
-      ? `<ul class="coach-insights">${insights.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
+      ? `<ul class="coach-insights">${insights.map((line) => {
+        const level = inferCoachInsightSeverity(line);
+        return `
+          <li>
+            <span class="coach-severity-badge coach-severity-${level}">${coachSeverityLabel(level)}</span>
+            <span>${escapeHtml(line)}</span>
+          </li>
+        `;
+      }).join('')}</ul>`
       : '<p class="cqapi-muted">No coaching insight yet. Adjust scope/category to analyze a cohort.</p>';
 
     const current = coach.currentRow || null;
@@ -8142,6 +8178,66 @@
       <div class="coach-quick-actions">
         <div class="coach-quick-hint">${escapeHtml(quickActionHint)}</div>
         ${quickActionButton}
+      </div>
+    `;
+
+    const currentScoreValue = Number(current?.score);
+    const nearestAheadGap = Number(nearestAhead?.scoreGap);
+    const nearestAheadPct = Number.isFinite(nearestAheadGap) && Number.isFinite(currentScoreValue) && currentScoreValue > 0
+      ? (nearestAheadGap / currentScoreValue) * 100
+      : null;
+    const cohortSeverity = !rows.length
+      ? 'critical'
+      : (!current ? 'high' : (rows.length === 1 ? 'medium' : 'opportunity'));
+    const gapSeverity = !nearestAhead
+      ? 'info'
+      : (!Number.isFinite(nearestAheadPct)
+          ? 'medium'
+          : (nearestAheadPct >= 25 ? 'high' : (nearestAheadPct >= 10 ? 'medium' : 'opportunity')));
+    const executionSeverity = !gapDriver
+      ? 'info'
+      : (gapDriver?.driver === 'mixed' ? 'medium' : 'opportunity');
+    const cohortSummary = !rows.length
+      ? 'No direct competitors were found with current filters.'
+      : (!current
+          ? 'Your station is not present in this filtered cohort.'
+          : (rows.length === 1
+              ? 'Only one entry matched the filters; expand scope for stronger benchmarking.'
+              : `Cohort is healthy with ${formatCqApiNumber(rows.length)} comparable entries.`));
+    const gapSummary = !nearestAhead
+      ? 'You are currently leading this filtered cohort.'
+      : `Nearest station ahead is ${escapeHtml(normalizeCall(nearestAhead.callsign || '') || 'N/A')} (${formatNumberSh6(Math.abs(Math.round(nearestAheadGap || 0)))} points${Number.isFinite(nearestAheadPct) ? `, ${nearestAheadPct.toFixed(1)}%` : ''}).`;
+    const executionSummary = !gapDriver
+      ? 'No dominant gap driver detected yet. Keep tracking both rate and multipliers.'
+      : `Primary improvement axis is ${escapeHtml(gapDriverPrimary)}. Recommended move: ${escapeHtml(gapDriverAction)}`;
+    const priorityCards = [
+      {
+        title: 'Cohort health',
+        level: cohortSeverity,
+        summary: cohortSummary
+      },
+      {
+        title: 'Closest chase target',
+        level: gapSeverity,
+        summary: gapSummary
+      },
+      {
+        title: 'Execution priority',
+        level: executionSeverity,
+        summary: executionSummary
+      }
+    ];
+    const priorityBlock = `
+      <div class="coach-priority-grid">
+        ${priorityCards.map((card) => `
+          <article class="coach-priority-card coach-priority-${normalizeCoachSeverity(card.level)}">
+            <div class="coach-priority-head">
+              <h4>${escapeHtml(card.title)}</h4>
+              <span class="coach-severity-badge coach-severity-${normalizeCoachSeverity(card.level)}">${coachSeverityLabel(card.level)}</span>
+            </div>
+            <p>${card.summary}</p>
+          </article>
+        `).join('')}
       </div>
     `;
 
@@ -8302,10 +8398,11 @@
           ${coach.statusMessage ? `<p class="cqapi-msg">Data message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
           ${statusText}
           ${quickActionBlock}
+          ${priorityBlock}
           ${rivalsBlock}
           ${gapDriverBlock}
           <div class="coach-insights-wrap">
-            <h4>Coaching hints</h4>
+            <h4>Coaching priorities</h4>
             ${insightList}
           </div>
           ${tableBlock}
@@ -10303,6 +10400,12 @@
     const hideControls = Boolean(options.hideControls);
     const slotId = state.renderSlotId || 'A';
     const slotAttr = escapeAttr(slotId);
+    const sectionIdBase = `spots-${String(source || 'spots').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${String(slotId || 'a').toLowerCase()}`;
+    const sectionIds = {
+      bandHour: `${sectionIdBase}-band-hour`,
+      topSpotters: `${sectionIdBase}-top-spotters`,
+      missedMults: `${sectionIdBase}-missed-mults`
+    };
     const call = escapeHtml(state.derived.contestMeta?.stationCallsign || 'N/A');
     const minTs = state.derived.timeRange?.minTs;
     const maxTs = state.derived.timeRange?.maxTs;
@@ -11284,11 +11387,18 @@
       const confidenceText = confidenceLabel === 'high'
         ? 'high confidence'
         : (confidenceLabel === 'medium' ? 'medium confidence' : 'low confidence');
+      const windowSeverity = confidenceLabel === 'low'
+        ? 'high'
+        : (confidenceLabel === 'medium' ? 'medium' : 'opportunity');
 
       const reliableSpotters = computeSpotterReliabilityEntries(statsData.ofUsSpots || [], 4).slice(0, 3);
       const reliableRows = reliableSpotters.length
         ? reliableSpotters.map((entry) => `<li><b>${escapeHtml(entry.spotter || '')}</b> · ${entry.pct.toFixed(1)}% conversion (${formatNumberSh6(entry.matched)}/${formatNumberSh6(entry.spots)})</li>`).join('')
         : '<li>No spotter with enough sample size yet (need at least 4 spots).</li>';
+      const topReliabilityPct = Number(reliableSpotters?.[0]?.pct || 0);
+      const reliabilitySeverity = !reliableSpotters.length
+        ? 'medium'
+        : (topReliabilityPct < 35 ? 'medium' : 'opportunity');
 
       const missedMults = buildMissedMultEntries(statsData.byUsSpots || [], analysis);
       const topMissedCountries = Array.from(missedMults.reduce((map, entry) => {
@@ -11303,23 +11413,38 @@
         ? topMissedCountries.map(([country, count]) => `<li><b>${escapeHtml(country)}</b> · ${formatNumberSh6(count)} potential mult misses</li>`).join('')
         : '<li>No clear missed multiplier concentration detected.</li>';
       const missedTotalText = missedMults.length ? formatNumberSh6(missedMults.length) : '0';
+      const missedSeverity = missedMults.length >= 25
+        ? 'high'
+        : (missedMults.length >= 10 ? 'medium' : (missedMults.length > 0 ? 'opportunity' : 'info'));
 
       return `
         <div class="spots-coach-grid">
           <article class="spots-coach-card">
-            <h4>Best hour/band windows</h4>
+            <div class="spots-coach-head">
+              <h4>Best hour/band windows</h4>
+              <span class="coach-severity-badge coach-severity-${windowSeverity}">${coachSeverityLabel(windowSeverity)}</span>
+            </div>
             <p class="spots-coach-note">Top match windows from your current band filter (${confidenceText}; ${formatNumberSh6(confidenceSpots)} spots sampled).</p>
             <ul class="spots-coach-list">${bestWindowRows}</ul>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.bandHour)}">Open band/hour table</button>
           </article>
           <article class="spots-coach-card">
-            <h4>Spotter reliability leaders</h4>
+            <div class="spots-coach-head">
+              <h4>Spotter reliability leaders</h4>
+              <span class="coach-severity-badge coach-severity-${reliabilitySeverity}">${coachSeverityLabel(reliabilitySeverity)}</span>
+            </div>
             <p class="spots-coach-note">Spotters with the best QSO conversion for your station.</p>
             <ul class="spots-coach-list">${reliableRows}</ul>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.topSpotters)}">Open top spotters</button>
           </article>
           <article class="spots-coach-card">
-            <h4>Missed multiplier opportunities</h4>
+            <div class="spots-coach-head">
+              <h4>Missed multiplier opportunities</h4>
+              <span class="coach-severity-badge coach-severity-${missedSeverity}">${coachSeverityLabel(missedSeverity)}</span>
+            </div>
             <p class="spots-coach-note">Raw candidates: ${missedTotalText}. Focus first on these repeat countries.</p>
             <ul class="spots-coach-list">${missedRows}</ul>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.missedMults)}">Open missed mult table</button>
           </article>
         </div>
       `;
@@ -11527,7 +11652,7 @@
         <div class="export-actions export-note"><b>Spots coach summary</b></div>
         ${spotsCoachCards}
 
-        <div class="export-actions export-note"><b>Spots of you by band/hour</b><span class="spots-click-hint">Click a value to inspect actual spots and filter by Continent, CQ zone, and ITU zone.</span></div>
+        <div id="${escapeAttr(sectionIds.bandHour)}" class="export-actions export-note"><b>Spots of you by band/hour</b><span class="spots-click-hint">Click a value to inspect actual spots and filter by Continent, CQ zone, and ITU zone.</span></div>
         ${renderHeatmap(stats.heatmap)}
         ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
 
@@ -11550,7 +11675,7 @@
         <div class="export-actions export-note"><b>Response time distribution (minutes)</b></div>
         ${renderResponseHistogram(stats.responseTimes, windowMinutes)}
 
-        <div class="export-actions export-note"><b>Top spotters for you</b></div>
+        <div id="${escapeAttr(sectionIds.topSpotters)}" class="export-actions export-note"><b>Top spotters for you</b></div>
         ${renderSpotterTable(summarizeGroups(stats.ofUsSpots, 'spotter'))}
 
         <div class="export-actions export-note"><b>Top DX you spotted</b></div>
@@ -11596,7 +11721,7 @@
             <div class="export-actions export-note">Which spotters give you the most “actionable” spots (they turn into QSOs). Higher % is better.</div>
             ${renderSpotterReliabilityTable(stats.ofUsSpots)}
 
-            <div class="export-actions export-note"><b>Missed mult opportunities</b></div>
+            <div id="${escapeAttr(sectionIds.missedMults)}" class="export-actions export-note"><b>Missed mult opportunities</b></div>
             <div class="export-actions export-note">Spots you sent where you never worked the DX and it looked like a new country at that time. Lower is better.</div>
             ${renderMissedMultTable(stats.byUsSpots, analysis)}
 
@@ -15461,6 +15586,21 @@
             return;
           }
           renderActiveReport();
+        });
+      });
+      const coachActions = document.querySelectorAll(`.spots-coach-action[data-source="${source}"]`);
+      coachActions.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const targetId = String(btn.dataset.target || '').trim();
+          if (!targetId) return;
+          const target = document.getElementById(targetId);
+          if (!target) return;
+          const reduceMotion = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+          target.scrollIntoView({
+            block: 'start',
+            behavior: reduceMotion ? 'auto' : 'smooth'
+          });
         });
       });
       const sharedWindow = document.querySelectorAll(`.spots-window[data-source="${source}"][data-shared="1"]`);

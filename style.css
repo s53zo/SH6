@@ -500,8 +500,16 @@ a:hover {
   padding: 8px 10px;
 }
 
+.spots-coach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 .spots-coach-card h4 {
-  margin: 0 0 4px;
+  margin: 0;
   color: #22456e;
   font-size: 12px;
 }
@@ -520,6 +528,29 @@ a:hover {
 
 .spots-coach-list li {
   margin: 2px 0;
+}
+
+.spots-coach-action {
+  margin-top: 7px;
+  min-height: 34px;
+  border: 1px solid #b7cbe8;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #1f446f;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.spots-coach-action:hover {
+  background: #edf4ff;
+}
+
+.spots-coach-action:focus-visible {
+  outline: none;
+  border-color: #2f65b3;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
 }
 
 .spots-align-block {
@@ -3195,6 +3226,40 @@ th {
   width: 34%;
 }
 
+.coach-priority-grid {
+  margin: 8px 0 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.coach-priority-card {
+  border: 1px solid #d0dbee;
+  border-radius: 8px;
+  background: #fcfdff;
+  padding: 8px 10px;
+}
+
+.coach-priority-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.coach-priority-head h4 {
+  margin: 0;
+  color: #25456b;
+  font-size: 12px;
+}
+
+.coach-priority-card p {
+  margin: 0;
+  color: #2b4a70;
+  font-size: 11px;
+}
+
 .coach-insights-wrap h4 {
   margin: 8px 0 4px;
   font-size: 12px;
@@ -3202,12 +3267,67 @@ th {
 }
 
 .coach-insights {
-  margin: 0 0 8px 16px;
+  margin: 0 0 8px;
   padding: 0;
+  list-style: none;
 }
 
 .coach-insights li {
-  margin: 2px 0;
+  margin: 3px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.coach-severity-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  border: 1px solid #b9cbe7;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #23456f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+}
+
+.coach-severity-critical,
+.coach-priority-critical {
+  border-color: #e2b2b2;
+  background: #fff2f2;
+  color: #8c2b2b;
+}
+
+.coach-severity-high,
+.coach-priority-high {
+  border-color: #e2c3a0;
+  background: #fff6ec;
+  color: #8b4d09;
+}
+
+.coach-severity-medium,
+.coach-priority-medium {
+  border-color: #d4ca93;
+  background: #fffbe9;
+  color: #6c5f19;
+}
+
+.coach-severity-opportunity,
+.coach-priority-opportunity {
+  border-color: #a8cfad;
+  background: #edf9ef;
+  color: #246233;
+}
+
+.coach-severity-info,
+.coach-priority-info {
+  border-color: #b9cbe7;
+  background: #f1f6ff;
+  color: #23456f;
 }
 
 .coach-quick-actions {

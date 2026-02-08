@@ -929,6 +929,10 @@
   const callsignGridPending = new Set();
   let callsignGridTimer = null;
   let callsignGridInFlight = false;
+  const archiveShardDbCache = new Map();
+  const archiveRowsByCallCache = new Map();
+  let archiveSqlLoader = null;
+  let archiveSqlBaseUrl = null;
 
   const base64UrlEncode = (value) => {
     const text = String(value == null ? '' : value);
@@ -4798,6 +4802,233 @@
     return { error: lastError || 'All sources failed' };
   }
 
+  const archiveCrc32Table = (() => {
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i += 1) {
+      let c = i;
+      for (let k = 0; k < 8; k += 1) {
+        c = ((c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1));
+      }
+      table[i] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function archiveCrc32(value) {
+    const text = String(value || '');
+    let c = 0xffffffff;
+    for (let i = 0; i < text.length; i += 1) {
+      c = archiveCrc32Table[(c ^ text.charCodeAt(i)) & 0xff] ^ (c >>> 8);
+    }
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  function getArchiveShardUrlsForCallsign(callsign) {
+    const normalized = normalizeCall(callsign);
+    if (!normalized) return [];
+    const bucket = archiveCrc32(normalized) & 0xff;
+    const shard = bucket.toString(16).padStart(2, '0');
+    const suffix = `logs_${shard}.sqlite?v=${encodeURIComponent(APP_VERSION)}`;
+    return [
+      `${ARCHIVE_SHARD_BASE_RAW}/${suffix}`,
+      `${ARCHIVE_SHARD_BASE}/${suffix}`
+    ];
+  }
+
+  function normalizeArchiveModeToken(value) {
+    const raw = String(value || '').trim().toUpperCase();
+    if (!raw) return '';
+    if (raw === 'SSB' || raw === 'PHONE') return 'PH';
+    if (raw === 'RY') return 'RTTY';
+    return raw;
+  }
+
+  function normalizeArchiveContestToken(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  }
+
+  function withTimeoutPromise(promise, ms, label = 'Operation') {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`${label} timed out after ${ms}ms`));
+      }, Math.max(1000, Number(ms) || 1000));
+      promise.then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      }).catch((err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      });
+    });
+  }
+
+  async function loadArchiveSqlJs() {
+    if (archiveSqlLoader) return archiveSqlLoader;
+    archiveSqlLoader = (async () => {
+      if (typeof window.initSqlJs === 'function') {
+        archiveSqlBaseUrl = archiveSqlBaseUrl || SQLJS_BASE_URLS[0];
+        return window.initSqlJs({ locateFile: (file) => `${archiveSqlBaseUrl}${file}` });
+      }
+      let lastErr = null;
+      for (const base of SQLJS_BASE_URLS) {
+        try {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = `${base}sql-wasm.js`;
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error(`Failed to load ${base}sql-wasm.js`));
+            document.head.appendChild(script);
+          });
+          if (typeof window.initSqlJs === 'function') {
+            archiveSqlBaseUrl = base;
+            return window.initSqlJs({ locateFile: (file) => `${base}${file}` });
+          }
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('sql.js not loaded.');
+    })();
+    return archiveSqlLoader;
+  }
+
+  async function openArchiveShardDbForCallsign(callsign) {
+    const shardUrls = getArchiveShardUrlsForCallsign(callsign);
+    if (!shardUrls.length) throw new Error('Invalid callsign');
+    const cacheKey = shardUrls.join('|');
+    if (archiveShardDbCache.has(cacheKey)) return archiveShardDbCache.get(cacheKey);
+    const SQL = await loadArchiveSqlJs();
+    let lastErr = null;
+    for (const url of shardUrls) {
+      try {
+        const response = await withTimeoutPromise(fetch(url, { cache: 'no-store' }), 20000, 'Archive shard download');
+        if (!response.ok) throw new Error(`Shard download failed: HTTP ${response.status}`);
+        const buffer = await withTimeoutPromise(response.arrayBuffer(), 20000, 'Archive shard read');
+        const db = new SQL.Database(new Uint8Array(buffer));
+        archiveShardDbCache.set(cacheKey, db);
+        return db;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error('Archive shard download failed');
+  }
+
+  async function queryArchiveRowsByCallsign(callsign) {
+    const normalized = normalizeCall(callsign);
+    if (!normalized) return [];
+    if (archiveRowsByCallCache.has(normalized)) return archiveRowsByCallCache.get(normalized);
+    const db = await openArchiveShardDbForCallsign(normalized);
+    const stmt = db.prepare('SELECT path, contest, year, mode, season FROM logs WHERE callsign = ?');
+    stmt.bind([normalized]);
+    const rows = [];
+    while (stmt.step()) {
+      rows.push(stmt.getAsObject());
+    }
+    stmt.free();
+    archiveRowsByCallCache.set(normalized, rows);
+    return rows;
+  }
+
+  function pickArchiveHistoryMatch(rows, request) {
+    const contestKey = normalizeArchiveContestToken(request?.contestId);
+    const modeKey = normalizeArchiveModeToken(request?.mode);
+    const year = Number(request?.year);
+    const call = normalizeCall(request?.callsign || '');
+    if (!contestKey || !Number.isFinite(year) || !call) return null;
+
+    const scored = (rows || [])
+      .map((row) => {
+        const path = String(row?.path || '');
+        const rowContest = normalizeArchiveContestToken(row?.contest);
+        const rowYear = Number(row?.year);
+        const rowMode = normalizeArchiveModeToken(row?.mode);
+        const isReconstructed = /^RECONSTRUCTED_LOGS\//i.test(path);
+        const baseName = path.split('/').pop() || '';
+        const fileCall = normalizeCall(baseName.replace(/\.[^.]+$/, ''));
+        const fileCallMatch = fileCall && fileCall === call;
+        let score = 0;
+        if (rowContest === contestKey) score += 100;
+        if (rowYear === year) score += 80;
+        if (modeKey) {
+          if (rowMode === modeKey) score += 20;
+          else if (!rowMode) score += 8;
+          else score -= 30;
+        }
+        if (!isReconstructed) score += 12;
+        if (fileCallMatch) score += 6;
+        return {
+          row,
+          score,
+          path,
+          rowMode,
+          isReconstructed,
+          fileCallMatch
+        };
+      })
+      .filter((entry) => Number(entry?.score) > 0)
+      .filter((entry) => normalizeArchiveContestToken(entry.row?.contest) === contestKey)
+      .filter((entry) => Number(entry.row?.year) === year);
+
+    if (!scored.length) return null;
+    scored.sort((a, b) => (
+      b.score - a.score
+      || Number(a.isReconstructed) - Number(b.isReconstructed)
+      || Number(b.fileCallMatch) - Number(a.fileCallMatch)
+      || a.path.length - b.path.length
+      || a.path.localeCompare(b.path)
+    ));
+    return scored[0].row || null;
+  }
+
+  function ensureCompareCountForSlot(slotId) {
+    const key = String(slotId || '').toUpperCase();
+    const needed = key === 'B' ? 2 : key === 'C' ? 3 : key === 'D' ? 4 : 1;
+    if (state.compareCount < needed) {
+      setCompareCount(needed, true);
+    }
+  }
+
+  async function loadCqApiHistoryArchiveToSlot(request) {
+    const slotId = String(request?.slotId || '').toUpperCase();
+    if (!COMPARE_SLOT_IDS.includes(slotId)) throw new Error('Invalid target compare slot');
+    const callsign = normalizeCall(request?.callsign || '');
+    const contestId = String(request?.contestId || '').trim().toUpperCase();
+    const mode = String(request?.mode || '').trim().toLowerCase();
+    const year = Number(request?.year);
+    if (!callsign || !contestId || !mode || !Number.isFinite(year)) {
+      throw new Error('Missing callsign, contest, mode, or year');
+    }
+
+    const rows = await queryArchiveRowsByCallsign(callsign);
+    const match = pickArchiveHistoryMatch(rows, { callsign, contestId, mode, year });
+    if (!match?.path) {
+      throw new Error(`No archive log found for ${callsign} ${contestId} ${year}`);
+    }
+
+    const downloaded = await fetchArchiveLogText(match.path);
+    if (!downloaded?.text) throw new Error(`Failed to download archive log ${match.path}`);
+
+    ensureCompareCountForSlot(slotId);
+    setSlotAction(slotId, 'archive');
+    const fileName = String(match.path).split('/').pop() || `${callsign}.log`;
+    applyLoadedLogToSlot(
+      slotId,
+      downloaded.text,
+      fileName,
+      downloaded.text.length,
+      'Archive',
+      getStatusElBySlot(slotId),
+      match.path
+    );
+    return {
+      slotId,
+      path: match.path,
+      source: downloaded.source || ''
+    };
+  }
+
   async function fetchArchiveLogText(path) {
     if (!path) return null;
     const urls = [];
@@ -6450,6 +6681,14 @@
       const operatorsCell = formatCqApiOperatorsCell(row?.operators);
       const operatorsTitleAttr = operatorsCell.title ? ` title="${escapeAttr(operatorsCell.title)}"` : '';
       const categoryText = escapeHtml(String(row?.category || 'N/A').toUpperCase());
+      const historyYear = Number(row?.year);
+      const historyCall = normalizeCall(row?.callsign || data.callsign || '');
+      const canLoadCompare = Number.isFinite(historyYear) && Boolean(historyCall) && Boolean(data?.contestId) && Boolean(data?.mode);
+      const loadActions = canLoadCompare
+        ? ['B', 'C', 'D'].map((slotId) => (
+          `<button type="button" class="cqapi-load-btn" data-slot="${slotId}" data-year="${escapeAttr(String(historyYear))}" data-callsign="${escapeAttr(historyCall)}" data-contest="${escapeAttr(String(data.contestId || ''))}" data-mode="${escapeAttr(String(data.mode || ''))}" title="Load this log into Log ${slotId}">${slotId}</button>`
+        )).join('')
+        : '<span class="cqapi-muted">N/A</span>';
       return `
         <tr class="${trClass}">
           <td>${formatCqApiNumber(row?.year)}</td>
@@ -6457,6 +6696,7 @@
           <td>${formatCqApiNumber(row?.score)}</td>
           <td>${formatCqApiNumber(row?.qsos)}</td>
           <td>${formatCqApiMultiplierValue(row)}</td>
+          <td class="cqapi-load-cell">${loadActions}</td>
           <td${operatorsTitleAttr}>${escapeHtml(operatorsCell.text)}</td>
         </tr>
       `;
@@ -6484,10 +6724,12 @@
           </table>
           ${noHistory}
           ${historyRows ? `
-            <table class="mtc cqapi-history">
-              <tr class="thc"><th>Year</th><th>Category</th><th>Score</th><th>QSOs</th><th>Mult</th><th>Ops</th></tr>
-              ${historyRows}
-            </table>
+            <div class="cqapi-history-wrap">
+              <table class="mtc cqapi-history">
+                <tr class="thc"><th>Year</th><th>Category</th><th>Score</th><th>QSOs</th><th>Mult</th><th>Load</th><th>Ops</th></tr>
+                ${historyRows}
+              </table>
+            </div>
           ` : ''}
           ${debugBlock}
         </div>
@@ -13441,6 +13683,82 @@
         });
       });
     }
+
+    const cqApiLoadButtons = document.querySelectorAll('.cqapi-load-btn');
+    cqApiLoadButtons.forEach((btn) => {
+      btn.addEventListener('click', async (evt) => {
+        evt.preventDefault();
+        if (btn.disabled) return;
+        const slotId = String(btn.dataset.slot || '').toUpperCase();
+        const year = Number(btn.dataset.year);
+        const callsign = normalizeCall(btn.dataset.callsign || '');
+        const contestId = String(btn.dataset.contest || '').trim().toUpperCase();
+        const mode = String(btn.dataset.mode || '').trim().toLowerCase();
+        if (!slotId || !Number.isFinite(year) || !callsign || !contestId || !mode) {
+          showOverlayNotice('Missing CQ API load details for this row.', 2500);
+          return;
+        }
+
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.classList.add('is-loading');
+        btn.textContent = '...';
+
+        trackEvent('cqapi_compare_load_click', {
+          slot: slotId,
+          callsign,
+          contest: contestId,
+          mode,
+          year
+        });
+
+        try {
+          const result = await loadCqApiHistoryArchiveToSlot({
+            slotId,
+            callsign,
+            contestId,
+            mode,
+            year
+          });
+          btn.classList.remove('is-loading');
+          btn.classList.add('is-ok');
+          btn.textContent = 'OK';
+          showOverlayNotice(`Loaded ${callsign} ${contestId} ${year} into Log ${slotId}.`, 2200);
+          trackEvent('cqapi_compare_load_success', {
+            slot: slotId,
+            callsign,
+            contest: contestId,
+            mode,
+            year,
+            path: result.path || ''
+          });
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.classList.remove('is-ok');
+            btn.disabled = false;
+          }, 900);
+        } catch (err) {
+          const message = err && err.message ? err.message : 'Unable to load archive log';
+          btn.classList.remove('is-loading');
+          btn.classList.add('is-error');
+          btn.textContent = 'ERR';
+          showOverlayNotice(message, 3200);
+          trackEvent('cqapi_compare_load_error', {
+            slot: slotId,
+            callsign,
+            contest: contestId,
+            mode,
+            year,
+            message
+          });
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.classList.remove('is-error');
+            btn.disabled = false;
+          }, 1200);
+        }
+      });
+    });
 
     const rangeLinks = document.querySelectorAll('.log-range');
     rangeLinks.forEach((link) => {

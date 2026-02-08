@@ -2215,6 +2215,57 @@ th {
   white-space: nowrap;
 }
 
+.cqapi-history td:nth-child(7) {
+  white-space: nowrap;
+}
+
+.cqapi-history-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cqapi-history {
+  min-width: 660px;
+}
+
+.cqapi-load-cell {
+  white-space: nowrap;
+}
+
+.cqapi-load-btn {
+  display: inline-block;
+  min-width: 30px;
+  min-height: 28px;
+  margin-right: 3px;
+  padding: 2px 7px;
+  border: 1px solid #b5c7e5;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #23406d;
+  font-size: 11px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.cqapi-load-btn:last-child {
+  margin-right: 0;
+}
+
+.cqapi-load-btn.is-loading {
+  opacity: 0.7;
+}
+
+.cqapi-load-btn.is-ok {
+  border-color: #1f8a49;
+  color: #1f8a49;
+}
+
+.cqapi-load-btn.is-error {
+  border-color: #b43636;
+  color: #b43636;
+}
+
 .cqapi-debug {
   margin-top: 6px;
 }
@@ -2257,6 +2308,13 @@ th {
   }
 
   .cqapi-debug summary {
+    font-size: 10px;
+  }
+
+  .cqapi-load-btn {
+    min-width: 28px;
+    min-height: 26px;
+    padding: 1px 6px;
     font-size: 10px;
   }
 }

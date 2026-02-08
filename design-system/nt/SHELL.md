@@ -29,6 +29,19 @@ Updated: 2026-02-08
   - report container
 - Report stage must be consistent regardless of menu depth.
 
+### 4) Compare Workspace Layer
+- In compare mode, render a single sticky workspace strip above panels.
+- Workspace strip includes:
+  - slot identity chips (A/B/C/D)
+  - sync/sticky toggles
+  - insight chips with quick report jumps
+- Strip must remain readable at 2/3/4 loaded slots.
+
+### 5) Coach Surfaces
+- Coach reports use severity badges with shared levels:
+  - `critical`, `high`, `medium`, `opportunity`, `info`
+- Each coach summary card must include a direct action path (load or jump).
+
 ## Responsiveness
 - <=768px: nav becomes stacked above report stage.
 - 768-1024px: narrower nav rail but full function parity.

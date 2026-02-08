@@ -2,6 +2,17 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.18 (2026-02-08)
+- NT compare workspace: add sticky compare toolbar with slot context, sync/sticky toggles, and quick report jump actions.
+- NT compare insights: add score/QSO/multiplier spread chips to speed up first-pass compare decisions.
+- Coach redesign: add shared severity model (`critical/high/medium/opportunity/info`) and action-first priority cards in Competitor coach.
+- Spots coach redesign: add severity badges plus one-click jump actions from summary cards to detailed drilldown sections.
+- Charts redesign: add `Absolute` vs `Normalized %` metric mode for compare fairness across unequal log sizes.
+- Charts styling: refresh bar chart rendering with improved tracks, value labels, and mode controls.
+- Hardening: improve touch-target sizes on mobile, add loading `aria-busy` semantics, and add render-time instrumentation (last render + hotspot) in SH6 info.
+- Smoke coverage: extend browser smoke checks for compare workspace, chart mode controls, and coach severity UI contracts.
+- Docs: refresh README highlights and NT shell contract for the redesigned compare/coach/chart workflows.
+
 ## v5.1.17 (2026-02-08)
 - UI/UX foundation: add `design-system/` docs (`MASTER`, page overrides, QA checklist) for consistent future UI work.
 - Global UI polish: introduce shared CSS tokens, unified interaction states, focus rings, and shared card/table styling primitives.

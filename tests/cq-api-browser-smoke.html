@@ -85,7 +85,18 @@
           const mainSource = await mainRes.text();
           if (!mainSource.includes('function renderCompetitorCoach')) checks.push('Competitor coach renderer missing in main.js');
           if (!mainSource.includes('function renderSpots(')) checks.push('Spots renderer missing in main.js');
+          if (!mainSource.includes('function renderCompareWorkspaceToolbar')) checks.push('Compare workspace toolbar renderer missing in main.js');
+          if (!mainSource.includes('chart-mode-btn')) checks.push('Chart metric mode controls missing in main.js');
           if (!mainSource.includes("{ id: 'export', title: 'EXPORT PDF, HTML, CBR' }")) checks.push('Export menu label mismatch');
+        }
+        const styleRes = await fetch('../style.css', { cache: 'no-store' });
+        if (!styleRes.ok) {
+          checks.push(`Unable to read style.css (${styleRes.status})`);
+        } else {
+          const styleSource = await styleRes.text();
+          if (!styleSource.includes('.compare-workspace')) checks.push('Compare workspace styles missing in style.css');
+          if (!styleSource.includes('.chart-mode-btn')) checks.push('Chart mode button styles missing in style.css');
+          if (!styleSource.includes('.coach-severity-badge')) checks.push('Coach severity badge styles missing in style.css');
         }
 
         if (checks.length) {
@@ -121,6 +132,10 @@
           uiChecks: [
             'renderCompetitorCoach present',
             'renderSpots present',
+            'renderCompareWorkspaceToolbar present',
+            'chart-mode-btn controls present',
+            'compare-workspace styles present',
+            'coach-severity-badge styles present',
             'EXPORT PDF, HTML, CBR menu label present'
           ]
         });

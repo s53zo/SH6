@@ -7767,11 +7767,12 @@
       const loadActions = canLoadCompare
         ? `
           <div class="coach-load-control">
-            <span class="coach-load-prefix">Load to</span>
+            <span class="coach-load-prefix">Load this log to slot</span>
             <span class="coach-load-segment" role="group" aria-label="Load this log to compare slot">
               ${COMPARE_SLOT_IDS.map((slotId) => {
           const slotAssignedToRow = rowKey && rowKey === String(coach.loadedSlotRows?.[slotId] || '');
-          return `<button type="button" class="cqapi-load-btn coach-load-btn${slotAssignedToRow ? ' is-target' : ''}" data-slot="${slotId}" data-row-key="${escapeAttr(rowKey)}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(rowContest)}" data-mode="${escapeAttr(rowMode)}" title="Load this log into Log ${slotId}" aria-label="Load this log into Log ${slotId}" aria-pressed="${slotAssignedToRow ? 'true' : 'false'}">${slotId}</button>`;
+          const slotLabel = `Log ${slotId}`;
+          return `<button type="button" class="cqapi-load-btn coach-load-btn${slotAssignedToRow ? ' is-target' : ''}" data-slot="${slotId}" data-row-key="${escapeAttr(rowKey)}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(rowContest)}" data-mode="${escapeAttr(rowMode)}" title="Load this log into ${slotLabel}" aria-label="Load this log into ${slotLabel}" aria-pressed="${slotAssignedToRow ? 'true' : 'false'}">${slotLabel}</button>`;
         }).join('')}
             </span>
             ${lastLoadedSlot ? `<span class="coach-last-loaded">Last loaded to Log ${escapeHtml(lastLoadedSlot)}</span>` : ''}
@@ -7815,7 +7816,7 @@
       ? `
         <div class="cqapi-history-wrap">
           <table class="mtc coach-table">
-            <tr class="thc"><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap to you</th><th>QSOs</th><th>QSO gap</th><th>Mult</th><th>Mult gap</th><th>Load this log to slot</th><th>Ops</th></tr>
+            <tr class="thc"><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap to you</th><th>QSOs</th><th>QSO gap</th><th>Mult</th><th>Mult gap</th><th>Load to compare slot</th><th>Ops</th></tr>
             ${tableRows}
           </table>
         </div>
@@ -7884,9 +7885,9 @@
             <tr class="td1"><td>Selected scope</td><td>${escapeHtml(formatCoachScopeTitle(selectedScope))} ${scopeValueText ? `(${escapeHtml(scopeValueText)})` : '(N/A)'}</td></tr>
             <tr class="td0"><td>Target category</td><td>${escapeHtml(targetCategory || 'N/A')}${categoryLabel ? ` - ${escapeHtml(categoryLabel)}` : ''}</td></tr>
             <tr class="td1"><td>Current in cohort</td><td>${currentSummary}</td></tr>
-            <tr class="td0"><td>Cohort size</td><td>${formatCqApiNumber(coach.totalRows)} matched (from ${sourceRowsText} API rows)</td></tr>
+            <tr class="td0"><td>Cohort size</td><td>${formatCqApiNumber(coach.totalRows)} matched (from ${sourceRowsText} source rows)</td></tr>
           </table>
-          ${coach.statusMessage ? `<p class="cqapi-msg">API message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
+          ${coach.statusMessage ? `<p class="cqapi-msg">Data message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
           ${statusText}
           <div class="coach-insights-wrap">
             <h4>Coaching hints</h4>

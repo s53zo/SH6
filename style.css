@@ -2741,14 +2741,16 @@ th {
 
 .coach-load-cell {
   white-space: nowrap;
-  min-width: 196px;
+  min-width: 246px;
 }
 
 .coach-load-btn {
-  min-width: 34px;
+  min-width: 62px;
   margin-right: 0;
   border-radius: 0;
-  padding: 2px 9px;
+  padding: 2px 8px;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .coach-load-btn + .coach-load-btn {
@@ -2781,7 +2783,7 @@ th {
 
 .coach-load-prefix {
   font-size: 10px;
-  color: #355780;
+  color: #2f4f76;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }

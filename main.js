@@ -13486,6 +13486,81 @@
     `;
   }
 
+  function normalizeHeadingLabel(text) {
+    return String(text || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+  }
+
+  function buildSpotsAlignBlocks(panelEl, stopHeading = 'all spots of you') {
+    if (!(panelEl instanceof HTMLElement)) return [];
+    const children = Array.from(panelEl.children);
+    if (!children.length) return [];
+    const isHeadingNode = (el) => {
+      if (!(el instanceof HTMLElement)) return false;
+      if (!el.classList.contains('export-actions') || !el.classList.contains('export-note')) return false;
+      const first = el.firstElementChild;
+      return Boolean(first && first.tagName === 'B');
+    };
+    const headingIndices = [];
+    let stopIndex = children.length;
+    const stopKey = normalizeHeadingLabel(stopHeading);
+    for (let i = 0; i < children.length; i += 1) {
+      const el = children[i];
+      if (!isHeadingNode(el)) continue;
+      const heading = normalizeHeadingLabel(el.firstElementChild?.textContent || '');
+      if (stopKey && heading === stopKey) {
+        stopIndex = i;
+        break;
+      }
+      headingIndices.push(i);
+    }
+    if (!headingIndices.length) return [];
+    const blocks = [];
+    for (let i = 0; i < headingIndices.length; i += 1) {
+      const start = headingIndices[i];
+      const nextStart = headingIndices[i + 1] != null ? headingIndices[i + 1] : stopIndex;
+      if (start >= nextStart) continue;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'spots-align-block';
+      wrapper.dataset.alignIdx = String(i);
+      const firstNode = children[start];
+      if (!firstNode || firstNode.parentElement !== panelEl) continue;
+      panelEl.insertBefore(wrapper, firstNode);
+      for (let k = start; k < nextStart; k += 1) {
+        const node = children[k];
+        if (node && node.parentElement === panelEl) {
+          wrapper.appendChild(node);
+        }
+      }
+      blocks.push(wrapper);
+    }
+    return blocks;
+  }
+
+  function alignSpotsCompareSections(reportId) {
+    const id = String(reportId || '').split('::')[0];
+    if (id !== 'spots' && id !== 'rbn_spots') return;
+    if (!state.compareEnabled) return;
+    if (window.innerWidth < 768) return;
+    const panels = Array.from(document.querySelectorAll('.compare-panel .spots-panel'));
+    if (panels.length < 2) return;
+    const blockSets = panels.map((panel) => buildSpotsAlignBlocks(panel, 'all spots of you'));
+    const maxBlocks = Math.max(0, ...blockSets.map((list) => list.length));
+    for (let i = 0; i < maxBlocks; i += 1) {
+      const group = blockSets.map((list) => list[i]).filter(Boolean);
+      if (group.length < 2) continue;
+      group.forEach((el) => {
+        el.style.minHeight = '';
+      });
+      const target = Math.max(...group.map((el) => el.offsetHeight));
+      group.forEach((el) => {
+        el.style.minHeight = `${target}px`;
+      });
+    }
+  }
+
   function getFocusReportId(reportId) {
     return String(reportId || '').split('::')[0];
   }
@@ -14372,11 +14447,13 @@
       if (dom.spotsStatusRow) dom.spotsStatusRow.classList.remove('hidden');
       updateDataStatus();
       bindSpotControls('spots');
+      alignSpotsCompareSections(reportId);
     }
     if (reportId === 'rbn_spots') {
       if (dom.rbnStatusRow) dom.rbnStatusRow.classList.remove('hidden');
       updateDataStatus();
       bindSpotControls('rbn');
+      alignSpotsCompareSections(reportId);
     }
     if (reportId === 'load_logs') {
       const revealLoadPanel = () => {

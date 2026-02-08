@@ -391,6 +391,10 @@ a:hover {
   font-weight: 700;
 }
 
+.spots-align-block {
+  width: 100%;
+}
+
 .log-panel {
   margin-top: 8px;
   padding: 8px 10px;

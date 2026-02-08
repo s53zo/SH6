@@ -8,6 +8,7 @@
     { id: 'operators', title: 'Operators' },
     { id: 'all_callsigns', title: 'All callsigns' },
     { id: 'rates', title: 'Rates' },
+    { id: 'points_rates', title: 'Points rates' },
     { id: 'countries', title: 'Countries' },
     { id: 'countries_by_time', title: 'Countries by time' },
     { id: 'qs_per_station', title: 'Qs per station' },
@@ -16,7 +17,9 @@
     { id: 'qs_by_hour_sheet', title: 'Qs by hour sheet' },
     { id: 'graphs_qs_by_hour', title: 'Qs by hour' },
     { id: 'qs_by_minute', title: 'Qs by minute' },
+    { id: 'points_by_minute', title: 'Points by minute' },
     { id: 'one_minute_rates', title: 'One minute rates' },
+    { id: 'one_minute_point_rates', title: 'One minute point rates' },
     { id: 'prefixes', title: 'Prefixes' },
     { id: 'distance', title: 'Distance' },
     { id: 'beam_heading', title: 'Beam heading' },
@@ -1857,6 +1860,7 @@
 
   function shouldStickyTable(table, reportId) {
     if (reportId === 'one_minute_rates') return true;
+    if (reportId === 'one_minute_point_rates') return true;
     const colCount = getTableColumnCount(table);
     return colCount >= 8;
   }
@@ -9474,6 +9478,85 @@
     `;
   }
 
+  function formatPointValue(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '';
+    return Number.isInteger(num) ? formatNumberSh6(num) : num.toFixed(1);
+  }
+
+  function computePeakPointsWindow(qsos, pointsByIndex, windowMinutes) {
+    const windowMs = windowMinutes * 60000;
+    const data = (qsos || [])
+      .map((q, idx) => ({
+        ts: q?.ts,
+        qsoNumber: q?.qsoNumber,
+        points: Number(Array.isArray(pointsByIndex) ? pointsByIndex[idx] : q?.points) || 0
+      }))
+      .filter((item) => Number.isFinite(item.ts))
+      .sort((a, b) => a.ts - b.ts);
+    let best = { points: 0, startTs: null, endTs: null, startQso: null, endQso: null };
+    let sum = 0;
+    let j = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      sum += data[i].points;
+      while (data[i].ts - data[j].ts >= windowMs) {
+        sum -= data[j].points;
+        j += 1;
+      }
+      if (sum > best.points) {
+        best = {
+          points: sum,
+          startTs: data[j].ts,
+          endTs: data[i].ts,
+          startQso: data[j].qsoNumber,
+          endQso: data[i].qsoNumber
+        };
+      }
+    }
+    return best;
+  }
+
+  function renderPointsRates() {
+    if (!state.derived || !state.derived.hourPointSeries) return renderPlaceholder({ id: 'points_rates', title: 'Points rates' });
+    const qsos = state.qsoData?.qsos || [];
+    const pointsByIndex = getEffectivePointsByIndex(state.derived, qsos);
+    const windows = [10, 20, 30, 60, 120];
+    const rows = windows.map((mins, idx) => {
+      const peak = computePeakPointsWindow(qsos, pointsByIndex, mins);
+      const perMin = peak.points ? (peak.points / mins).toFixed(1) : '0.0';
+      const perHour = peak.points ? ((peak.points * 60) / mins).toFixed(1) : '0.0';
+      const fromTime = peak.startTs ? formatDateSh6(peak.startTs) : 'N/A';
+      const toTime = peak.endTs ? formatDateSh6(peak.endTs) : 'N/A';
+      return `
+        <div class="rates-row ${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <div class="rates-cell"><b>${mins}</b></div>
+          <div class="rates-cell">${formatPointValue(peak.points)}</div>
+          <div class="rates-cell">${perMin}</div>
+          <div class="rates-cell">${perHour}</div>
+          <div class="rates-cell">${fromTime}</div>
+          <div class="rates-cell">${formatNumberSh6(peak.startQso ?? '')}</div>
+          <div class="rates-cell">${toTime}</div>
+          <div class="rates-cell">${formatNumberSh6(peak.endQso ?? '')}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="rates-grid">
+        <div class="rates-header thc">
+          <div class="rates-cell">Period (min)</div>
+          <div class="rates-cell">Points</div>
+          <div class="rates-cell">Points / min</div>
+          <div class="rates-cell">Points / hour</div>
+          <div class="rates-cell">From (time)</div>
+          <div class="rates-cell">From (QSO #)</div>
+          <div class="rates-cell">To (time)</div>
+          <div class="rates-cell">To (QSO #)</div>
+        </div>
+        ${rows}
+      </div>
+    `;
+  }
+
   function computePeakWindow(qsos, windowMinutes) {
     const windowMs = windowMinutes * 60000;
     const data = qsos.filter((q) => typeof q.ts === 'number').sort((a, b) => a.ts - b.ts);
@@ -9500,6 +9583,13 @@
     if (!derived || !derived.minuteSeries) return minutesMap;
     derived.minuteSeries.forEach((m) => minutesMap.set(m.minute, m.qsos));
     return minutesMap;
+  }
+
+  function buildMinutePointMapFromDerived(derived) {
+    const pointsMap = new Map();
+    if (!derived || !derived.minutePointSeries) return pointsMap;
+    derived.minutePointSeries.forEach((entry) => pointsMap.set(entry.minute, entry.points));
+    return pointsMap;
   }
 
   function getMinuteRangeFromMap(minutesMap) {
@@ -9560,9 +9650,24 @@
     return renderQsByMinuteTable(minutesMap, startHour, endHour);
   }
 
+  function renderPointsByMinute() {
+    if (!state.derived || !state.derived.minutePointSeries) return renderPlaceholder({ id: 'points_by_minute', title: 'Points by minute' });
+    const minutesMap = buildMinutePointMapFromDerived(state.derived);
+    const range = getMinuteRangeFromMap(minutesMap);
+    if (!range) return '<p>No points to analyze.</p>';
+    const startHour = Math.floor(range.minMinute / 60);
+    const endHour = Math.floor(range.maxMinute / 60);
+    return renderQsByMinuteTable(minutesMap, startHour, endHour);
+  }
+
   function renderOneMinuteRates() {
     if (!state.derived || !state.derived.minuteSeries) return renderPlaceholder({ id: 'one_minute_rates', title: 'One minute rates' });
     return renderOneMinuteRatesForDerived(state.derived);
+  }
+
+  function renderOneMinutePointRates() {
+    if (!state.derived || !state.derived.minutePointSeries) return renderPlaceholder({ id: 'one_minute_point_rates', title: 'One minute point rates' });
+    return renderOneMinutePointRatesForDerived(state.derived);
   }
 
   function renderOneMinuteRatesForDerived(derived) {
@@ -9586,6 +9691,36 @@
       <div class="one-minute-rates">
         <div class="one-minute-header thc">
           <div class="one-minute-cell one-minute-rate">Qs per<br/>minute</div>
+          <div class="one-minute-cell">Minutes list</div>
+          <div class="one-minute-cell one-minute-total">Total</div>
+        </div>
+        ${rows}
+      </div>
+    `;
+  }
+
+  function renderOneMinutePointRatesForDerived(derived) {
+    if (!derived || !derived.minutePointSeries) return '<p>No points to analyze.</p>';
+    const grouped = new Map();
+    derived.minutePointSeries.forEach((m) => {
+      const points = Number(m.points) || 0;
+      if (!grouped.has(points)) grouped.set(points, []);
+      grouped.get(points).push(m.minute);
+    });
+    const rows = Array.from(grouped.entries()).sort((a, b) => b[0] - a[0]).map(([rate, minutes], idx) => {
+      const labels = minutes.map((min) => `<a href="#" class="log-minute" data-minute="${min}">${formatDateSh6(min * 60000)}</a>`).join('');
+      return `
+        <div class="one-minute-row ${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <div class="one-minute-cell one-minute-rate"><b>${formatPointValue(rate)}</b></div>
+          <div class="one-minute-cell minute-list">${labels}</div>
+          <div class="one-minute-cell one-minute-total">${formatNumberSh6(minutes.length)}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="one-minute-rates">
+        <div class="one-minute-header thc">
+          <div class="one-minute-cell one-minute-rate">Pts per<br/>minute</div>
           <div class="one-minute-cell">Minutes list</div>
           <div class="one-minute-cell one-minute-total">Total</div>
         </div>
@@ -11054,8 +11189,11 @@
         case 'qs_by_hour_sheet': return renderQsByHourSheet();
         case 'graphs_qs_by_hour': return renderGraphsQsByHour(null);
         case 'rates': return renderRates();
+        case 'points_rates': return renderPointsRates();
         case 'qs_by_minute': return renderQsByMinute();
+        case 'points_by_minute': return renderPointsByMinute();
         case 'one_minute_rates': return renderOneMinuteRates();
+        case 'one_minute_point_rates': return renderOneMinutePointRates();
         case 'prefixes': return renderPrefixes();
         case 'callsign_length': return renderCallsignLength();
         case 'callsign_structure': return renderCallsignStructure();
@@ -11132,8 +11270,11 @@
       case 'qs_per_station': return getMaxQsosPerStation(derived) || 0;
       case 'qs_by_hour_sheet': return derived.hourSeries?.length || 0;
       case 'qs_by_minute': return derived.minuteSeries?.length || 0;
+      case 'points_by_minute': return derived.minutePointSeries?.length || 0;
       case 'one_minute_rates': return derived.minuteSeries?.length || 0;
+      case 'one_minute_point_rates': return derived.minutePointSeries?.length || 0;
       case 'rates': return derived.hourSeries?.length || 0;
+      case 'points_rates': return derived.hourPointSeries?.length || 0;
       case 'continents': return derived.continentSummary?.length || 0;
       case 'zones_cq': return derived.cqZoneSummary?.length || 0;
       case 'zones_itu': return derived.ituZoneSummary?.length || 0;

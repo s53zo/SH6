@@ -191,7 +191,7 @@ Status: [x]
   - `feat(ui): show claimed vs computed scoring details in main report`
 
 ### Commit 07 - Single-log point-rate reports
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js` (`BASE_REPORTS`, render switch, new renderers)
 - Tasks:

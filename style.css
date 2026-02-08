@@ -1381,6 +1381,13 @@ a:hover {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
+.sidebar [data-index]:focus-visible {
+  outline: none;
+  background: #e8eef8;
+  border-color: #bfd3f6;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--sh6-focus-ring);
+}
+
 .sidebar li:hover > [data-index],
 .sidebar li:hover[data-index] {
   background: #e8eef8;

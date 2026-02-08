@@ -1232,10 +1232,17 @@
     const panel = getSlotPanel(slotId);
     if (!panel) return;
     panel.querySelectorAll('.slot-choice').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.action === action);
+      const isActive = btn.dataset.action === action;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      btn.tabIndex = isActive ? 0 : -1;
     });
     panel.querySelectorAll('.slot-panel').forEach((block) => {
-      block.classList.toggle('is-active', block.dataset.panel === action);
+      const isActive = block.dataset.panel === action;
+      block.classList.toggle('is-active', isActive);
+      block.hidden = !isActive;
+      block.setAttribute('role', 'tabpanel');
     });
     if (action !== 'skip') {
       const slot = getSlotById(slotId);
@@ -1306,6 +1313,16 @@
       groups.get(r.parentId).push({ report: r, index: idx });
     });
     const groupParentIds = new Set(groups.keys());
+    const bindKeyboardActivation = (el, onActivate) => {
+      if (!el || typeof onActivate !== 'function') return;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.addEventListener('keydown', (evt) => {
+        if (evt.key !== 'Enter' && evt.key !== ' ') return;
+        evt.preventDefault();
+        onActivate();
+      });
+    };
 
     const makeNavItem = (idx, title, baseClass) => {
       const li = document.createElement('li');
@@ -1313,7 +1330,7 @@
       li.dataset.index = idx;
       li.dataset.baseClass = baseClass;
       li.classList.add(baseClass);
-      li.addEventListener('click', () => {
+      const activate = () => {
         const report = reports[idx];
         if (report?.id === 'load_logs') {
           state.showLoadPanel = false;
@@ -1323,7 +1340,9 @@
           report_title: report?.title || title || ''
         });
         setActiveReport(idx);
-      });
+      };
+      li.addEventListener('click', activate);
+      bindKeyboardActivation(li, activate);
       return li;
     };
 
@@ -1368,14 +1387,16 @@
       const li = document.createElement('li');
       li.textContent = r.title;
       li.dataset.index = idx;
-      li.addEventListener('click', () => {
+      const activate = () => {
         const report = reports[idx];
         trackEvent('menu_click', {
           report_id: report?.id || '',
           report_title: report?.title || ''
         });
         setActiveReport(idx);
-      });
+      };
+      li.addEventListener('click', activate);
+      bindKeyboardActivation(li, activate);
       li.classList.add('mli');
       li.dataset.baseClass = 'mli';
       dom.navList.appendChild(li);
@@ -1393,6 +1414,8 @@
       const base = el.dataset.baseClass;
       if (base) el.classList.add(base);
       el.classList.toggle('sli', isActive);
+      if (isActive) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
       if (isActive) {
         const details = el.closest('details');
         if (details && !el.classList.contains('nav-summary')) details.open = true;
@@ -16359,6 +16382,12 @@
               : dom.repoSearch;
         if (input) input.focus();
       });
+    });
+    ['A', 'B', 'C', 'D'].forEach((slotId) => {
+      const panel = getSlotPanel(slotId);
+      const activeBtn = panel ? panel.querySelector('.slot-choice.is-active') : null;
+      const action = activeBtn ? (activeBtn.dataset.action || 'upload') : 'upload';
+      setSlotAction(slotId, action);
     });
     updateSlotStatus('A');
     updateSlotStatus('B');

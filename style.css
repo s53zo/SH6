@@ -646,7 +646,7 @@ a:hover {
 
 .slot-note {
   font-size: 12px;
-  color: #555555;
+  color: #374151;
   margin-left: 6px;
 }
 
@@ -1279,7 +1279,7 @@ a:hover {
 
 .status {
   font-size: 13px;
-  color: #444;
+  color: #374151;
 }
 
 #logClearFilters {
@@ -1750,7 +1750,7 @@ a:hover {
 
 .export-note {
   font-size: 12px;
-  color: #555555;
+  color: #374151;
 }
 
 .band-ribbon {
@@ -2992,6 +2992,27 @@ th {
 
   .compare-grid {
     gap: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .loading-spinner,
+  .compare-spinner {
+    animation: none !important;
+  }
+
+  .status-loading,
+  .status-proxy-loading {
+    animation: none !important;
   }
 }
 

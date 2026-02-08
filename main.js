@@ -1742,23 +1742,51 @@
     renderReportWithLoading(report);
   }
 
+  function renderReportIntroCard(title, subtitle = '', tags = []) {
+    const safeTitle = escapeHtml(title || '');
+    const safeSubtitle = escapeHtml(subtitle || '');
+    const tagHtml = Array.isArray(tags) && tags.length
+      ? `<div class="report-chip-row">${tags.map((tag) => `<span class="report-chip">${escapeHtml(tag || '')}</span>`).join('')}</div>`
+      : '';
+    return `
+      <section class="report-intro-card">
+        <h3>${safeTitle}</h3>
+        ${safeSubtitle ? `<p>${safeSubtitle}</p>` : ''}
+        ${tagHtml}
+      </section>
+    `;
+  }
+
+  function renderStateCard({ type = 'info', title = '', message = '', actionLabel = '', actionClass = '' } = {}) {
+    const safeType = ['info', 'warn', 'error'].includes(type) ? type : 'info';
+    const safeTitle = escapeHtml(title || 'Status');
+    const safeMessage = escapeHtml(message || '');
+    const safeActionLabel = escapeHtml(actionLabel || '');
+    return `
+      <section class="state-card state-${safeType}">
+        <h3>${safeTitle}</h3>
+        ${safeMessage ? `<p>${safeMessage}</p>` : ''}
+        ${safeActionLabel ? `<p><button type="button" class="button ${escapeAttr(actionClass || '')}">${safeActionLabel}</button></p>` : ''}
+      </section>
+    `;
+  }
+
   function renderPlaceholder(report) {
     const hasLog = !!state.logFile && !!state.qsoData && state.qsoData.qsos && state.qsoData.qsos.length;
     if (!hasLog) {
-      return `
-        <div class="landing-panel">
-          <h3>No log loaded yet</h3>
-          <p>To see this report, please load a log first. You can upload your own log, load from the archive, or use the demo log.</p>
-          <p><button type="button" class="button demo-log-btn">Demo log</button></p>
-        </div>
-      `;
+      return renderStateCard({
+        type: 'warn',
+        title: 'No log loaded yet',
+        message: 'To see this report, load a log first. You can upload your own file, use archive search, or start with the demo log.',
+        actionLabel: 'Demo log',
+        actionClass: 'demo-log-btn'
+      });
     }
-    return `
-      <div class="landing-panel">
-        <h3>${escapeHtml(report.title)}</h3>
-        <p>This report will appear after log data is available for this view.</p>
-      </div>
-    `;
+    return renderStateCard({
+      type: 'info',
+      title: report.title,
+      message: 'This report will appear after log data is available for this view.'
+    });
   }
 
   const BAND_DEFS = [
@@ -7923,10 +7951,21 @@
       ['Club', club]
     ];
     const cqApiCard = renderCqApiEnrichmentCard(state.apiEnrichment);
+    const intro = renderReportIntroCard(
+      'Main performance snapshot',
+      'Quick diagnostic summary for the loaded log and scoring model.',
+      [
+        `Callsign ${stationCallRaw || 'N/A'}`,
+        `Contest ${state.derived.contestMeta?.contestId || 'N/A'}`,
+        `Category ${state.derived.contestMeta?.category || 'N/A'}`,
+        `${formatNumberSh6(totalQsos)} QSOs`
+      ]
+    );
     const rowHtml = rows.map(([label, value], idx) => `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
       `).join('');
     return `
+      ${intro}
       ${reconNote}
       ${scoringWarning}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
@@ -8218,10 +8257,21 @@
       `;
     }).join('');
 
+    const coachIntro = renderReportIntroCard(
+      'Competitor coach workspace',
+      'Find nearest rivals in your selected scope and load them directly into compare slots.',
+      [
+        `Scope ${formatCoachScopeTitle(selectedScope)}`,
+        `Category mode ${categoryMode === 'all' ? 'All categories' : 'Same category'}`,
+        `Cohort ${formatCqApiNumber(coach.totalRows)}`
+      ]
+    );
+
     return `
       <div class="cqapi-card mtc coach-card">
         <div class="gradient">&nbsp;Competitor coach</div>
         <div class="cqapi-body">
+          ${coachIntro}
           <p>Find direct competitors by scope and category, then load any row directly to Log B, C, or D for side-by-side comparison.</p>
           ${context.ok ? '' : `<p class="status-error">${escapeHtml(context.reason || 'Competitor context unavailable.')}</p>`}
           <div class="coach-controls">
@@ -10230,7 +10280,11 @@
 
   function renderSpots(options = {}) {
     if (!state.qsoData || !state.derived) {
-      return '<p>No log loaded yet. Load a log to enable spots analysis.</p>';
+      return renderStateCard({
+        type: 'info',
+        title: 'Spots unavailable',
+        message: 'Load a log to enable spots analysis for this report.'
+      });
     }
     const source = options.source || 'spots';
     const sourceAttr = escapeAttr(source);
@@ -11412,11 +11466,20 @@
     };
     const analysisContext = stats ? buildAnalysisContext() : null;
     const spotsCoachCards = stats && analysisContext ? renderSpotsCoachCards(stats, analysisContext) : '';
+    const spotsIntro = renderReportIntroCard(
+      `${title} analysis`,
+      intro,
+      [
+        `Call ${state.derived.contestMeta?.stationCallsign || 'N/A'}`,
+        `Window ±${windowMinutes}m`,
+        `${formatDateSh6(minTs)} to ${formatDateSh6(maxTs)}`
+      ]
+    );
 
     return `
       <div class="mtc export-panel spots-panel" data-slot="${slotAttr}">
         <div class="gradient">&nbsp;${escapeHtml(title)}</div>
-        <p>${escapeHtml(intro)}</p>
+        ${spotsIntro}
         <div class="export-actions">
           <span><b>Callsign</b>: ${call} (exact match)</span>
         </div>
@@ -11561,7 +11624,11 @@
 
   function renderRbnSpots() {
     if (!state.qsoData || !state.derived) {
-      return '<p>No log loaded yet. Load a log to enable RBN spots analysis.</p>';
+      return renderStateCard({
+        type: 'info',
+        title: 'RBN spots unavailable',
+        message: 'Load a log to enable RBN spots analysis for this report.'
+      });
     }
     const minTs = state.derived.timeRange?.minTs;
     const maxTs = state.derived.timeRange?.maxTs;

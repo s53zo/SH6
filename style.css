@@ -1742,6 +1742,98 @@ a:hover {
   min-height: 300px;
 }
 
+.report-intro-card {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid #d4deef;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f9fbff 0%, #f2f7ff 100%);
+}
+
+.report-intro-card h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: #1f3f6f;
+}
+
+.report-intro-card p {
+  margin: 0;
+  color: #35557d;
+  font-size: 12px;
+}
+
+.report-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.report-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bfd0ec;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #23466f;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+}
+
+.state-card {
+  margin: 8px 0;
+  padding: 12px;
+  border: 1px solid #d0dbef;
+  border-left: 4px solid #4f72de;
+  border-radius: 10px;
+  background: #f7faff;
+}
+
+.state-card h3 {
+  margin: 0 0 6px;
+  color: #1f3f6f;
+  font-size: 14px;
+}
+
+.state-card p {
+  margin: 0;
+  color: #35557d;
+  font-size: 12px;
+}
+
+.state-card p + p {
+  margin-top: 8px;
+}
+
+.state-card.state-warn {
+  border-left-color: #c08b00;
+  background: #fff9ec;
+}
+
+.state-card.state-warn h3 {
+  color: #704f00;
+}
+
+.state-card.state-warn p {
+  color: #775614;
+}
+
+.state-card.state-error {
+  border-left-color: #b43636;
+  background: #fff4f4;
+}
+
+.state-card.state-error h3 {
+  color: #7a1b1b;
+}
+
+.state-card.state-error p {
+  color: #7a1b1b;
+}
+
 .sh6-card,
 .view-container,
 .compare-panel,
@@ -2014,10 +2106,19 @@ th, td {
   max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  border: 1px solid #c8d3e8;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .table-wrap table {
   width: max-content;
+  margin: 0;
+}
+
+.table-wrap tr.td0:hover td,
+.table-wrap tr.td1:hover td {
+  background: #e8f0ff;
 }
 
 .sticky-first th:first-child,
@@ -3902,6 +4003,21 @@ body.ui-theme-nt .thc td {
 
 body.ui-theme-nt .export-actions.export-note {
   border-left-color: #3662b8;
+  background: #f4f8ff;
+}
+
+body.ui-theme-nt .report-intro-card {
+  border-color: #c5d5ee;
+  background: linear-gradient(180deg, #fafdff 0%, #eef5ff 100%);
+}
+
+body.ui-theme-nt .report-chip {
+  border-color: #aec4ea;
+  color: #173c70;
+}
+
+body.ui-theme-nt .state-card {
+  border-color: #c5d5ee;
   background: #f4f8ff;
 }
 

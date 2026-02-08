@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.16 (2026-02-08)
+- QTH lookup: harden callsign-grid lookups with adaptive request splitting, retries, timeout handling, and paced requests for large logs.
+- QTH lookup: tighten batching by payload size and skip invalid callsign tokens before lookup.
+- Spot hunter: export `sortBands` to the shared `window.SH6` API so Spot hunter no longer fails at runtime.
+
 ## v5.1.15 (2026-02-08)
 - Competitor coach: replace row actions with a compact segmented `Load to B/C/D` control and add a per-row `Last loaded to Log X` marker.
 - Spots and RBN spots: make `Spots of you by band/hour` values clickable for bucket drilldown.

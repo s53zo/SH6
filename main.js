@@ -2164,6 +2164,24 @@
     wed_minitest_80m: ['WEDNESDAY MINITEST 80M', 'WED MINI 80M'],
     arrl_family_bundle: ['ARRL']
   });
+  const SCORING_PHASE1_RULES = new Set([
+    'cqww',
+    'cqwpx',
+    'cqwwrtty',
+    'cqwpxrtty',
+    'cq160',
+    'wae',
+    'ref',
+    'eudx',
+    'euhfc',
+    'zrs_kvp',
+    'rdxc',
+    'rf_championship_cw',
+    'ham_spirit',
+    'rcc_cup',
+    'rrtc',
+    'yuri_gagarin'
+  ]);
 
   function normalizeContestKey(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '').trim();
@@ -3118,6 +3136,29 @@
     const assumptions = new Set(Array.isArray(resolved.assumptions) ? resolved.assumptions : []);
     if (resolved.rule?.bundle === true) {
       assumptions.add('Bundle contest scoring currently uses logged points fallback until subevent scoring is finalized.');
+      return {
+        supported: true,
+        confidence: resolved.confidence || 'unknown',
+        warning: '',
+        assumptions: Array.from(assumptions),
+        detectionMethod: resolved.detectionMethod || '',
+        detectionValue: resolved.detectionValue || '',
+        ruleId: resolved.ruleId || '',
+        ruleName: resolved.rule?.name || resolved.ruleId || '',
+        claimedScoreHeader,
+        loggedPointsTotal,
+        computedQsoPointsTotal: null,
+        computedMultiplierTotal: null,
+        computedScore: null,
+        scoreDeltaAbs: null,
+        scoreDeltaPct: null,
+        effectivePointsSource: loggedPointsTotal > 0 ? 'logged' : 'none',
+        bundle: resolved.bundle || null,
+        computedPointsByIndex: []
+      };
+    }
+    if (!SCORING_PHASE1_RULES.has(String(resolved.ruleId || ''))) {
+      assumptions.add(`Scorer for ${resolved.ruleId} is not enabled in phase-1 rollout.`);
       return {
         supported: true,
         confidence: resolved.confidence || 'unknown',

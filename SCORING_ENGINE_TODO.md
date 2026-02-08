@@ -136,7 +136,7 @@ Status: [x]
   - `feat(scoring): add core scoring primitives and formula evaluator`
 
 ### Commit 04 - Phase 1 scorers (high confidence)
-Status: [ ]
+Status: [x]
 - Scope:
   - `main.js`
 - Tasks:

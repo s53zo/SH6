@@ -2398,15 +2398,155 @@
     return colCount >= 8;
   }
 
+  function getBaseReportId(reportId) {
+    return String(reportId || '').split('::')[0];
+  }
+
+  function clearStickyTableState(table) {
+    if (!(table instanceof HTMLTableElement)) return;
+    table.classList.remove('sticky-first', 'sticky-head', 'sticky-cols-1', 'sticky-cols-2', 'sticky-cols-3', 'sticky-cols-4');
+    table.style.removeProperty('--sticky-header-total');
+    for (let i = 1; i <= 4; i += 1) {
+      table.style.removeProperty(`--sticky-col-${i}-left`);
+      table.style.removeProperty(`--sticky-col-${i}-width`);
+    }
+    const cells = Array.from(table.querySelectorAll('.sticky-head-cell, .sticky-col-cell'));
+    cells.forEach((cell) => {
+      if (!(cell instanceof HTMLTableCellElement)) return;
+      cell.classList.remove('sticky-head-cell', 'sticky-col-cell', 'sticky-col-1', 'sticky-col-2', 'sticky-col-3', 'sticky-col-4');
+      cell.style.removeProperty('position');
+      cell.style.removeProperty('top');
+      cell.style.removeProperty('left');
+      cell.style.removeProperty('z-index');
+    });
+  }
+
+  function collectStickyHeaderRows(table) {
+    const rows = Array.from(table.rows || []);
+    const headerRows = [];
+    for (const row of rows) {
+      const hasTh = row.querySelector('th') != null;
+      const hasTd = row.querySelector('td') != null;
+      const isHeaderLike = row.classList.contains('thc') || (hasTh && !hasTd);
+      if (!headerRows.length) {
+        if (!isHeaderLike) continue;
+        headerRows.push(row);
+        continue;
+      }
+      if (!isHeaderLike) break;
+      headerRows.push(row);
+    }
+    return headerRows;
+  }
+
+  function applyStickyHeaders(table) {
+    const headerRows = collectStickyHeaderRows(table);
+    if (!headerRows.length) return;
+    let topOffset = 0;
+    headerRows.forEach((row, idx) => {
+      const rowHeight = Math.max(20, Math.ceil(row.getBoundingClientRect().height || row.offsetHeight || 0));
+      const cells = Array.from(row.cells || []);
+      cells.forEach((cell) => {
+        if (!(cell instanceof HTMLTableCellElement)) return;
+        cell.classList.add('sticky-head-cell');
+        cell.style.position = 'sticky';
+        cell.style.top = `${topOffset}px`;
+        cell.style.zIndex = String(20 - idx);
+      });
+      topOffset += rowHeight;
+    });
+    table.style.setProperty('--sticky-header-total', `${topOffset}px`);
+    table.classList.add('sticky-head');
+  }
+
+  function getStickyColumnCount(table, reportId) {
+    const baseId = getBaseReportId(reportId);
+    switch (baseId) {
+      case 'log':
+        return 2;
+      case 'qs_by_minute':
+      case 'points_by_minute':
+        return 2;
+      case 'countries_by_time':
+        return 4;
+      case 'countries':
+        return 4;
+      case 'continents':
+        return 3;
+      case 'beam_heading':
+      case 'charts_beam_heading_by_hour':
+        return 1;
+      default:
+        break;
+    }
+    return shouldStickyTable(table, baseId) ? 1 : 0;
+  }
+
+  function resolveStickyColumnWidths(table, columnCount) {
+    const rows = Array.from(table.rows || []);
+    const widths = [];
+    for (let col = 0; col < columnCount; col += 1) {
+      let width = 0;
+      const sampleRows = rows.slice(0, 60);
+      sampleRows.forEach((row) => {
+        const cell = getCellByColumn(row, col);
+        if (!(cell instanceof HTMLTableCellElement)) return;
+        const measured = Math.ceil(cell.getBoundingClientRect().width || cell.offsetWidth || 0);
+        if (measured > width) width = measured;
+      });
+      widths.push(Math.max(34, width || 0));
+    }
+    return widths;
+  }
+
+  function applyStickyColumns(table, columnCount) {
+    const count = Math.max(0, Math.min(4, columnCount || 0));
+    if (!count) return;
+    const widths = resolveStickyColumnWidths(table, count);
+    const offsets = [];
+    let left = 0;
+    for (let i = 0; i < widths.length; i += 1) {
+      offsets.push(left);
+      table.style.setProperty(`--sticky-col-${i + 1}-left`, `${left}px`);
+      table.style.setProperty(`--sticky-col-${i + 1}-width`, `${widths[i]}px`);
+      left += widths[i];
+    }
+    const rows = Array.from(table.rows || []);
+    rows.forEach((row) => {
+      const seen = new Set();
+      for (let col = 0; col < count; col += 1) {
+        const cell = getCellByColumn(row, col);
+        if (!(cell instanceof HTMLTableCellElement)) continue;
+        if (seen.has(cell)) continue;
+        seen.add(cell);
+        const stickyClass = `sticky-col-${col + 1}`;
+        cell.classList.add('sticky-col-cell', stickyClass);
+        cell.style.position = 'sticky';
+        cell.style.left = `${offsets[col]}px`;
+        const isHeaderCell = cell.classList.contains('sticky-head-cell') || row.classList.contains('thc');
+        cell.style.zIndex = String(isHeaderCell ? (40 - col) : (8 - col));
+      }
+    });
+    table.classList.add(`sticky-cols-${count}`);
+    if (count >= 1) table.classList.add('sticky-first');
+  }
+
   function wrapWideTables(container, reportId) {
     if (!container) return;
-    const tables = Array.from(container.querySelectorAll('table.mtc, table.log-table'));
+    const baseId = getBaseReportId(reportId);
+    const stickyAllowed = !state.compareEnabled || state.compareStickyEnabled;
+    const tables = Array.from(container.querySelectorAll('table.mtc, table.log-table, table.fields-map'));
     tables.forEach((table) => {
       if (!(table instanceof HTMLTableElement)) return;
-      if (shouldStickyTable(table, reportId)) {
-        table.classList.add('sticky-first');
-      } else {
-        table.classList.remove('sticky-first');
+      clearStickyTableState(table);
+      if (stickyAllowed && shouldStickyTable(table, baseId)) {
+        applyStickyHeaders(table);
+      }
+      if (stickyAllowed) {
+        const stickyColCount = getStickyColumnCount(table, baseId);
+        if (stickyColCount > 0) {
+          applyStickyColumns(table, stickyColCount);
+        }
       }
       if (table.closest('.table-wrap') || table.closest('.compare-scroll') || table.closest('.compare-log-wrap')) {
         return;

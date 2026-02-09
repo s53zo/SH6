@@ -4486,3 +4486,195 @@ body.ui-theme-nt .compare-ui-toggle.active {
     padding-top: 16px;
   }
 }
+
+/* NT compact density tuning */
+body.ui-theme-nt .app-topbar-shell td {
+  padding: 8px 12px;
+}
+
+body.ui-theme-nt .brand {
+  gap: 9px;
+}
+
+body.ui-theme-nt .subtitle {
+  font-size: 13px;
+}
+
+body.ui-theme-nt .app-layout-shell > tbody > tr > td.sidebar {
+  width: 280px !important;
+  min-width: 280px;
+  max-width: 320px;
+}
+
+body.ui-theme-nt .sidebar {
+  padding: 10px 9px;
+}
+
+body.ui-theme-nt .nav-section-summary {
+  padding: 6px 8px;
+  font-size: 10px;
+}
+
+body.ui-theme-nt .nav-section-list {
+  margin: 2px 0 4px;
+}
+
+body.ui-theme-nt .sidebar [data-index] {
+  padding: 3px 6px;
+}
+
+body.ui-theme-nt .content {
+  padding: 14px 16px;
+}
+
+body.ui-theme-nt .view-title {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+}
+
+body.ui-theme-nt .view-container {
+  border-radius: 12px;
+  padding: 11px 12px;
+}
+
+body.ui-theme-nt .report-intro-card {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+}
+
+body.ui-theme-nt .state-card {
+  padding: 9px 10px;
+}
+
+body.ui-theme-nt .mtc th,
+body.ui-theme-nt .mtc td {
+  padding: 2px 4px;
+}
+
+body.ui-theme-nt .compare-grid {
+  gap: 10px;
+}
+
+body.ui-theme-nt .compare-workspace {
+  margin-bottom: 7px;
+  padding: 6px 8px;
+}
+
+body.ui-theme-nt .compare-workspace-slot-row,
+body.ui-theme-nt .compare-workspace-controls {
+  margin-top: 5px;
+}
+
+body.ui-theme-nt .compare-workspace-slot {
+  min-height: 24px;
+  padding: 3px 8px;
+  font-size: 9px;
+}
+
+body.ui-theme-nt .compare-ui-toggle,
+body.ui-theme-nt .compare-workspace-jump,
+body.ui-theme-nt .compare-insight-chip,
+body.ui-theme-nt .chart-mode-btn,
+body.ui-theme-nt .spots-coach-action,
+body.ui-theme-nt .coach-choice-btn {
+  min-height: 30px;
+  font-size: 10px;
+  padding: 4px 8px;
+}
+
+body.ui-theme-nt .compare-insight-chip {
+  flex-basis: 220px;
+}
+
+body.ui-theme-nt .compare-panel .compare-head {
+  padding: 6px 8px 5px;
+  gap: 2px;
+}
+
+body.ui-theme-nt .compare-head-main {
+  gap: 5px;
+}
+
+body.ui-theme-nt .compare-head-call {
+  font-size: 12px;
+}
+
+body.ui-theme-nt .compare-head-meta {
+  font-size: 10px;
+}
+
+body.ui-theme-nt .compare-slot-badge {
+  min-width: 44px;
+  padding: 2px 7px;
+}
+
+body.ui-theme-nt .compare-scroll {
+  padding: 6px 8px 8px;
+}
+
+body.ui-theme-nt .coach-controls {
+  gap: 6px 8px;
+  margin: 4px 0 6px;
+}
+
+body.ui-theme-nt .coach-control-group {
+  min-width: 200px;
+}
+
+body.ui-theme-nt .coach-priority-grid {
+  margin: 6px 0 8px;
+  gap: 6px;
+}
+
+body.ui-theme-nt .coach-priority-card,
+body.ui-theme-nt .coach-rivals-card,
+body.ui-theme-nt .coach-driver-card,
+body.ui-theme-nt .spots-coach-card {
+  padding: 6px 8px;
+}
+
+body.ui-theme-nt .coach-quick-actions {
+  margin: 6px 0 8px;
+  padding: 6px 8px;
+  gap: 6px 8px;
+}
+
+body.ui-theme-nt .spots-coach-grid {
+  margin: 6px;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+body.ui-theme-nt .spots-coach-note {
+  margin-bottom: 4px;
+  font-size: 10px;
+}
+
+body.ui-theme-nt .chart-mode-controls {
+  margin: 1px 0 7px;
+  gap: 5px;
+}
+
+body.ui-theme-nt .bar-row {
+  margin: 3px 0;
+  gap: 6px;
+}
+
+body.ui-theme-nt .bar-track {
+  height: 14px;
+}
+
+body.ui-theme-nt .bar-value {
+  min-width: 78px;
+  font-size: 11px;
+}
+
+@media (min-width: 1440px) {
+  body.ui-theme-nt .content {
+    padding: 17px 19px;
+  }
+
+  body.ui-theme-nt .view-container {
+    padding: 13px 14px;
+  }
+}

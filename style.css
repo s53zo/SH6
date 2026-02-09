@@ -1317,6 +1317,13 @@ a:hover {
   max-width: 100%;
 }
 
+.compare-scroll--tall {
+  max-height: min(72vh, 980px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
 .compare-scroll table {
   width: max-content;
 }
@@ -1511,6 +1518,13 @@ a:hover {
 
 .compare-log-wrap {
   overflow-x: auto;
+}
+
+.compare-log-wrap--tall {
+  max-height: min(74vh, 980px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 .compare-log-table th,
@@ -2360,6 +2374,13 @@ th, td {
   background: #ffffff;
 }
 
+.table-wrap--tall {
+  max-height: min(72vh, 980px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
 .table-wrap table {
   width: max-content;
   margin: 0;
@@ -2401,6 +2422,37 @@ th, td {
 
 .sticky-cols-4 .sticky-col-4 {
   min-width: var(--sticky-col-4-width, auto);
+}
+
+.report-jumpbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border: 1px solid #c7d4e8;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f9fbff 0%, #edf4ff 100%);
+  position: sticky;
+  top: 6px;
+  z-index: 8;
+}
+
+.report-jumpbar-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #2c4f7c;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 2px;
+}
+
+.report-jumpbar-btn {
+  min-height: 28px;
+  padding: 3px 9px;
+  font-size: 11px;
+  border-radius: 999px;
 }
 
 .wrap-cell {
@@ -3756,6 +3808,11 @@ th {
   .compare-grid.compare-count-3,
   .compare-grid.compare-count-4 {
     grid-template-columns: 1fr;
+  }
+
+  .report-jumpbar {
+    position: static;
+    padding: 5px 6px;
   }
 }
 

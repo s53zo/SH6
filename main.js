@@ -2531,6 +2531,114 @@
     if (count >= 1) table.classList.add('sticky-first');
   }
 
+  function shouldUseTallTableWrap(baseId, table) {
+    const longReports = new Set([
+      'log',
+      'countries',
+      'countries_by_time',
+      'qs_by_minute',
+      'points_by_minute',
+      'all_callsigns',
+      'not_in_master',
+      'passed_qsos',
+      'dupes',
+      'beam_heading',
+      'charts_beam_heading_by_hour'
+    ]);
+    if (!longReports.has(baseId)) return false;
+    const rowCount = Number(table?.rows?.length || 0);
+    if (!rowCount) return false;
+    if (baseId === 'log') return rowCount > 80;
+    return rowCount > 28;
+  }
+
+  function applyTableWrapSizing(table, reportId) {
+    if (!(table instanceof HTMLTableElement)) return;
+    const baseId = getBaseReportId(reportId);
+    const holder = table.closest('.table-wrap') || table.closest('.compare-scroll') || table.closest('.compare-log-wrap');
+    if (!(holder instanceof HTMLElement)) return;
+    holder.classList.remove('table-wrap--tall', 'compare-scroll--tall', 'compare-log-wrap--tall');
+    if (!shouldUseTallTableWrap(baseId, table)) return;
+    if (holder.classList.contains('compare-scroll')) {
+      holder.classList.add('compare-scroll--tall');
+      return;
+    }
+    if (holder.classList.contains('compare-log-wrap')) {
+      holder.classList.add('compare-log-wrap--tall');
+      return;
+    }
+    holder.classList.add('table-wrap--tall');
+  }
+
+  function buildLongReportJumpTargets(container, reportId) {
+    if (!(container instanceof HTMLElement)) return [];
+    const baseId = getBaseReportId(reportId);
+    const supported = new Set([
+      'log',
+      'countries',
+      'countries_by_time',
+      'qs_by_minute',
+      'points_by_minute',
+      'beam_heading',
+      'all_callsigns',
+      'not_in_master',
+      'passed_qsos',
+      'dupes'
+    ]);
+    if (!supported.has(baseId)) return [];
+    const targets = [];
+    if (baseId === 'log') {
+      const filters = container.querySelector('#logSearchForm');
+      if (filters instanceof HTMLElement) targets.push({ id: 'filters', label: 'Filters', el: filters });
+    }
+    const table = container.querySelector('.table-wrap, .compare-log-wrap, .compare-scroll');
+    if (table instanceof HTMLElement) targets.push({ id: 'table', label: 'Main table', el: table });
+    if (baseId === 'log') {
+      const pages = container.querySelector('.log-controls-bottom, .compare-window-controls');
+      if (pages instanceof HTMLElement) targets.push({ id: 'pages', label: 'Pages', el: pages });
+    }
+    return targets;
+  }
+
+  function attachLongReportJumpBar(container, reportId) {
+    if (!(container instanceof HTMLElement)) return;
+    const existing = container.querySelector('.report-jumpbar');
+    if (existing) existing.remove();
+    const targets = buildLongReportJumpTargets(container, reportId);
+    if (!targets.length) return;
+    const targetMap = new Map(targets.map((item) => [item.id, item.el]));
+    const bar = document.createElement('div');
+    bar.className = 'report-jumpbar no-print';
+    bar.innerHTML = `
+      <span class="report-jumpbar-label">Quick jump</span>
+      <button type="button" class="button report-jumpbar-btn" data-report-jump="top">Top</button>
+      ${targets.map((item) => `<button type="button" class="button report-jumpbar-btn" data-report-jump="${escapeAttr(item.id)}">${escapeHtml(item.label)}</button>`).join('')}
+      <button type="button" class="button report-jumpbar-btn" data-report-jump="bottom">Bottom</button>
+    `;
+    bar.addEventListener('click', (evt) => {
+      const btn = evt.target instanceof HTMLElement ? evt.target.closest('[data-report-jump]') : null;
+      if (!btn) return;
+      evt.preventDefault();
+      const jump = String(btn.dataset.reportJump || '').trim();
+      const reduceMotion = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      if (jump === 'top') {
+        window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+        return;
+      }
+      if (jump === 'bottom') {
+        const tail = container.lastElementChild;
+        if (tail instanceof HTMLElement) {
+          tail.scrollIntoView({ block: 'end', behavior: reduceMotion ? 'auto' : 'smooth' });
+        }
+        return;
+      }
+      const target = targetMap.get(jump);
+      if (!(target instanceof HTMLElement)) return;
+      target.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+    });
+    container.insertBefore(bar, container.firstChild);
+  }
+
   function wrapWideTables(container, reportId) {
     if (!container) return;
     const baseId = getBaseReportId(reportId);
@@ -2557,6 +2665,12 @@
       wrap.className = 'table-wrap';
       parent.insertBefore(wrap, table);
       wrap.appendChild(table);
+      applyTableWrapSizing(table, baseId);
+      return;
+    });
+    tables.forEach((table) => {
+      if (!(table instanceof HTMLTableElement)) return;
+      applyTableWrapSizing(table, baseId);
     });
   }
 
@@ -15604,6 +15718,7 @@
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
     bindCompareScrollSync(reportId);
+    attachLongReportJumpBar(dom.viewContainer, reportId);
     const compareToggleButtons = dom.viewContainer.querySelectorAll('.compare-ui-toggle');
     compareToggleButtons.forEach((btn) => {
       btn.addEventListener('click', (evt) => {

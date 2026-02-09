@@ -1833,6 +1833,17 @@
     `;
   }
 
+  function renderAnalysisStepHeading(stepNumber, title, subtitle = '') {
+    const stepText = Number.isFinite(Number(stepNumber)) ? `Step ${Number(stepNumber)}` : String(stepNumber || 'Step');
+    return `
+      <div class="analysis-step-title">
+        <span class="analysis-step-kicker">${escapeHtml(stepText)}</span>
+        <span class="analysis-step-name">${escapeHtml(title || '')}</span>
+        ${subtitle ? `<span class="analysis-step-note">${escapeHtml(subtitle)}</span>` : ''}
+      </div>
+    `;
+  }
+
   function renderStateCard({ type = 'info', title = '', message = '', actionLabel = '', actionClass = '' } = {}) {
     const safeType = ['info', 'warn', 'error'].includes(type) ? type : 'info';
     const safeTitle = escapeHtml(title || 'Status');
@@ -8700,6 +8711,7 @@
           ${coachIntro}
           <p>Find direct competitors by scope and category, then load any row directly to Log B, C, or D for side-by-side comparison.</p>
           ${context.ok ? '' : `<p class="status-error">${escapeHtml(context.reason || 'Competitor context unavailable.')}</p>`}
+          ${renderAnalysisStepHeading(1, 'Filters', 'Choose scope and category mode for your competitor cohort.')}
           <div class="coach-controls">
             <div class="coach-control-group">
               <div class="coach-control-label">Scope</div>
@@ -8714,6 +8726,7 @@
               </div>
             </div>
           </div>
+          ${renderAnalysisStepHeading(2, 'Cohort snapshot', 'Confirm station context and nearest rival before loading compare slots.')}
           <table class="mtc coach-meta">
             <tr class="thc"><th>Metric</th><th>Value</th></tr>
             <tr class="td1"><td>Contest / mode / year</td><td>${escapeHtml(context.contestId || coach.contestId || 'N/A')} / ${escapeHtml(String(context.mode || coach.mode || '').toUpperCase() || 'N/A')} / ${formatYearSh6(context.year || coach.year)}</td></tr>
@@ -8726,6 +8739,9 @@
           ${coach.statusMessage ? `<p class="cqapi-msg">Data message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
           ${statusText}
           ${quickActionBlock}
+          ${renderAnalysisStepHeading(3, 'Primary cohort table', 'Load one or more rivals directly into compare slots.')}
+          ${tableBlock}
+          ${renderAnalysisStepHeading(4, 'Coaching detail', 'Review priority cards and tactical guidance before the next session.')}
           ${priorityBlock}
           ${rivalsBlock}
           ${gapDriverBlock}
@@ -8733,7 +8749,6 @@
             <h4>Coaching priorities</h4>
             ${insightList}
           </div>
-          ${tableBlock}
         </div>
       </div>
     `;
@@ -11754,7 +11769,7 @@
             </div>
             <p class="spots-coach-note">Top match windows from your current band filter (${confidenceText}; ${formatNumberSh6(confidenceSpots)} spots sampled).</p>
             <ul class="spots-coach-list">${bestWindowRows}</ul>
-            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.bandHour)}">Open band/hour table</button>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.bandHour)}">Jump to band/hour table</button>
           </article>
           <article class="spots-coach-card">
             <div class="spots-coach-head">
@@ -11763,7 +11778,7 @@
             </div>
             <p class="spots-coach-note">Spotters with the best QSO conversion for your station.</p>
             <ul class="spots-coach-list">${reliableRows}</ul>
-            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.topSpotters)}">Open top spotters</button>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.topSpotters)}">Jump to top spotters</button>
           </article>
           <article class="spots-coach-card">
             <div class="spots-coach-head">
@@ -11772,7 +11787,7 @@
             </div>
             <p class="spots-coach-note">Raw candidates: ${missedTotalText}. Focus first on these repeat countries.</p>
             <ul class="spots-coach-list">${missedRows}</ul>
-            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.missedMults)}">Open missed mult table</button>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.missedMults)}">Jump to missed mult table</button>
           </article>
         </div>
       `;
@@ -11942,6 +11957,7 @@
           <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
         </div>
         ${extraNote ? `<div class="export-actions export-note">${escapeHtml(extraNote)}</div>` : ''}
+        ${renderAnalysisStepHeading(1, 'Filters and data load', 'Tune match window/bands, then refresh spot files for this slot.')}
         ${hideControls ? '' : `
         <div class="spots-controls">
           <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}" data-source="${sourceAttr}">${windowMinutes}</span></label>
@@ -11977,12 +11993,9 @@
         ${summaryNote ? `<div class="export-actions export-note">${escapeHtml(summaryNote)}</div>` : ''}
         ${errorSummary ? `<div class="export-actions export-note"><b>${escapeHtml(errorLabel)}</b>: ${errorSummary}</div>` : ''}
         ${stats ? `
+        ${renderAnalysisStepHeading(2, 'Summary snapshot', 'Validate current conversion quality before deeper analysis.')}
         <div class="export-actions export-note"><b>Spots coach summary</b></div>
         ${spotsCoachCards}
-
-        <div id="${escapeAttr(sectionIds.bandHour)}" class="export-actions export-note"><b>Spots of you by band/hour</b><span class="spots-click-hint">Click a value to inspect actual spots and filter by Continent, CQ zone, and ITU zone.</span></div>
-        ${renderHeatmap(stats.heatmap)}
-        ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
 
         <div class="export-actions export-note">
           <span><b>Total spots scanned</b>: ${formatNumberSh6(stats.total)}</span>
@@ -11993,6 +12006,13 @@
         <div class="export-actions export-note">
           <span><b>Spots by you</b>: ${formatNumberSh6(totalByUs)} (matched to QSOs: ${formatNumberSh6(stats.byUsMatched)})</span>
         </div>
+
+        ${renderAnalysisStepHeading(3, 'Primary table and drill-down', 'Click band/hour values, then filter detail rows by continent and zones.')}
+        <div id="${escapeAttr(sectionIds.bandHour)}" class="export-actions export-note"><b>Spots of you by band/hour</b><span class="spots-click-hint">Click a value to inspect actual spots and filter by Continent, CQ zone, and ITU zone.</span></div>
+        ${renderHeatmap(stats.heatmap)}
+        ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
+
+        ${renderAnalysisStepHeading(4, 'Advanced diagnostics', 'Use timeline and opportunity reports to plan next operating changes.')}
 
         <div class="export-actions export-note"><b>Spot→Rate timeline (10‑min rate with spot markers)</b></div>
         ${renderSpotRateTimeline(state.derived, stats.ofUsSpots)}

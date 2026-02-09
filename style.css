@@ -2032,6 +2032,45 @@ a:hover {
   margin-top: 8px;
 }
 
+.analysis-step-title {
+  margin: 8px 0 6px;
+  padding: 7px 9px;
+  border: 1px solid #c9d7ee;
+  border-radius: 8px;
+  background: #f5f9ff;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.analysis-step-kicker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid #aac2e6;
+  background: #ffffff;
+  color: #204874;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.analysis-step-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #204874;
+}
+
+.analysis-step-note {
+  font-size: 11px;
+  color: #3a5d88;
+}
+
 .report-chip {
   display: inline-flex;
   align-items: center;
@@ -4643,6 +4682,15 @@ body.ui-theme-nt .view-container {
 body.ui-theme-nt .report-intro-card {
   margin-bottom: 8px;
   padding: 8px 10px;
+}
+
+body.ui-theme-nt .analysis-step-title {
+  margin: 6px 0 5px;
+  padding: 6px 8px;
+}
+
+body.ui-theme-nt .analysis-step-note {
+  font-size: 10px;
 }
 
 body.ui-theme-nt .state-card {

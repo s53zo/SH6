@@ -2940,6 +2940,23 @@ th {
   background: #dddddd;
 }
 
+.sidebar .mdv {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(100vh - 250px);
+}
+
+.sidebar #navList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+}
+
 .mli,
 .cli,
 .sli {
@@ -3700,6 +3717,16 @@ th {
     border-right: 0;
     border-bottom: 1px solid #d3dbe8;
     max-height: none;
+  }
+
+  .sidebar .mdv {
+    max-height: none;
+    display: block;
+  }
+
+  .sidebar #navList {
+    overflow: visible;
+    padding-right: 0;
   }
 
   .nav-buttons {

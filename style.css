@@ -2310,6 +2310,123 @@ a:hover {
   color: #374151;
 }
 
+.utility-panel {
+  padding-bottom: 10px;
+}
+
+.utility-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 8px;
+}
+
+.utility-block {
+  border: 1px solid #d5deec;
+  border-radius: 8px;
+  background: #f9fbff;
+  padding: 8px 10px;
+}
+
+.utility-block h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #25456b;
+}
+
+.utility-block p {
+  margin: 0;
+  color: #35557d;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.utility-callout {
+  margin: 8px;
+  padding: 8px 10px;
+  border: 1px solid #cddaf0;
+  border-left: 3px solid #2f5eb2;
+  border-radius: 8px;
+  background: #f3f8ff;
+  color: #294b75;
+  font-size: 12px;
+}
+
+.utility-primary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px;
+}
+
+.utility-primary-btn {
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-weight: 700;
+}
+
+.utility-cbr-block {
+  margin: 8px;
+}
+
+.utility-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.utility-details {
+  margin: 8px;
+  padding: 8px 10px;
+  border: 1px solid #d5deec;
+  border-radius: 8px;
+  background: #f9fbff;
+}
+
+.utility-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #25456b;
+}
+
+.utility-details ul {
+  margin: 8px 0 0 18px;
+  padding: 0;
+}
+
+.utility-details li {
+  margin: 4px 0;
+  color: #35557d;
+}
+
+.appinfo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin: 8px;
+}
+
+.appinfo-card {
+  border: 1px solid #d5deec;
+  border-radius: 8px;
+  background: #f9fbff;
+  padding: 8px 10px;
+}
+
+.appinfo-card h4 {
+  margin: 0 0 4px;
+  color: #25456b;
+  font-size: 12px;
+}
+
+.appinfo-card p {
+  margin: 0 0 3px;
+  color: #35557d;
+  font-size: 11px;
+}
+
 .band-ribbon {
   margin: 6px 0 8px;
   padding: 4px 0;
@@ -3771,6 +3888,15 @@ th {
   .coach-last-loaded {
     font-size: 9px;
   }
+
+  .utility-primary-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .utility-primary-btn {
+    width: 100%;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -4695,6 +4821,20 @@ body.ui-theme-nt .analysis-step-note {
 
 body.ui-theme-nt .state-card {
   padding: 9px 10px;
+}
+
+body.ui-theme-nt .utility-block,
+body.ui-theme-nt .utility-details,
+body.ui-theme-nt .utility-callout,
+body.ui-theme-nt .appinfo-card {
+  border-color: #c6d6ee;
+  background: #f5f9ff;
+}
+
+body.ui-theme-nt .utility-primary-btn {
+  min-height: 30px;
+  font-size: 10px;
+  padding: 4px 10px;
 }
 
 body.ui-theme-nt .mtc th,

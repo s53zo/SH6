@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.1.18';
+  const APP_VERSION = 'v5.1.19';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -9168,11 +9168,11 @@
       : '';
     return `
       ${noticeHtml}
-      <div class="export-actions export-note"><b>Session</b>: save or restore full comparisons and settings.</div>
-      <div class="export-actions">
-        <button type="button" class="button session-permalink">Copy permalink</button>
-        <button type="button" class="button session-save">Save session</button>
-        <button type="button" class="button session-load">Load session</button>
+      <div class="utility-callout"><b>Session</b>: save or restore full comparisons and settings.</div>
+      <div class="utility-primary-row">
+        <button type="button" class="button utility-primary-btn session-permalink">Copy permalink</button>
+        <button type="button" class="button utility-primary-btn session-save">Save session</button>
+        <button type="button" class="button utility-primary-btn session-load">Load session</button>
         <input type="file" id="sessionFileInput" class="session-file-input" accept="application/json" hidden>
       </div>
     `;
@@ -9180,12 +9180,23 @@
 
   function renderSessionPage() {
     return `
-      <div class="mtc export-panel">
+      <div class="mtc export-panel utility-panel">
         <div class="gradient">&nbsp;Save&Load session</div>
         <p>Sessions capture the full state of your analysis, including compare slots, filters, and report settings.</p>
-        <p><b>Permalink</b>: Generates a URL that restores archive logs and settings. Local logs cannot be auto-loaded; the app will ask you to upload them again.</p>
-        <p><b>Save session</b>: Stores a local JSON file with raw log data and settings for offline restore (no network required).</p>
-        <p><b>Load session</b>: Opens a saved session JSON and restores everything.</p>
+        <div class="utility-grid">
+          <div class="utility-block">
+            <h4>Permalink</h4>
+            <p>Generates a URL that restores archive logs and settings. Local logs cannot be auto-loaded; the app will ask you to upload them again.</p>
+          </div>
+          <div class="utility-block">
+            <h4>Save session</h4>
+            <p>Stores a local JSON file with raw log data and settings for offline restore (no network required).</p>
+          </div>
+          <div class="utility-block">
+            <h4>Load session</h4>
+            <p>Opens a saved session JSON and restores everything.</p>
+          </div>
+        </div>
         ${renderSessionControls()}
       </div>
     `;
@@ -10011,41 +10022,38 @@
       )).join(' ')
       : '';
     return `
-      <div class="mtc export-panel">
+      <div class="mtc export-panel utility-panel">
         <div class="gradient">&nbsp;Export PDF, HTML, CBR</div>
         <p>Create report exports by format. PDF/HTML let you choose sections; CBR exports raw log text for loaded compare slots.</p>
-        <div class="export-group">
-          <div class="export-group-title">PDF export</div>
-          <div class="export-actions">
-            <button type="button" class="button export-action" data-export="pdf">Export PDF</button>
-            <span>Choose report sections, then open browser print.</span>
+        <div class="utility-grid">
+          <div class="utility-block">
+            <h4>PDF export</h4>
+            <p>Choose report sections, then open browser print.</p>
+          </div>
+          <div class="utility-block">
+            <h4>HTML export</h4>
+            <p>Generate a self-contained HTML report file.</p>
           </div>
         </div>
-        <div class="export-group">
-          <div class="export-group-title">HTML export</div>
-          <div class="export-actions">
-            <button type="button" class="button export-action" data-export="html">Export HTML</button>
-            <span>Generate a self-contained HTML report file.</span>
-          </div>
+        <div class="utility-primary-row">
+          <button type="button" class="button export-action utility-primary-btn" data-export="pdf">Export PDF</button>
+          <button type="button" class="button export-action utility-primary-btn" data-export="html">Export HTML</button>
         </div>
-        <div class="export-group">
-          <div class="export-group-title">CBR export</div>
-          <div class="export-actions">
+        <div class="utility-block utility-cbr-block">
+          <h4>CBR export</h4>
+          <p>CBR export saves the original raw log text SH6 loaded for each slot.</p>
+          <div class="utility-slot-actions">
             ${cbrButtons || '<span>No loaded raw logs available for CBR export.</span>'}
           </div>
-          <div class="export-actions export-note">
-            <span>CBR export saves the original raw log text SH6 loaded for each slot.</span>
-          </div>
         </div>
-        <div class="export-actions export-note">
-          <span>In compare mode, CBR buttons are shown per active loaded slot (Log A/B/C/D).</span>
-        </div>
-        <div class="export-actions export-note">
-          <span>Note: Interactive maps are not included in exports. Use KMZ files or the in-app map view.</span>
-        </div>
-        <div class="export-actions export-note">
-          <span>Tip: For large logs, export fewer sections to improve speed.</span>
-        </div>
+        <details class="utility-details">
+          <summary>Notes and limits</summary>
+          <ul>
+            <li>In compare mode, CBR buttons are shown per active loaded slot (Log A/B/C/D).</li>
+            <li>Interactive maps are not included in exports. Use KMZ files or the in-app map view.</li>
+            <li>For large logs, export fewer sections to improve speed.</li>
+          </ul>
+        </details>
       </div>
     `;
   }
@@ -14277,10 +14285,35 @@
       ['cty.dat', escapeHtml(state.ctyStatus || 'pending')],
       ['MASTER.DTA', escapeHtml(state.masterStatus || 'pending')]
     ];
+    const cards = `
+      <div class="appinfo-grid">
+        <article class="appinfo-card">
+          <h4>Build</h4>
+          <p><b>Version:</b> ${escapeHtml(APP_VERSION)}</p>
+          <p><b>Generated:</b> ${escapeHtml(formatDateSh6(Date.now()))}</p>
+        </article>
+        <article class="appinfo-card">
+          <h4>Loaded log</h4>
+          <p><b>File:</b> ${escapeHtml(state.logFile ? state.logFile.name : 'N/A')}</p>
+          <p><b>QSOs:</b> ${state.qsoData ? formatNumberSh6(state.qsoData.qsos.length) : '0'}</p>
+        </article>
+        <article class="appinfo-card">
+          <h4>Performance</h4>
+          <p><b>Last render:</b> ${escapeHtml(lastRenderText)}</p>
+          <p><b>Hotspot:</b> ${escapeHtml(hotspotText)}</p>
+        </article>
+        <article class="appinfo-card">
+          <h4>Data files</h4>
+          <p><b>cty.dat:</b> ${escapeHtml(state.ctyStatus || 'pending')}</p>
+          <p><b>MASTER.DTA:</b> ${escapeHtml(state.masterStatus || 'pending')}</p>
+        </article>
+      </div>
+    `;
     const rowHtml = rows.map(([label, value], idx) => `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
     `).join('');
     return `
+      ${cards}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <tr class="thc"><th>Parameter</th><th>Value</th></tr>
         ${rowHtml}

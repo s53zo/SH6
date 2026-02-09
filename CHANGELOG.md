@@ -2,6 +2,15 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.19 (2026-02-09)
+- Table hardening: eliminate page-level horizontal overflow across all menus and extend wrapper coverage to wide matrix tables (including Fields map).
+- Table context: add sticky report headers plus sticky key columns for long/wide reports (`Log`, minute matrices, Countries, Countries by time, Continents, Beam heading family).
+- Long-report orientation: add quick-jump toolbar (`Top / section / Bottom`) for heavy reports and introduce tall table containers with internal vertical scroll to keep context visible.
+- Coach + spots flow: standardize `Step 1..4` interaction order across `Competitor coach`, `Spots`, and `RBN spots` (filters → summary → primary table → advanced diagnostics).
+- Spots actions: normalize coach action wording to explicit jump actions (`Jump to ...`) for faster navigation.
+- Utility pages: redesign `EXPORT PDF, HTML, CBR` and `Save&Load session` into clearer action-first layouts with structured notes.
+- SH6 info: add compact diagnostics cards (build, loaded log, performance hotspot, data file status) above detailed parameter table.
+
 ## v5.1.18 (2026-02-08)
 - NT compare workspace: add sticky compare toolbar with slot context, sync/sticky toggles, and quick report jump actions.
 - NT compare insights: add score/QSO/multiplier spread chips to speed up first-pass compare decisions.

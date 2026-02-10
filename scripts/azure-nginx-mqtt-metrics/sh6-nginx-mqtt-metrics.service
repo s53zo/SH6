@@ -1,0 +1,20 @@
+[Unit]
+Description=SH6 nginx usage metrics -> MQTT publisher
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sh6-nginx-mqtt-metrics.env
+ExecStart=/usr/bin/python3 /opt/SH6/nginx-mqtt-metrics/sh6_nginx_mqtt_metrics.py
+Restart=always
+RestartSec=2
+
+# We need access to journald logs; simplest is root.
+User=root
+
+# Reduce noisy restarts if broker is down.
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

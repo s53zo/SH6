@@ -10897,7 +10897,14 @@
       return;
     }
     const windowKey = buildSpotWindowKey(minTs, maxTs);
-    if (rbnState.status === 'ready' && rbnState.lastWindowKey === windowKey && rbnState.lastCall === call) {
+    const days = selectRbnDaysForSlot(slot, minTs, maxTs);
+    const daysKey = (days || []).join(',');
+    if (
+      rbnState.status === 'ready'
+      && rbnState.lastWindowKey === windowKey
+      && rbnState.lastCall === call
+      && String(rbnState.lastDaysKey || '') === daysKey
+    ) {
       renderActiveReport();
       return;
     }
@@ -10907,7 +10914,6 @@
     rbnState.stats = null;
     updateDataStatus();
     renderActiveReport();
-    const days = selectRbnDaysForSlot(slot, minTs, maxTs);
     const qsoIndex = buildQsoTimeIndex(slot.qsoData.qsos);
     const qsoCallIndex = buildQsoCallIndex(slot.qsoData.qsos);
     try {
@@ -10918,6 +10924,7 @@
       rbnState.error = null;
       rbnState.lastWindowKey = windowKey;
       rbnState.lastCall = call;
+      rbnState.lastDaysKey = daysKey;
       rbnState.totalScanned = data.total || data.scanned || 0;
       rbnState.errors = Array.isArray(data.errors) ? data.errors : [];
       rbnState.totalOfUs = Number.isFinite(data.totalOfUs) ? data.totalOfUs : ofUsSpots.length;
@@ -12294,7 +12301,6 @@
           <span><b>${escapeHtml(fileListLabel)}</b>: ${dayList || 'N/A'}</span>
         </div>
         <div class="export-actions">
-          <button type="button" class="button spots-load-btn" data-slot="${slotAttr}" data-source="${sourceAttr}">${escapeHtml(loadLabel)}</button>
           <span>${statusText}</span>
         </div>
         ${truncatedNote ? `<div class="export-actions export-note">${escapeHtml(truncatedNote)}</div>` : ''}
@@ -13366,11 +13372,8 @@
     const rbnControls = loaded.map((entry) => {
       const status = mapSpotStatus(entry.slot?.rbnState?.status || 'idle');
       const statusText = status === 'ready' ? 'ready' : (status === 'loading' ? 'loading' : (status === 'error' ? 'error' : 'idle'));
-      return `
-        <button type="button" class="button spots-load-btn" data-source="rbn" data-slot="${escapeAttr(entry.id)}">Load RBN (${escapeHtml(entry.label)})</button>
-        <span class="cqapi-muted">${escapeHtml(statusText)}</span>
-      `;
-    }).join(' ');
+      return `<span class="cqapi-muted">${escapeHtml(entry.label)} RBN: ${escapeHtml(statusText)}</span>`;
+    }).join(' · ');
 
     const warning = (() => {
       const minTs = state.derived?.timeRange?.minTs;
@@ -16296,13 +16299,8 @@
   }
 
   function renderCompareInsightStrip(slotEntries, currentReportId) {
-    const quickLinks = [
-      { report: 'rates', label: 'Open Rates' },
-    ].filter((entry) => entry.report !== currentReportId)
-      .map((entry) => `<button type="button" class="compare-workspace-jump" data-compare-jump="${escapeAttr(entry.report)}">${escapeHtml(entry.label)}</button>`)
-      .join('');
-    if (!quickLinks) return '';
-    return `<div class="compare-insight-strip"><div class="compare-insight-jumps">${quickLinks}</div></div>`;
+    // Keep "Compare workspace" header informational only (no buttons).
+    return '';
   }
 
   function estimateReportRows(reportId, derived) {
@@ -17321,18 +17319,21 @@
       loadTargets.forEach((entry) => {
         if (!entry.slot?.derived || !entry.slot?.qsoData) return;
         const spotState = getSpotStateBySource(entry.slot, source);
-        if (spotState.status === 'idle' || spotState.status === 'error') {
-          loadSpotsForSource(entry.slot, source);
+        // Auto-load/reload when needed; avoid calling when already current to prevent render loops.
+        const call = String(entry.slot?.derived?.contestMeta?.stationCallsign || '').toUpperCase();
+        const minTs = entry.slot?.derived?.timeRange?.minTs;
+        const maxTs = entry.slot?.derived?.timeRange?.maxTs;
+        const windowKey = (Number.isFinite(minTs) && Number.isFinite(maxTs)) ? buildSpotWindowKey(minTs, maxTs) : '';
+        let needs = spotState.status === 'idle' || spotState.status === 'error';
+        if (!needs && call && windowKey) {
+          needs = spotState.status !== 'ready' || spotState.lastCall !== call || spotState.lastWindowKey !== windowKey;
+          if (!needs && source === 'rbn') {
+            const days = selectRbnDaysForSlot(entry.slot, minTs, maxTs);
+            const daysKey = (days || []).join(',');
+            needs = String(spotState.lastDaysKey || '') !== daysKey;
+          }
         }
-      });
-      const buttons = document.querySelectorAll(`.spots-load-btn[data-source="${source}"]`);
-      buttons.forEach((btn) => {
-        btn.addEventListener('click', (evt) => {
-          evt.preventDefault();
-          const slotId = btn.dataset.slot || 'A';
-          const slot = getSlotById(slotId) || state;
-          loadSpotsForSource(slot, source);
-        });
+        if (needs) loadSpotsForSource(entry.slot, source);
       });
       const windowInputs = document.querySelectorAll(`.spots-window[data-source="${source}"]:not([data-shared="1"])`);
       windowInputs.forEach((input) => {
@@ -17488,7 +17489,8 @@
             const slot = getSlotById(slotId) || state;
             const rbnState = getSpotStateBySource(slot, 'rbn');
             rbnState.selectedDays = scoped.map((s) => s.value).filter(Boolean).slice(0, 2);
-            renderActiveReport();
+            // Immediately reload RBN spots for the newly selected days.
+            loadSpotsForSource(slot, 'rbn');
           });
         });
       }

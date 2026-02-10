@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.1.20';
+  const APP_VERSION = 'v5.1.21';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -12740,6 +12740,22 @@
     return '●';
   }
 
+  function slotLineDash(slotId) {
+    const id = String(slotId || 'A').toUpperCase();
+    if (id === 'B') return [8, 6];
+    if (id === 'C') return [2, 5];
+    if (id === 'D') return [10, 5, 2, 5];
+    return [];
+  }
+
+  function slotLineStyleLabel(slotId) {
+    const id = String(slotId || 'A').toUpperCase();
+    if (id === 'B') return 'dashed';
+    if (id === 'C') return 'dotted';
+    if (id === 'D') return 'dash-dot';
+    return 'solid';
+  }
+
   function formatUtcTick(ts) {
     if (!Number.isFinite(ts)) return '';
     const d = new Date(ts);
@@ -12845,34 +12861,43 @@
       }
     };
 
+    const trendBreakMs = 15 * 60 * 1000;
     // Optional trendlines (subtle).
     const trendlines = Array.isArray(model.trendlines) ? model.trendlines : [];
     if (trendlines.length) {
       ctx.save();
-      ctx.globalAlpha = 0.35;
-      ctx.lineWidth = 1.6;
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = 1.8;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
       trendlines.forEach((t) => {
         const data = Array.isArray(t?.data) ? t.data : [];
         if (data.length < 4) return;
         ctx.strokeStyle = t.color || bandColorForChart(t.band);
+        ctx.lineWidth = Number.isFinite(t.width) ? t.width : 1.8;
+        ctx.setLineDash(Array.isArray(t.dash) ? t.dash : []);
         ctx.beginPath();
         let started = false;
+        let prevTs = null;
         for (let i = 0; i < data.length; i += 2) {
           const ts = data[i];
           const snr = data[i + 1];
           if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
           const x = xOf(ts);
           const y = yOf(snr);
-          if (!started) {
+          const shouldBreak = started && Number.isFinite(prevTs) && (ts - prevTs) > trendBreakMs;
+          if (!started || shouldBreak) {
+            if (started) ctx.stroke();
+            ctx.beginPath();
             ctx.moveTo(x, y);
             started = true;
           } else {
             ctx.lineTo(x, y);
           }
+          prevTs = ts;
         }
         if (started) ctx.stroke();
+        ctx.setLineDash([]);
       });
       ctx.restore();
     }
@@ -13012,8 +13037,6 @@
       let minY = null;
       let maxY = null;
       const series = [];
-      const trendBins = 72;
-      const trendAgg = new Map(); // band -> { sum: Float64Array, cnt: Uint32Array }
       let pointTotal = 0;
       slots.forEach((entry) => {
         const slotId = entry.id;
@@ -13034,9 +13057,8 @@
           const sampled = sampleFlatStrideSeeded(raw, perSlotCap, seed);
           if (!sampled.length) return;
           pointTotal += Math.floor(sampled.length / 2);
-          series.push({ band: bandKey, shape, color: bandColorForChart(bandKey), data: sampled });
+          series.push({ band: bandKey, slotId, shape, color: bandColorForChart(bandKey), data: sampled });
           bandsPlotted.add(bandKey);
-          if (!trendAgg.has(bandKey)) trendAgg.set(bandKey, { sum: new Float64Array(trendBins), cnt: new Uint32Array(trendBins) });
           for (let i = 1; i < sampled.length; i += 2) {
             const snr = sampled[i];
             if (!Number.isFinite(snr)) continue;
@@ -13044,16 +13066,6 @@
             maxSnr = maxSnr == null ? snr : Math.max(maxSnr, snr);
             minY = minY == null ? snr : Math.min(minY, snr);
             maxY = maxY == null ? snr : Math.max(maxY, snr);
-          }
-          for (let i = 0; i < sampled.length; i += 2) {
-            const ts = sampled[i];
-            const snr = sampled[i + 1];
-            if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
-            const pos = (ts - safeMinTs) / Math.max(1, (safeMaxTs - safeMinTs));
-            const bin = Math.max(0, Math.min(trendBins - 1, Math.floor(pos * trendBins)));
-            const agg = trendAgg.get(bandKey);
-            agg.sum[bin] += snr;
-            agg.cnt[bin] += 1;
           }
           return;
         }
@@ -13066,9 +13078,8 @@
           const sampled = sampleFlatStrideSeeded(raw, cap, seed);
           if (!sampled.length) return;
           pointTotal += Math.floor(sampled.length / 2);
-          series.push({ band, shape, color: bandColorForChart(band), data: sampled });
+          series.push({ band, slotId, shape, color: bandColorForChart(band), data: sampled });
           bandsPlotted.add(band);
-          if (!trendAgg.has(band)) trendAgg.set(band, { sum: new Float64Array(trendBins), cnt: new Uint32Array(trendBins) });
           for (let i = 1; i < sampled.length; i += 2) {
             const snr = sampled[i];
             if (!Number.isFinite(snr)) continue;
@@ -13076,16 +13087,6 @@
             maxSnr = maxSnr == null ? snr : Math.max(maxSnr, snr);
             minY = minY == null ? snr : Math.min(minY, snr);
             maxY = maxY == null ? snr : Math.max(maxY, snr);
-          }
-          for (let i = 0; i < sampled.length; i += 2) {
-            const ts = sampled[i];
-            const snr = sampled[i + 1];
-            if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
-            const pos = (ts - safeMinTs) / Math.max(1, (safeMaxTs - safeMinTs));
-            const bin = Math.max(0, Math.min(trendBins - 1, Math.floor(pos * trendBins)));
-            const agg = trendAgg.get(band);
-            agg.sum[bin] += snr;
-            agg.cnt[bin] += 1;
           }
         });
       });
@@ -13103,29 +13104,47 @@
 
       const titleBand = bandKey ? formatBandLabel(bandKey) : 'All bands';
       const title = `${continent} · ${selectedSpotter} · ${titleBand}`;
-      const trendlines = sortBands(Array.from(trendAgg.keys())).map((band) => {
-        const agg = trendAgg.get(band);
-        if (!agg) return null;
-        const data = [];
-        // 3-bin weighted smoothing.
-        for (let i = 0; i < trendBins; i += 1) {
-          const c0 = agg.cnt[i] || 0;
-          if (!c0) continue;
-          const prev = i > 0 ? i - 1 : i;
-          const next = i < trendBins - 1 ? i + 1 : i;
-          const cPrev = agg.cnt[prev] || 0;
-          const cNext = agg.cnt[next] || 0;
-          const sPrev = agg.sum[prev] || 0;
-          const s0 = agg.sum[i] || 0;
-          const sNext = agg.sum[next] || 0;
-          const wSum = sPrev + s0 + sNext;
-          const wCnt = cPrev + c0 + cNext;
-          if (!wCnt) continue;
-          const ts = safeMinTs + ((i + 0.5) / trendBins) * (safeMaxTs - safeMinTs);
-          data.push(ts, wSum / wCnt);
+      const bucketMs = 5 * 60 * 1000;
+      const trendBins = Math.max(1, Math.ceil((safeMaxTs - safeMinTs) / bucketMs));
+      const p75 = (values) => {
+        if (!values || !values.length) return null;
+        values.sort((a, b) => a - b);
+        const n = values.length;
+        const idx = Math.max(0, Math.min(n - 1, Math.floor(0.75 * (n - 1))));
+        return values[idx];
+      };
+      const trendlines = series.map((s) => {
+        const data = Array.isArray(s?.data) ? s.data : [];
+        const slotId = String(s?.slotId || 'A').toUpperCase();
+        const band = normalizeBandToken(s?.band || '');
+        if (!data.length || !band) return null;
+        const bins = Array.from({ length: trendBins }, () => []);
+        for (let i = 0; i < data.length; i += 2) {
+          const ts = data[i];
+          const snr = data[i + 1];
+          if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+          const bin = Math.floor((ts - safeMinTs) / bucketMs);
+          if (bin < 0 || bin >= trendBins) continue;
+          bins[bin].push(snr);
         }
-        if (data.length < 6) return null;
-        return { band, color: bandColorForChart(band), data };
+        const points = [];
+        for (let i = 0; i < trendBins; i += 1) {
+          const vals = bins[i];
+          if (!vals || vals.length < 3) continue;
+          const v = p75(vals);
+          if (!Number.isFinite(v)) continue;
+          const ts = safeMinTs + (i + 0.5) * bucketMs;
+          points.push(ts, v);
+        }
+        if (points.length < 6) return null;
+        return {
+          slotId,
+          band,
+          color: s.color || bandColorForChart(band),
+          dash: slotLineDash(slotId),
+          width: slotId === 'A' ? 2.1 : 1.7,
+          data: points
+        };
       }).filter(Boolean);
       drawRbnSignalCanvas(canvas, {
         title,
@@ -13216,7 +13235,8 @@
       const call = normalizeCall(entry.slot?.derived?.contestMeta?.stationCallsign || '');
       const label = call || entry.label || `Log ${entry.id}`;
       const sym = slotMarkerSymbol(entry.id);
-      return `<span class="rbn-slot-legend-item"><b>${escapeHtml(label)}</b> ${sym}</span>`;
+      const style = slotLineStyleLabel(entry.id);
+      return `<span class="rbn-slot-legend-item"><b>${escapeHtml(label)}</b> ${sym} <span class="rbn-slot-legend-style">(${escapeHtml(style)})</span></span>`;
     }).join('');
 
     const rbnControls = loaded.map((entry) => {

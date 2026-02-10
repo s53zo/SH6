@@ -681,6 +681,11 @@ a:hover {
   gap: 6px;
 }
 
+.rbn-slot-legend-style {
+  font-weight: 600;
+  color: #3a5f91;
+}
+
 .log-panel {
   margin-top: 10px;
   padding: 10px 11px;

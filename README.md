@@ -1,11 +1,11 @@
 # SH6 Contest Report (client-side)
 
-Use online: https://s53zo.github.io/SH6/
+Use online: https://s53m.com/SH6/
 
 SH6 is a static HTML/JS app that parses contest logs in your browser, fetches `cty.dat` and `MASTER.DTA`, and renders SH-style analysis reports. There is no required app backend for core reporting.
 
 ## Quick start
-- Open https://s53zo.github.io/SH6/
+- Open https://s53m.com/SH6/
 - On **START**, choose compare mode (1-4 logs)
 - Load logs by:
   - Upload / drag-and-drop

@@ -136,6 +136,7 @@
   const ARCHIVE_BASE_URL = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main';
   const ARCHIVE_SHARD_BASE = 'https://cdn.jsdelivr.net/gh/s53zo/Hamradio-Contest-logs-Archives@main/SH6';
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
+  const PERMALINK_BASE_URL = 'https://s53m.com/SH6/';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SCORING_SPEC_URLS = [
@@ -864,7 +865,8 @@
   function buildPermalink() {
     const payload = buildSessionPayload(false);
     const encoded = encodePermalinkState(payload);
-    const url = new URL(window.location.href);
+    // Always use the canonical public URL for sharing, regardless of where the app is opened from.
+    const url = new URL(PERMALINK_BASE_URL);
     url.searchParams.set('state', encoded);
     url.hash = '';
     return url.toString();

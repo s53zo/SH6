@@ -3,3 +3,7 @@
 *.swo
 *~
 favicon-256.png
+
+# Python
+__pycache__/
+*.pyc

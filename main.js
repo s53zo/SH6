@@ -13322,14 +13322,26 @@
 
     const rankingCached = base ? getRbnCompareRankingCached(base.id, base.slot, bandKey) : null;
     const byContinent = rankingCached?.byContinent || new Map();
-    const cards = contOrder.map((cont) => {
+    const baseReady = base?.slot?.rbnState?.status === 'ready';
+
+    // Sort continent cards by spot volume (for this band filter), descending.
+    const contSorted = contOrder.map((cont, orderIndex) => {
       const list = byContinent.get(cont) || [];
+      const topCount = list[0]?.count || 0;
+      return { cont, list, topCount, orderIndex };
+    }).sort((a, b) => (b.topCount - a.topCount) || (a.orderIndex - b.orderIndex));
+
+    const cards = contSorted.map(({ cont, list }) => {
       if (!list.length) {
+        const contLabel = escapeHtml(continentLabel(cont) || cont);
+        const statusMsg = baseReady
+          ? `No RBN spots found for ${contLabel}.`
+          : 'Load RBN spots to populate charts.';
         return `
           <article class="rbn-signal-card">
             <div class="rbn-signal-head">
-              <h4>${escapeHtml(continentLabel(cont) || cont)} top skimmer</h4>
-              <span class="cqapi-muted">${base?.slot?.rbnState?.status === 'ready' ? 'No RBN spots found.' : 'Load RBN spots to populate charts.'}</span>
+              <h4>${contLabel} top skimmer</h4>
+              <span class="cqapi-muted">${statusMsg}</span>
             </div>
             <label class="rbn-signal-picker">
               <span>Skimmer</span>

@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.14 (2026-02-10)
+- Merge UI_UX_NT into main: UI/UX refresh across tables/navigation/compare workspace, plus new RBN compare signal report with fast rendering and improved legends/trendlines.
+
 ## v5.1.20 (2026-02-10)
 - RBN compare signal: show continental skimmer charts as full-width stacked panels.
 - RBN compare signal: use stronger band colors and display log callsigns in the marker legend.

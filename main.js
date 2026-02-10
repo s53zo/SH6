@@ -256,6 +256,9 @@
       stats: null,
       lastWindowKey: null,
       lastCall: null,
+      lastDaysKey: null, // RBN only: selected day(s) key to validate cached data.
+      lastErrorKey: null,
+      lastErrorAt: 0,
       windowMinutes: 15,
       bandFilter: [],
       raw: null,
@@ -10791,7 +10794,33 @@
     if (days && days.length) params.set('days', days.join(','));
     const url = `${RBN_PROXY_URL}?${params.toString()}`;
     const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (res.status === 404) {
+      // Treat "not found" as an empty dataset; some calls/days simply have no RBN coverage.
+      return {
+        call: String(call || ''),
+        days: Array.isArray(days) ? days.slice() : [],
+        total: 0,
+        totalOfUs: 0,
+        totalByUs: 0,
+        capPerSide: 0,
+        truncatedOfUs: false,
+        truncatedByUs: false,
+        ofUsSpots: [],
+        byUsSpots: [],
+        errors: [],
+        notFound: true
+      };
+    }
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        const body = await res.json();
+        if (body && typeof body === 'object' && body.error) msg = String(body.error);
+      } catch (err) {
+        // ignore parse failures
+      }
+      throw new Error(msg);
+    }
     const data = await res.json();
     if (!data || typeof data !== 'object') throw new Error('Invalid RBN response');
     return data;
@@ -10800,7 +10829,7 @@
   async function loadSpotsForCurrentLog(slot = state) {
     const spotsState = ensureSpotsState(slot);
     if (!slot.derived || !slot.qsoData) return;
-    const call = String(slot.derived.contestMeta?.stationCallsign || '').toUpperCase();
+    const call = normalizeCall(slot.derived.contestMeta?.stationCallsign || '');
     const minTs = slot.derived.timeRange?.minTs;
     const maxTs = slot.derived.timeRange?.maxTs;
     if (!call || !Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
@@ -10810,12 +10839,24 @@
       return;
     }
     const windowKey = buildSpotWindowKey(minTs, maxTs);
+    const attemptKey = `${call}|${windowKey}`;
+    const now = Date.now();
+    if (
+      spotsState.status === 'error'
+      && String(spotsState.lastErrorKey || '') === attemptKey
+      && (now - Number(spotsState.lastErrorAt || 0)) < 60000
+    ) {
+      // Avoid rapid retry loops on stable errors (e.g., missing files).
+      return;
+    }
     if (spotsState.status === 'ready' && spotsState.lastWindowKey === windowKey && spotsState.lastCall === call) {
       renderActiveReport();
       return;
     }
     spotsState.status = 'loading';
     spotsState.error = null;
+    spotsState.lastErrorKey = null;
+    spotsState.lastErrorAt = 0;
     spotsState.errors = [];
     spotsState.stats = null;
     updateDataStatus();
@@ -10879,6 +10920,8 @@
     } catch (err) {
       spotsState.status = 'error';
       spotsState.error = err && err.message ? err.message : 'Failed to load spots.';
+      spotsState.lastErrorKey = attemptKey;
+      spotsState.lastErrorAt = Date.now();
     }
     updateDataStatus();
     renderActiveReport();
@@ -10887,7 +10930,7 @@
   async function loadRbnForCurrentLog(slot = state) {
     const rbnState = ensureRbnState(slot);
     if (!slot.derived || !slot.qsoData) return;
-    const call = String(slot.derived.contestMeta?.stationCallsign || '').toUpperCase();
+    const call = normalizeCall(slot.derived.contestMeta?.stationCallsign || '');
     const minTs = slot.derived.timeRange?.minTs;
     const maxTs = slot.derived.timeRange?.maxTs;
     if (!call || !Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
@@ -10899,6 +10942,16 @@
     const windowKey = buildSpotWindowKey(minTs, maxTs);
     const days = selectRbnDaysForSlot(slot, minTs, maxTs);
     const daysKey = (days || []).join(',');
+    const attemptKey = `${call}|${windowKey}|${daysKey}`;
+    const now = Date.now();
+    if (
+      rbnState.status === 'error'
+      && String(rbnState.lastErrorKey || '') === attemptKey
+      && (now - Number(rbnState.lastErrorAt || 0)) < 60000
+    ) {
+      // Avoid rapid retry loops on stable errors.
+      return;
+    }
     if (
       rbnState.status === 'ready'
       && rbnState.lastWindowKey === windowKey
@@ -10910,6 +10963,8 @@
     }
     rbnState.status = 'loading';
     rbnState.error = null;
+    rbnState.lastErrorKey = null;
+    rbnState.lastErrorAt = 0;
     rbnState.errors = [];
     rbnState.stats = null;
     updateDataStatus();
@@ -10940,6 +10995,8 @@
     } catch (err) {
       rbnState.status = 'error';
       rbnState.error = err && err.message ? err.message : 'Failed to load RBN spots.';
+      rbnState.lastErrorKey = attemptKey;
+      rbnState.lastErrorAt = Date.now();
     }
     updateDataStatus();
     renderActiveReport();
@@ -17320,7 +17377,7 @@
         if (!entry.slot?.derived || !entry.slot?.qsoData) return;
         const spotState = getSpotStateBySource(entry.slot, source);
         // Auto-load/reload when needed; avoid calling when already current to prevent render loops.
-        const call = String(entry.slot?.derived?.contestMeta?.stationCallsign || '').toUpperCase();
+        const call = normalizeCall(entry.slot?.derived?.contestMeta?.stationCallsign || '');
         const minTs = entry.slot?.derived?.timeRange?.minTs;
         const maxTs = entry.slot?.derived?.timeRange?.maxTs;
         const windowKey = (Number.isFinite(minTs) && Number.isFinite(maxTs)) ? buildSpotWindowKey(minTs, maxTs) : '';
@@ -17331,6 +17388,17 @@
             const days = selectRbnDaysForSlot(entry.slot, minTs, maxTs);
             const daysKey = (days || []).join(',');
             needs = String(spotState.lastDaysKey || '') !== daysKey;
+          }
+        }
+        if (needs && spotState.status === 'error' && call && windowKey) {
+          const now = Date.now();
+          const errorKey = source === 'rbn'
+            ? `${call}|${windowKey}|${(selectRbnDaysForSlot(entry.slot, minTs, maxTs) || []).join(',')}`
+            : `${call}|${windowKey}`;
+          const lastKey = String(spotState.lastErrorKey || '');
+          const lastAt = Number(spotState.lastErrorAt || 0);
+          if (lastKey === errorKey && (now - lastAt) < 60000) {
+            needs = false;
           }
         }
         if (needs) loadSpotsForSource(entry.slot, source);

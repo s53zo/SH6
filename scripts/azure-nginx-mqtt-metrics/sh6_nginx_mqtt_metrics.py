@@ -42,6 +42,7 @@ def _env_str(name: str, default: str) -> str:
 class MetricAgg:
     count: int = 0
     bytes_out: int = 0
+    items: int = 0
     rt_sum_ms: float = 0.0
     rt_samples_ms: List[float] = None  # small bounded reservoir
 
@@ -94,6 +95,9 @@ def _route_group_and_family(uri: str) -> Tuple[str, str]:
     if u.startswith("/cors/qrz"):
         return ("lookup", "qrz")
 
+    if u.startswith("/sh6/lookup") or u.startswith("/lookup"):
+        return ("lookup", "sh6_lookup")
+
     if u == "/cors/cty.dat":
         return ("static", "cty")
 
@@ -102,6 +106,15 @@ def _route_group_and_family(uri: str) -> Tuple[str, str]:
 
     if u.startswith("/spots/"):
         return ("spots", "spots_file")
+
+    if u == "/livescore":
+        return ("livescore", "livescore")
+
+    if u == "/livescore-pilot":
+        return ("livescore", "livescore_pilot")
+
+    if u.startswith("/reports/"):
+        return ("reports", "reports")
 
     if u.startswith("/SH6/") or u == "/" or u.startswith("/assets/"):
         return ("static", "site")
@@ -234,6 +247,7 @@ def main() -> int:
                 "status": status,
                 "count": m.count,
                 "bytes_out": m.bytes_out,
+                "items": m.items,
                 "rt_avg_ms": round(rt_avg_ms, 2),
             }
             if rt_p95_ms is not None:
@@ -282,6 +296,7 @@ def main() -> int:
                 status_raw = ev.get("status")
                 bytes_raw = ev.get("bytes")
                 rt_raw = ev.get("rt")
+                items_raw = ev.get("items")
 
                 try:
                     status = int(status_raw)
@@ -290,6 +305,16 @@ def main() -> int:
                 except Exception:
                     dropped += 1
                     continue
+
+                # Upstream can optionally send X-SH6-Items (captured into the log as "items").
+                items = 0
+                try:
+                    if items_raw is not None:
+                        s = str(items_raw).strip()
+                        if s and s != "-":
+                            items = int(float(s))
+                except Exception:
+                    items = 0
 
                 route_group, endpoint_family = _route_group_and_family(uri)
                 sb = _status_bucket(status)
@@ -302,6 +327,7 @@ def main() -> int:
 
                 m.count += 1
                 m.bytes_out += max(0, bytes_out)
+                m.items += max(0, items)
 
                 rt_ms = max(0.0, rt_s * 1000.0)
                 m.rt_sum_ms += rt_ms

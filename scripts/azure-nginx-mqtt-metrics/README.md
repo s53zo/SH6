@@ -30,6 +30,7 @@ Payload:
       "status": "2xx",
       "count": 87,
       "bytes_out": 123456,
+      "items": 45475,
       "rt_avg_ms": 28.4,
       "rt_p95_ms": 62.1
     }
@@ -37,11 +38,14 @@ Payload:
 }
 ```
 
+Notes:
+- `items` is optional and comes from upstream response header `X-SH6-Items` (captured by nginx).
+
 ## Nginx JSON access log requirement
 nginx needs to emit JSON access lines that look like:
 
 ```json
-{"ts":"2026-02-10T22:40:12+00:00","method":"GET","uri":"/cors/rbn","status":200,"bytes":1234,"rt":0.042,"host":"azure.s53m.com"}
+{"ts":"2026-02-10T22:40:12+00:00","method":"GET","uri":"/cors/rbn","status":200,"bytes":1234,"rt":0.042,"host":"azure.s53m.com","items":"45475"}
 ```
 
 Recommended snippet (place in the `http {}` block):
@@ -54,7 +58,8 @@ log_format sh6_json escape=json '{'
   '"status":$status,'
   '"bytes":$body_bytes_sent,'
   '"rt":$request_time,'
-  '"host":"$host"'
+  '"host":"$host",'
+  '"items":"$sent_http_x_sh6_items"'
 '}';
 ```
 

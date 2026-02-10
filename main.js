@@ -13312,7 +13312,8 @@
       return '';
     })();
 
-    const contOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC', 'N/A'];
+    // Hide unknown-continent ("N/A") cards to avoid rendering "N/A top skimmer".
+    const contOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
     const selections = (state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object')
       ? state.rbnCompareSignal
       : { selectedByContinent: {} };

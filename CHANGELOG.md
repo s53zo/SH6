@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.20 (2026-02-10)
+- Cache busting: load `main.js` and `style.css` with a `?v=` query param so browsers pick up new releases immediately.
+
 ## v5.2.19 (2026-02-10)
 - CQ API: disable `raw/.../callsign/...` requests for contests that don't support the endpoint (prevents HTTP 400 noise on CQWPX/CQ160, etc.).
 

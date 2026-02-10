@@ -34,16 +34,16 @@
     { id: 'zones_itu', title: 'ITU zones' },
     { id: 'not_in_master', title: 'Not in master' },
     { id: 'possible_errors', title: 'Possible errors' },
-    { id: 'charts', title: 'Charts' },
-    { id: 'charts_top_10_countries', title: 'Top 10 countries', parentId: 'charts' },
-    { id: 'charts_qs_by_band', title: 'Qs by band', parentId: 'charts' },
-    { id: 'charts_continents', title: 'Continents', parentId: 'charts' },
-    { id: 'charts_frequencies', title: 'Frequencies', parentId: 'charts' },
-    { id: 'charts_beam_heading', title: 'Beam heading', parentId: 'charts' },
-    { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour', parentId: 'charts' },
+    { id: 'charts_top_10_countries', title: 'Top 10 countries' },
+    { id: 'charts_qs_by_band', title: 'Qs by band' },
+    { id: 'charts_continents', title: 'Continents' },
+    { id: 'charts_frequencies', title: 'Frequencies' },
+    { id: 'charts_beam_heading', title: 'Beam heading' },
+    { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' },
     { id: 'comments', title: 'Comments' },
     { id: 'spots', title: 'Spots' },
     { id: 'rbn_spots', title: 'RBN spots' },
+    { id: 'rbn_compare_signal', title: 'RBN compare signal' },
     { id: 'export', title: 'EXPORT PDF, HTML, CBR' },
     { id: 'session', title: 'Save&Load session' },
     { id: 'qsl_labels', title: 'QSL labels' },
@@ -102,7 +102,6 @@
     possible_errors: 'quality_review',
     comments: 'quality_review',
 
-    charts: 'maps_charts',
     charts_top_10_countries: 'maps_charts',
     charts_qs_by_band: 'maps_charts',
     charts_continents: 'maps_charts',
@@ -113,6 +112,7 @@
     competitor_coach: 'spots_coach',
     spots: 'spots_coach',
     rbn_spots: 'spots_coach',
+    rbn_compare_signal: 'spots_coach',
     spot_hunter: 'spots_coach',
 
     export: 'export_tools',
@@ -223,7 +223,8 @@
     'session',
     'charts',
     'qsl_labels',
-    'competitor_coach'
+    'competitor_coach',
+    'rbn_compare_signal'
   ]);
   const SESSION_VERSION = 1;
   const PERMALINK_COMPACT_PREFIX = 'v2.';
@@ -1097,6 +1098,8 @@
   const archiveRowsByCallCache = new Map();
   let archiveSqlLoader = null;
   let archiveSqlBaseUrl = null;
+  let rbnCompareSignalResizeObserver = null;
+  let rbnCompareSignalResizeRaf = 0;
 
   const base64UrlEncode = (value) => {
     const text = String(value == null ? '' : value);
@@ -1437,6 +1440,7 @@
   const renderers = {};
   let overlayNoticeTimer = null;
   let pendingDropFile = null;
+  let navStickyBottomBound = false;
 
   function initNavigation() {
     if (!dom.navList) return;
@@ -1564,6 +1568,44 @@
     updateNavHighlight();
     applyNavSearchFilter(state.navSearch || dom.navSearchInput?.value || '');
     updatePrevNextButtons();
+    bindNavStickyBottom();
+  }
+
+  function bindNavStickyBottom() {
+    if (navStickyBottomBound || !dom.navList) return;
+    navStickyBottomBound = true;
+    const scrollEl = dom.navList;
+    const bottomThresholdPx = 10;
+    let shouldStick = false;
+
+    const isNearBottom = () => {
+      // If content grows while the user is "pinned" to bottom, keep them pinned.
+      const remaining = scrollEl.scrollHeight - (scrollEl.scrollTop + scrollEl.clientHeight);
+      return remaining <= bottomThresholdPx;
+    };
+
+    // Capture (not bubble) so we observe summary clicks even when toggle doesn't bubble.
+    scrollEl.addEventListener('click', (evt) => {
+      const target = evt.target instanceof Element ? evt.target : null;
+      if (!target) return;
+      const summary = target.closest('summary');
+      if (!summary || !scrollEl.contains(summary)) return;
+      shouldStick = isNearBottom();
+    }, true);
+
+    scrollEl.addEventListener('toggle', (evt) => {
+      const details = evt.target;
+      if (!(details instanceof HTMLDetailsElement)) return;
+      if (!scrollEl.contains(details)) return;
+      if (!details.open) return;
+      if (!shouldStick) return;
+
+      // Run after layout updates so the new scrollHeight is reflected.
+      requestAnimationFrame(() => {
+        scrollEl.scrollTop = scrollEl.scrollHeight;
+        shouldStick = false;
+      });
+    }, true);
   }
 
   function applyNavSearchFilter(rawTerm = '') {
@@ -1994,6 +2036,13 @@
     return (call || '').trim().toUpperCase();
   }
 
+  function normalizeSpotterBase(call) {
+    const norm = normalizeCall(call || '');
+    if (!norm) return '';
+    // RBN skimmers often suffix callsign with "-#" (skimmer ID). We treat these as the same spotter base.
+    return norm.replace(/-\d+$/, '');
+  }
+
   function parseBandFromFreq(freqMHz) {
     if (!Number.isFinite(freqMHz)) return '';
     for (const band of BAND_DEFS) {
@@ -2106,50 +2155,56 @@
   }
 
   function buildReportsList() {
-    const bands = getDisplayBandList();
-    const countriesByTimeChildren = bands.map((band) => ({
-      id: `countries_by_time::${band}`,
-      title: `Countries by time - ${formatBandLabel(band)}`,
-      parentId: 'countries_by_time',
-      band
-    }));
-    const qsByHourChildren = bands.map((band) => ({
-      id: `graphs_qs_by_hour::${band}`,
-      title: `Qs by hour - ${formatBandLabel(band)}`,
-      parentId: 'graphs_qs_by_hour',
-      band
-    }));
-    const pointsByHourChildren = bands.map((band) => ({
-      id: `graphs_points_by_hour::${band}`,
-      title: `Points by hour - ${formatBandLabel(band)}`,
-      parentId: 'graphs_points_by_hour',
-      band
-    }));
     const list = [];
     BASE_REPORTS.forEach((r) => {
       list.push(r);
-      if (r.id === 'countries_by_time') {
-        list.push(...countriesByTimeChildren);
-      }
-      if (r.id === 'graphs_qs_by_hour') {
-        list.push(...qsByHourChildren);
-      }
-      if (r.id === 'graphs_points_by_hour') {
-        list.push(...pointsByHourChildren);
-      }
     });
     return list;
+  }
+
+  function resolveLegacyBandReportId(reportId) {
+    const raw = String(reportId || '');
+    if (!raw.includes('::')) return null;
+    const [baseId, band] = raw.split('::');
+    if (!baseId || !band) return null;
+    const allowed = new Set(['countries_by_time', 'graphs_qs_by_hour', 'graphs_points_by_hour']);
+    if (!allowed.has(baseId)) return null;
+    return { baseId, band };
+  }
+
+  function setActiveReportById(reportId, options = {}) {
+    const safeId = String(reportId || '');
+    if (safeId === 'charts') {
+      // Backward compat: older sessions/permalinks used a parent Charts menu.
+      return setActiveReportById('charts_qs_by_band', options);
+    }
+    const legacy = resolveLegacyBandReportId(safeId);
+    if (legacy) {
+      // Backward compat: old permalinks/sessions used per-band menu items.
+      state.globalBandFilter = legacy.band;
+      updateBandRibbon();
+      const baseIndex = reports.findIndex((r) => r.id === legacy.baseId);
+      if (baseIndex >= 0) return setActiveReport(baseIndex);
+    }
+    const idx = reports.findIndex((r) => r.id === safeId);
+    if (idx >= 0) return setActiveReport(idx);
+    return;
   }
 
   function rebuildReports() {
     const currentId = reports[state.activeIndex]?.id;
     reports = buildReportsList();
-    const newIndex = currentId ? reports.findIndex((r) => r.id === currentId) : -1;
-    if (newIndex >= 0) {
-      state.activeIndex = newIndex;
-    } else if (reports.length) {
-      state.activeIndex = Math.min(state.activeIndex, reports.length - 1);
+    let newIndex = currentId ? reports.findIndex((r) => r.id === currentId) : -1;
+    if (newIndex < 0 && currentId) {
+      const legacy = resolveLegacyBandReportId(currentId);
+      if (legacy) {
+        state.globalBandFilter = legacy.band;
+        updateBandRibbon();
+        newIndex = reports.findIndex((r) => r.id === legacy.baseId);
+      }
     }
+    if (newIndex >= 0) state.activeIndex = newIndex;
+    else if (reports.length) state.activeIndex = Math.min(state.activeIndex, reports.length - 1);
     initNavigation();
   }
 
@@ -2272,6 +2327,31 @@
       col += span;
     }
     return null;
+  }
+
+  function resolveHeaderGridForTable(table) {
+    if (!(table instanceof HTMLTableElement)) return null;
+    const rows = Array.from(table.rows || []);
+    if (!rows.length) return null;
+    const headerRows = [];
+    for (const row of rows) {
+      if (row && row.classList && row.classList.contains('thc')) headerRows.push(row);
+      else break;
+    }
+    if (!headerRows.length) return null;
+    const grid = buildHeaderGrid(headerRows);
+    const indexMap = new Map();
+    headerRows.forEach((row, idx) => indexMap.set(row, idx));
+    return { grid, indexMap };
+  }
+
+  function getCellByColumnWithHeaderGrid(row, colIndex, headerCtx) {
+    if (headerCtx && headerCtx.indexMap && headerCtx.indexMap.has(row)) {
+      const r = headerCtx.indexMap.get(row);
+      const hit = headerCtx.grid?.[r]?.[colIndex] || null;
+      if (hit) return hit;
+    }
+    return getCellByColumn(row, colIndex);
   }
 
   function normalizeSortText(text) {
@@ -2495,13 +2575,16 @@
 
   function resolveStickyColumnWidths(table, columnCount) {
     const rows = Array.from(table.rows || []);
+    const headerCtx = resolveHeaderGridForTable(table);
     const widths = [];
     for (let col = 0; col < columnCount; col += 1) {
       let width = 0;
       const sampleRows = rows.slice(0, 60);
       sampleRows.forEach((row) => {
-        const cell = getCellByColumn(row, col);
+        const cell = getCellByColumnWithHeaderGrid(row, col, headerCtx);
         if (!(cell instanceof HTMLTableCellElement)) return;
+        // Ignore spanning cells (footer/separator rows) when sizing sticky columns.
+        if ((cell.colSpan || 1) !== 1) return;
         const measured = Math.ceil(cell.getBoundingClientRect().width || cell.offsetWidth || 0);
         if (measured > width) width = measured;
       });
@@ -2514,6 +2597,7 @@
     const count = Math.max(0, Math.min(4, columnCount || 0));
     if (!count) return;
     const widths = resolveStickyColumnWidths(table, count);
+    const headerCtx = resolveHeaderGridForTable(table);
     const offsets = [];
     let left = 0;
     for (let i = 0; i < widths.length; i += 1) {
@@ -2526,8 +2610,9 @@
     rows.forEach((row) => {
       const seen = new Set();
       for (let col = 0; col < count; col += 1) {
-        const cell = getCellByColumn(row, col);
+        const cell = getCellByColumnWithHeaderGrid(row, col, headerCtx);
         if (!(cell instanceof HTMLTableCellElement)) continue;
+        if ((cell.colSpan || 1) !== 1) continue;
         if (seen.has(cell)) continue;
         seen.add(cell);
         const stickyClass = `sticky-col-${col + 1}`;
@@ -2824,8 +2909,9 @@
     return `<a href="#" class="map-link map-all" data-scope="all" data-key="">${label}</a>`;
   }
 
-  function mapAllFooter() {
-    return `<tr class="map-all-row"><td colspan="100" class="tar">${mapAllLink()}</td></tr>`;
+  function mapAllFooter(columnCount = 1) {
+    const cols = Math.max(1, Number(columnCount) || 1);
+    return `<tr class="map-all-row"><td colspan="${cols}" class="tar">${mapAllLink()}</td></tr>`;
   }
 
   const dateFormatCache = new Map();
@@ -4583,21 +4669,25 @@
     let sum = 0;
     let min = null;
     let max = null;
-    const histogram = new Map(); // bucket (0-1000,1000-2000, etc) -> count
+    const histogram = new Map(); // bucket (0-1000,1000-2000, etc) -> {count, bands:Map}
     return {
-      add(d) {
+      add(d, band) {
         if (!Number.isFinite(d)) return;
         count += 1;
         sum += d;
         if (min == null || d < min) min = d;
         if (max == null || d > max) max = d;
-      const bucket = Math.floor(d / 1000) * 1000;
-      histogram.set(bucket, (histogram.get(bucket) || 0) + 1);
-    },
+        const bucket = Math.floor(d / 1000) * 1000;
+        if (!histogram.has(bucket)) histogram.set(bucket, { count: 0, bands: new Map() });
+        const entry = histogram.get(bucket);
+        entry.count += 1;
+        if (band) entry.bands.set(band, (entry.bands.get(band) || 0) + 1);
+      },
       export() {
-        const buckets = Array.from(histogram.entries()).sort((a, b) => a[0] - b[0]).map(([start, c]) => ({
+        const buckets = Array.from(histogram.entries()).sort((a, b) => a[0] - b[0]).map(([start, data]) => ({
           range: `${start}-${start + 999}`,
-          count: c
+          count: data.count,
+          bands: data.bands
         }));
         return {
           count,
@@ -5088,6 +5178,14 @@
     return { type: 'unknown', qsos: [] };
   }
 
+  function mapSpotStatus(status) {
+    if (status === 'ready') return 'ok';
+    if (status === 'loading') return 'loading';
+    if (status === 'error') return 'error';
+    if (status === 'idle') return 'pending';
+    return status || '';
+  }
+
   function updateDataStatus() {
     const isProxy = (src) => /allorigins\.win|corsproxy\.io/i.test(src || '');
     const classifySource = (src) => {
@@ -5101,13 +5199,6 @@
       if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
       if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
       if (status === 'error') return 'error';
-      return status || '';
-    };
-    const mapSpotStatus = (status) => {
-      if (status === 'ready') return 'ok';
-      if (status === 'loading') return 'loading';
-      if (status === 'error') return 'error';
-      if (status === 'idle') return 'pending';
       return status || '';
     };
     if (dom.ctyStatus) {
@@ -7569,16 +7660,18 @@
       }
 
       if (q.cqZone) {
-        if (!cqZones.has(q.cqZone)) cqZones.set(q.cqZone, { qsos: 0, countries: new Set() });
+        if (!cqZones.has(q.cqZone)) cqZones.set(q.cqZone, { qsos: 0, countries: new Set(), bandCounts: new Map() });
         const z = cqZones.get(q.cqZone);
         z.qsos += 1;
         if (q.country) z.countries.add(q.country);
+        if (q.band) z.bandCounts.set(q.band, (z.bandCounts.get(q.band) || 0) + 1);
       }
       if (q.ituZone) {
-        if (!ituZones.has(q.ituZone)) ituZones.set(q.ituZone, { qsos: 0, countries: new Set() });
+        if (!ituZones.has(q.ituZone)) ituZones.set(q.ituZone, { qsos: 0, countries: new Set(), bandCounts: new Map() });
         const z = ituZones.get(q.ituZone);
         z.qsos += 1;
         if (q.country) z.countries.add(q.country);
+        if (q.band) z.bandCounts.set(q.band, (z.bandCounts.get(q.band) || 0) + 1);
       }
 
       // Master lookup (only if file successfully loaded and non-empty)
@@ -7668,10 +7761,13 @@
 
       // All calls summary
       if (q.call) {
-        if (!allCalls.has(q.call)) allCalls.set(q.call, { qsos: 0, bands: new Set(), firstTs: q.ts, lastTs: q.ts });
+        if (!allCalls.has(q.call)) allCalls.set(q.call, { qsos: 0, bands: new Set(), bandCounts: new Map(), firstTs: q.ts, lastTs: q.ts });
         const a = allCalls.get(q.call);
         a.qsos += 1;
-        if (q.band) a.bands.add(q.band);
+        if (q.band) {
+          a.bands.add(q.band);
+          a.bandCounts.set(q.band, (a.bandCounts.get(q.band) || 0) + 1);
+        }
         if (typeof q.ts === 'number') {
           if (a.firstTs == null || q.ts < a.firstTs) a.firstTs = q.ts;
           if (a.lastTs == null || q.ts > a.lastTs) a.lastTs = q.ts;
@@ -7694,7 +7790,7 @@
           const brng = bearingDeg(station.lat, station.lon, remote.lat, remote.lon);
           q.distance = dist;
           q.bearing = brng;
-          distanceSummary.add(dist);
+          distanceSummary.add(dist, q.band);
           headingSummary.add(brng, q.band);
           if (q.country && countries.has(q.country)) {
             const c = countries.get(q.country);
@@ -7840,25 +7936,27 @@
       return (a.continent || '').localeCompare(b.continent || '');
     });
 
-    const cqZoneSummary = [];
-    cqZones.forEach((v, k) => {
-      cqZoneSummary.push({
-        cqZone: k,
-        qsos: v.qsos,
-        countries: v.countries.size
-      });
-    });
-    cqZoneSummary.sort((a, b) => a.cqZone - b.cqZone);
+	    const cqZoneSummary = [];
+	    cqZones.forEach((v, k) => {
+	      cqZoneSummary.push({
+	        cqZone: k,
+	        qsos: v.qsos,
+	        countries: v.countries.size,
+	        bandCounts: v.bandCounts
+	      });
+	    });
+	    cqZoneSummary.sort((a, b) => a.cqZone - b.cqZone);
 
-    const ituZoneSummary = [];
-    ituZones.forEach((v, k) => {
-      ituZoneSummary.push({
-        ituZone: k,
-        qsos: v.qsos,
-        countries: v.countries.size
-      });
-    });
-    ituZoneSummary.sort((a, b) => a.ituZone - b.ituZone);
+	    const ituZoneSummary = [];
+	    ituZones.forEach((v, k) => {
+	      ituZoneSummary.push({
+	        ituZone: k,
+	        qsos: v.qsos,
+	        countries: v.countries.size,
+	        bandCounts: v.bandCounts
+	      });
+	    });
+	    ituZoneSummary.sort((a, b) => a.ituZone - b.ituZone);
 
     // Build hourly series sorted by time
     const hourSeries = Array.from(hours.entries()).sort((a, b) => a[0] - b[0]).map(([hour, v]) => {
@@ -7911,6 +8009,7 @@
       call,
       qsos: info.qsos,
       bands: Array.from(info.bands).sort(),
+      bandCounts: info.bandCounts,
       firstTs: info.firstTs,
       lastTs: info.lastTs
     })).sort((a, b) => a.call.localeCompare(b.call));
@@ -8367,18 +8466,7 @@
         ? `<p class="status-error">${escapeHtml(coach.error || 'Unable to load competitor cohort.')}</p>`
         : '';
 
-    const insights = Array.isArray(coach.insights) ? coach.insights : [];
-    const insightList = insights.length
-      ? `<ul class="coach-insights">${insights.map((line) => {
-        const level = inferCoachInsightSeverity(line);
-        return `
-          <li>
-            <span class="coach-severity-badge coach-severity-${level}">${coachSeverityLabel(level)}</span>
-            <span>${escapeHtml(line)}</span>
-          </li>
-        `;
-      }).join('')}</ul>`
-      : '<p class="cqapi-muted">No coaching insight yet. Adjust scope/category to analyze a cohort.</p>';
+    // Legacy coaching notes were replaced by the tactical briefing cards below.
 
     const current = coach.currentRow || null;
     const currentRank = Number.isFinite(current?.rank) ? current.rank : null;
@@ -8391,6 +8479,7 @@
     const closestRivals = Array.isArray(coach.closestRivals) ? coach.closestRivals : [];
     const nearestAhead = closestRivals.find((row) => Number.isFinite(Number(row?.scoreGap)) && Number(row.scoreGap) > 0) || null;
     const nearestAny = closestRivals[0] || null;
+    const nearestBehind = closestRivals.find((row) => Number.isFinite(Number(row?.scoreGap)) && Number(row.scoreGap) < 0) || null;
     const preferredSlot = COMPARE_SLOT_IDS.find((slotId) => !getSlotById(slotId)?.qsoData) || 'B';
     const coachContest = String(coach.contestId || context.contestId || '').trim().toUpperCase();
     const coachMode = String(coach.mode || context.mode || '').trim().toLowerCase();
@@ -8471,6 +8560,215 @@
         </div>
       `
       : '';
+
+    const durationHours = (() => {
+      const minTs = Number(state.derived?.timeRange?.minTs);
+      const maxTs = Number(state.derived?.timeRange?.maxTs);
+      if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return null;
+      const startHour = Math.floor(minTs / 3600000);
+      const endHour = Math.floor(maxTs / 3600000);
+      return Math.max(1, endHour - startHour + 1);
+    })();
+    const activeHours = Array.isArray(state.derived?.hourPointSeries) ? state.derived.hourPointSeries.length : null;
+    const currentScore = Number(current?.score);
+    const currentQsos = Number(current?.qsos);
+    const currentMult = Number(current?.multTotal);
+    const avgScorePerHour = Number.isFinite(currentScore) && Number.isFinite(durationHours) && durationHours > 0 ? currentScore / durationHours : null;
+    const avgScorePerActiveHour = Number.isFinite(currentScore) && Number.isFinite(activeHours) && activeHours > 0 ? currentScore / activeHours : null;
+    const avgScorePerQso = Number.isFinite(currentScore) && Number.isFinite(currentQsos) && currentQsos > 0 ? currentScore / currentQsos : null;
+    const avgScorePerMult = Number.isFinite(currentScore) && Number.isFinite(currentMult) && currentMult > 0 ? currentScore / currentMult : null;
+
+    const isSameCohortEntry = (a, b) => {
+      if (!a || !b) return false;
+      const callA = normalizeCall(a.callsign || '');
+      const callB = normalizeCall(b.callsign || '');
+      const catA = normalizeCoachCategory(a.category || '');
+      const catB = normalizeCoachCategory(b.category || '');
+      return Boolean(callA) && callA === callB && Boolean(catA) && catA === catB;
+    };
+
+    const renderCoachBriefCard = (title, row, opts = {}) => {
+      const kind = String(opts.kind || '').trim().toLowerCase();
+      const fallbackText = opts.fallbackText || '';
+      if (!row || typeof row !== 'object') {
+        return `
+          <article class="coach-brief-card">
+            <div class="coach-brief-head">
+              <h4>${escapeHtml(title)}</h4>
+              <span class="coach-severity-badge coach-severity-info">Info</span>
+            </div>
+            <p class="coach-brief-note">${escapeHtml(fallbackText || 'No target available for this card in the current cohort.')}</p>
+            <div class="coach-brief-actions">
+              <button type="button" class="coach-brief-btn coach-brief-nav" data-report="spots">Missed multipliers (Spots)</button>
+              <button type="button" class="coach-brief-btn coach-brief-nav" data-report="graphs_points_by_hour">Points by hour</button>
+            </div>
+          </article>
+        `;
+      }
+
+      const rowYear = Number(row?.year);
+      const rowCall = normalizeCall(row?.callsign || '');
+      const rowCategory = normalizeCoachCategory(row?.category || '');
+      const scoreGap = Number(row?.scoreGap);
+      const qsoGap = Number(row?.qsoGap);
+      const multGap = Number(row?.multGap);
+      const absScoreGap = Number.isFinite(scoreGap) ? Math.abs(scoreGap) : null;
+
+      const isLeader = kind === 'leader' && current && isSameCohortEntry(row, current);
+      const isAheadTarget = kind === 'chase' || kind === 'leader';
+      const scoreVerb = Number.isFinite(scoreGap)
+        ? (isLeader ? 'You are the leader.' : (scoreGap > 0 ? 'Behind by' : 'Ahead by'))
+        : 'Score gap';
+      const scoreText = Number.isFinite(absScoreGap) ? formatNumberSh6(Math.round(absScoreGap)) : 'N/A';
+
+      const qsoDeficit = Number.isFinite(qsoGap) ? Math.max(0, Math.round(qsoGap)) : null;
+      const multDeficit = Number.isFinite(multGap) ? Math.max(0, Math.round(multGap)) : null;
+      const qsoLead = Number.isFinite(qsoGap) ? Math.max(0, Math.round(-qsoGap)) : null;
+      const multLead = Number.isFinite(multGap) ? Math.max(0, Math.round(-multGap)) : null;
+
+      const neededQsos = Number.isFinite(absScoreGap) && Number.isFinite(avgScorePerQso) && avgScorePerQso > 0
+        ? Math.ceil(absScoreGap / avgScorePerQso)
+        : null;
+      const neededMults = Number.isFinite(absScoreGap) && Number.isFinite(avgScorePerMult) && avgScorePerMult > 0
+        ? Math.ceil(absScoreGap / avgScorePerMult)
+        : null;
+      const neededHoursOverall = Number.isFinite(absScoreGap) && Number.isFinite(avgScorePerHour) && avgScorePerHour > 0
+        ? absScoreGap / avgScorePerHour
+        : null;
+      const neededHoursActive = Number.isFinite(absScoreGap) && Number.isFinite(avgScorePerActiveHour) && avgScorePerActiveHour > 0
+        ? absScoreGap / avgScorePerActiveHour
+        : null;
+
+      const severity = (() => {
+        if (isLeader) return 'opportunity';
+        const pct = Number(row?.scoreGapPct);
+        if (!Number.isFinite(pct)) return Number.isFinite(absScoreGap) && absScoreGap > 0 ? 'medium' : 'info';
+        const absPct = Math.abs(pct);
+        if (kind === 'defend') {
+          if (absPct <= 1.0) return 'high';
+          if (absPct <= 3.0) return 'medium';
+          return 'opportunity';
+        }
+        if (absPct >= 10) return 'high';
+        if (absPct >= 4) return 'medium';
+        return 'opportunity';
+      })();
+
+      const canLoad = Number.isFinite(rowYear) && Boolean(rowCall) && Boolean(coachContest) && Boolean(coachMode);
+      const rowKey = canLoad ? buildCoachRowKey({
+        callsign: rowCall,
+        year: rowYear,
+        contestId: coachContest,
+        mode: coachMode
+      }) : '';
+      const slotAssigned = rowKey && rowKey === String(coach.loadedSlotRows?.[preferredSlot] || '');
+      const loadButton = canLoad
+        ? `
+          <button
+            type="button"
+            class="cqapi-load-btn coach-load-btn coach-brief-btn${slotAssigned ? ' is-target' : ''}"
+            data-slot="${preferredSlot}"
+            data-row-key="${escapeAttr(rowKey)}"
+            data-year="${escapeAttr(String(rowYear))}"
+            data-callsign="${escapeAttr(rowCall)}"
+            data-contest="${escapeAttr(coachContest)}"
+            data-mode="${escapeAttr(coachMode)}"
+            aria-pressed="${slotAssigned ? 'true' : 'false'}"
+          >
+            Load ${escapeHtml(rowCall)} to Log ${preferredSlot}
+          </button>
+        `
+        : '';
+
+      const showMultHunt = kind !== 'defend'
+        ? (Number.isFinite(multDeficit) && multDeficit > 0)
+        : (Number.isFinite(multGap) && multGap > 0);
+      const multHint = showMultHunt
+        ? 'Prioritize missed multipliers (Spots coach has a missed mult table).'
+        : 'Multipliers are not the obvious deficit versus this target.';
+
+      const rateHint = Number.isFinite(avgScorePerHour)
+        ? `Your average score rate is ~${formatNumberSh6(Math.round(avgScorePerHour))} score/hour (overall).`
+        : 'Points/score rate estimate unavailable (missing time range).';
+
+      const hoursHint = (Number.isFinite(neededHoursOverall) || Number.isFinite(neededHoursActive))
+        ? `At your pace, the score swing is ~${Number.isFinite(neededHoursOverall) ? neededHoursOverall.toFixed(1) : 'N/A'}h overall (or ~${Number.isFinite(neededHoursActive) ? neededHoursActive.toFixed(1) : 'N/A'}h active).`
+        : 'Hours-to-close estimate unavailable.';
+
+      const gapLine = Number.isFinite(scoreGap)
+        ? `<li><b>${scoreVerb}</b> <b>${scoreText}</b> score vs <b>${escapeHtml(rowCall || 'N/A')}</b>${rowCategory ? ` (${escapeHtml(rowCategory)})` : ''}.</li>`
+        : `<li><b>Target</b> ${escapeHtml(rowCall || 'N/A')}${rowCategory ? ` (${escapeHtml(rowCategory)})` : ''}.</li>`;
+
+      const deltaLine = (() => {
+        if (!Number.isFinite(qsoGap) && !Number.isFinite(multGap)) return '<li>QSO/mult deltas: N/A.</li>';
+        const q = Number.isFinite(qsoGap) ? `${qsoGap >= 0 ? '+' : ''}${formatNumberSh6(Math.round(qsoGap))}` : 'N/A';
+        const m = Number.isFinite(multGap) ? `${multGap >= 0 ? '+' : ''}${formatNumberSh6(Math.round(multGap))}` : 'N/A';
+        return `<li>Gap breakdown: QSO delta ${q} | Mult delta ${m}.</li>`;
+      })();
+
+      const planLine = (() => {
+        if (isLeader) {
+          const defendText = nearestBehind ? `Nearest defender is ${escapeHtml(normalizeCall(nearestBehind.callsign || '') || 'N/A')}.` : 'No close defender detected.';
+          return `<li>${defendText} Keep points rate high in your best hours and watch mult leakage.</li>`;
+        }
+        const parts = [];
+        if (Number.isFinite(qsoDeficit) && qsoDeficit > 0) parts.push(`${formatNumberSh6(qsoDeficit)} QSOs`);
+        if (Number.isFinite(multDeficit) && multDeficit > 0) parts.push(`${formatNumberSh6(multDeficit)} mults`);
+        const deficitText = parts.length ? `Deficit vs target: ${parts.join(' and ')}.` : 'No direct QSO/mult deficit detected; improve efficiency and rate.';
+        return `<li>${deficitText}</li>`;
+      })();
+
+      const equivalenceLine = (() => {
+        if (!Number.isFinite(absScoreGap) || absScoreGap <= 0) return '<li>Equivalent effort: N/A.</li>';
+        const qEq = Number.isFinite(neededQsos) ? `${formatNumberSh6(neededQsos)} QSOs` : 'N/A QSOs';
+        const mEq = Number.isFinite(neededMults) ? `${formatNumberSh6(neededMults)} mults` : 'N/A mults';
+        return `<li>Equivalent effort at your efficiency: ~${qEq} or ~${mEq}.</li>`;
+      })();
+
+      return `
+        <article class="coach-brief-card coach-brief-${escapeAttr(kind || 'card')}">
+          <div class="coach-brief-head">
+            <h4>${escapeHtml(title)}</h4>
+            <span class="coach-severity-badge coach-severity-${normalizeCoachSeverity(severity)}">${coachSeverityLabel(severity)}</span>
+          </div>
+          <p class="coach-brief-note">${escapeHtml(rateHint)} ${escapeHtml(hoursHint)}</p>
+          <ul class="coach-brief-list">
+            ${gapLine}
+            ${deltaLine}
+            ${planLine}
+            ${equivalenceLine}
+            <li><b>Multiplier focus:</b> ${escapeHtml(multHint)}</li>
+          </ul>
+          <div class="coach-brief-actions">
+            <button type="button" class="coach-brief-btn coach-brief-nav" data-report="graphs_points_by_hour">Points by hour</button>
+            <button type="button" class="coach-brief-btn coach-brief-nav" data-report="one_minute_point_rates">1-minute point rates</button>
+            <button type="button" class="coach-brief-btn coach-brief-nav" data-report="spots">Missed multipliers (Spots)</button>
+            ${loadButton}
+          </div>
+        </article>
+      `;
+    };
+
+    const leaderRow = rows.length ? rows[0] : null;
+    const coachBriefingBlock = `
+      <div class="coach-brief-wrap">
+        <h4>Coach briefing (leader, chase, defend)</h4>
+        <div class="coach-brief-grid">
+          ${renderCoachBriefCard('Leader target', leaderRow, {
+            kind: 'leader',
+            fallbackText: 'No leader row detected yet. Expand scope/category for a wider cohort.'
+          })}
+          ${renderCoachBriefCard('Chase target (nearest ahead)', nearestAhead, {
+            kind: 'chase',
+            fallbackText: 'No station ahead detected. You may be leading this cohort.'
+          })}
+          ${renderCoachBriefCard('Defend target (nearest behind)', nearestBehind, {
+            kind: 'defend',
+            fallbackText: 'No station behind detected. Cohort may be very small.'
+          })}
+        </div>
+      </div>
+    `;
 
     const rivalsBlock = closestRivals.length
       ? `
@@ -8743,12 +9041,9 @@
           ${tableBlock}
           ${renderAnalysisStepHeading(4, 'Coaching detail', 'Review priority cards and tactical guidance before the next session.')}
           ${priorityBlock}
+          ${coachBriefingBlock}
           ${rivalsBlock}
           ${gapDriverBlock}
-          <div class="coach-insights-wrap">
-            <h4>Coaching priorities</h4>
-            ${insightList}
-          </div>
         </div>
       </div>
     `;
@@ -8901,7 +9196,6 @@
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="6%" span="16"/></colgroup>
         <tr class="thc">
           <th rowspan="2">Band</th>
           <th colspan="3">CW</th>
@@ -8919,7 +9213,7 @@
           <th>QSOs</th><th colspan="2">%</th>
         </tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(16)}
       </table>
     `;
   }
@@ -10459,7 +10753,7 @@
   function normalizeRbnSpot(raw) {
     if (!raw) return null;
     const spotterRaw = normalizeCall(raw.spotterRaw || raw.spotter || '');
-    const spotter = normalizeCall(raw.spotter || spotterRaw);
+    const spotter = normalizeSpotterBase(raw.spotter || spotterRaw);
     const dxCall = normalizeCall(raw.dxCall || '');
     const ts = Number(raw.ts);
     const freqKHz = raw.freqKHz != null ? Number(raw.freqKHz) : Number(raw.freq);
@@ -12151,6 +12445,866 @@
     });
   }
 
+  function resolveSpotterContinent(spotterCall) {
+    const key = normalizeSpotterBase(spotterCall || '');
+    const prefix = key ? (lookupPrefix(key) || lookupPrefix(baseCall(key))) : null;
+    return normalizeContinent(prefix?.continent || '') || 'N/A';
+  }
+
+  const rbnCompareSignalIndexCache = new Map(); // slotId -> { dataKey, bySpotter: Map(spotter -> entry) }
+  const rbnCompareSignalIndexJobs = new Map(); // slotId -> { dataKey, slotRef, spots, i, bySpotter }
+  const rbnCompareSignalRankingCache = new Map(); // `${slotId}|${bandKey||'ALL'}` -> { dataKey, byContinent }
+  const rbnCompareSignalCanvasJobs = new WeakMap(); // canvas -> { token, raf }
+  let rbnCompareSignalDrawRaf = 0;
+  let rbnCompareSignalIntersectionObserver = null;
+
+  function rbnCompareSlotDataKey(slot) {
+    const r = slot?.rbnState;
+    if (!r || r.status !== 'ready' || !r.raw || !Array.isArray(r.raw.ofUsSpots)) return '';
+    const days = Array.isArray(r.selectedDays) ? r.selectedDays.join(',') : '';
+    const count = Number.isFinite(r.totalOfUs) ? r.totalOfUs : r.raw.ofUsSpots.length;
+    return `${String(r.lastCall || '')}|${String(r.lastWindowKey || '')}|${days}|${count}`;
+  }
+
+  function sampleFlatStride(data, capPoints) {
+    const arr = Array.isArray(data) ? data : [];
+    const total = Math.floor(arr.length / 2);
+    const cap = Math.max(0, Math.floor(Number(capPoints) || 0));
+    if (!cap || total <= cap) return arr;
+    const stride = Math.max(1, Math.ceil(total / cap));
+    const out = [];
+    for (let i = 0; i < total; i += stride) {
+      const idx = i * 2;
+      out.push(arr[idx], arr[idx + 1]);
+    }
+    return out;
+  }
+
+  function hashString32(value) {
+    const str = String(value || '');
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i += 1) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function sampleFlatStrideSeeded(data, capPoints, seed) {
+    const arr = Array.isArray(data) ? data : [];
+    const total = Math.floor(arr.length / 2);
+    const cap = Math.max(0, Math.floor(Number(capPoints) || 0));
+    if (!cap || total <= cap) return arr;
+    const stride = Math.max(1, Math.ceil(total / cap));
+    const offset = stride > 1 ? (hashString32(seed) % stride) : 0;
+    const out = [];
+    for (let i = offset; i < total; i += stride) {
+      const idx = i * 2;
+      out.push(arr[idx], arr[idx + 1]);
+    }
+    return out;
+  }
+
+  function computeProportionalCaps(entries, total, capTotal, minEach = 200) {
+    const safeTotal = Math.max(0, Math.floor(total || 0));
+    const cap = Math.max(0, Math.floor(capTotal || 0));
+    if (!cap || safeTotal <= cap) {
+      return entries.map(([band, count]) => [band, count]);
+    }
+    const out = entries.map(([band, count]) => {
+      const c = Math.max(0, Math.floor(count || 0));
+      const raw = Math.floor((cap * c) / Math.max(1, safeTotal));
+      return [band, Math.min(c, Math.max(minEach, raw))];
+    });
+    let sum = out.reduce((acc, [, c]) => acc + c, 0);
+    if (sum > cap) {
+      // Trim from largest allocations first.
+      const order = out.map(([, c], idx) => ({ idx, c })).sort((a, b) => b.c - a.c);
+      for (const it of order) {
+        if (sum <= cap) break;
+        const current = out[it.idx][1];
+        const next = Math.max(minEach, current - (sum - cap));
+        out[it.idx][1] = next;
+        sum -= (current - next);
+      }
+    } else if (sum < cap) {
+      // Distribute remainder to largest bands where available.
+      const need = cap - sum;
+      const byAvail = out.map(([band, c], idx) => {
+        const original = Math.max(0, Math.floor(entries[idx]?.[1] || 0));
+        return { idx, band, avail: Math.max(0, original - c) };
+      }).sort((a, b) => b.avail - a.avail);
+      let left = need;
+      for (const it of byAvail) {
+        if (!left) break;
+        if (it.avail <= 0) continue;
+        const add = Math.min(it.avail, left);
+        out[it.idx][1] += add;
+        left -= add;
+      }
+    }
+    return out;
+  }
+
+  function getRbnCompareIndexCached(slotId, slot) {
+    const key = rbnCompareSlotDataKey(slot);
+    if (!key) return null;
+    const cached = rbnCompareSignalIndexCache.get(slotId);
+    if (cached && cached.dataKey === key) return cached;
+    return null;
+  }
+
+  function buildRbnCompareIndexSync(slotId, slot) {
+    const dataKey = rbnCompareSlotDataKey(slot);
+    if (!dataKey) return null;
+    const cached = rbnCompareSignalIndexCache.get(slotId);
+    if (cached && cached.dataKey === dataKey) return cached;
+    const list = slot?.rbnState?.raw?.ofUsSpots || [];
+    const bySpotter = new Map();
+    (list || []).forEach((s) => {
+      if (!s || !s.spotter) return;
+      if (!Number.isFinite(s.ts) || !Number.isFinite(s.snr)) return;
+      const spotter = normalizeSpotterBase(s.spotter);
+      if (!spotter) return;
+      const band = normalizeBandToken(s.band || '') || '';
+      let entry = bySpotter.get(spotter);
+      if (!entry) {
+        entry = {
+          spotter,
+          continent: resolveSpotterContinent(spotter),
+          totalCount: 0,
+          bandCounts: new Map(),
+          byBand: new Map(), // band -> flat [ts,snr,...]
+          minSnr: null,
+          maxSnr: null
+        };
+        bySpotter.set(spotter, entry);
+      }
+      entry.totalCount += 1;
+      entry.bandCounts.set(band, (entry.bandCounts.get(band) || 0) + 1);
+      if (!entry.byBand.has(band)) entry.byBand.set(band, []);
+      entry.byBand.get(band).push(s.ts, s.snr);
+      entry.minSnr = entry.minSnr == null ? s.snr : Math.min(entry.minSnr, s.snr);
+      entry.maxSnr = entry.maxSnr == null ? s.snr : Math.max(entry.maxSnr, s.snr);
+    });
+    const built = { dataKey, bySpotter };
+    rbnCompareSignalIndexCache.set(slotId, built);
+    // Rankings depend on this index; clear any stale entries for this slot.
+    Array.from(rbnCompareSignalRankingCache.keys()).forEach((k) => {
+      if (k.startsWith(`${slotId}|`)) rbnCompareSignalRankingCache.delete(k);
+    });
+    return built;
+  }
+
+  function scheduleRbnCompareIndexBuild(slotId, slot) {
+    const dataKey = rbnCompareSlotDataKey(slot);
+    if (!dataKey) return;
+    const cached = rbnCompareSignalIndexCache.get(slotId);
+    if (cached && cached.dataKey === dataKey) return;
+    const existing = rbnCompareSignalIndexJobs.get(slotId);
+    if (existing && existing.dataKey === dataKey) return;
+    const spots = slot?.rbnState?.raw?.ofUsSpots || [];
+    const job = {
+      slotId,
+      slotRef: slot,
+      dataKey,
+      spots,
+      i: 0,
+      bySpotter: new Map()
+    };
+    rbnCompareSignalIndexJobs.set(slotId, job);
+    const step = () => {
+      const liveKey = rbnCompareSlotDataKey(job.slotRef);
+      if (liveKey !== job.dataKey) {
+        rbnCompareSignalIndexJobs.delete(slotId);
+        return;
+      }
+      const chunk = 6000;
+      const end = Math.min(job.spots.length, job.i + chunk);
+      for (; job.i < end; job.i += 1) {
+        const s = job.spots[job.i];
+        if (!s || !s.spotter) continue;
+        if (!Number.isFinite(s.ts) || !Number.isFinite(s.snr)) continue;
+        const spotter = normalizeSpotterBase(s.spotter);
+        if (!spotter) continue;
+        const band = normalizeBandToken(s.band || '') || '';
+        let entry = job.bySpotter.get(spotter);
+        if (!entry) {
+          entry = {
+            spotter,
+            continent: resolveSpotterContinent(spotter),
+            totalCount: 0,
+            bandCounts: new Map(),
+            byBand: new Map(),
+            minSnr: null,
+            maxSnr: null
+          };
+          job.bySpotter.set(spotter, entry);
+        }
+        entry.totalCount += 1;
+        entry.bandCounts.set(band, (entry.bandCounts.get(band) || 0) + 1);
+        if (!entry.byBand.has(band)) entry.byBand.set(band, []);
+        entry.byBand.get(band).push(s.ts, s.snr);
+        entry.minSnr = entry.minSnr == null ? s.snr : Math.min(entry.minSnr, s.snr);
+        entry.maxSnr = entry.maxSnr == null ? s.snr : Math.max(entry.maxSnr, s.snr);
+      }
+      if (job.i >= job.spots.length) {
+        rbnCompareSignalIndexJobs.delete(slotId);
+        rbnCompareSignalIndexCache.set(slotId, { dataKey: job.dataKey, bySpotter: job.bySpotter });
+        Array.from(rbnCompareSignalRankingCache.keys()).forEach((k) => {
+          if (k.startsWith(`${slotId}|`)) rbnCompareSignalRankingCache.delete(k);
+        });
+        scheduleRbnCompareSignalDraw();
+        populateRbnCompareSignalSpotterSelects();
+        return;
+      }
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(step, { timeout: 200 });
+      } else {
+        setTimeout(step, 0);
+      }
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(step, { timeout: 200 });
+    } else {
+      setTimeout(step, 0);
+    }
+  }
+
+  function getRbnCompareRankingCached(slotId, slot, bandKey) {
+    const dataKey = rbnCompareSlotDataKey(slot);
+    if (!dataKey) return null;
+    const key = `${slotId}|${bandKey || 'ALL'}`;
+    const cached = rbnCompareSignalRankingCache.get(key);
+    if (cached && cached.dataKey === dataKey) return cached;
+    return null;
+  }
+
+  function buildRbnCompareRankingFromIndex(slotId, slot, bandKey, index) {
+    const dataKey = rbnCompareSlotDataKey(slot);
+    if (!dataKey || !index || index.dataKey !== dataKey) return null;
+    const byContinent = new Map();
+    const normBand = normalizeBandToken(bandKey || '');
+    index.bySpotter.forEach((entry) => {
+      const count = normBand ? (entry.bandCounts.get(normBand) || 0) : (entry.totalCount || 0);
+      if (!count) return;
+      const cont = entry.continent || 'N/A';
+      if (!byContinent.has(cont)) byContinent.set(cont, []);
+      byContinent.get(cont).push({ spotter: entry.spotter, count });
+    });
+    byContinent.forEach((list, cont) => {
+      list.sort((a, b) => b.count - a.count || a.spotter.localeCompare(b.spotter));
+      byContinent.set(cont, list);
+    });
+    const key = `${slotId}|${normBand || 'ALL'}`;
+    const built = { dataKey, byContinent };
+    rbnCompareSignalRankingCache.set(key, built);
+    return built;
+  }
+
+  function scheduleRbnCompareSignalDraw() {
+    if (rbnCompareSignalDrawRaf) return;
+    rbnCompareSignalDrawRaf = requestAnimationFrame(() => {
+      rbnCompareSignalDrawRaf = 0;
+      if (reports[state.activeIndex]?.id === 'rbn_compare_signal') {
+        drawRbnCompareSignalCharts();
+      }
+    });
+  }
+
+  function bandColorForChart(band) {
+    const key = normalizeBandToken(band || '');
+    // More saturated colors for dense scatter plots (better contrast with alpha).
+    if (key === '160M') return '#334155'; // slate
+    if (key === '80M') return '#2563eb'; // blue
+    if (key === '40M') return '#16a34a'; // green
+    if (key === '20M') return '#f59e0b'; // amber
+    if (key === '15M') return '#dc2626'; // red
+    if (key === '10M') return '#7c3aed'; // violet
+    return '#0f172a';
+  }
+
+  function slotMarkerShape(slotId) {
+    const id = String(slotId || 'A').toUpperCase();
+    if (id === 'B') return 'triangle';
+    if (id === 'C') return 'square';
+    if (id === 'D') return 'diamond';
+    return 'circle';
+  }
+
+  function formatUtcTick(ts) {
+    if (!Number.isFinite(ts)) return '';
+    const d = new Date(ts);
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    return `${dd} ${hh}Z`;
+  }
+
+  function drawRbnSignalCanvas(canvas, model) {
+    if (!(canvas instanceof HTMLCanvasElement) || !model) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const prev = rbnCompareSignalCanvasJobs.get(canvas);
+    if (prev && prev.raf) cancelAnimationFrame(prev.raf);
+    const token = (prev?.token || 0) + 1;
+    const job = { token, raf: 0 };
+    rbnCompareSignalCanvasJobs.set(canvas, job);
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const cssWidth = Math.max(320, canvas.clientWidth || 920);
+    const cssHeight = Math.max(220, Number(canvas.dataset.height) || 260);
+    const width = Math.round(cssWidth * dpr);
+    const height = Math.round(cssHeight * dpr);
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    canvas.style.height = `${cssHeight}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    const margin = { left: 52, right: 12, top: 14, bottom: 26 };
+    const plotW = Math.max(10, cssWidth - margin.left - margin.right);
+    const plotH = Math.max(10, cssHeight - margin.top - margin.bottom);
+    const minTs = model.minTs;
+    const maxTs = model.maxTs;
+    const minY = model.minY;
+    const maxY = model.maxY;
+    const series = Array.isArray(model.series) ? model.series : [];
+    const pointCount = series.reduce((acc, s) => acc + Math.floor((Array.isArray(s?.data) ? s.data.length : 0) / 2), 0);
+
+    const xOf = (ts) => margin.left + ((ts - minTs) / Math.max(1, (maxTs - minTs))) * plotW;
+    const yOf = (y) => margin.top + (1 - ((y - minY) / Math.max(1e-9, (maxY - minY)))) * plotH;
+
+    // Axes
+    ctx.strokeStyle = '#b9cbe7';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top);
+    ctx.lineTo(margin.left, margin.top + plotH);
+    ctx.lineTo(margin.left + plotW, margin.top + plotH);
+    ctx.stroke();
+
+    // Grid + ticks
+    ctx.fillStyle = '#23456f';
+    ctx.font = '11px var(--sh6-font-family, verdana, arial, sans-serif)';
+    ctx.textBaseline = 'middle';
+
+    const yTicks = 5;
+    for (let i = 0; i <= yTicks; i += 1) {
+      const t = i / yTicks;
+      const yVal = minY + (1 - t) * (maxY - minY);
+      const y = margin.top + t * plotH;
+      ctx.strokeStyle = 'rgba(185, 203, 231, 0.45)';
+      ctx.beginPath();
+      ctx.moveTo(margin.left, y);
+      ctx.lineTo(margin.left + plotW, y);
+      ctx.stroke();
+      ctx.fillText(`${Math.round(yVal)}`, 6, y);
+    }
+
+    ctx.textBaseline = 'top';
+    const xTicks = Math.max(2, Math.min(10, Math.floor(plotW / 120)));
+    for (let i = 0; i <= xTicks; i += 1) {
+      const t = i / xTicks;
+      const ts = minTs + t * (maxTs - minTs);
+      const x = margin.left + t * plotW;
+      ctx.strokeStyle = 'rgba(185, 203, 231, 0.45)';
+      ctx.beginPath();
+      ctx.moveTo(x, margin.top);
+      ctx.lineTo(x, margin.top + plotH);
+      ctx.stroke();
+      const label = formatUtcTick(ts);
+      const labelW = Math.max(0, ctx.measureText(label).width || 0);
+      const clamped = Math.max(margin.left, Math.min(x - labelW / 2, margin.left + plotW - labelW));
+      ctx.fillText(label, clamped, margin.top + plotH + 6);
+    }
+
+    const drawMarker = (x, y, shape, size) => {
+      const s = size;
+      if (shape === 'triangle') {
+        ctx.moveTo(x, y - s);
+        ctx.lineTo(x + s, y + s);
+        ctx.lineTo(x - s, y + s);
+        ctx.closePath();
+      } else if (shape === 'square') {
+        ctx.rect(x - s, y - s, s * 2, s * 2);
+      } else if (shape === 'diamond') {
+        ctx.moveTo(x, y - s);
+        ctx.lineTo(x + s, y);
+        ctx.lineTo(x, y + s);
+        ctx.lineTo(x - s, y);
+        ctx.closePath();
+      } else {
+        ctx.arc(x, y, s, 0, Math.PI * 2);
+      }
+    };
+
+    // Optional trendlines (subtle).
+    const trendlines = Array.isArray(model.trendlines) ? model.trendlines : [];
+    if (trendlines.length) {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 1.6;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      trendlines.forEach((t) => {
+        const data = Array.isArray(t?.data) ? t.data : [];
+        if (data.length < 4) return;
+        ctx.strokeStyle = t.color || bandColorForChart(t.band);
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < data.length; i += 2) {
+          const ts = data[i];
+          const snr = data[i + 1];
+          if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+          const x = xOf(ts);
+          const y = yOf(snr);
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        if (started) ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    // Points (progressive + batching, alpha + jitter to reduce overplotting).
+    // Keep markers at a consistent size; reduce points (sampling) elsewhere for performance/clarity.
+    const pointAlpha = pointCount > 20000 ? 0.14 : (pointCount > 12000 ? 0.18 : (pointCount > 7000 ? 0.22 : (pointCount > 3500 ? 0.26 : 0.32)));
+    const pointSize = 3.0;
+    const jitterScale = pointCount > 20000 ? 0.55 : (pointCount > 12000 ? 0.45 : (pointCount > 7000 ? 0.35 : (pointCount > 3500 ? 0.2 : 0)));
+    const jitterOf = (ts, snr) => {
+      if (!jitterScale) return { x: 0, y: 0 };
+      const a = (Number.isFinite(ts) ? Math.floor(ts / 1000) : 0) | 0;
+      const b = (Number.isFinite(snr) ? Math.round(snr * 100) : 0) | 0;
+      const h = (Math.imul(a, 2654435761) ^ Math.imul(b, 1597334677)) >>> 0;
+      const jx = (((h & 1023) / 1023) - 0.5) * 2 * jitterScale;
+      const jy = ((((h >>> 10) & 1023) / 1023) - 0.5) * 2 * jitterScale;
+      return { x: jx, y: jy };
+    };
+
+    // Title
+    ctx.fillStyle = '#193d6e';
+    ctx.font = '12px var(--sh6-font-family, verdana, arial, sans-serif)';
+    ctx.textBaseline = 'top';
+    ctx.fillText(model.title || '', margin.left, 2);
+
+    const budgetPerFrame = pointCount > 20000 ? 4200 : (pointCount > 12000 ? 5000 : 6200);
+    let seriesIdx = 0;
+    let pointIdx = 0; // index in flat array (ts at idx, snr at idx+1)
+    const step = () => {
+      const live = rbnCompareSignalCanvasJobs.get(canvas);
+      if (!live || live.token !== token) return;
+      ctx.save();
+      ctx.globalAlpha = pointAlpha;
+      let remaining = budgetPerFrame;
+      while (remaining > 0 && seriesIdx < series.length) {
+        const s = series[seriesIdx] || {};
+        const data = Array.isArray(s.data) ? s.data : [];
+        const shape = s.shape || 'circle';
+        const color = s.color || bandColorForChart(s.band);
+        ctx.fillStyle = color;
+        if (!data.length) {
+          seriesIdx += 1;
+          pointIdx = 0;
+          continue;
+        }
+        ctx.beginPath();
+        let drawn = 0;
+        while (remaining > 0 && pointIdx < data.length) {
+          const ts = data[pointIdx];
+          const snr = data[pointIdx + 1];
+          pointIdx += 2;
+          if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+          const { x: jx, y: jy } = jitterOf(ts, snr);
+          const x = xOf(ts) + jx;
+          const y = yOf(snr) + jy;
+          // Append marker path, fill once per chunk.
+          if (shape === 'triangle' || shape === 'square' || shape === 'diamond') {
+            drawMarker(x, y, shape, pointSize);
+          } else {
+            ctx.moveTo(x + pointSize, y);
+            ctx.arc(x, y, pointSize, 0, Math.PI * 2);
+          }
+          drawn += 1;
+          remaining -= 1;
+        }
+        if (drawn) ctx.fill();
+        if (pointIdx >= data.length) {
+          seriesIdx += 1;
+          pointIdx = 0;
+        }
+      }
+      ctx.restore();
+      if (seriesIdx < series.length) {
+        job.raf = requestAnimationFrame(step);
+        rbnCompareSignalCanvasJobs.set(canvas, job);
+      }
+    };
+    job.raf = requestAnimationFrame(step);
+    rbnCompareSignalCanvasJobs.set(canvas, job);
+  }
+
+  function drawRbnCompareSignalCharts() {
+    const root = dom.viewContainer;
+    if (!root) return;
+    const canvases = Array.from(root.querySelectorAll('.rbn-signal-canvas')).filter((c) => {
+      if (!(c instanceof HTMLCanvasElement)) return false;
+      if (!rbnCompareSignalIntersectionObserver) return true;
+      return c.dataset.rbnVisible === '1';
+    });
+    if (!canvases.length) return;
+
+    const slots = getActiveCompareSlots().filter((entry) => entry.slot?.qsoData && entry.slot?.derived);
+    const base = slots.find((e) => e.id === 'A') || slots[0] || null;
+    const bandFilter = state.globalBandFilter || '';
+    const bandKey = normalizeBandToken(bandFilter);
+
+    const minTs = Math.min(...slots.map((e) => Number(e.slot?.derived?.timeRange?.minTs)).filter(Number.isFinite));
+    const maxTs = Math.max(...slots.map((e) => Number(e.slot?.derived?.timeRange?.maxTs)).filter(Number.isFinite));
+    const safeMinTs = Number.isFinite(minTs) ? minTs : Date.now() - 24 * 3600 * 1000;
+    const safeMaxTs = Number.isFinite(maxTs) ? maxTs : Date.now();
+    const slotKeys = slots.map((e) => {
+      const dk = rbnCompareSlotDataKey(e.slot);
+      const idx = getRbnCompareIndexCached(e.id, e.slot);
+      const idxFlag = idx && idx.dataKey === dk ? '1' : '0';
+      return `${e.id}:${dk}:${idxFlag}`;
+    }).join('|');
+
+    canvases.forEach((canvas) => {
+      const continent = String(canvas.dataset.continent || '').trim().toUpperCase() || 'N/A';
+      const selectedSpotter = normalizeSpotterBase(String(canvas.dataset.spotter || '').trim());
+      const card = canvas.closest('.rbn-signal-card');
+      const legendBandsNode = card ? card.querySelector('.rbn-signal-legend-bands') : null;
+      const metaNode = card ? card.querySelector('.rbn-signal-meta') : null;
+      const sizeKey = `${canvas.clientWidth || 0}x${Number(canvas.dataset.height) || 260}`;
+      const drawKey = `${selectedSpotter}|${bandKey || 'ALL'}|${slotKeys}|${sizeKey}`;
+      if (canvas.dataset.rbnDrawKey === drawKey) return;
+      canvas.dataset.rbnDrawKey = drawKey;
+      if (!base || !selectedSpotter) {
+        drawRbnSignalCanvas(canvas, {
+          title: 'RBN signal',
+          minTs: safeMinTs,
+          maxTs: safeMaxTs,
+          minY: -30,
+          maxY: 40,
+          series: []
+        });
+        if (legendBandsNode) legendBandsNode.innerHTML = '';
+        if (metaNode) metaNode.textContent = '0 points plotted · SNR range: N/A';
+        canvas.setAttribute('role', 'img');
+        canvas.setAttribute('aria-label', 'RBN signal scatter plot. No data plotted.');
+        return;
+      }
+
+      const bandsPlotted = new Set();
+      let minSnr = null;
+      let maxSnr = null;
+      let minY = null;
+      let maxY = null;
+      const series = [];
+      const trendBins = 72;
+      const trendAgg = new Map(); // band -> { sum: Float64Array, cnt: Uint32Array }
+      let pointTotal = 0;
+      slots.forEach((entry) => {
+        const slotId = entry.id;
+        const shape = slotMarkerShape(slotId);
+        const slot = entry.slot;
+        const idx = getRbnCompareIndexCached(slotId, slot);
+        if (!idx) {
+          // Build index in background, then redraw.
+          scheduleRbnCompareIndexBuild(slotId, slot);
+          return;
+        }
+        const spotterEntry = idx.bySpotter.get(selectedSpotter);
+        if (!spotterEntry) return;
+        const perSlotCap = 6500;
+        if (bandKey) {
+          const raw = spotterEntry.byBand.get(bandKey) || [];
+          const seed = `${selectedSpotter}|${slotId}|${idx.dataKey}|${bandKey}`;
+          const sampled = sampleFlatStrideSeeded(raw, perSlotCap, seed);
+          if (!sampled.length) return;
+          pointTotal += Math.floor(sampled.length / 2);
+          series.push({ band: bandKey, shape, color: bandColorForChart(bandKey), data: sampled });
+          bandsPlotted.add(bandKey);
+          if (!trendAgg.has(bandKey)) trendAgg.set(bandKey, { sum: new Float64Array(trendBins), cnt: new Uint32Array(trendBins) });
+          for (let i = 1; i < sampled.length; i += 2) {
+            const snr = sampled[i];
+            if (!Number.isFinite(snr)) continue;
+            minSnr = minSnr == null ? snr : Math.min(minSnr, snr);
+            maxSnr = maxSnr == null ? snr : Math.max(maxSnr, snr);
+            minY = minY == null ? snr : Math.min(minY, snr);
+            maxY = maxY == null ? snr : Math.max(maxY, snr);
+          }
+          for (let i = 0; i < sampled.length; i += 2) {
+            const ts = sampled[i];
+            const snr = sampled[i + 1];
+            if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+            const pos = (ts - safeMinTs) / Math.max(1, (safeMaxTs - safeMinTs));
+            const bin = Math.max(0, Math.min(trendBins - 1, Math.floor(pos * trendBins)));
+            const agg = trendAgg.get(bandKey);
+            agg.sum[bin] += snr;
+            agg.cnt[bin] += 1;
+          }
+          return;
+        }
+        const bandCounts = Array.from(spotterEntry.bandCounts.entries()).filter(([b, c]) => b && c > 0);
+        const total = spotterEntry.totalCount || bandCounts.reduce((acc, [, c]) => acc + c, 0);
+        const caps = computeProportionalCaps(bandCounts, total, perSlotCap, 120);
+        caps.forEach(([band, cap]) => {
+          const raw = spotterEntry.byBand.get(band) || [];
+          const seed = `${selectedSpotter}|${slotId}|${idx.dataKey}|${band}`;
+          const sampled = sampleFlatStrideSeeded(raw, cap, seed);
+          if (!sampled.length) return;
+          pointTotal += Math.floor(sampled.length / 2);
+          series.push({ band, shape, color: bandColorForChart(band), data: sampled });
+          bandsPlotted.add(band);
+          if (!trendAgg.has(band)) trendAgg.set(band, { sum: new Float64Array(trendBins), cnt: new Uint32Array(trendBins) });
+          for (let i = 1; i < sampled.length; i += 2) {
+            const snr = sampled[i];
+            if (!Number.isFinite(snr)) continue;
+            minSnr = minSnr == null ? snr : Math.min(minSnr, snr);
+            maxSnr = maxSnr == null ? snr : Math.max(maxSnr, snr);
+            minY = minY == null ? snr : Math.min(minY, snr);
+            maxY = maxY == null ? snr : Math.max(maxY, snr);
+          }
+          for (let i = 0; i < sampled.length; i += 2) {
+            const ts = sampled[i];
+            const snr = sampled[i + 1];
+            if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+            const pos = (ts - safeMinTs) / Math.max(1, (safeMaxTs - safeMinTs));
+            const bin = Math.max(0, Math.min(trendBins - 1, Math.floor(pos * trendBins)));
+            const agg = trendAgg.get(band);
+            agg.sum[bin] += snr;
+            agg.cnt[bin] += 1;
+          }
+        });
+      });
+      if (minY == null || maxY == null) {
+        minY = -30;
+        maxY = 40;
+      } else if (minY === maxY) {
+        minY -= 5;
+        maxY += 5;
+      } else {
+        const pad = Math.max(2, (maxY - minY) * 0.08);
+        minY -= pad;
+        maxY += pad;
+      }
+
+      const titleBand = bandKey ? formatBandLabel(bandKey) : 'All bands';
+      const title = `${continent} · ${selectedSpotter} · ${titleBand}`;
+      const trendlines = sortBands(Array.from(trendAgg.keys())).map((band) => {
+        const agg = trendAgg.get(band);
+        if (!agg) return null;
+        const data = [];
+        // 3-bin weighted smoothing.
+        for (let i = 0; i < trendBins; i += 1) {
+          const c0 = agg.cnt[i] || 0;
+          if (!c0) continue;
+          const prev = i > 0 ? i - 1 : i;
+          const next = i < trendBins - 1 ? i + 1 : i;
+          const cPrev = agg.cnt[prev] || 0;
+          const cNext = agg.cnt[next] || 0;
+          const sPrev = agg.sum[prev] || 0;
+          const s0 = agg.sum[i] || 0;
+          const sNext = agg.sum[next] || 0;
+          const wSum = sPrev + s0 + sNext;
+          const wCnt = cPrev + c0 + cNext;
+          if (!wCnt) continue;
+          const ts = safeMinTs + ((i + 0.5) / trendBins) * (safeMaxTs - safeMinTs);
+          data.push(ts, wSum / wCnt);
+        }
+        if (data.length < 6) return null;
+        return { band, color: bandColorForChart(band), data };
+      }).filter(Boolean);
+      drawRbnSignalCanvas(canvas, {
+        title,
+        minTs: safeMinTs,
+        maxTs: safeMaxTs,
+        minY,
+        maxY,
+        series,
+        trendlines
+      });
+
+      if (legendBandsNode) {
+        const bands = sortBands(Array.from(bandsPlotted).filter(Boolean));
+        legendBandsNode.innerHTML = bands.map((b) => (
+          `<span class="rbn-legend-item"><i style="background:${bandColorForChart(b)}"></i>${escapeHtml(formatBandLabel(b) || b)}</span>`
+        )).join('');
+      }
+      if (metaNode) {
+        const fmt = (v) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)}` : 'N/A');
+        const rangeText = (Number.isFinite(minSnr) && Number.isFinite(maxSnr)) ? `${fmt(minSnr)}..${fmt(maxSnr)} dB` : 'N/A';
+        metaNode.textContent = `${formatNumberSh6(pointTotal)} points plotted · SNR range: ${rangeText}`;
+      }
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', `${title}. ${formatNumberSh6(pointTotal)} points plotted. ${metaNode ? metaNode.textContent : ''}`);
+    });
+  }
+
+  function populateRbnCompareSignalSpotterSelects() {
+    if (reports[state.activeIndex]?.id !== 'rbn_compare_signal') return;
+    const root = dom.viewContainer;
+    if (!root) return;
+    const slots = getActiveCompareSlots();
+    const base = slots.find((e) => e.id === 'A') || slots[0] || null;
+    if (!base) return;
+    const bandKey = normalizeBandToken(state.globalBandFilter || '');
+    const cached = getRbnCompareRankingCached(base.id, base.slot, bandKey);
+    const index = cached ? null : getRbnCompareIndexCached(base.id, base.slot);
+    const ranking = cached || (index ? buildRbnCompareRankingFromIndex(base.id, base.slot, bandKey, index) : null);
+    if (!ranking) {
+      if (base.slot?.rbnState?.status === 'ready') scheduleRbnCompareIndexBuild(base.id, base.slot);
+      return;
+    }
+    const selections = (state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object')
+      ? state.rbnCompareSignal
+      : { selectedByContinent: {} };
+    if (!state.rbnCompareSignal) state.rbnCompareSignal = selections;
+    if (!selections.selectedByContinent) selections.selectedByContinent = {};
+    const selects = Array.from(root.querySelectorAll('.rbn-signal-select'));
+    selects.forEach((select) => {
+      const cont = String(select.dataset.continent || '').trim().toUpperCase() || 'N/A';
+      const list = ranking.byContinent.get(cont) || [];
+      if (!list.length) {
+        select.innerHTML = '<option value="">No skimmers</option>';
+        select.disabled = true;
+        const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
+        if (canvas) canvas.dataset.spotter = '';
+        return;
+      }
+      const saved = normalizeSpotterBase(String(selections.selectedByContinent[cont] || '').trim());
+      const defaultSpotter = saved && list.some((e) => e.spotter === saved) ? saved : list[0].spotter;
+      selections.selectedByContinent[cont] = defaultSpotter;
+      select.disabled = false;
+      select.innerHTML = list.slice(0, 80).map((e) => {
+        const label = `${e.spotter} (${formatNumberSh6(e.count)})`;
+        return `<option value="${escapeAttr(e.spotter)}" ${e.spotter === defaultSpotter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+      }).join('');
+      const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
+      if (canvas) canvas.dataset.spotter = defaultSpotter;
+    });
+    scheduleRbnCompareSignalDraw();
+  }
+
+  function renderRbnCompareSignal() {
+    if (!state.qsoData || !state.derived) {
+      return renderStateCard({
+        type: 'info',
+        title: 'RBN compare signal unavailable',
+        message: 'Load a log to enable RBN signal compare.'
+      });
+    }
+
+    const slots = getActiveCompareSlots();
+    const loaded = slots.filter((e) => e.slot?.qsoData && e.slot?.derived);
+    const base = loaded.find((e) => e.id === 'A') || loaded[0] || null;
+    const bandKey = normalizeBandToken(state.globalBandFilter || '');
+    const bandLabel = bandKey ? formatBandLabel(bandKey) : 'All bands';
+
+    const rbnControls = loaded.map((entry) => {
+      const status = mapSpotStatus(entry.slot?.rbnState?.status || 'idle');
+      const statusText = status === 'ready' ? 'ready' : (status === 'loading' ? 'loading' : (status === 'error' ? 'error' : 'idle'));
+      return `
+        <button type="button" class="button spots-load-btn" data-source="rbn" data-slot="${escapeAttr(entry.id)}">Load RBN (${escapeHtml(entry.label)})</button>
+        <span class="cqapi-muted">${escapeHtml(statusText)}</span>
+      `;
+    }).join(' ');
+
+    const warning = (() => {
+      const minTs = state.derived?.timeRange?.minTs;
+      const maxTs = state.derived?.timeRange?.maxTs;
+      const days = buildRbnDayList(minTs, maxTs);
+      if ((days || []).length > 2) {
+        return `<div class="export-actions export-note">Note: this contest spans more than 2 UTC dates; RBN queries are limited to 2 dates at a time. Adjust selected days in <b>RBN spots</b> if needed.</div>`;
+      }
+      return '';
+    })();
+
+    const contOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC', 'N/A'];
+    const selections = (state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object')
+      ? state.rbnCompareSignal
+      : { selectedByContinent: {} };
+    if (!state.rbnCompareSignal) state.rbnCompareSignal = selections;
+    if (!selections.selectedByContinent) selections.selectedByContinent = {};
+
+    const rankingCached = base ? getRbnCompareRankingCached(base.id, base.slot, bandKey) : null;
+    const byContinent = rankingCached?.byContinent || new Map();
+    const cards = contOrder.map((cont) => {
+      const list = byContinent.get(cont) || [];
+      if (!list.length) {
+        return `
+          <article class="rbn-signal-card">
+            <div class="rbn-signal-head">
+              <h4>${escapeHtml(continentLabel(cont) || cont)} top skimmer</h4>
+              <span class="cqapi-muted">${base?.slot?.rbnState?.status === 'ready' ? 'No RBN spots found.' : 'Load RBN spots to populate charts.'}</span>
+            </div>
+            <label class="rbn-signal-picker">
+              <span>Skimmer</span>
+              <select class="rbn-signal-select" data-continent="${escapeAttr(cont)}" disabled>
+                <option value="">${rankingCached ? 'No skimmers' : 'Building list...'}</option>
+              </select>
+            </label>
+            <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
+            <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
+            <div class="rbn-signal-legend">
+              <span class="rbn-legend-title">Legend</span>
+              <span class="rbn-signal-legend-bands"></span>
+              <span class="rbn-legend-item rbn-legend-shape">A ● B ▲ C ■ D ◆</span>
+            </div>
+          </article>
+        `;
+      }
+      const saved = normalizeSpotterBase(String(selections.selectedByContinent[cont] || '').trim());
+      const defaultSpotter = saved && list.some((e) => e.spotter === saved) ? saved : list[0].spotter;
+      selections.selectedByContinent[cont] = defaultSpotter;
+      const options = list.slice(0, 80).map((e) => {
+        const label = `${e.spotter} (${formatNumberSh6(e.count)})`;
+        return `<option value="${escapeAttr(e.spotter)}" ${e.spotter === defaultSpotter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+      }).join('');
+      return `
+        <article class="rbn-signal-card">
+          <div class="rbn-signal-head">
+            <h4>${escapeHtml(continentLabel(cont) || cont)} top skimmer</h4>
+            <label class="rbn-signal-picker">
+              <span>Skimmer</span>
+              <select class="rbn-signal-select" data-continent="${escapeAttr(cont)}">
+                ${options}
+              </select>
+            </label>
+          </div>
+          <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="${escapeAttr(defaultSpotter)}" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
+          <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
+          <div class="rbn-signal-legend">
+            <span class="rbn-legend-title">Legend</span>
+            <span class="rbn-signal-legend-bands"></span>
+            <span class="rbn-legend-item rbn-legend-shape">A ● B ▲ C ■ D ◆</span>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    const intro = renderReportIntroCard(
+      'RBN compare signal',
+      'Scatter charts of RBN SNR (dB) versus time, colored by band and overlaid across loaded logs.',
+      [
+        `Band filter ${bandLabel}`,
+        `Charts based on Log A skimmers`,
+        'Skimmer ranking follows band filter'
+      ]
+    );
+
+    return `
+      ${intro}
+      ${warning}
+      <div class="export-actions">${rbnControls || '<span class="cqapi-muted">Load at least one log to enable RBN charts.</span>'}</div>
+      <div class="rbn-signal-grid">${cards}</div>
+    `;
+  }
+
   function renderSpotsSharedControls(source) {
     const sourceAttr = escapeAttr(source);
     const spotState = getSpotStateBySource(state, source);
@@ -12332,7 +13486,7 @@
           <th>All</th><th>Unique</th><th>%</th>
         </tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bandCols.length + 13)}
       </table>
     `;
   }
@@ -12468,11 +13622,11 @@
     const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="40px"/><col width="30px"/><col width="200px"/><col span="${qsoCols}" width="120px"/><col width="5%"/></colgroup>
+        <colgroup><col width="40px"/><col width="30px"/><col width="200px"/><col span="${qsoCols}" width="120px"/><col width="56px"/></colgroup>
         <tr class="thc"><th rowspan="2">#</th><th colspan="2" rowspan="2">Continent</th><th colspan="${qsoCols}">QSOs</th><th rowspan="2">Map</th></tr>
         <tr class="thc">${bandHeaders}<th>All</th><th>%</th><th>CW</th><th>Digital</th><th>Phone</th></tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bandCols.length + 9)}
       </table>
     `;
   }
@@ -12511,6 +13665,7 @@
   }
 
   function renderZoneRowsFromList(list, derived, field) {
+    const bandCols = getDisplayBandList();
     const summaryMap = buildZoneSummaryMap(derived, field);
     const scope = field === 'itu' ? 'itu_zone' : 'cq_zone';
     const dataAttr = field === 'itu' ? 'data-itu' : 'data-cq';
@@ -12521,11 +13676,18 @@
       const zoneAttr = escapeAttr(info.zone ?? '');
       const mapLink = z ? `<a href="#" class="map-link" data-scope="${scope}" data-key="${zoneAttr}">map</a>` : '';
       const zoneLink = z ? `<a href="#" class="${linkClass}" ${dataAttr}="${zoneAttr}">${zoneText}</a>` : zoneText;
+      const bandCells = bandCols.map((b) => {
+        const count = z?.bandCounts?.get(b) || 0;
+        if (!count) return '<td></td>';
+        return `<td><a href=\"#\" class=\"${linkClass}\" ${dataAttr}=\"${zoneAttr}\" data-band=\"${escapeAttr(b)}\">${formatNumberSh6(count)}</a></td>`;
+      }).join('');
+      const allLink = z ? `<a href=\"#\" class=\"${linkClass}\" ${dataAttr}=\"${zoneAttr}\">${formatNumberSh6(z.qsos)}</a>` : '';
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${zoneLink}</td>
         <td>${z ? formatNumberSh6(z.countries) : ''}</td>
-        <td>${z ? formatNumberSh6(z.qsos) : ''}</td>
+        ${bandCells}
+        <td>${allLink}</td>
         <td class="tac">${mapLink}</td>
       </tr>
     `;
@@ -12533,11 +13695,13 @@
   }
 
   function renderZonesTable(rows) {
+    const bandCols = getDisplayBandList();
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Zone</th><th>DXCC</th><th>QSOs</th><th>Map</th></tr>
+        <tr class="thc"><th>Zone</th><th>DXCC</th>${bandHeaders}<th>All</th><th>Map</th></tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bandCols.length + 4)}
       </table>
     `;
   }
@@ -12994,7 +14158,7 @@
       rowIndex += 1;
     }
     return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+      <table class="mtc minute-grid-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th rowspan="2">Day</th><th rowspan="2">Hour</th><th colspan="60">Minute</th></tr>
         <tr class="thc">
           <th style="text-align:left" colspan="10">0</th>
@@ -13385,6 +14549,7 @@
   function renderDistanceRowsFromList(list, derived) {
     const ds = derived?.distanceSummary;
     const map = buildDistanceMap(derived);
+    const bandCols = getDisplayBandList();
     return list.map((info, idx) => {
       const b = map.get(info.range);
       const pct = b && ds?.count ? ((b.count / ds.count) * 100).toFixed(2) : '';
@@ -13395,17 +14560,41 @@
       const startAttr = Number.isFinite(start) ? escapeAttr(start) : '';
       const endAttr = Number.isFinite(end) ? escapeAttr(end) : '';
       const mapLink = b ? `<a href="#" class="map-link" data-scope="distance" data-key="${rangeAttr}">map</a>` : '';
+      const renderBandCount = (band) => {
+        const count = b?.bands?.get(band) || 0;
+        if (!count) return '<td></td>';
+        const bandAttr = escapeAttr(band || '');
+        return `<td><a href="#" class="log-distance" data-start="${startAttr}" data-end="${endAttr}" data-band="${bandAttr}">${formatNumberSh6(count)}</a></td>`;
+      };
+      const bandCells = bandCols.map((band) => renderBandCount(band)).join('');
       const qsoLink = b ? `<a href="#" class="log-distance" data-start="${startAttr}" data-end="${endAttr}">${formatNumberSh6(b.count)}</a>` : '';
-      return `<tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${formatNumberSh6(info.range)} km</td><td>${qsoLink}</td><td>${pct}</td><td class="tac">${mapLink}</td></tr>`;
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td>${formatNumberSh6(info.range)} km</td>
+          ${bandCells}
+          <td>${qsoLink}</td>
+          <td><i>${pct}</i></td>
+          <td class="tac">${mapLink}</td>
+        </tr>
+      `;
     }).join('');
   }
 
   function renderDistanceTable(rows) {
+    const bandCols = getDisplayBandList();
+    const qsoCols = bandCols.length + 1;
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map</th></tr>
+        <tr class="thc">
+          <th rowspan="2">Distance, km</th>
+          <th colspan="${qsoCols}">QSOs</th>
+          <th rowspan="2">%</th>
+          <th rowspan="2">Map</th>
+        </tr>
+        <tr class="thc">${bandHeaders}<th>All</th></tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bandCols.length + 4)}
       </table>
     `;
   }
@@ -13482,11 +14671,11 @@
     const bandHeaders = bands.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="100px" align="center"/><col span="${bands.length + 1}" width="60px"/><col width="5%"/></colgroup>
+        <colgroup><col width="100px" align="center"/><col span="${bands.length + 1}" width="60px"/><col width="56px"/></colgroup>
         <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="${qsoCols}">QSOs</th><th colspan="2" rowspan="2">%</th><th rowspan="2">Map</th></tr>
         <tr class="thc">${bandHeaders}<th>All</th></tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bands.length + 5)}
       </table>
     `;
   }
@@ -13548,6 +14737,7 @@
   function renderAllCallsigns() {
     if (!state.derived) return renderPlaceholder({ id: 'all_callsigns', title: 'All callsigns' });
     const countryFilter = (state.allCallsignsCountryFilter || '').trim().toUpperCase();
+    const bandCols = getDisplayBandList();
     let list = state.derived.allCallsList || [];
     if (countryFilter && Array.isArray(state.qsoData?.qsos)) {
       const byCall = new Map();
@@ -13556,19 +14746,32 @@
         const qCountry = (q.country || '').trim().toUpperCase();
         if (qCountry !== countryFilter) return;
         const entry = byCall.get(q.call);
-        if (entry) entry.qsos += 1;
-        else byCall.set(q.call, { call: q.call, qsos: 1 });
+        if (entry) {
+          entry.qsos += 1;
+        } else {
+          byCall.set(q.call, { call: q.call, qsos: 0, bandCounts: new Map() });
+        }
+        const next = byCall.get(q.call);
+        next.qsos += 1;
+        if (q.band) next.bandCounts.set(q.band, (next.bandCounts.get(q.band) || 0) + 1);
       });
       list = Array.from(byCall.values()).sort((a, b) => a.call.localeCompare(b.call));
     }
     const rows = list.slice(0, 2000).map((c, idx) => {
       const call = escapeHtml(c.call || '');
       const callAttr = escapeAttr(c.call || '');
+      const renderBandCell = (band) => {
+        const count = c?.bandCounts?.get(band) || 0;
+        if (!count) return '<td></td>';
+        return `<td><a href="#" class="log-call-band" data-call="${callAttr}" data-band="${escapeAttr(band)}">${formatNumberSh6(count)}</a></td>`;
+      };
+      const bandCells = bandCols.map((band) => renderBandCell(band)).join('');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${formatNumberSh6(idx + 1)}</td>
         <td><a href="#" class="log-call" data-call="${callAttr}">${call}</a></td>
-        <td>${formatNumberSh6(c.qsos)}</td>
+        ${bandCells}
+        <td><a href="#" class="log-call" data-call="${callAttr}">${formatNumberSh6(c.qsos)}</a></td>
       </tr>
     `;
     }).join('');
@@ -13576,11 +14779,12 @@
       ? `<p>Country filter: <b>${escapeHtml(countryFilter)}</b> (<a href="#" class="all-calls-clear-country">clear</a>)</p>`
       : '';
     const note = list.length > 2000 ? `<p>Showing first 2000 of ${list.length} calls.</p>` : '';
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       ${filterNote}
       ${note}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Callsign</th><th>QSOs</th></tr>
+        <tr class="thc"><th>#</th><th>Callsign</th>${bandHeaders}<th>All</th></tr>
         ${rows}
       </table>
     `;
@@ -14785,6 +15989,7 @@
         case 'session': return renderSessionPage();
         case 'spots': return renderSpots();
         case 'rbn_spots': return renderRbnSpots();
+        case 'rbn_compare_signal': return renderRbnCompareSignal();
         case 'spot_hunter': return renderSpotHunter();
         case 'charts': return renderChartsIndex();
         case 'charts_qs_by_band': return renderChartQsByBand();
@@ -14878,10 +16083,6 @@
           <span class="compare-workspace-report">Report: ${escapeHtml(reportTitle)}</span>
         </div>
         <div class="compare-workspace-slot-row">${slotSummary}</div>
-        <div class="compare-workspace-controls" role="group" aria-label="Compare workspace controls">
-          <button type="button" class="compare-ui-toggle${state.compareSyncEnabled ? ' active' : ''}" data-compare-toggle="sync" aria-pressed="${state.compareSyncEnabled ? 'true' : 'false'}">Sync scroll ${state.compareSyncEnabled ? 'ON' : 'OFF'}</button>
-          <button type="button" class="compare-ui-toggle${state.compareStickyEnabled ? ' active' : ''}" data-compare-toggle="sticky" aria-pressed="${state.compareStickyEnabled ? 'true' : 'false'}">Sticky headers ${state.compareStickyEnabled ? 'ON' : 'OFF'}</button>
-        </div>
         ${insightStrip}
       </div>
     `;
@@ -14939,33 +16140,13 @@
   }
 
   function renderCompareInsightStrip(slotEntries, currentReportId) {
-    const metrics = (slotEntries || []).map((entry) => ({
-      id: String(entry.id || '').toUpperCase(),
-      call: String(entry.snapshot?.derived?.contestMeta?.stationCallsign || 'N/A').trim().toUpperCase() || 'N/A',
-      score: resolveCompareScore(entry.snapshot),
-      qsos: Number(entry.snapshot?.qsoData?.qsos?.length || 0),
-      mult: resolveCompareMultiplier(entry.snapshot)
-    }));
-    if (metrics.length < 2) return '';
-    const chips = [
-      buildCompareInsightChip(metrics, 'score', 'Score', 'main'),
-      buildCompareInsightChip(metrics, 'qsos', 'QSOs', 'summary'),
-      buildCompareInsightChip(metrics, 'mult', 'Multipliers', 'summary')
-    ];
     const quickLinks = [
-      { report: 'main', label: 'Open Main' },
-      { report: 'summary', label: 'Open Summary' },
       { report: 'rates', label: 'Open Rates' },
-      { report: 'spots', label: 'Open Spots' }
     ].filter((entry) => entry.report !== currentReportId)
       .map((entry) => `<button type="button" class="compare-workspace-jump" data-compare-jump="${escapeAttr(entry.report)}">${escapeHtml(entry.label)}</button>`)
       .join('');
-    return `
-      <div class="compare-insight-strip">
-        <div class="compare-insight-row">${chips.join('')}</div>
-        <div class="compare-insight-jumps">${quickLinks}</div>
-      </div>
-    `;
+    if (!quickLinks) return '';
+    return `<div class="compare-insight-strip"><div class="compare-insight-jumps">${quickLinks}</div></div>`;
   }
 
   function estimateReportRows(reportId, derived) {
@@ -15768,6 +16949,15 @@
 
   let focusRenderTimer = null;
   function bindReportInteractions(reportId) {
+    if (reportId !== 'rbn_compare_signal' && rbnCompareSignalResizeObserver) {
+      rbnCompareSignalResizeObserver.disconnect();
+      rbnCompareSignalResizeObserver = null;
+      rbnCompareSignalResizeRaf = 0;
+    }
+    if (reportId !== 'rbn_compare_signal' && rbnCompareSignalIntersectionObserver) {
+      rbnCompareSignalIntersectionObserver.disconnect();
+      rbnCompareSignalIntersectionObserver = null;
+    }
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
     bindCompareScrollSync(reportId);
@@ -15793,13 +16983,11 @@
         evt.preventDefault();
         const targetId = String(btn.dataset.compareJump || '').trim();
         if (!targetId) return;
-        const idx = reports.findIndex((entry) => entry.id === targetId);
-        if (idx < 0) return;
-        if (idx === state.activeIndex) {
+        if (reports[state.activeIndex]?.id === targetId) {
           renderReportWithLoading(reports[state.activeIndex]);
           return;
         }
-        setActiveReport(idx);
+        setActiveReportById(targetId, { silent: true });
       });
     });
     const chartModeButtons = dom.viewContainer.querySelectorAll('.chart-mode-btn');
@@ -15871,6 +17059,7 @@
     if (reportId === 'competitor_coach') {
       const scopeButtons = document.querySelectorAll('.coach-scope-btn');
       const categoryButtons = document.querySelectorAll('.coach-category-btn');
+      const navButtons = document.querySelectorAll('.coach-brief-nav');
 
       const setActiveChoice = (buttons, predicate) => {
         buttons.forEach((btn) => {
@@ -15907,6 +17096,15 @@
           setActiveChoice(categoryButtons, (item) => (item.dataset.categoryMode || 'same') === nextMode);
           syncCoachControls();
           triggerCompetitorCoachRefresh(true);
+        });
+      });
+
+      navButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const target = String(btn.dataset.report || '').trim();
+          if (!target) return;
+          setActiveReportById(target);
         });
       });
 
@@ -16151,6 +17349,74 @@
       bindSpotControls('rbn');
       alignSpotsCompareSections(reportId);
     }
+    if (reportId === 'rbn_compare_signal') {
+      if (dom.rbnStatusRow) dom.rbnStatusRow.classList.remove('hidden');
+      updateDataStatus();
+      bindSpotControls('rbn');
+      const slotEntries = getActiveCompareSlots().filter((e) => e.slot?.qsoData && e.slot?.derived);
+      slotEntries.forEach((entry) => {
+        if (entry.slot?.rbnState?.status === 'ready') scheduleRbnCompareIndexBuild(entry.id, entry.slot);
+      });
+      const selects = dom.viewContainer.querySelectorAll('.rbn-signal-select');
+      selects.forEach((select) => {
+        select.addEventListener('change', () => {
+          const cont = String(select.dataset.continent || '').trim().toUpperCase() || 'N/A';
+          const value = normalizeSpotterBase(String(select.value || '').trim());
+          state.rbnCompareSignal = state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object'
+            ? state.rbnCompareSignal
+            : { selectedByContinent: {} };
+          if (!state.rbnCompareSignal.selectedByContinent) state.rbnCompareSignal.selectedByContinent = {};
+          state.rbnCompareSignal.selectedByContinent[cont] = value;
+          const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
+          if (canvas) canvas.dataset.spotter = value;
+          scheduleRbnCompareSignalDraw();
+        });
+      });
+      if (rbnCompareSignalResizeObserver) {
+        rbnCompareSignalResizeObserver.disconnect();
+        rbnCompareSignalResizeObserver = null;
+        rbnCompareSignalResizeRaf = 0;
+      }
+      const grid = dom.viewContainer ? dom.viewContainer.querySelector('.rbn-signal-grid') : null;
+      if (grid && typeof ResizeObserver === 'function') {
+        const schedule = () => {
+          if (rbnCompareSignalResizeRaf) return;
+          rbnCompareSignalResizeRaf = requestAnimationFrame(() => {
+            rbnCompareSignalResizeRaf = 0;
+            scheduleRbnCompareSignalDraw();
+          });
+        };
+        rbnCompareSignalResizeObserver = new ResizeObserver(schedule);
+        rbnCompareSignalResizeObserver.observe(grid);
+      }
+      if (rbnCompareSignalIntersectionObserver) {
+        rbnCompareSignalIntersectionObserver.disconnect();
+        rbnCompareSignalIntersectionObserver = null;
+      }
+      const canvases = Array.from(dom.viewContainer.querySelectorAll('.rbn-signal-canvas'));
+      canvases.forEach((c) => { if (c instanceof HTMLCanvasElement) c.dataset.rbnVisible = '0'; });
+      if (typeof IntersectionObserver === 'function') {
+        rbnCompareSignalIntersectionObserver = new IntersectionObserver((entries) => {
+          let touched = false;
+          entries.forEach((e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLCanvasElement)) return;
+            if (e.isIntersecting) {
+              target.dataset.rbnVisible = '1';
+              touched = true;
+            }
+          });
+          if (touched) scheduleRbnCompareSignalDraw();
+        }, { root: null, rootMargin: '240px 0px', threshold: 0.01 });
+        canvases.forEach((c) => {
+          if (c instanceof HTMLCanvasElement) rbnCompareSignalIntersectionObserver.observe(c);
+        });
+      } else {
+        canvases.forEach((c) => { if (c instanceof HTMLCanvasElement) c.dataset.rbnVisible = '1'; });
+      }
+      populateRbnCompareSignalSpotterSelects();
+      scheduleRbnCompareSignalDraw();
+    }
     if (reportId === 'load_logs') {
       const revealLoadPanel = () => {
         state.showLoadPanel = true;
@@ -16185,8 +17451,7 @@
             return;
           }
           if (!reportId) return;
-          const idx = reports.findIndex((r) => r.id === reportId);
-          if (idx >= 0) setActiveReport(idx);
+          setActiveReportById(reportId, { silent: true });
         });
       });
     }
@@ -16718,6 +17983,35 @@
       });
     });
 
+    const callBandLinks = document.querySelectorAll('.log-call-band');
+    callBandLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const call = (link.dataset.call || '').trim().toUpperCase();
+        const band = (link.dataset.band || '').trim().toUpperCase();
+        if (!call || !band) return;
+        state.logRange = null;
+        state.logSearch = call;
+        state.logFieldFilter = '';
+        state.logBandFilter = band;
+        state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logHeadingRange = null;
+        state.logStationQsoRange = null;
+        state.logDistanceRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
     const opLinks = document.querySelectorAll('.log-op');
     opLinks.forEach((link) => {
       link.addEventListener('click', (evt) => {
@@ -16886,11 +18180,12 @@
         evt.preventDefault();
         const start = Number(link.dataset.start);
         const end = Number(link.dataset.end);
+        const band = (link.dataset.band || '').trim().toUpperCase();
         if (!Number.isFinite(start) || !Number.isFinite(end)) return;
         state.logRange = null;
         state.logSearch = '';
         state.logFieldFilter = '';
-        state.logBandFilter = '';
+        state.logBandFilter = band;
         state.logModeFilter = '';
         state.logOpFilter = '';
         state.logCallLenFilter = null;
@@ -17148,11 +18443,12 @@
       link.addEventListener('click', (evt) => {
         evt.preventDefault();
         const cq = (link.dataset.cq || '').trim();
+        const band = (link.dataset.band || '').trim().toUpperCase();
         if (!cq) return;
         state.logRange = null;
         state.logSearch = '';
         state.logFieldFilter = '';
-        state.logBandFilter = '';
+        state.logBandFilter = band;
         state.logModeFilter = '';
         state.logOpFilter = '';
         state.logCallLenFilter = null;
@@ -17176,11 +18472,12 @@
       link.addEventListener('click', (evt) => {
         evt.preventDefault();
         const itu = (link.dataset.itu || '').trim();
+        const band = (link.dataset.band || '').trim().toUpperCase();
         if (!itu) return;
         state.logRange = null;
         state.logSearch = '';
         state.logFieldFilter = '';
-        state.logBandFilter = '';
+        state.logBandFilter = band;
         state.logModeFilter = '';
         state.logOpFilter = '';
         state.logCallLenFilter = null;

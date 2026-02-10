@@ -388,6 +388,180 @@ Goal: finish with stable, testable, documented results.
 
 ---
 
+## Sprint 7: UX Measurement and Success Metrics
+Goal: move from subjective UI polish to measurable UX outcomes.
+
+### Task 7.1: Define SH6 UX KPI framework
+- Status: [ ]
+- Scope:
+  - `design-system/UX_METRICS.md` (new)
+- Instruction to LLM:
+  - Create a KPI spec for core flows:
+    - time to first successful single-log render
+    - time to first successful 4-slot compare render
+    - spots drilldown completion rate
+    - export completion success rate
+  - Include baseline collection method and target thresholds.
+- Acceptance criteria:
+  - KPI definitions are unambiguous and measurable.
+- Validation:
+  - `test -f design-system/UX_METRICS.md`
+- Commit message:
+  - `docs(ux): define SH6 UX metrics and targets`
+
+### Task 7.2: Add lightweight instrumentation hooks
+- Status: [ ]
+- Scope:
+  - `main.js`
+- Instruction to LLM:
+  - Add a small, isolated instrumentation helper for key events in:
+    - log load
+    - compare render
+    - spots drilldown
+    - export trigger/success
+  - Keep it local-only and toggleable (no backend required).
+  - Must not alter scoring logic or CQ API behavior.
+- Acceptance criteria:
+  - Core flows emit timing/error markers in debug mode.
+- Validation:
+  - Manual check in browser console for all four flows.
+- Commit message:
+  - `feat(ux): add debug instrumentation for core user journeys`
+
+### Task 7.3: Add UX performance budgets
+- Status: [ ]
+- Scope:
+  - `design-system/UX_METRICS.md`
+  - optional small helper in `scripts/`
+- Instruction to LLM:
+  - Define pass/fail budgets for:
+    - LCP
+    - INP
+    - CLS
+    - JS/CSS size growth guardrails
+  - Add how to run and record periodic checks.
+- Acceptance criteria:
+  - Budgets are numeric and actionable.
+- Validation:
+  - Manual Lighthouse run compared against documented thresholds.
+- Commit message:
+  - `docs(perf): add UX performance budgets and check procedure`
+
+---
+
+## Sprint 8: Information Architecture and Navigation Efficiency
+Goal: reduce cognitive load and speed up report navigation.
+
+### Task 8.1: Add report grouping in navigation
+- Status: [ ]
+- Scope:
+  - `index.html`
+  - `style.css`
+  - `main.js` (if nav is rendered dynamically)
+- Instruction to LLM:
+  - Group navigation items into clear sections while preserving existing order inside each section.
+  - Keep numbering/menu semantics intact.
+  - Ensure active report remains highly visible in long menus.
+- Acceptance criteria:
+  - Scan time improves and users can orient quickly in nav.
+- Validation:
+  - Manual rapid-switch test across 10+ entries.
+- Commit message:
+  - `feat(ui): group nav sections for faster report discovery`
+
+### Task 8.2: Add persistent page context header
+- Status: [ ]
+- Scope:
+  - `main.js`
+  - `style.css`
+- Instruction to LLM:
+  - Add a compact context row near top of report area showing:
+    - current report
+    - single vs compare mode
+    - active slots
+    - key active filters (when applicable)
+  - Keep visual density high; avoid bulky banners.
+- Acceptance criteria:
+  - Context updates correctly as user navigates and switches mode.
+- Validation:
+  - Manual checks in single-log and A/B/C/D compare flows.
+- Commit message:
+  - `feat(ui): add persistent context header for report state`
+
+### Task 8.3: Add skip link and landmark structure
+- Status: [ ]
+- Scope:
+  - `index.html`
+  - `style.css`
+- Instruction to LLM:
+  - Add keyboard-first skip link (`Skip to main report`).
+  - Ensure semantic landmarks are explicit and stable (`header`, `nav`, `main`).
+  - Skip link must be visible when focused.
+- Acceptance criteria:
+  - Keyboard users can bypass repeated navigation quickly.
+- Validation:
+  - Keyboard-only test from page load to main report content.
+- Commit message:
+  - `fix(a11y): add skip-to-main link and explicit landmarks`
+
+---
+
+## Sprint 9: Error Prevention and Recovery UX
+Goal: prevent user mistakes and make recovery clear and fast.
+
+### Task 9.1: Standardize inline validation and error copy
+- Status: [ ]
+- Scope:
+  - `main.js`
+  - `style.css`
+- Instruction to LLM:
+  - Normalize field/action validation patterns across major controls.
+  - Error copy format must include:
+    - what happened
+    - what user should do next
+  - Place error feedback near the triggering control.
+- Acceptance criteria:
+  - Errors are specific, actionable, and consistently styled.
+- Validation:
+  - Trigger known invalid states and confirm placement + message clarity.
+- Commit message:
+  - `feat(ux): standardize inline validation and error messaging`
+
+### Task 9.2: Add recoverable risky-action flows
+- Status: [ ]
+- Scope:
+  - `main.js`
+  - `style.css`
+- Instruction to LLM:
+  - For destructive or slot-replacing actions, add either:
+    - undo affordance, or
+    - explicit confirmation with slot target details
+  - Avoid ambiguous yes/no copy.
+- Acceptance criteria:
+  - Accidental destructive actions are recoverable or clearly confirmed.
+- Validation:
+  - Manual accidental-action tests in single and compare mode.
+- Commit message:
+  - `feat(ux): add recovery patterns for risky user actions`
+
+### Task 9.3: Create shared empty/loading/error state templates
+- Status: [ ]
+- Scope:
+  - `main.js`
+  - `style.css`
+- Instruction to LLM:
+  - Build shared render helpers for empty/loading/error surfaces.
+  - Apply to Start, Spots, RBN spots, and Competitor coach first.
+  - Keep behavior stable; change presentation/copy consistency only.
+- Acceptance criteria:
+  - State transitions feel consistent across targeted reports.
+- Validation:
+  - Manual checks for empty, loading, and failure states per report.
+- Commit message:
+  - `refactor(ui): unify empty loading and error state templates`
+
+---
+
 ## Recommended Execution Order (atomic)
 1. Sprint 1 docs only.
 2. Sprint 2 CSS tokens/primitives.
@@ -395,6 +569,9 @@ Goal: finish with stable, testable, documented results.
 4. Sprint 4 report-specific UX.
 5. Sprint 5 accessibility/responsive.
 6. Sprint 6 tests/docs/release prep.
+7. Sprint 7 UX metrics and instrumentation.
+8. Sprint 8 IA/navigation efficiency improvements.
+9. Sprint 9 error prevention and recovery UX.
 
 ## Minimal Validation Loop (run every sprint)
 - `git status -sb`

@@ -10,6 +10,9 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 ## v5.1.21 (2026-02-10)
 - RBN compare signal: trendline now shows the 75th percentile SNR per time bucket, with per-log line styles and 15-minute gap breaks.
 
+## v5.1.22 (2026-02-10)
+- RBN compare signal: trendline gap breaks now use a 30-minute threshold, and the legend is shown to the right with visual line-style samples.
+
 ## v5.1.19 (2026-02-09)
 - Table hardening: eliminate page-level horizontal overflow across all menus and extend wrapper coverage to wide matrix tables (including Fields map).
 - Table context: add sticky report headers plus sticky key columns for long/wide reports (`Log`, minute matrices, Countries, Countries by time, Continents, Beam heading family).

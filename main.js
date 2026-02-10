@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.1.21';
+  const APP_VERSION = 'v5.1.22';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -12756,6 +12756,14 @@
     return 'solid';
   }
 
+  function slotLineStyleSample(slotId) {
+    const id = String(slotId || 'A').toUpperCase();
+    if (id === 'B') return '- - -';
+    if (id === 'C') return '. . .';
+    if (id === 'D') return '-.-.-';
+    return '-----';
+  }
+
   function formatUtcTick(ts) {
     if (!Number.isFinite(ts)) return '';
     const d = new Date(ts);
@@ -12861,7 +12869,7 @@
       }
     };
 
-    const trendBreakMs = 15 * 60 * 1000;
+    const trendBreakMs = 30 * 60 * 1000;
     // Optional trendlines (subtle).
     const trendlines = Array.isArray(model.trendlines) ? model.trendlines : [];
     if (trendlines.length) {
@@ -13235,8 +13243,8 @@
       const call = normalizeCall(entry.slot?.derived?.contestMeta?.stationCallsign || '');
       const label = call || entry.label || `Log ${entry.id}`;
       const sym = slotMarkerSymbol(entry.id);
-      const style = slotLineStyleLabel(entry.id);
-      return `<span class="rbn-slot-legend-item"><b>${escapeHtml(label)}</b> ${sym} <span class="rbn-slot-legend-style">(${escapeHtml(style)})</span></span>`;
+      const sample = slotLineStyleSample(entry.id);
+      return `<span class="rbn-slot-legend-item"><b>${escapeHtml(label)}</b> ${sym} <span class="rbn-slot-legend-style" title="${escapeAttr(slotLineStyleLabel(entry.id))}">${escapeHtml(sample)}</span></span>`;
     }).join('');
 
     const rbnControls = loaded.map((entry) => {
@@ -13282,12 +13290,22 @@
                 <option value="">${rankingCached ? 'No skimmers' : 'Building list...'}</option>
               </select>
             </label>
-            <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
-            <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
-            <div class="rbn-signal-legend">
-              <span class="rbn-legend-title">Legend</span>
-              <span class="rbn-signal-legend-bands"></span>
-              <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
+            <div class="rbn-signal-body">
+              <div class="rbn-signal-plot">
+                <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
+                <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
+              </div>
+              <div class="rbn-signal-legend">
+                <span class="rbn-legend-title">Legend</span>
+                <div class="rbn-signal-legend-section">
+                  <span class="rbn-legend-subtitle">Bands</span>
+                  <span class="rbn-signal-legend-bands"></span>
+                </div>
+                <div class="rbn-signal-legend-section">
+                  <span class="rbn-legend-subtitle">Logs (markers + trendline)</span>
+                  <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
+                </div>
+              </div>
             </div>
           </article>
         `;
@@ -13310,12 +13328,22 @@
               </select>
             </label>
           </div>
-          <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="${escapeAttr(defaultSpotter)}" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
-          <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
-          <div class="rbn-signal-legend">
-            <span class="rbn-legend-title">Legend</span>
-            <span class="rbn-signal-legend-bands"></span>
-            <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
+          <div class="rbn-signal-body">
+            <div class="rbn-signal-plot">
+              <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="${escapeAttr(defaultSpotter)}" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
+              <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
+            </div>
+            <div class="rbn-signal-legend">
+              <span class="rbn-legend-title">Legend</span>
+              <div class="rbn-signal-legend-section">
+                <span class="rbn-legend-subtitle">Bands</span>
+                <span class="rbn-signal-legend-bands"></span>
+              </div>
+              <div class="rbn-signal-legend-section">
+                <span class="rbn-legend-subtitle">Logs (markers + trendline)</span>
+                <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
+              </div>
+            </div>
           </div>
         </article>
       `;

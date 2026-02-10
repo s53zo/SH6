@@ -2038,6 +2038,10 @@ a:hover {
   line-height: 1;
 }
 
+.source-indicator.hidden {
+  display: none;
+}
+
 .source-local {
   color: #2e7d32;
 }

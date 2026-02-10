@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.2.21';
+  const APP_VERSION = 'v5.2.22';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -5163,6 +5163,14 @@
       if (lower.includes('allorigins.win') || lower.includes('corsproxy.io')) return { mark: '✓', className: 'source-proxy' };
       return { mark: '', className: '' };
     };
+    const setSourceIndicator = (el, src, status) => {
+      if (!el) return;
+      const info = classifySource(src);
+      const show = status === 'ok' && Boolean(info.mark);
+      el.textContent = show ? info.mark : '';
+      el.title = show ? (src || '') : '';
+      el.className = ['source-indicator', info.className, show ? '' : 'hidden'].filter(Boolean).join(' ');
+    };
     const formatStatus = (status, src) => {
       if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
       if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
@@ -5182,12 +5190,7 @@
         state.ctyStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
-    if (dom.ctySourceLabel) {
-      const info = classifySource(state.ctySource);
-      dom.ctySourceLabel.textContent = info.mark;
-      dom.ctySourceLabel.title = state.ctySource || '';
-      dom.ctySourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
-    }
+    setSourceIndicator(dom.ctySourceLabel, state.ctySource, state.ctyStatus);
     if (dom.masterStatus) {
       dom.masterStatus.textContent = formatStatus(state.masterStatus, state.masterSource);
       dom.masterStatus.title = [state.masterSource, state.masterError].filter(Boolean).join(' ');
@@ -5200,12 +5203,7 @@
         state.masterStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
-    if (dom.masterSourceLabel) {
-      const info = classifySource(state.masterSource);
-      dom.masterSourceLabel.textContent = info.mark;
-      dom.masterSourceLabel.title = state.masterSource || '';
-      dom.masterSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
-    }
+    setSourceIndicator(dom.masterSourceLabel, state.masterSource, state.masterStatus);
     if (dom.qthStatus) {
       dom.qthStatus.textContent = formatStatus(state.qthStatus, state.qthSource);
       dom.qthStatus.title = [state.qthSource, state.qthError].filter(Boolean).join(' ');
@@ -5221,12 +5219,7 @@
     if (dom.qthStatusRow) {
       dom.qthStatusRow.classList.toggle('hidden', state.qthStatus === 'pending');
     }
-    if (dom.qthSourceLabel) {
-      const info = classifySource(state.qthSource);
-      dom.qthSourceLabel.textContent = info.mark;
-      dom.qthSourceLabel.title = state.qthSource || '';
-      dom.qthSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
-    }
+    setSourceIndicator(dom.qthSourceLabel, state.qthSource, state.qthStatus);
     if (dom.cqApiStatus) {
       dom.cqApiStatus.textContent = formatStatus(state.cqApiStatus, state.cqApiSource);
       dom.cqApiStatus.title = [state.cqApiSource, state.cqApiError].filter(Boolean).join(' ');
@@ -5242,12 +5235,7 @@
     if (dom.cqApiStatusRow) {
       dom.cqApiStatusRow.classList.toggle('hidden', state.cqApiStatus === 'pending');
     }
-    if (dom.cqApiSourceLabel) {
-      const info = classifySource(state.cqApiSource);
-      dom.cqApiSourceLabel.textContent = info.mark;
-      dom.cqApiSourceLabel.title = state.cqApiSource || '';
-      dom.cqApiSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
-    }
+    setSourceIndicator(dom.cqApiSourceLabel, state.cqApiSource, state.cqApiStatus);
     if (dom.spotsStatus) {
       const spotsState = ensureSpotsState(state);
       const status = mapSpotStatus(spotsState.status);
@@ -5262,12 +5250,7 @@
         status === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
-    if (dom.spotsSourceLabel) {
-      const info = classifySource(SPOTS_BASE_URL);
-      dom.spotsSourceLabel.textContent = info.mark;
-      dom.spotsSourceLabel.title = SPOTS_BASE_URL;
-      dom.spotsSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
-    }
+    setSourceIndicator(dom.spotsSourceLabel, SPOTS_BASE_URL, mapSpotStatus(ensureSpotsState(state).status));
     if (dom.rbnStatus) {
       const rbnState = ensureRbnState(state);
       const status = mapSpotStatus(rbnState.status);
@@ -5282,12 +5265,7 @@
         status === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
-    if (dom.rbnSourceLabel) {
-      const info = classifySource(RBN_PROXY_URL);
-      dom.rbnSourceLabel.textContent = info.mark;
-      dom.rbnSourceLabel.title = RBN_PROXY_URL;
-      dom.rbnSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
-    }
+    setSourceIndicator(dom.rbnSourceLabel, RBN_PROXY_URL, mapSpotStatus(ensureRbnState(state).status));
     if (dom.spotHunterStatus) {
       const status = mapSpotStatus(state.spotHunterStatus);
       dom.spotHunterStatus.textContent = formatStatus(status, state.spotHunterSource);
@@ -5301,12 +5279,7 @@
         status === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
-    if (dom.spotHunterSourceLabel) {
-      const info = classifySource(state.spotHunterSource);
-      dom.spotHunterSourceLabel.textContent = info.mark;
-      dom.spotHunterSourceLabel.title = state.spotHunterSource || '';
-      dom.spotHunterSourceLabel.className = ['source-indicator', info.className].filter(Boolean).join(' ');
-    }
+    setSourceIndicator(dom.spotHunterSourceLabel, state.spotHunterSource, mapSpotStatus(state.spotHunterStatus));
     if (dom.spotHunterStatusRow) {
       dom.spotHunterStatusRow.classList.toggle('hidden', state.spotHunterStatus === 'pending');
     }

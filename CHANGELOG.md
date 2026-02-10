@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.22 (2026-02-10)
+- Status bar: show green source checkmarks only when the corresponding feed status is `OK` (hide them for loading/QRX/error).
+
 ## v5.2.21 (2026-02-10)
 - UI: remove Classic theme and the theme toggle; keep NT as the only/default design.
 

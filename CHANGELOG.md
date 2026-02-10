@@ -2,6 +2,56 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.20 (2026-02-10)
+- RBN compare signal: show continental skimmer charts as full-width stacked panels.
+- RBN compare signal: use stronger band colors and display log callsigns in the marker legend.
+- RBN compare signal: add subtle per-band trendlines and stabilize performance with caching, lazy rendering, sampling, and progressive drawing.
+
+## v5.1.21 (2026-02-10)
+- RBN compare signal: trendline now shows the 75th percentile SNR per time bucket, with per-log line styles and 15-minute gap breaks.
+
+## v5.1.22 (2026-02-10)
+- RBN compare signal: trendline gap breaks now use a 30-minute threshold, and the legend is shown to the right with visual line-style samples.
+
+## v5.1.23 (2026-02-10)
+- RBN compare signal: move legend below the plot to keep charts full width.
+
+## v5.1.24 (2026-02-10)
+- RBN compare signal: keep legend below plot in a single row, and make p75 trendlines easier to appear while still dropping out during no-spot gaps.
+
+## v5.1.25 (2026-02-10)
+- RBN compare signal: remove filter notices from the header and add quick actions to load competitor logs into B/C/D when slots are empty.
+
+## v5.1.19 (2026-02-09)
+- Table hardening: eliminate page-level horizontal overflow across all menus and extend wrapper coverage to wide matrix tables (including Fields map).
+- Table context: add sticky report headers plus sticky key columns for long/wide reports (`Log`, minute matrices, Countries, Countries by time, Continents, Beam heading family).
+- Long-report orientation: add quick-jump toolbar (`Top / section / Bottom`) for heavy reports and introduce tall table containers with internal vertical scroll to keep context visible.
+- Coach + spots flow: standardize `Step 1..4` interaction order across `Competitor coach`, `Spots`, and `RBN spots` (filters → summary → primary table → advanced diagnostics).
+- Spots actions: normalize coach action wording to explicit jump actions (`Jump to ...`) for faster navigation.
+- Utility pages: redesign `EXPORT PDF, HTML, CBR` and `Save&Load session` into clearer action-first layouts with structured notes.
+- SH6 info: add compact diagnostics cards (build, loaded log, performance hotspot, data file status) above detailed parameter table.
+
+## v5.1.18 (2026-02-08)
+- NT compare workspace: add sticky compare toolbar with slot context, sync/sticky toggles, and quick report jump actions.
+- NT compare insights: add score/QSO/multiplier spread chips to speed up first-pass compare decisions.
+- Coach redesign: add shared severity model (`critical/high/medium/opportunity/info`) and action-first priority cards in Competitor coach.
+- Spots coach redesign: add severity badges plus one-click jump actions from summary cards to detailed drilldown sections.
+- Charts redesign: add `Absolute` vs `Normalized %` metric mode for compare fairness across unequal log sizes.
+- Charts styling: refresh bar chart rendering with improved tracks, value labels, and mode controls.
+- Hardening: improve touch-target sizes on mobile, add loading `aria-busy` semantics, and add render-time instrumentation (last render + hotspot) in SH6 info.
+- Smoke coverage: extend browser smoke checks for compare workspace, chart mode controls, and coach severity UI contracts.
+- Docs: refresh README highlights and NT shell contract for the redesigned compare/coach/chart workflows.
+
+## v5.1.17 (2026-02-08)
+- UI/UX foundation: add `design-system/` docs (`MASTER`, page overrides, QA checklist) for consistent future UI work.
+- Global UI polish: introduce shared CSS tokens, unified interaction states, focus rings, and shared card/table styling primitives.
+- Start/compare shell: improve start-page hierarchy, slot status clarity, compare panel spacing, and sidebar active-state readability.
+- Competitor coach UX: clarify row actions with explicit `Log B/C/D` targets and replace technical API wording with user-facing labels.
+- Spots/RBN UX: strengthen band/hour drilldown discoverability and improve filter-chip clarity for continent/CQ/ITU filtering.
+- Export UX: reorganize `EXPORT PDF, HTML, CBR` into clearer format groups with compare-mode guidance.
+- Accessibility/responsive: keyboard activation for sidebar entries, better tab semantics for slot source controls, reduced-motion safeguards, and breakpoint hardening for 375/768/1024/1440 layouts.
+- Tests: extend browser smoke test with UI assertions for competitor coach renderer, spots renderer, and exact export menu label.
+
 ## v5.1.16 (2026-02-08)
 - Scoring autoheal: fix exchange-aware EU/non-EU detection for EUDX and correct REF multiplier scope for non-French logs.
 - Scoring autoheal: add DARC Fieldday HF high/low band-group multiplier handling and EUHFC band-wise score aggregation.

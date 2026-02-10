@@ -34,16 +34,16 @@
     { id: 'zones_itu', title: 'ITU zones' },
     { id: 'not_in_master', title: 'Not in master' },
     { id: 'possible_errors', title: 'Possible errors' },
-    { id: 'charts', title: 'Charts' },
-    { id: 'charts_top_10_countries', title: 'Top 10 countries', parentId: 'charts' },
-    { id: 'charts_qs_by_band', title: 'Qs by band', parentId: 'charts' },
-    { id: 'charts_continents', title: 'Continents', parentId: 'charts' },
-    { id: 'charts_frequencies', title: 'Frequencies', parentId: 'charts' },
-    { id: 'charts_beam_heading', title: 'Beam heading', parentId: 'charts' },
-    { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour', parentId: 'charts' },
+    { id: 'charts_top_10_countries', title: 'Top 10 countries' },
+    { id: 'charts_qs_by_band', title: 'Qs by band' },
+    { id: 'charts_continents', title: 'Continents' },
+    { id: 'charts_frequencies', title: 'Frequencies' },
+    { id: 'charts_beam_heading', title: 'Beam heading' },
+    { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' },
     { id: 'comments', title: 'Comments' },
     { id: 'spots', title: 'Spots' },
     { id: 'rbn_spots', title: 'RBN spots' },
+    { id: 'rbn_compare_signal', title: 'RBN compare signal' },
     { id: 'export', title: 'EXPORT PDF, HTML, CBR' },
     { id: 'session', title: 'Save&Load session' },
     { id: 'qsl_labels', title: 'QSL labels' },
@@ -51,9 +51,84 @@
     { id: 'sh6_info', title: 'SH6 info' }
   ];
 
+  const NAV_SECTIONS = [
+    { id: 'load_core', title: 'Load & Core', openByDefault: true },
+    { id: 'rate_time', title: 'Rates & Time', openByDefault: true },
+    { id: 'geo_analysis', title: 'Geography', openByDefault: true },
+    { id: 'quality_review', title: 'Quality & Review', openByDefault: false },
+    { id: 'maps_charts', title: 'Maps & Charts', openByDefault: false },
+    { id: 'spots_coach', title: 'Spots & Coach', openByDefault: true },
+    { id: 'export_tools', title: 'Export & Tools', openByDefault: false }
+  ];
+
+  const NAV_SECTION_BY_REPORT = Object.freeze({
+    load_logs: 'load_core',
+    main: 'load_core',
+    summary: 'load_core',
+    log: 'load_core',
+    raw_log: 'load_core',
+    operators: 'load_core',
+
+    rates: 'rate_time',
+    points_rates: 'rate_time',
+    qs_by_hour_sheet: 'rate_time',
+    graphs_qs_by_hour: 'rate_time',
+    points_by_hour_sheet: 'rate_time',
+    graphs_points_by_hour: 'rate_time',
+    qs_by_minute: 'rate_time',
+    points_by_minute: 'rate_time',
+    one_minute_rates: 'rate_time',
+    one_minute_point_rates: 'rate_time',
+    breaks: 'rate_time',
+
+    countries: 'geo_analysis',
+    countries_by_time: 'geo_analysis',
+    continents: 'geo_analysis',
+    zones_cq: 'geo_analysis',
+    zones_itu: 'geo_analysis',
+    prefixes: 'geo_analysis',
+    distance: 'geo_analysis',
+    beam_heading: 'geo_analysis',
+    kmz_files: 'geo_analysis',
+    fields_map: 'geo_analysis',
+
+    all_callsigns: 'quality_review',
+    qs_per_station: 'quality_review',
+    passed_qsos: 'quality_review',
+    dupes: 'quality_review',
+    callsign_length: 'quality_review',
+    callsign_structure: 'quality_review',
+    not_in_master: 'quality_review',
+    possible_errors: 'quality_review',
+    comments: 'quality_review',
+
+    charts_top_10_countries: 'maps_charts',
+    charts_qs_by_band: 'maps_charts',
+    charts_continents: 'maps_charts',
+    charts_frequencies: 'maps_charts',
+    charts_beam_heading: 'maps_charts',
+    charts_beam_heading_by_hour: 'maps_charts',
+
+    competitor_coach: 'spots_coach',
+    spots: 'spots_coach',
+    rbn_spots: 'spots_coach',
+    rbn_compare_signal: 'spots_coach',
+    spot_hunter: 'spots_coach',
+
+    export: 'export_tools',
+    session: 'export_tools',
+    qsl_labels: 'export_tools',
+    sh6_info: 'export_tools'
+  });
+
   let reports = [];
 
-  const APP_VERSION = 'v5.1.16';
+  const APP_VERSION = 'v5.1.25';
+  const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
+  const UI_THEME_CLASSIC = 'classic';
+  const UI_THEME_NT = 'nt';
+  const CHART_MODE_ABSOLUTE = 'absolute';
+  const CHART_MODE_NORMALIZED = 'normalized';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -148,7 +223,8 @@
     'session',
     'charts',
     'qsl_labels',
-    'competitor_coach'
+    'competitor_coach',
+    'rbn_compare_signal'
   ]);
   const SESSION_VERSION = 1;
   const PERMALINK_COMPACT_PREFIX = 'v2.';
@@ -237,6 +313,8 @@
       totalRows: 0,
       sourceRows: 0,
       currentRow: null,
+      closestRivals: [],
+      gapDriver: null,
       insights: [],
       contestId: '',
       mode: '',
@@ -982,6 +1060,11 @@
     showLoadPanel: false,
     compareEnabled: false,
     compareCount: 1,
+    compareSyncEnabled: true,
+    compareStickyEnabled: true,
+    chartMetricMode: CHART_MODE_ABSOLUTE,
+    uiTheme: UI_THEME_NT,
+    navSearch: '',
     compareFocus: cloneCompareFocus(),
     compareWorker: null,
     compareLogData: null,
@@ -990,6 +1073,10 @@
     compareLogFallbackTimer: null,
     compareLogWindowStart: 0,
     compareLogWindowSize: 1000,
+    renderPerf: {
+      last: null,
+      byReport: {}
+    },
     sessionNotice: [],
     renderSlotId: null,
     logVersion: 0,
@@ -1011,6 +1098,8 @@
   const archiveRowsByCallCache = new Map();
   let archiveSqlLoader = null;
   let archiveSqlBaseUrl = null;
+  let rbnCompareSignalResizeObserver = null;
+  let rbnCompareSignalResizeRaf = 0;
 
   const base64UrlEncode = (value) => {
     const text = String(value == null ? '' : value);
@@ -1034,6 +1123,7 @@
 
   const dom = {
     navList: document.getElementById('navList'),
+    navSearchInput: document.getElementById('navSearchInput'),
     loadPanel: document.getElementById('loadPanel'),
     fileInput: document.getElementById('fileInput'),
     fileInputB: document.getElementById('fileInputB'),
@@ -1108,6 +1198,9 @@
     repoCompactTextD: document.getElementById('repoCompactTextD'),
     repoControlsD: document.getElementById('repoControlsD'),
     compareModeRadios: document.querySelectorAll('input[name="compareCount"]'),
+    uiThemeSwitch: document.getElementById('uiThemeSwitch'),
+    uiThemeClassicBtn: document.getElementById('uiThemeClassicBtn'),
+    uiThemeNtBtn: document.getElementById('uiThemeNtBtn'),
     dropReplace: document.getElementById('dropReplace'),
     dropReplaceActions: document.getElementById('dropReplaceActions'),
     dropReplaceCancel: document.getElementById('dropReplaceCancel'),
@@ -1153,6 +1246,51 @@
         slot
       };
     });
+  }
+
+  function normalizeUiTheme(value) {
+    const key = String(value || '').trim().toLowerCase();
+    return key === UI_THEME_CLASSIC ? UI_THEME_CLASSIC : UI_THEME_NT;
+  }
+
+  function normalizeChartMetricMode(value) {
+    const key = String(value || '').trim().toLowerCase();
+    return key === CHART_MODE_NORMALIZED ? CHART_MODE_NORMALIZED : CHART_MODE_ABSOLUTE;
+  }
+
+  function getPreferredUiTheme() {
+    try {
+      const saved = localStorage.getItem(UI_THEME_STORAGE_KEY);
+      return normalizeUiTheme(saved);
+    } catch (err) {
+      return UI_THEME_NT;
+    }
+  }
+
+  function syncUiThemeButtons() {
+    const active = normalizeUiTheme(state.uiTheme);
+    [dom.uiThemeClassicBtn, dom.uiThemeNtBtn].forEach((btn) => {
+      if (!btn) return;
+      const selected = normalizeUiTheme(btn.dataset.theme) === active;
+      btn.classList.toggle('active', selected);
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      btn.tabIndex = selected ? 0 : -1;
+    });
+  }
+
+  function applyUiTheme(nextTheme, persist = true) {
+    const theme = normalizeUiTheme(nextTheme);
+    state.uiTheme = theme;
+    document.body.classList.toggle('ui-theme-classic', theme === UI_THEME_CLASSIC);
+    document.body.classList.toggle('ui-theme-nt', theme === UI_THEME_NT);
+    syncUiThemeButtons();
+    if (persist) {
+      try {
+        localStorage.setItem(UI_THEME_STORAGE_KEY, theme);
+      } catch (err) {
+        // Ignore storage failures in restricted contexts.
+      }
+    }
   }
 
   function getLoadedCompareSlots() {
@@ -1232,10 +1370,17 @@
     const panel = getSlotPanel(slotId);
     if (!panel) return;
     panel.querySelectorAll('.slot-choice').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.action === action);
+      const isActive = btn.dataset.action === action;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      btn.tabIndex = isActive ? 0 : -1;
     });
     panel.querySelectorAll('.slot-panel').forEach((block) => {
-      block.classList.toggle('is-active', block.dataset.panel === action);
+      const isActive = block.dataset.panel === action;
+      block.classList.toggle('is-active', isActive);
+      block.hidden = !isActive;
+      block.setAttribute('role', 'tabpanel');
     });
     if (action !== 'skip') {
       const slot = getSlotById(slotId);
@@ -1295,6 +1440,7 @@
   const renderers = {};
   let overlayNoticeTimer = null;
   let pendingDropFile = null;
+  let navStickyBottomBound = false;
 
   function initNavigation() {
     if (!dom.navList) return;
@@ -1306,14 +1452,33 @@
       groups.get(r.parentId).push({ report: r, index: idx });
     });
     const groupParentIds = new Set(groups.keys());
+    const sectionMap = new Map(NAV_SECTIONS.map((section) => [section.id, { ...section, items: [] }]));
+    const fallbackSectionId = NAV_SECTIONS[0]?.id || 'load_core';
+    const bindKeyboardActivation = (el, onActivate) => {
+      if (!el || typeof onActivate !== 'function') return;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.addEventListener('keydown', (evt) => {
+        if (evt.key !== 'Enter' && evt.key !== ' ') return;
+        evt.preventDefault();
+        onActivate();
+      });
+    };
+    const getSectionIdForReport = (report) => {
+      const direct = NAV_SECTION_BY_REPORT[report?.id];
+      if (direct) return direct;
+      if (report?.parentId && NAV_SECTION_BY_REPORT[report.parentId]) return NAV_SECTION_BY_REPORT[report.parentId];
+      return fallbackSectionId;
+    };
 
     const makeNavItem = (idx, title, baseClass) => {
       const li = document.createElement('li');
       li.textContent = title;
       li.dataset.index = idx;
       li.dataset.baseClass = baseClass;
+      li.dataset.searchText = String(title || '').trim().toLowerCase();
       li.classList.add(baseClass);
-      li.addEventListener('click', () => {
+      const activate = () => {
         const report = reports[idx];
         if (report?.id === 'load_logs') {
           state.showLoadPanel = false;
@@ -1323,7 +1488,9 @@
           report_title: report?.title || title || ''
         });
         setActiveReport(idx);
-      });
+      };
+      li.addEventListener('click', activate);
+      bindKeyboardActivation(li, activate);
       return li;
     };
 
@@ -1332,6 +1499,7 @@
       summary.textContent = title;
       summary.dataset.index = idx;
       summary.dataset.baseClass = baseClass;
+      summary.dataset.searchText = String(title || '').trim().toLowerCase();
       summary.classList.add(baseClass, 'nav-summary');
       summary.addEventListener('click', () => {
         const report = reports[idx];
@@ -1347,41 +1515,151 @@
 
     reports.forEach((r, idx) => {
       if (r.parentId) return;
-      if (groupParentIds.has(r.id)) {
-        const group = groups.get(r.id) || [];
-        const details = document.createElement('details');
-        details.classList.add('nav-group');
-        details.appendChild(makeSummary(idx, r.title, 'mli'));
-        const sublist = document.createElement('ol');
-        sublist.classList.add('nav-sublist');
-        group.forEach((child) => {
-          if (!child || child.index == null) return;
-          sublist.appendChild(makeNavItem(child.index, child.report.title, 'cli'));
-        });
-        details.appendChild(sublist);
-        const wrapper = document.createElement('li');
-        wrapper.classList.add('nav-group-item');
-        wrapper.appendChild(details);
-        dom.navList.appendChild(wrapper);
-        return;
+      const sectionId = getSectionIdForReport(r);
+      if (!sectionMap.has(sectionId)) {
+        sectionMap.set(sectionId, { id: sectionId, title: sectionId, openByDefault: false, items: [] });
       }
-      const li = document.createElement('li');
-      li.textContent = r.title;
-      li.dataset.index = idx;
-      li.addEventListener('click', () => {
-        const report = reports[idx];
-        trackEvent('menu_click', {
-          report_id: report?.id || '',
-          report_title: report?.title || ''
-        });
-        setActiveReport(idx);
-      });
-      li.classList.add('mli');
-      li.dataset.baseClass = 'mli';
-      dom.navList.appendChild(li);
+      sectionMap.get(sectionId).items.push({ report: r, index: idx });
     });
+
+    NAV_SECTIONS.forEach((section, sectionIdx) => {
+      const bucket = sectionMap.get(section.id);
+      if (!bucket || !bucket.items || !bucket.items.length) return;
+      const wrapper = document.createElement('li');
+      wrapper.classList.add('nav-section-item');
+      const details = document.createElement('details');
+      details.classList.add('nav-section');
+      if (section.openByDefault || sectionIdx === 0) details.open = true;
+
+      const summary = document.createElement('summary');
+      summary.classList.add('nav-section-summary');
+      summary.textContent = section.title;
+      details.appendChild(summary);
+
+      const sectionList = document.createElement('ol');
+      sectionList.classList.add('nav-section-list');
+      bucket.items.forEach(({ report, index }) => {
+        if (!report || index == null) return;
+        if (groupParentIds.has(report.id)) {
+          const group = groups.get(report.id) || [];
+          const groupDetails = document.createElement('details');
+          groupDetails.classList.add('nav-group');
+          groupDetails.appendChild(makeSummary(index, report.title, 'mli'));
+          const sublist = document.createElement('ol');
+          sublist.classList.add('nav-sublist');
+          group.forEach((child) => {
+            if (!child || child.index == null) return;
+            sublist.appendChild(makeNavItem(child.index, child.report.title, 'cli'));
+          });
+          groupDetails.appendChild(sublist);
+          const groupWrap = document.createElement('li');
+          groupWrap.classList.add('nav-group-item');
+          groupWrap.appendChild(groupDetails);
+          sectionList.appendChild(groupWrap);
+          return;
+        }
+        sectionList.appendChild(makeNavItem(index, report.title, 'mli'));
+      });
+      details.appendChild(sectionList);
+      wrapper.appendChild(details);
+      dom.navList.appendChild(wrapper);
+    });
+
     updateNavHighlight();
+    applyNavSearchFilter(state.navSearch || dom.navSearchInput?.value || '');
     updatePrevNextButtons();
+    bindNavStickyBottom();
+  }
+
+  function bindNavStickyBottom() {
+    if (navStickyBottomBound || !dom.navList) return;
+    navStickyBottomBound = true;
+    const scrollEl = dom.navList;
+    const bottomThresholdPx = 10;
+    let shouldStick = false;
+
+    const isNearBottom = () => {
+      // If content grows while the user is "pinned" to bottom, keep them pinned.
+      const remaining = scrollEl.scrollHeight - (scrollEl.scrollTop + scrollEl.clientHeight);
+      return remaining <= bottomThresholdPx;
+    };
+
+    // Capture (not bubble) so we observe summary clicks even when toggle doesn't bubble.
+    scrollEl.addEventListener('click', (evt) => {
+      const target = evt.target instanceof Element ? evt.target : null;
+      if (!target) return;
+      const summary = target.closest('summary');
+      if (!summary || !scrollEl.contains(summary)) return;
+      shouldStick = isNearBottom();
+    }, true);
+
+    scrollEl.addEventListener('toggle', (evt) => {
+      const details = evt.target;
+      if (!(details instanceof HTMLDetailsElement)) return;
+      if (!scrollEl.contains(details)) return;
+      if (!details.open) return;
+      if (!shouldStick) return;
+
+      // Run after layout updates so the new scrollHeight is reflected.
+      requestAnimationFrame(() => {
+        scrollEl.scrollTop = scrollEl.scrollHeight;
+        shouldStick = false;
+      });
+    }, true);
+  }
+
+  function applyNavSearchFilter(rawTerm = '') {
+    if (!dom.navList) return;
+    const term = String(rawTerm || '').trim().toLowerCase();
+    state.navSearch = term;
+    const navNodes = Array.from(dom.navList.querySelectorAll('[data-index]'));
+    navNodes.forEach((el) => {
+      const text = String(el.dataset.searchText || el.textContent || '').trim().toLowerCase();
+      const visible = !term || text.includes(term);
+      el.classList.toggle('nav-hidden', !visible);
+    });
+
+    const groups = Array.from(dom.navList.querySelectorAll('.nav-group'));
+    groups.forEach((details) => {
+      const visibleChildren = details.querySelectorAll('[data-index]:not(.nav-hidden)');
+      const visible = visibleChildren.length > 0;
+      details.classList.toggle('nav-hidden', !visible);
+      if (term && visible) details.open = true;
+    });
+
+    const sectionItems = Array.from(dom.navList.querySelectorAll('.nav-section-item'));
+    sectionItems.forEach((item) => {
+      const visibleNodes = item.querySelectorAll('[data-index]:not(.nav-hidden)');
+      const visible = visibleNodes.length > 0;
+      item.classList.toggle('nav-hidden', !visible);
+      const sectionDetails = item.querySelector('.nav-section');
+      if (sectionDetails && term && visible) sectionDetails.open = true;
+    });
+  }
+
+  function setupNavSearch() {
+    if (!dom.navSearchInput) return;
+    dom.navSearchInput.value = state.navSearch || '';
+    dom.navSearchInput.addEventListener('input', () => {
+      applyNavSearchFilter(dom.navSearchInput.value);
+    });
+    dom.navSearchInput.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Escape') return;
+      evt.preventDefault();
+      dom.navSearchInput.value = '';
+      applyNavSearchFilter('');
+    });
+    document.addEventListener('keydown', (evt) => {
+      if (evt.defaultPrevented) return;
+      const target = evt.target instanceof HTMLElement ? evt.target : null;
+      const inInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (inInput) return;
+      if (evt.key === '/' || ((evt.ctrlKey || evt.metaKey) && evt.key.toLowerCase() === 'k')) {
+        evt.preventDefault();
+        dom.navSearchInput.focus();
+        dom.navSearchInput.select();
+      }
+    });
   }
 
   function updateNavHighlight() {
@@ -1393,6 +1671,8 @@
       const base = el.dataset.baseClass;
       if (base) el.classList.add(base);
       el.classList.toggle('sli', isActive);
+      if (isActive) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
       if (isActive) {
         const details = el.closest('details');
         if (details && !el.classList.contains('nav-summary')) details.open = true;
@@ -1409,6 +1689,7 @@
   function showLoadingState(message) {
     if (!dom.viewContainer) return;
     document.body.classList.add('is-loading');
+    dom.viewContainer.setAttribute('aria-busy', 'true');
     dom.viewContainer.innerHTML = `
       <div class="loading-state" role="status" aria-live="polite">
         <div class="loading-spinner"></div>
@@ -1419,6 +1700,7 @@
 
   function clearLoadingState() {
     document.body.classList.remove('is-loading');
+    if (dom.viewContainer) dom.viewContainer.setAttribute('aria-busy', 'false');
   }
 
   function showOverlayNotice(message, duration = 4500) {
@@ -1432,6 +1714,59 @@
     }, duration);
   }
 
+  function trackRenderPerf(reportId, elapsedMs, htmlLength = 0) {
+    const id = String(reportId || 'unknown');
+    const elapsed = Number(elapsedMs);
+    if (!Number.isFinite(elapsed)) return;
+    const perf = state.renderPerf && typeof state.renderPerf === 'object'
+      ? state.renderPerf
+      : { last: null, byReport: {} };
+    const byReport = perf.byReport && typeof perf.byReport === 'object' ? perf.byReport : {};
+    const prev = byReport[id] || { count: 0, totalMs: 0, avgMs: 0, maxMs: 0, lastMs: 0, lastHtmlSize: 0 };
+    const count = prev.count + 1;
+    const totalMs = prev.totalMs + elapsed;
+    byReport[id] = {
+      count,
+      totalMs,
+      avgMs: totalMs / count,
+      maxMs: Math.max(prev.maxMs || 0, elapsed),
+      lastMs: elapsed,
+      lastHtmlSize: Number(htmlLength) || 0
+    };
+    perf.byReport = byReport;
+    perf.last = {
+      reportId: id,
+      ms: elapsed,
+      htmlSize: Number(htmlLength) || 0,
+      at: Date.now()
+    };
+    state.renderPerf = perf;
+    if (elapsed >= 80) {
+      console.debug(`[SH6] slow render: ${id} ${elapsed.toFixed(1)}ms`);
+    }
+  }
+
+  function getRenderPerfSummary() {
+    const perf = state.renderPerf && typeof state.renderPerf === 'object'
+      ? state.renderPerf
+      : { last: null, byReport: {} };
+    const byReport = perf.byReport && typeof perf.byReport === 'object' ? perf.byReport : {};
+    let hotspotId = '';
+    let hotspot = null;
+    Object.entries(byReport).forEach(([reportId, entry]) => {
+      const maxMs = Number(entry?.maxMs || 0);
+      if (!hotspot || maxMs > Number(hotspot.maxMs || 0)) {
+        hotspotId = reportId;
+        hotspot = entry;
+      }
+    });
+    return {
+      last: perf.last || null,
+      hotspotId,
+      hotspot: hotspot || null
+    };
+  }
+
   function renderReportWithLoading(report) {
     const seq = ++renderSeq;
     const title = report?.title || 'report';
@@ -1439,7 +1774,14 @@
     requestAnimationFrame(() => {
       setTimeout(() => {
         if (seq !== renderSeq) return;
+        const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+          ? performance.now()
+          : Date.now();
         const html = renderReport(report);
+        const elapsedMs = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+          ? (performance.now() - startedAt)
+          : (Date.now() - startedAt);
+        trackRenderPerf(report?.id, elapsedMs, html?.length || 0);
         if (seq !== renderSeq) return;
         dom.viewContainer.innerHTML = html;
         bindReportInteractions(report.id);
@@ -1518,23 +1860,90 @@
     renderReportWithLoading(report);
   }
 
+  function renderReportIntroCard(title, subtitle = '', tags = []) {
+    const safeTitle = escapeHtml(title || '');
+    const safeSubtitle = escapeHtml(subtitle || '');
+    const tagHtml = Array.isArray(tags) && tags.length
+      ? `<div class="report-chip-row">${tags.map((tag) => `<span class="report-chip">${escapeHtml(tag || '')}</span>`).join('')}</div>`
+      : '';
+    return `
+      <section class="report-intro-card">
+        <h3>${safeTitle}</h3>
+        ${safeSubtitle ? `<p>${safeSubtitle}</p>` : ''}
+        ${tagHtml}
+      </section>
+    `;
+  }
+
+  function renderAnalysisStepHeading(stepNumber, title, subtitle = '') {
+    const stepText = Number.isFinite(Number(stepNumber)) ? `Step ${Number(stepNumber)}` : String(stepNumber || 'Step');
+    return `
+      <div class="analysis-step-title">
+        <span class="analysis-step-kicker">${escapeHtml(stepText)}</span>
+        <span class="analysis-step-name">${escapeHtml(title || '')}</span>
+        ${subtitle ? `<span class="analysis-step-note">${escapeHtml(subtitle)}</span>` : ''}
+      </div>
+    `;
+  }
+
+  function renderStateCard({ type = 'info', title = '', message = '', actionLabel = '', actionClass = '' } = {}) {
+    const safeType = ['info', 'warn', 'error'].includes(type) ? type : 'info';
+    const safeTitle = escapeHtml(title || 'Status');
+    const safeMessage = escapeHtml(message || '');
+    const safeActionLabel = escapeHtml(actionLabel || '');
+    return `
+      <section class="state-card state-${safeType}">
+        <h3>${safeTitle}</h3>
+        ${safeMessage ? `<p>${safeMessage}</p>` : ''}
+        ${safeActionLabel ? `<p><button type="button" class="button ${escapeAttr(actionClass || '')}">${safeActionLabel}</button></p>` : ''}
+      </section>
+    `;
+  }
+
+  function normalizeCoachSeverity(level) {
+    const key = String(level || '').trim().toLowerCase();
+    if (key === 'critical') return 'critical';
+    if (key === 'high') return 'high';
+    if (key === 'medium') return 'medium';
+    if (key === 'opportunity') return 'opportunity';
+    return 'info';
+  }
+
+  function coachSeverityLabel(level) {
+    const key = normalizeCoachSeverity(level);
+    if (key === 'critical') return 'Critical';
+    if (key === 'high') return 'High';
+    if (key === 'medium') return 'Medium';
+    if (key === 'opportunity') return 'Opportunity';
+    return 'Info';
+  }
+
+  function inferCoachInsightSeverity(text) {
+    const key = String(text || '').toLowerCase();
+    if (!key) return 'info';
+    if (key.includes('not found') || key.includes('no competitors') || key.includes('unable')) return 'critical';
+    if (key.includes('very narrow') || key.includes('very small') || key.includes('need about')) return 'high';
+    if (key.includes('main gap driver') || key.includes('gap driver') || key.includes('multiplier deficit')) return 'medium';
+    if (key.includes('nearest rival') || key.includes('leading') || key.includes('rows analyzed')) return 'opportunity';
+    return 'info';
+  }
+
   function renderPlaceholder(report) {
     const hasLog = !!state.logFile && !!state.qsoData && state.qsoData.qsos && state.qsoData.qsos.length;
     if (!hasLog) {
-      return `
-        <div class="landing-panel">
-          <h3>No log loaded yet</h3>
-          <p>To see this report, please load a log first. You can upload your own log, load from the archive, or use the demo log.</p>
-          <p><button type="button" class="button demo-log-btn">Demo log</button></p>
-        </div>
-      `;
+      return renderStateCard({
+        type: 'warn',
+        title: 'No log loaded yet',
+        message: 'To see this report, load a log first. You can upload your own file, use archive search, or start with the demo log.',
+        actionLabel: 'Demo log',
+        actionClass: 'demo-log-btn'
+      });
     }
-    return `
-      <div class="landing-panel">
-        <h3>${escapeHtml(report.title)}</h3>
-        <p>This report will appear after log data is available for this view.</p>
-      </div>
-    `;
+    return renderStateCard({
+      type: 'info',
+      title: report.title,
+      message: 'This report will appear after log data is available for this view.'
+    });
   }
 
   const BAND_DEFS = [
@@ -1625,6 +2034,13 @@
 
   function normalizeCall(call) {
     return (call || '').trim().toUpperCase();
+  }
+
+  function normalizeSpotterBase(call) {
+    const norm = normalizeCall(call || '');
+    if (!norm) return '';
+    // RBN skimmers often suffix callsign with "-#" (skimmer ID). We treat these as the same spotter base.
+    return norm.replace(/-\d+$/, '');
   }
 
   function parseBandFromFreq(freqMHz) {
@@ -1739,50 +2155,56 @@
   }
 
   function buildReportsList() {
-    const bands = getDisplayBandList();
-    const countriesByTimeChildren = bands.map((band) => ({
-      id: `countries_by_time::${band}`,
-      title: `Countries by time - ${formatBandLabel(band)}`,
-      parentId: 'countries_by_time',
-      band
-    }));
-    const qsByHourChildren = bands.map((band) => ({
-      id: `graphs_qs_by_hour::${band}`,
-      title: `Qs by hour - ${formatBandLabel(band)}`,
-      parentId: 'graphs_qs_by_hour',
-      band
-    }));
-    const pointsByHourChildren = bands.map((band) => ({
-      id: `graphs_points_by_hour::${band}`,
-      title: `Points by hour - ${formatBandLabel(band)}`,
-      parentId: 'graphs_points_by_hour',
-      band
-    }));
     const list = [];
     BASE_REPORTS.forEach((r) => {
       list.push(r);
-      if (r.id === 'countries_by_time') {
-        list.push(...countriesByTimeChildren);
-      }
-      if (r.id === 'graphs_qs_by_hour') {
-        list.push(...qsByHourChildren);
-      }
-      if (r.id === 'graphs_points_by_hour') {
-        list.push(...pointsByHourChildren);
-      }
     });
     return list;
+  }
+
+  function resolveLegacyBandReportId(reportId) {
+    const raw = String(reportId || '');
+    if (!raw.includes('::')) return null;
+    const [baseId, band] = raw.split('::');
+    if (!baseId || !band) return null;
+    const allowed = new Set(['countries_by_time', 'graphs_qs_by_hour', 'graphs_points_by_hour']);
+    if (!allowed.has(baseId)) return null;
+    return { baseId, band };
+  }
+
+  function setActiveReportById(reportId, options = {}) {
+    const safeId = String(reportId || '');
+    if (safeId === 'charts') {
+      // Backward compat: older sessions/permalinks used a parent Charts menu.
+      return setActiveReportById('charts_qs_by_band', options);
+    }
+    const legacy = resolveLegacyBandReportId(safeId);
+    if (legacy) {
+      // Backward compat: old permalinks/sessions used per-band menu items.
+      state.globalBandFilter = legacy.band;
+      updateBandRibbon();
+      const baseIndex = reports.findIndex((r) => r.id === legacy.baseId);
+      if (baseIndex >= 0) return setActiveReport(baseIndex);
+    }
+    const idx = reports.findIndex((r) => r.id === safeId);
+    if (idx >= 0) return setActiveReport(idx);
+    return;
   }
 
   function rebuildReports() {
     const currentId = reports[state.activeIndex]?.id;
     reports = buildReportsList();
-    const newIndex = currentId ? reports.findIndex((r) => r.id === currentId) : -1;
-    if (newIndex >= 0) {
-      state.activeIndex = newIndex;
-    } else if (reports.length) {
-      state.activeIndex = Math.min(state.activeIndex, reports.length - 1);
+    let newIndex = currentId ? reports.findIndex((r) => r.id === currentId) : -1;
+    if (newIndex < 0 && currentId) {
+      const legacy = resolveLegacyBandReportId(currentId);
+      if (legacy) {
+        state.globalBandFilter = legacy.band;
+        updateBandRibbon();
+        newIndex = reports.findIndex((r) => r.id === legacy.baseId);
+      }
     }
+    if (newIndex >= 0) state.activeIndex = newIndex;
+    else if (reports.length) state.activeIndex = Math.min(state.activeIndex, reports.length - 1);
     initNavigation();
   }
 
@@ -1905,6 +2327,31 @@
       col += span;
     }
     return null;
+  }
+
+  function resolveHeaderGridForTable(table) {
+    if (!(table instanceof HTMLTableElement)) return null;
+    const rows = Array.from(table.rows || []);
+    if (!rows.length) return null;
+    const headerRows = [];
+    for (const row of rows) {
+      if (row && row.classList && row.classList.contains('thc')) headerRows.push(row);
+      else break;
+    }
+    if (!headerRows.length) return null;
+    const grid = buildHeaderGrid(headerRows);
+    const indexMap = new Map();
+    headerRows.forEach((row, idx) => indexMap.set(row, idx));
+    return { grid, indexMap };
+  }
+
+  function getCellByColumnWithHeaderGrid(row, colIndex, headerCtx) {
+    if (headerCtx && headerCtx.indexMap && headerCtx.indexMap.has(row)) {
+      const r = headerCtx.indexMap.get(row);
+      const hit = headerCtx.grid?.[r]?.[colIndex] || null;
+      if (hit) return hit;
+    }
+    return getCellByColumn(row, colIndex);
   }
 
   function normalizeSortText(text) {
@@ -2042,15 +2489,268 @@
     return colCount >= 8;
   }
 
+  function getBaseReportId(reportId) {
+    return String(reportId || '').split('::')[0];
+  }
+
+  function clearStickyTableState(table) {
+    if (!(table instanceof HTMLTableElement)) return;
+    table.classList.remove('sticky-first', 'sticky-head', 'sticky-cols-1', 'sticky-cols-2', 'sticky-cols-3', 'sticky-cols-4');
+    table.style.removeProperty('--sticky-header-total');
+    for (let i = 1; i <= 4; i += 1) {
+      table.style.removeProperty(`--sticky-col-${i}-left`);
+      table.style.removeProperty(`--sticky-col-${i}-width`);
+    }
+    const cells = Array.from(table.querySelectorAll('.sticky-head-cell, .sticky-col-cell'));
+    cells.forEach((cell) => {
+      if (!(cell instanceof HTMLTableCellElement)) return;
+      cell.classList.remove('sticky-head-cell', 'sticky-col-cell', 'sticky-col-1', 'sticky-col-2', 'sticky-col-3', 'sticky-col-4');
+      cell.style.removeProperty('position');
+      cell.style.removeProperty('top');
+      cell.style.removeProperty('left');
+      cell.style.removeProperty('z-index');
+    });
+  }
+
+  function collectStickyHeaderRows(table) {
+    const rows = Array.from(table.rows || []);
+    const headerRows = [];
+    for (const row of rows) {
+      const hasTh = row.querySelector('th') != null;
+      const hasTd = row.querySelector('td') != null;
+      const isHeaderLike = row.classList.contains('thc') || (hasTh && !hasTd);
+      if (!headerRows.length) {
+        if (!isHeaderLike) continue;
+        headerRows.push(row);
+        continue;
+      }
+      if (!isHeaderLike) break;
+      headerRows.push(row);
+    }
+    return headerRows;
+  }
+
+  function applyStickyHeaders(table) {
+    const headerRows = collectStickyHeaderRows(table);
+    if (!headerRows.length) return;
+    let topOffset = 0;
+    headerRows.forEach((row, idx) => {
+      const rowHeight = Math.max(20, Math.ceil(row.getBoundingClientRect().height || row.offsetHeight || 0));
+      const cells = Array.from(row.cells || []);
+      cells.forEach((cell) => {
+        if (!(cell instanceof HTMLTableCellElement)) return;
+        cell.classList.add('sticky-head-cell');
+        cell.style.position = 'sticky';
+        cell.style.top = `${topOffset}px`;
+        cell.style.zIndex = String(20 - idx);
+      });
+      topOffset += rowHeight;
+    });
+    table.style.setProperty('--sticky-header-total', `${topOffset}px`);
+    table.classList.add('sticky-head');
+  }
+
+  function getStickyColumnCount(table, reportId) {
+    const baseId = getBaseReportId(reportId);
+    switch (baseId) {
+      case 'log':
+        return 2;
+      case 'qs_by_minute':
+      case 'points_by_minute':
+        return 2;
+      case 'countries_by_time':
+        return 4;
+      case 'countries':
+        return 4;
+      case 'continents':
+        return 3;
+      case 'beam_heading':
+      case 'charts_beam_heading_by_hour':
+        return 1;
+      default:
+        break;
+    }
+    return shouldStickyTable(table, baseId) ? 1 : 0;
+  }
+
+  function resolveStickyColumnWidths(table, columnCount) {
+    const rows = Array.from(table.rows || []);
+    const headerCtx = resolveHeaderGridForTable(table);
+    const widths = [];
+    for (let col = 0; col < columnCount; col += 1) {
+      let width = 0;
+      const sampleRows = rows.slice(0, 60);
+      sampleRows.forEach((row) => {
+        const cell = getCellByColumnWithHeaderGrid(row, col, headerCtx);
+        if (!(cell instanceof HTMLTableCellElement)) return;
+        // Ignore spanning cells (footer/separator rows) when sizing sticky columns.
+        if ((cell.colSpan || 1) !== 1) return;
+        const measured = Math.ceil(cell.getBoundingClientRect().width || cell.offsetWidth || 0);
+        if (measured > width) width = measured;
+      });
+      widths.push(Math.max(34, width || 0));
+    }
+    return widths;
+  }
+
+  function applyStickyColumns(table, columnCount) {
+    const count = Math.max(0, Math.min(4, columnCount || 0));
+    if (!count) return;
+    const widths = resolveStickyColumnWidths(table, count);
+    const headerCtx = resolveHeaderGridForTable(table);
+    const offsets = [];
+    let left = 0;
+    for (let i = 0; i < widths.length; i += 1) {
+      offsets.push(left);
+      table.style.setProperty(`--sticky-col-${i + 1}-left`, `${left}px`);
+      table.style.setProperty(`--sticky-col-${i + 1}-width`, `${widths[i]}px`);
+      left += widths[i];
+    }
+    const rows = Array.from(table.rows || []);
+    rows.forEach((row) => {
+      const seen = new Set();
+      for (let col = 0; col < count; col += 1) {
+        const cell = getCellByColumnWithHeaderGrid(row, col, headerCtx);
+        if (!(cell instanceof HTMLTableCellElement)) continue;
+        if ((cell.colSpan || 1) !== 1) continue;
+        if (seen.has(cell)) continue;
+        seen.add(cell);
+        const stickyClass = `sticky-col-${col + 1}`;
+        cell.classList.add('sticky-col-cell', stickyClass);
+        cell.style.position = 'sticky';
+        cell.style.left = `${offsets[col]}px`;
+        const isHeaderCell = cell.classList.contains('sticky-head-cell') || row.classList.contains('thc');
+        cell.style.zIndex = String(isHeaderCell ? (40 - col) : (8 - col));
+      }
+    });
+    table.classList.add(`sticky-cols-${count}`);
+    if (count >= 1) table.classList.add('sticky-first');
+  }
+
+  function shouldUseTallTableWrap(baseId, table) {
+    const longReports = new Set([
+      'log',
+      'countries',
+      'countries_by_time',
+      'qs_by_minute',
+      'points_by_minute',
+      'all_callsigns',
+      'not_in_master',
+      'passed_qsos',
+      'dupes',
+      'beam_heading',
+      'charts_beam_heading_by_hour'
+    ]);
+    if (!longReports.has(baseId)) return false;
+    const rowCount = Number(table?.rows?.length || 0);
+    if (!rowCount) return false;
+    if (baseId === 'log') return rowCount > 80;
+    return rowCount > 28;
+  }
+
+  function applyTableWrapSizing(table, reportId) {
+    if (!(table instanceof HTMLTableElement)) return;
+    const baseId = getBaseReportId(reportId);
+    const holder = table.closest('.table-wrap') || table.closest('.compare-scroll') || table.closest('.compare-log-wrap');
+    if (!(holder instanceof HTMLElement)) return;
+    holder.classList.remove('table-wrap--tall', 'compare-scroll--tall', 'compare-log-wrap--tall');
+    if (!shouldUseTallTableWrap(baseId, table)) return;
+    if (holder.classList.contains('compare-scroll')) {
+      holder.classList.add('compare-scroll--tall');
+      return;
+    }
+    if (holder.classList.contains('compare-log-wrap')) {
+      holder.classList.add('compare-log-wrap--tall');
+      return;
+    }
+    holder.classList.add('table-wrap--tall');
+  }
+
+  function buildLongReportJumpTargets(container, reportId) {
+    if (!(container instanceof HTMLElement)) return [];
+    const baseId = getBaseReportId(reportId);
+    const supported = new Set([
+      'log',
+      'countries',
+      'countries_by_time',
+      'qs_by_minute',
+      'points_by_minute',
+      'beam_heading',
+      'all_callsigns',
+      'not_in_master',
+      'passed_qsos',
+      'dupes'
+    ]);
+    if (!supported.has(baseId)) return [];
+    const targets = [];
+    if (baseId === 'log') {
+      const filters = container.querySelector('#logSearchForm');
+      if (filters instanceof HTMLElement) targets.push({ id: 'filters', label: 'Filters', el: filters });
+    }
+    const table = container.querySelector('.table-wrap, .compare-log-wrap, .compare-scroll');
+    if (table instanceof HTMLElement) targets.push({ id: 'table', label: 'Main table', el: table });
+    if (baseId === 'log') {
+      const pages = container.querySelector('.log-controls-bottom, .compare-window-controls');
+      if (pages instanceof HTMLElement) targets.push({ id: 'pages', label: 'Pages', el: pages });
+    }
+    return targets;
+  }
+
+  function attachLongReportJumpBar(container, reportId) {
+    if (!(container instanceof HTMLElement)) return;
+    const existing = container.querySelector('.report-jumpbar');
+    if (existing) existing.remove();
+    const targets = buildLongReportJumpTargets(container, reportId);
+    if (!targets.length) return;
+    const targetMap = new Map(targets.map((item) => [item.id, item.el]));
+    const bar = document.createElement('div');
+    bar.className = 'report-jumpbar no-print';
+    bar.innerHTML = `
+      <span class="report-jumpbar-label">Quick jump</span>
+      <button type="button" class="button report-jumpbar-btn" data-report-jump="top">Top</button>
+      ${targets.map((item) => `<button type="button" class="button report-jumpbar-btn" data-report-jump="${escapeAttr(item.id)}">${escapeHtml(item.label)}</button>`).join('')}
+      <button type="button" class="button report-jumpbar-btn" data-report-jump="bottom">Bottom</button>
+    `;
+    bar.addEventListener('click', (evt) => {
+      const btn = evt.target instanceof HTMLElement ? evt.target.closest('[data-report-jump]') : null;
+      if (!btn) return;
+      evt.preventDefault();
+      const jump = String(btn.dataset.reportJump || '').trim();
+      const reduceMotion = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      if (jump === 'top') {
+        window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+        return;
+      }
+      if (jump === 'bottom') {
+        const tail = container.lastElementChild;
+        if (tail instanceof HTMLElement) {
+          tail.scrollIntoView({ block: 'end', behavior: reduceMotion ? 'auto' : 'smooth' });
+        }
+        return;
+      }
+      const target = targetMap.get(jump);
+      if (!(target instanceof HTMLElement)) return;
+      target.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+    });
+    container.insertBefore(bar, container.firstChild);
+  }
+
   function wrapWideTables(container, reportId) {
     if (!container) return;
-    const tables = Array.from(container.querySelectorAll('table.mtc, table.log-table'));
+    const baseId = getBaseReportId(reportId);
+    const stickyAllowed = !state.compareEnabled || state.compareStickyEnabled;
+    const tables = Array.from(container.querySelectorAll('table.mtc, table.log-table, table.fields-map'));
     tables.forEach((table) => {
       if (!(table instanceof HTMLTableElement)) return;
-      if (shouldStickyTable(table, reportId)) {
-        table.classList.add('sticky-first');
-      } else {
-        table.classList.remove('sticky-first');
+      clearStickyTableState(table);
+      if (stickyAllowed && shouldStickyTable(table, baseId)) {
+        applyStickyHeaders(table);
+      }
+      if (stickyAllowed) {
+        const stickyColCount = getStickyColumnCount(table, baseId);
+        if (stickyColCount > 0) {
+          applyStickyColumns(table, stickyColCount);
+        }
       }
       if (table.closest('.table-wrap') || table.closest('.compare-scroll') || table.closest('.compare-log-wrap')) {
         return;
@@ -2061,6 +2761,12 @@
       wrap.className = 'table-wrap';
       parent.insertBefore(wrap, table);
       wrap.appendChild(table);
+      applyTableWrapSizing(table, baseId);
+      return;
+    });
+    tables.forEach((table) => {
+      if (!(table instanceof HTMLTableElement)) return;
+      applyTableWrapSizing(table, baseId);
     });
   }
 
@@ -2203,8 +2909,9 @@
     return `<a href="#" class="map-link map-all" data-scope="all" data-key="">${label}</a>`;
   }
 
-  function mapAllFooter() {
-    return `<tr class="map-all-row"><td colspan="100" class="tar">${mapAllLink()}</td></tr>`;
+  function mapAllFooter(columnCount = 1) {
+    const cols = Math.max(1, Number(columnCount) || 1);
+    return `<tr class="map-all-row"><td colspan="${cols}" class="tar">${mapAllLink()}</td></tr>`;
   }
 
   const dateFormatCache = new Map();
@@ -3962,21 +4669,25 @@
     let sum = 0;
     let min = null;
     let max = null;
-    const histogram = new Map(); // bucket (0-1000,1000-2000, etc) -> count
+    const histogram = new Map(); // bucket (0-1000,1000-2000, etc) -> {count, bands:Map}
     return {
-      add(d) {
+      add(d, band) {
         if (!Number.isFinite(d)) return;
         count += 1;
         sum += d;
         if (min == null || d < min) min = d;
         if (max == null || d > max) max = d;
-      const bucket = Math.floor(d / 1000) * 1000;
-      histogram.set(bucket, (histogram.get(bucket) || 0) + 1);
-    },
+        const bucket = Math.floor(d / 1000) * 1000;
+        if (!histogram.has(bucket)) histogram.set(bucket, { count: 0, bands: new Map() });
+        const entry = histogram.get(bucket);
+        entry.count += 1;
+        if (band) entry.bands.set(band, (entry.bands.get(band) || 0) + 1);
+      },
       export() {
-        const buckets = Array.from(histogram.entries()).sort((a, b) => a[0] - b[0]).map(([start, c]) => ({
+        const buckets = Array.from(histogram.entries()).sort((a, b) => a[0] - b[0]).map(([start, data]) => ({
           range: `${start}-${start + 999}`,
-          count: c
+          count: data.count,
+          bands: data.bands
         }));
         return {
           count,
@@ -4467,6 +5178,14 @@
     return { type: 'unknown', qsos: [] };
   }
 
+  function mapSpotStatus(status) {
+    if (status === 'ready') return 'ok';
+    if (status === 'loading') return 'loading';
+    if (status === 'error') return 'error';
+    if (status === 'idle') return 'pending';
+    return status || '';
+  }
+
   function updateDataStatus() {
     const isProxy = (src) => /allorigins\.win|corsproxy\.io/i.test(src || '');
     const classifySource = (src) => {
@@ -4480,13 +5199,6 @@
       if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
       if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
       if (status === 'error') return 'error';
-      return status || '';
-    };
-    const mapSpotStatus = (status) => {
-      if (status === 'ready') return 'ok';
-      if (status === 'loading') return 'loading';
-      if (status === 'error') return 'error';
-      if (status === 'idle') return 'pending';
       return status || '';
     };
     if (dom.ctyStatus) {
@@ -6231,6 +6943,8 @@
         totalRows: Number(model?.totalRows) || 0,
         sourceRows: Array.isArray(cohortRows) ? cohortRows.length : 0,
         currentRow: model?.currentRow || null,
+        closestRivals: Array.isArray(model?.closestRivals) ? model.closestRivals.slice(0, 5) : [],
+        gapDriver: model?.gapDriver || null,
         insights: Array.isArray(model?.insights) ? model.insights.slice(0, 6) : [],
         targetScopeValue: String(model?.targetScopeValue || targetScopeValue || ''),
         targetCategory: String(model?.targetCategory || effectiveTargetCategory || targetCategory || ''),
@@ -6256,6 +6970,8 @@
         rows: [],
         totalRows: 0,
         currentRow: null,
+        closestRivals: [],
+        gapDriver: null,
         insights: []
       };
     }
@@ -6944,16 +7660,18 @@
       }
 
       if (q.cqZone) {
-        if (!cqZones.has(q.cqZone)) cqZones.set(q.cqZone, { qsos: 0, countries: new Set() });
+        if (!cqZones.has(q.cqZone)) cqZones.set(q.cqZone, { qsos: 0, countries: new Set(), bandCounts: new Map() });
         const z = cqZones.get(q.cqZone);
         z.qsos += 1;
         if (q.country) z.countries.add(q.country);
+        if (q.band) z.bandCounts.set(q.band, (z.bandCounts.get(q.band) || 0) + 1);
       }
       if (q.ituZone) {
-        if (!ituZones.has(q.ituZone)) ituZones.set(q.ituZone, { qsos: 0, countries: new Set() });
+        if (!ituZones.has(q.ituZone)) ituZones.set(q.ituZone, { qsos: 0, countries: new Set(), bandCounts: new Map() });
         const z = ituZones.get(q.ituZone);
         z.qsos += 1;
         if (q.country) z.countries.add(q.country);
+        if (q.band) z.bandCounts.set(q.band, (z.bandCounts.get(q.band) || 0) + 1);
       }
 
       // Master lookup (only if file successfully loaded and non-empty)
@@ -7043,10 +7761,13 @@
 
       // All calls summary
       if (q.call) {
-        if (!allCalls.has(q.call)) allCalls.set(q.call, { qsos: 0, bands: new Set(), firstTs: q.ts, lastTs: q.ts });
+        if (!allCalls.has(q.call)) allCalls.set(q.call, { qsos: 0, bands: new Set(), bandCounts: new Map(), firstTs: q.ts, lastTs: q.ts });
         const a = allCalls.get(q.call);
         a.qsos += 1;
-        if (q.band) a.bands.add(q.band);
+        if (q.band) {
+          a.bands.add(q.band);
+          a.bandCounts.set(q.band, (a.bandCounts.get(q.band) || 0) + 1);
+        }
         if (typeof q.ts === 'number') {
           if (a.firstTs == null || q.ts < a.firstTs) a.firstTs = q.ts;
           if (a.lastTs == null || q.ts > a.lastTs) a.lastTs = q.ts;
@@ -7069,7 +7790,7 @@
           const brng = bearingDeg(station.lat, station.lon, remote.lat, remote.lon);
           q.distance = dist;
           q.bearing = brng;
-          distanceSummary.add(dist);
+          distanceSummary.add(dist, q.band);
           headingSummary.add(brng, q.band);
           if (q.country && countries.has(q.country)) {
             const c = countries.get(q.country);
@@ -7215,25 +7936,27 @@
       return (a.continent || '').localeCompare(b.continent || '');
     });
 
-    const cqZoneSummary = [];
-    cqZones.forEach((v, k) => {
-      cqZoneSummary.push({
-        cqZone: k,
-        qsos: v.qsos,
-        countries: v.countries.size
-      });
-    });
-    cqZoneSummary.sort((a, b) => a.cqZone - b.cqZone);
+	    const cqZoneSummary = [];
+	    cqZones.forEach((v, k) => {
+	      cqZoneSummary.push({
+	        cqZone: k,
+	        qsos: v.qsos,
+	        countries: v.countries.size,
+	        bandCounts: v.bandCounts
+	      });
+	    });
+	    cqZoneSummary.sort((a, b) => a.cqZone - b.cqZone);
 
-    const ituZoneSummary = [];
-    ituZones.forEach((v, k) => {
-      ituZoneSummary.push({
-        ituZone: k,
-        qsos: v.qsos,
-        countries: v.countries.size
-      });
-    });
-    ituZoneSummary.sort((a, b) => a.ituZone - b.ituZone);
+	    const ituZoneSummary = [];
+	    ituZones.forEach((v, k) => {
+	      ituZoneSummary.push({
+	        ituZone: k,
+	        qsos: v.qsos,
+	        countries: v.countries.size,
+	        bandCounts: v.bandCounts
+	      });
+	    });
+	    ituZoneSummary.sort((a, b) => a.ituZone - b.ituZone);
 
     // Build hourly series sorted by time
     const hourSeries = Array.from(hours.entries()).sort((a, b) => a[0] - b[0]).map(([hour, v]) => {
@@ -7286,6 +8009,7 @@
       call,
       qsos: info.qsos,
       bands: Array.from(info.bands).sort(),
+      bandCounts: info.bandCounts,
       firstTs: info.firstTs,
       lastTs: info.lastTs
     })).sort((a, b) => a.call.localeCompare(b.call));
@@ -7695,10 +8419,21 @@
       ['Club', club]
     ];
     const cqApiCard = renderCqApiEnrichmentCard(state.apiEnrichment);
+    const intro = renderReportIntroCard(
+      'Main performance snapshot',
+      'Quick diagnostic summary for the loaded log and scoring model.',
+      [
+        `Callsign ${stationCallRaw || 'N/A'}`,
+        `Contest ${state.derived.contestMeta?.contestId || 'N/A'}`,
+        `Category ${state.derived.contestMeta?.category || 'N/A'}`,
+        `${formatNumberSh6(totalQsos)} QSOs`
+      ]
+    );
     const rowHtml = rows.map(([label, value], idx) => `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
       `).join('');
     return `
+      ${intro}
       ${reconNote}
       ${scoringWarning}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
@@ -7731,10 +8466,7 @@
         ? `<p class="status-error">${escapeHtml(coach.error || 'Unable to load competitor cohort.')}</p>`
         : '';
 
-    const insights = Array.isArray(coach.insights) ? coach.insights : [];
-    const insightList = insights.length
-      ? `<ul class="coach-insights">${insights.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
-      : '<p class="cqapi-muted">No coaching insight yet. Adjust scope/category to analyze a cohort.</p>';
+    // Legacy coaching notes were replaced by the tactical briefing cards below.
 
     const current = coach.currentRow || null;
     const currentRank = Number.isFinite(current?.rank) ? current.rank : null;
@@ -7744,6 +8476,408 @@
       : 'Current entry not detected in filtered cohort.';
 
     const rows = Array.isArray(coach.rows) ? coach.rows : [];
+    const closestRivals = Array.isArray(coach.closestRivals) ? coach.closestRivals : [];
+    const nearestAhead = closestRivals.find((row) => Number.isFinite(Number(row?.scoreGap)) && Number(row.scoreGap) > 0) || null;
+    const nearestAny = closestRivals[0] || null;
+    const nearestBehind = closestRivals.find((row) => Number.isFinite(Number(row?.scoreGap)) && Number(row.scoreGap) < 0) || null;
+    const preferredSlot = COMPARE_SLOT_IDS.find((slotId) => !getSlotById(slotId)?.qsoData) || 'B';
+    const coachContest = String(coach.contestId || context.contestId || '').trim().toUpperCase();
+    const coachMode = String(coach.mode || context.mode || '').trim().toLowerCase();
+    const quickActionRow = nearestAhead || nearestAny;
+    const quickActionYear = Number(quickActionRow?.year);
+    const quickActionCall = normalizeCall(quickActionRow?.callsign || '');
+    const quickActionReady = Boolean(quickActionRow) && Number.isFinite(quickActionYear) && Boolean(quickActionCall) && Boolean(coachContest) && Boolean(coachMode);
+    const quickActionGap = quickActionRow && Number.isFinite(Number(quickActionRow?.scoreGap))
+      ? `${Number(quickActionRow.scoreGap) >= 0 ? '+' : ''}${formatNumberSh6(Math.round(Math.abs(Number(quickActionRow.scoreGap))))}`
+      : 'N/A';
+    const quickActionHint = !rows.length
+      ? 'No cohort rows yet. Switch scope/category to widen competitor coverage.'
+      : !current
+        ? 'Current station is not present in this filtered cohort. Try Category = All categories.'
+        : rows.length === 1
+          ? 'Only one row in cohort. Switch to a wider scope to find direct rivals.'
+          : quickActionRow
+            ? `Nearest rival is ${quickActionCall} (${quickActionGap} score gap). Load it to Log ${preferredSlot} for direct comparison.`
+            : 'Select any row below and load it to Log B/C/D for side-by-side analysis.';
+    const quickActionButton = quickActionReady
+      ? (() => {
+        const rowKey = buildCoachRowKey({
+          callsign: quickActionCall,
+          year: quickActionYear,
+          contestId: coachContest,
+          mode: coachMode
+        });
+        const slotAssigned = rowKey && rowKey === String(coach.loadedSlotRows?.[preferredSlot] || '');
+        return `
+          <button
+            type="button"
+            class="cqapi-load-btn coach-load-btn coach-quick-load${slotAssigned ? ' is-target' : ''}"
+            data-slot="${preferredSlot}"
+            data-row-key="${escapeAttr(rowKey)}"
+            data-year="${escapeAttr(String(quickActionYear))}"
+            data-callsign="${escapeAttr(quickActionCall)}"
+            data-contest="${escapeAttr(coachContest)}"
+            data-mode="${escapeAttr(coachMode)}"
+            aria-pressed="${slotAssigned ? 'true' : 'false'}"
+          >
+            Load nearest rival to Log ${preferredSlot}
+          </button>
+        `;
+      })()
+      : '';
+
+    const gapDriver = coach.gapDriver && typeof coach.gapDriver === 'object' ? coach.gapDriver : null;
+    const gapDriverDirection = gapDriver?.direction === 'defending' ? 'Defend lead vs' : 'Chasing';
+    const gapDriverCall = escapeHtml(gapDriver?.targetCallsign || 'N/A');
+    const gapDriverScore = Number.isFinite(gapDriver?.scoreGap)
+      ? formatNumberSh6(Math.round(Number(gapDriver.scoreGap)))
+      : 'N/A';
+    const gapDriverQso = Number.isFinite(gapDriver?.qsoGap)
+      ? `${Number(gapDriver.qsoGap) >= 0 ? '+' : ''}${formatNumberSh6(Math.round(Number(gapDriver.qsoGap)))}`
+      : 'N/A';
+    const gapDriverMult = Number.isFinite(gapDriver?.multGap)
+      ? `${Number(gapDriver.multGap) >= 0 ? '+' : ''}${formatNumberSh6(Math.round(Number(gapDriver.multGap)))}`
+      : 'N/A';
+    const gapDriverShare = Number.isFinite(gapDriver?.driverSharePct) ? `${Number(gapDriver.driverSharePct).toFixed(1)}%` : 'N/A';
+    const gapDriverPrimary = gapDriver?.driver === 'qso'
+      ? 'QSO volume'
+      : (gapDriver?.driver === 'mult' ? 'Multipliers' : 'Mixed');
+    const gapDriverAction = gapDriver?.driver === 'qso'
+      ? (Number.isFinite(gapDriver?.neededQsos) ? `${formatNumberSh6(Math.round(Number(gapDriver.neededQsos)))} extra QSOs at current efficiency.` : 'Increase sustained rate in high-value hours.')
+      : (gapDriver?.driver === 'mult'
+          ? (Number.isFinite(gapDriver?.neededMults) ? `${formatNumberSh6(Math.round(Number(gapDriver.neededMults)))} additional multipliers at current efficiency.` : 'Prioritize multiplier hunting windows.')
+          : 'Balance rate and multiplier runs to close the gap faster.');
+    const gapDriverBlock = gapDriver
+      ? `
+        <div class="coach-driver-card">
+          <h4>Gap driver</h4>
+          <ul class="coach-driver-list">
+            <li>${gapDriverDirection} <b>${gapDriverCall}</b> (score gap: <b>${gapDriverScore}</b>).</li>
+            <li>Primary driver: <b>${gapDriverPrimary}</b> (estimated share: ${gapDriverShare}).</li>
+            <li>QSO gap: ${gapDriverQso} | Mult gap: ${gapDriverMult}</li>
+            <li>Recommended next move: ${escapeHtml(gapDriverAction)}</li>
+          </ul>
+        </div>
+      `
+      : '';
+
+    const durationHours = (() => {
+      const minTs = Number(state.derived?.timeRange?.minTs);
+      const maxTs = Number(state.derived?.timeRange?.maxTs);
+      if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return null;
+      const startHour = Math.floor(minTs / 3600000);
+      const endHour = Math.floor(maxTs / 3600000);
+      return Math.max(1, endHour - startHour + 1);
+    })();
+    const activeHours = Array.isArray(state.derived?.hourPointSeries) ? state.derived.hourPointSeries.length : null;
+    const currentScore = Number(current?.score);
+    const currentQsos = Number(current?.qsos);
+    const currentMult = Number(current?.multTotal);
+    const avgScorePerHour = Number.isFinite(currentScore) && Number.isFinite(durationHours) && durationHours > 0 ? currentScore / durationHours : null;
+    const avgScorePerActiveHour = Number.isFinite(currentScore) && Number.isFinite(activeHours) && activeHours > 0 ? currentScore / activeHours : null;
+    const avgScorePerQso = Number.isFinite(currentScore) && Number.isFinite(currentQsos) && currentQsos > 0 ? currentScore / currentQsos : null;
+    const avgScorePerMult = Number.isFinite(currentScore) && Number.isFinite(currentMult) && currentMult > 0 ? currentScore / currentMult : null;
+
+    const isSameCohortEntry = (a, b) => {
+      if (!a || !b) return false;
+      const callA = normalizeCall(a.callsign || '');
+      const callB = normalizeCall(b.callsign || '');
+      const catA = normalizeCoachCategory(a.category || '');
+      const catB = normalizeCoachCategory(b.category || '');
+      return Boolean(callA) && callA === callB && Boolean(catA) && catA === catB;
+    };
+
+    const renderCoachBriefCard = (title, row, opts = {}) => {
+      const kind = String(opts.kind || '').trim().toLowerCase();
+      const fallbackText = opts.fallbackText || '';
+      if (!row || typeof row !== 'object') {
+        return `
+          <article class="coach-brief-card">
+            <div class="coach-brief-head">
+              <h4>${escapeHtml(title)}</h4>
+              <span class="coach-severity-badge coach-severity-info">Info</span>
+            </div>
+            <p class="coach-brief-note">${escapeHtml(fallbackText || 'No target available for this card in the current cohort.')}</p>
+            <div class="coach-brief-actions">
+              <button type="button" class="coach-brief-btn coach-brief-nav" data-report="spots">Missed multipliers (Spots)</button>
+              <button type="button" class="coach-brief-btn coach-brief-nav" data-report="graphs_points_by_hour">Points by hour</button>
+            </div>
+          </article>
+        `;
+      }
+
+      const rowYear = Number(row?.year);
+      const rowCall = normalizeCall(row?.callsign || '');
+      const rowCategory = normalizeCoachCategory(row?.category || '');
+      const scoreGap = Number(row?.scoreGap);
+      const qsoGap = Number(row?.qsoGap);
+      const multGap = Number(row?.multGap);
+      const absScoreGap = Number.isFinite(scoreGap) ? Math.abs(scoreGap) : null;
+
+      const isLeader = kind === 'leader' && current && isSameCohortEntry(row, current);
+      const isAheadTarget = kind === 'chase' || kind === 'leader';
+      const scoreVerb = Number.isFinite(scoreGap)
+        ? (isLeader ? 'You are the leader.' : (scoreGap > 0 ? 'Behind by' : 'Ahead by'))
+        : 'Score gap';
+      const scoreText = Number.isFinite(absScoreGap) ? formatNumberSh6(Math.round(absScoreGap)) : 'N/A';
+
+      const qsoDeficit = Number.isFinite(qsoGap) ? Math.max(0, Math.round(qsoGap)) : null;
+      const multDeficit = Number.isFinite(multGap) ? Math.max(0, Math.round(multGap)) : null;
+      const qsoLead = Number.isFinite(qsoGap) ? Math.max(0, Math.round(-qsoGap)) : null;
+      const multLead = Number.isFinite(multGap) ? Math.max(0, Math.round(-multGap)) : null;
+
+      const neededQsos = Number.isFinite(absScoreGap) && Number.isFinite(avgScorePerQso) && avgScorePerQso > 0
+        ? Math.ceil(absScoreGap / avgScorePerQso)
+        : null;
+      const neededMults = Number.isFinite(absScoreGap) && Number.isFinite(avgScorePerMult) && avgScorePerMult > 0
+        ? Math.ceil(absScoreGap / avgScorePerMult)
+        : null;
+      const neededHoursOverall = Number.isFinite(absScoreGap) && Number.isFinite(avgScorePerHour) && avgScorePerHour > 0
+        ? absScoreGap / avgScorePerHour
+        : null;
+      const neededHoursActive = Number.isFinite(absScoreGap) && Number.isFinite(avgScorePerActiveHour) && avgScorePerActiveHour > 0
+        ? absScoreGap / avgScorePerActiveHour
+        : null;
+
+      const severity = (() => {
+        if (isLeader) return 'opportunity';
+        const pct = Number(row?.scoreGapPct);
+        if (!Number.isFinite(pct)) return Number.isFinite(absScoreGap) && absScoreGap > 0 ? 'medium' : 'info';
+        const absPct = Math.abs(pct);
+        if (kind === 'defend') {
+          if (absPct <= 1.0) return 'high';
+          if (absPct <= 3.0) return 'medium';
+          return 'opportunity';
+        }
+        if (absPct >= 10) return 'high';
+        if (absPct >= 4) return 'medium';
+        return 'opportunity';
+      })();
+
+      const canLoad = Number.isFinite(rowYear) && Boolean(rowCall) && Boolean(coachContest) && Boolean(coachMode);
+      const rowKey = canLoad ? buildCoachRowKey({
+        callsign: rowCall,
+        year: rowYear,
+        contestId: coachContest,
+        mode: coachMode
+      }) : '';
+      const slotAssigned = rowKey && rowKey === String(coach.loadedSlotRows?.[preferredSlot] || '');
+      const loadButton = canLoad
+        ? `
+          <button
+            type="button"
+            class="cqapi-load-btn coach-load-btn coach-brief-btn${slotAssigned ? ' is-target' : ''}"
+            data-slot="${preferredSlot}"
+            data-row-key="${escapeAttr(rowKey)}"
+            data-year="${escapeAttr(String(rowYear))}"
+            data-callsign="${escapeAttr(rowCall)}"
+            data-contest="${escapeAttr(coachContest)}"
+            data-mode="${escapeAttr(coachMode)}"
+            aria-pressed="${slotAssigned ? 'true' : 'false'}"
+          >
+            Load ${escapeHtml(rowCall)} to Log ${preferredSlot}
+          </button>
+        `
+        : '';
+
+      const showMultHunt = kind !== 'defend'
+        ? (Number.isFinite(multDeficit) && multDeficit > 0)
+        : (Number.isFinite(multGap) && multGap > 0);
+      const multHint = showMultHunt
+        ? 'Prioritize missed multipliers (Spots coach has a missed mult table).'
+        : 'Multipliers are not the obvious deficit versus this target.';
+
+      const rateHint = Number.isFinite(avgScorePerHour)
+        ? `Your average score rate is ~${formatNumberSh6(Math.round(avgScorePerHour))} score/hour (overall).`
+        : 'Points/score rate estimate unavailable (missing time range).';
+
+      const hoursHint = (Number.isFinite(neededHoursOverall) || Number.isFinite(neededHoursActive))
+        ? `At your pace, the score swing is ~${Number.isFinite(neededHoursOverall) ? neededHoursOverall.toFixed(1) : 'N/A'}h overall (or ~${Number.isFinite(neededHoursActive) ? neededHoursActive.toFixed(1) : 'N/A'}h active).`
+        : 'Hours-to-close estimate unavailable.';
+
+      const gapLine = Number.isFinite(scoreGap)
+        ? `<li><b>${scoreVerb}</b> <b>${scoreText}</b> score vs <b>${escapeHtml(rowCall || 'N/A')}</b>${rowCategory ? ` (${escapeHtml(rowCategory)})` : ''}.</li>`
+        : `<li><b>Target</b> ${escapeHtml(rowCall || 'N/A')}${rowCategory ? ` (${escapeHtml(rowCategory)})` : ''}.</li>`;
+
+      const deltaLine = (() => {
+        if (!Number.isFinite(qsoGap) && !Number.isFinite(multGap)) return '<li>QSO/mult deltas: N/A.</li>';
+        const q = Number.isFinite(qsoGap) ? `${qsoGap >= 0 ? '+' : ''}${formatNumberSh6(Math.round(qsoGap))}` : 'N/A';
+        const m = Number.isFinite(multGap) ? `${multGap >= 0 ? '+' : ''}${formatNumberSh6(Math.round(multGap))}` : 'N/A';
+        return `<li>Gap breakdown: QSO delta ${q} | Mult delta ${m}.</li>`;
+      })();
+
+      const planLine = (() => {
+        if (isLeader) {
+          const defendText = nearestBehind ? `Nearest defender is ${escapeHtml(normalizeCall(nearestBehind.callsign || '') || 'N/A')}.` : 'No close defender detected.';
+          return `<li>${defendText} Keep points rate high in your best hours and watch mult leakage.</li>`;
+        }
+        const parts = [];
+        if (Number.isFinite(qsoDeficit) && qsoDeficit > 0) parts.push(`${formatNumberSh6(qsoDeficit)} QSOs`);
+        if (Number.isFinite(multDeficit) && multDeficit > 0) parts.push(`${formatNumberSh6(multDeficit)} mults`);
+        const deficitText = parts.length ? `Deficit vs target: ${parts.join(' and ')}.` : 'No direct QSO/mult deficit detected; improve efficiency and rate.';
+        return `<li>${deficitText}</li>`;
+      })();
+
+      const equivalenceLine = (() => {
+        if (!Number.isFinite(absScoreGap) || absScoreGap <= 0) return '<li>Equivalent effort: N/A.</li>';
+        const qEq = Number.isFinite(neededQsos) ? `${formatNumberSh6(neededQsos)} QSOs` : 'N/A QSOs';
+        const mEq = Number.isFinite(neededMults) ? `${formatNumberSh6(neededMults)} mults` : 'N/A mults';
+        return `<li>Equivalent effort at your efficiency: ~${qEq} or ~${mEq}.</li>`;
+      })();
+
+      return `
+        <article class="coach-brief-card coach-brief-${escapeAttr(kind || 'card')}">
+          <div class="coach-brief-head">
+            <h4>${escapeHtml(title)}</h4>
+            <span class="coach-severity-badge coach-severity-${normalizeCoachSeverity(severity)}">${coachSeverityLabel(severity)}</span>
+          </div>
+          <p class="coach-brief-note">${escapeHtml(rateHint)} ${escapeHtml(hoursHint)}</p>
+          <ul class="coach-brief-list">
+            ${gapLine}
+            ${deltaLine}
+            ${planLine}
+            ${equivalenceLine}
+            <li><b>Multiplier focus:</b> ${escapeHtml(multHint)}</li>
+          </ul>
+          <div class="coach-brief-actions">
+            <button type="button" class="coach-brief-btn coach-brief-nav" data-report="graphs_points_by_hour">Points by hour</button>
+            <button type="button" class="coach-brief-btn coach-brief-nav" data-report="one_minute_point_rates">1-minute point rates</button>
+            <button type="button" class="coach-brief-btn coach-brief-nav" data-report="spots">Missed multipliers (Spots)</button>
+            ${loadButton}
+          </div>
+        </article>
+      `;
+    };
+
+    const leaderRow = rows.length ? rows[0] : null;
+    const coachBriefingBlock = `
+      <div class="coach-brief-wrap">
+        <h4>Coach briefing (leader, chase, defend)</h4>
+        <div class="coach-brief-grid">
+          ${renderCoachBriefCard('Leader target', leaderRow, {
+            kind: 'leader',
+            fallbackText: 'No leader row detected yet. Expand scope/category for a wider cohort.'
+          })}
+          ${renderCoachBriefCard('Chase target (nearest ahead)', nearestAhead, {
+            kind: 'chase',
+            fallbackText: 'No station ahead detected. You may be leading this cohort.'
+          })}
+          ${renderCoachBriefCard('Defend target (nearest behind)', nearestBehind, {
+            kind: 'defend',
+            fallbackText: 'No station behind detected. Cohort may be very small.'
+          })}
+        </div>
+      </div>
+    `;
+
+    const rivalsBlock = closestRivals.length
+      ? `
+        <div class="coach-rivals-card">
+          <h4>Closest rivals</h4>
+          <table class="mtc coach-rivals-table">
+            <tr class="thc"><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap</th><th>Action</th></tr>
+            ${closestRivals.slice(0, 5).map((row, idx) => {
+          const rowYear = Number(row?.year);
+          const rowCall = normalizeCall(row?.callsign || '');
+          const rowCategory = normalizeCoachCategory(row?.category || '');
+          const rowGap = Number(row?.scoreGap);
+          const rowGapText = Number.isFinite(rowGap)
+            ? `${rowGap >= 0 ? '+' : ''}${formatNumberSh6(Math.round(Math.abs(rowGap)))}`
+            : 'N/A';
+          const canLoad = Number.isFinite(rowYear) && Boolean(rowCall) && Boolean(coachContest) && Boolean(coachMode);
+          const rowKey = canLoad ? buildCoachRowKey({
+            callsign: rowCall,
+            year: rowYear,
+            contestId: coachContest,
+            mode: coachMode
+          }) : '';
+          const slotAssigned = rowKey && rowKey === String(coach.loadedSlotRows?.[preferredSlot] || '');
+          const action = canLoad
+            ? `<button type="button" class="cqapi-load-btn coach-load-btn coach-quick-load${slotAssigned ? ' is-target' : ''}" data-slot="${preferredSlot}" data-row-key="${escapeAttr(rowKey)}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(coachContest)}" data-mode="${escapeAttr(coachMode)}" aria-pressed="${slotAssigned ? 'true' : 'false'}">Load to Log ${preferredSlot}</button>`
+            : '<span class="cqapi-muted">N/A</span>';
+          return `
+              <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+                <td>${formatCqApiNumber(row?.rank)}</td>
+                <td>${escapeHtml(rowCall || 'N/A')}</td>
+                <td>${escapeHtml(rowCategory || 'N/A')}</td>
+                <td>${formatCqApiNumber(row?.score)}</td>
+                <td>${rowGapText}</td>
+                <td>${action}</td>
+              </tr>
+            `;
+        }).join('')}
+          </table>
+        </div>
+      `
+      : '';
+
+    const quickActionBlock = `
+      <div class="coach-quick-actions">
+        <div class="coach-quick-hint">${escapeHtml(quickActionHint)}</div>
+        ${quickActionButton}
+      </div>
+    `;
+
+    const currentScoreValue = Number(current?.score);
+    const nearestAheadGap = Number(nearestAhead?.scoreGap);
+    const nearestAheadPct = Number.isFinite(nearestAheadGap) && Number.isFinite(currentScoreValue) && currentScoreValue > 0
+      ? (nearestAheadGap / currentScoreValue) * 100
+      : null;
+    const cohortSeverity = !rows.length
+      ? 'critical'
+      : (!current ? 'high' : (rows.length === 1 ? 'medium' : 'opportunity'));
+    const gapSeverity = !nearestAhead
+      ? 'info'
+      : (!Number.isFinite(nearestAheadPct)
+          ? 'medium'
+          : (nearestAheadPct >= 25 ? 'high' : (nearestAheadPct >= 10 ? 'medium' : 'opportunity')));
+    const executionSeverity = !gapDriver
+      ? 'info'
+      : (gapDriver?.driver === 'mixed' ? 'medium' : 'opportunity');
+    const cohortSummary = !rows.length
+      ? 'No direct competitors were found with current filters.'
+      : (!current
+          ? 'Your station is not present in this filtered cohort.'
+          : (rows.length === 1
+              ? 'Only one entry matched the filters; expand scope for stronger benchmarking.'
+              : `Cohort is healthy with ${formatCqApiNumber(rows.length)} comparable entries.`));
+    const gapSummary = !nearestAhead
+      ? 'You are currently leading this filtered cohort.'
+      : `Nearest station ahead is ${escapeHtml(normalizeCall(nearestAhead.callsign || '') || 'N/A')} (${formatNumberSh6(Math.abs(Math.round(nearestAheadGap || 0)))} points${Number.isFinite(nearestAheadPct) ? `, ${nearestAheadPct.toFixed(1)}%` : ''}).`;
+    const executionSummary = !gapDriver
+      ? 'No dominant gap driver detected yet. Keep tracking both rate and multipliers.'
+      : `Primary improvement axis is ${escapeHtml(gapDriverPrimary)}. Recommended move: ${escapeHtml(gapDriverAction)}`;
+    const priorityCards = [
+      {
+        title: 'Cohort health',
+        level: cohortSeverity,
+        summary: cohortSummary
+      },
+      {
+        title: 'Closest chase target',
+        level: gapSeverity,
+        summary: gapSummary
+      },
+      {
+        title: 'Execution priority',
+        level: executionSeverity,
+        summary: executionSummary
+      }
+    ];
+    const priorityBlock = `
+      <div class="coach-priority-grid">
+        ${priorityCards.map((card) => `
+          <article class="coach-priority-card coach-priority-${normalizeCoachSeverity(card.level)}">
+            <div class="coach-priority-head">
+              <h4>${escapeHtml(card.title)}</h4>
+              <span class="coach-severity-badge coach-severity-${normalizeCoachSeverity(card.level)}">${coachSeverityLabel(card.level)}</span>
+            </div>
+            <p>${card.summary}</p>
+          </article>
+        `).join('')}
+      </div>
+    `;
+
     const tableRows = rows.map((row, idx) => {
       const rowYear = Number(row?.year);
       const rowCall = normalizeCall(row?.callsign || '');
@@ -7767,11 +8901,12 @@
       const loadActions = canLoadCompare
         ? `
           <div class="coach-load-control">
-            <span class="coach-load-prefix">Load to</span>
+            <span class="coach-load-prefix">Load this log to slot</span>
             <span class="coach-load-segment" role="group" aria-label="Load this log to compare slot">
               ${COMPARE_SLOT_IDS.map((slotId) => {
           const slotAssignedToRow = rowKey && rowKey === String(coach.loadedSlotRows?.[slotId] || '');
-          return `<button type="button" class="cqapi-load-btn coach-load-btn${slotAssignedToRow ? ' is-target' : ''}" data-slot="${slotId}" data-row-key="${escapeAttr(rowKey)}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(rowContest)}" data-mode="${escapeAttr(rowMode)}" title="Load this log into Log ${slotId}" aria-label="Load this log into Log ${slotId}" aria-pressed="${slotAssignedToRow ? 'true' : 'false'}">${slotId}</button>`;
+          const slotLabel = `Log ${slotId}`;
+          return `<button type="button" class="cqapi-load-btn coach-load-btn${slotAssignedToRow ? ' is-target' : ''}" data-slot="${slotId}" data-row-key="${escapeAttr(rowKey)}" data-year="${escapeAttr(String(rowYear))}" data-callsign="${escapeAttr(rowCall)}" data-contest="${escapeAttr(rowContest)}" data-mode="${escapeAttr(rowMode)}" title="Load this log into ${slotLabel}" aria-label="Load this log into ${slotLabel}" aria-pressed="${slotAssignedToRow ? 'true' : 'false'}">${slotLabel}</button>`;
         }).join('')}
             </span>
             ${lastLoadedSlot ? `<span class="coach-last-loaded">Last loaded to Log ${escapeHtml(lastLoadedSlot)}</span>` : ''}
@@ -7815,7 +8950,7 @@
       ? `
         <div class="cqapi-history-wrap">
           <table class="mtc coach-table">
-            <tr class="thc"><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap to you</th><th>QSOs</th><th>QSO gap</th><th>Mult</th><th>Mult gap</th><th>Load this log to slot</th><th>Ops</th></tr>
+            <tr class="thc"><th>Rank</th><th>Callsign</th><th>Category</th><th>Score</th><th>Gap to you</th><th>QSOs</th><th>QSO gap</th><th>Mult</th><th>Mult gap</th><th>Load to compare slot</th><th>Ops</th></tr>
             ${tableRows}
           </table>
         </div>
@@ -7857,12 +8992,24 @@
       `;
     }).join('');
 
+    const coachIntro = renderReportIntroCard(
+      'Competitor coach workspace',
+      'Find nearest rivals in your selected scope and load them directly into compare slots.',
+      [
+        `Scope ${formatCoachScopeTitle(selectedScope)}`,
+        `Category mode ${categoryMode === 'all' ? 'All categories' : 'Same category'}`,
+        `Cohort ${formatCqApiNumber(coach.totalRows)}`
+      ]
+    );
+
     return `
       <div class="cqapi-card mtc coach-card">
         <div class="gradient">&nbsp;Competitor coach</div>
         <div class="cqapi-body">
+          ${coachIntro}
           <p>Find direct competitors by scope and category, then load any row directly to Log B, C, or D for side-by-side comparison.</p>
           ${context.ok ? '' : `<p class="status-error">${escapeHtml(context.reason || 'Competitor context unavailable.')}</p>`}
+          ${renderAnalysisStepHeading(1, 'Filters', 'Choose scope and category mode for your competitor cohort.')}
           <div class="coach-controls">
             <div class="coach-control-group">
               <div class="coach-control-label">Scope</div>
@@ -7877,6 +9024,7 @@
               </div>
             </div>
           </div>
+          ${renderAnalysisStepHeading(2, 'Cohort snapshot', 'Confirm station context and nearest rival before loading compare slots.')}
           <table class="mtc coach-meta">
             <tr class="thc"><th>Metric</th><th>Value</th></tr>
             <tr class="td1"><td>Contest / mode / year</td><td>${escapeHtml(context.contestId || coach.contestId || 'N/A')} / ${escapeHtml(String(context.mode || coach.mode || '').toUpperCase() || 'N/A')} / ${formatYearSh6(context.year || coach.year)}</td></tr>
@@ -7884,15 +9032,18 @@
             <tr class="td1"><td>Selected scope</td><td>${escapeHtml(formatCoachScopeTitle(selectedScope))} ${scopeValueText ? `(${escapeHtml(scopeValueText)})` : '(N/A)'}</td></tr>
             <tr class="td0"><td>Target category</td><td>${escapeHtml(targetCategory || 'N/A')}${categoryLabel ? ` - ${escapeHtml(categoryLabel)}` : ''}</td></tr>
             <tr class="td1"><td>Current in cohort</td><td>${currentSummary}</td></tr>
-            <tr class="td0"><td>Cohort size</td><td>${formatCqApiNumber(coach.totalRows)} matched (from ${sourceRowsText} API rows)</td></tr>
+            <tr class="td0"><td>Cohort size</td><td>${formatCqApiNumber(coach.totalRows)} matched (from ${sourceRowsText} source rows)</td></tr>
           </table>
-          ${coach.statusMessage ? `<p class="cqapi-msg">API message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
+          ${coach.statusMessage ? `<p class="cqapi-msg">Data message: ${escapeHtml(coach.statusMessage)}</p>` : ''}
           ${statusText}
-          <div class="coach-insights-wrap">
-            <h4>Coaching hints</h4>
-            ${insightList}
-          </div>
+          ${quickActionBlock}
+          ${renderAnalysisStepHeading(3, 'Primary cohort table', 'Load one or more rivals directly into compare slots.')}
           ${tableBlock}
+          ${renderAnalysisStepHeading(4, 'Coaching detail', 'Review priority cards and tactical guidance before the next session.')}
+          ${priorityBlock}
+          ${coachBriefingBlock}
+          ${rivalsBlock}
+          ${gapDriverBlock}
         </div>
       </div>
     `;
@@ -8045,7 +9196,6 @@
     }).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="6%" span="16"/></colgroup>
         <tr class="thc">
           <th rowspan="2">Band</th>
           <th colspan="3">CW</th>
@@ -8063,7 +9213,7 @@
           <th>QSOs</th><th colspan="2">%</th>
         </tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(16)}
       </table>
     `;
   }
@@ -8312,11 +9462,11 @@
       : '';
     return `
       ${noticeHtml}
-      <div class="export-actions export-note"><b>Session</b>: save or restore full comparisons and settings.</div>
-      <div class="export-actions">
-        <button type="button" class="button session-permalink">Copy permalink</button>
-        <button type="button" class="button session-save">Save session</button>
-        <button type="button" class="button session-load">Load session</button>
+      <div class="utility-callout"><b>Session</b>: save or restore full comparisons and settings.</div>
+      <div class="utility-primary-row">
+        <button type="button" class="button utility-primary-btn session-permalink">Copy permalink</button>
+        <button type="button" class="button utility-primary-btn session-save">Save session</button>
+        <button type="button" class="button utility-primary-btn session-load">Load session</button>
         <input type="file" id="sessionFileInput" class="session-file-input" accept="application/json" hidden>
       </div>
     `;
@@ -8324,12 +9474,23 @@
 
   function renderSessionPage() {
     return `
-      <div class="mtc export-panel">
+      <div class="mtc export-panel utility-panel">
         <div class="gradient">&nbsp;Save&Load session</div>
         <p>Sessions capture the full state of your analysis, including compare slots, filters, and report settings.</p>
-        <p><b>Permalink</b>: Generates a URL that restores archive logs and settings. Local logs cannot be auto-loaded; the app will ask you to upload them again.</p>
-        <p><b>Save session</b>: Stores a local JSON file with raw log data and settings for offline restore (no network required).</p>
-        <p><b>Load session</b>: Opens a saved session JSON and restores everything.</p>
+        <div class="utility-grid">
+          <div class="utility-block">
+            <h4>Permalink</h4>
+            <p>Generates a URL that restores archive logs and settings. Local logs cannot be auto-loaded; the app will ask you to upload them again.</p>
+          </div>
+          <div class="utility-block">
+            <h4>Save session</h4>
+            <p>Stores a local JSON file with raw log data and settings for offline restore (no network required).</p>
+          </div>
+          <div class="utility-block">
+            <h4>Load session</h4>
+            <p>Opens a saved session JSON and restores everything.</p>
+          </div>
+        </div>
         ${renderSessionControls()}
       </div>
     `;
@@ -9155,29 +10316,38 @@
       )).join(' ')
       : '';
     return `
-      <div class="mtc export-panel">
-        <div class="gradient">&nbsp;Export</div>
-        <p>Export your reports to a standalone HTML file or a PDF via the browser print dialog. You can choose which sections to include to keep exports fast.</p>
-        <div class="export-actions">
-          <button type="button" class="button export-action" data-export="pdf">Export PDF</button>
-          <span>Choose sections and open the print dialog.</span>
+      <div class="mtc export-panel utility-panel">
+        <div class="gradient">&nbsp;Export PDF, HTML, CBR</div>
+        <p>Create report exports by format. PDF/HTML let you choose sections; CBR exports raw log text for loaded compare slots.</p>
+        <div class="utility-grid">
+          <div class="utility-block">
+            <h4>PDF export</h4>
+            <p>Choose report sections, then open browser print.</p>
+          </div>
+          <div class="utility-block">
+            <h4>HTML export</h4>
+            <p>Generate a self-contained HTML report file.</p>
+          </div>
         </div>
-        <div class="export-actions">
-          <button type="button" class="button export-action" data-export="html">Export HTML</button>
-          <span>Generate a self-contained HTML report.</span>
+        <div class="utility-primary-row">
+          <button type="button" class="button export-action utility-primary-btn" data-export="pdf">Export PDF</button>
+          <button type="button" class="button export-action utility-primary-btn" data-export="html">Export HTML</button>
         </div>
-        <div class="export-actions">
-          ${cbrButtons || '<span>No loaded raw logs available for CBR export.</span>'}
+        <div class="utility-block utility-cbr-block">
+          <h4>CBR export</h4>
+          <p>CBR export saves the original raw log text SH6 loaded for each slot.</p>
+          <div class="utility-slot-actions">
+            ${cbrButtons || '<span>No loaded raw logs available for CBR export.</span>'}
+          </div>
         </div>
-        <div class="export-actions export-note">
-          <span>CBR export saves the original raw log text used by SH6 (same source as the removed Raw log menu).</span>
-        </div>
-        <div class="export-actions export-note">
-          <span>Note: Interactive maps are not included in exports. Use KMZ files or the in-app map view.</span>
-        </div>
-        <div class="export-actions export-note">
-          <span>Tip: For large logs, export fewer sections to improve speed.</span>
-        </div>
+        <details class="utility-details">
+          <summary>Notes and limits</summary>
+          <ul>
+            <li>In compare mode, CBR buttons are shown per active loaded slot (Log A/B/C/D).</li>
+            <li>Interactive maps are not included in exports. Use KMZ files or the in-app map view.</li>
+            <li>For large logs, export fewer sections to improve speed.</li>
+          </ul>
+        </details>
       </div>
     `;
   }
@@ -9583,7 +10753,7 @@
   function normalizeRbnSpot(raw) {
     if (!raw) return null;
     const spotterRaw = normalizeCall(raw.spotterRaw || raw.spotter || '');
-    const spotter = normalizeCall(raw.spotter || spotterRaw);
+    const spotter = normalizeSpotterBase(raw.spotter || spotterRaw);
     const dxCall = normalizeCall(raw.dxCall || '');
     const ts = Number(raw.ts);
     const freqKHz = raw.freqKHz != null ? Number(raw.freqKHz) : Number(raw.freq);
@@ -9854,7 +11024,11 @@
 
   function renderSpots(options = {}) {
     if (!state.qsoData || !state.derived) {
-      return '<p>No log loaded yet. Load a log to enable spots analysis.</p>';
+      return renderStateCard({
+        type: 'info',
+        title: 'Spots unavailable',
+        message: 'Load a log to enable spots analysis for this report.'
+      });
     }
     const source = options.source || 'spots';
     const sourceAttr = escapeAttr(source);
@@ -9871,6 +11045,12 @@
     const hideControls = Boolean(options.hideControls);
     const slotId = state.renderSlotId || 'A';
     const slotAttr = escapeAttr(slotId);
+    const sectionIdBase = `spots-${String(source || 'spots').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${String(slotId || 'a').toLowerCase()}`;
+    const sectionIds = {
+      bandHour: `${sectionIdBase}-band-hour`,
+      topSpotters: `${sectionIdBase}-top-spotters`,
+      missedMults: `${sectionIdBase}-missed-mults`
+    };
     const call = escapeHtml(state.derived.contestMeta?.stationCallsign || 'N/A');
     const minTs = state.derived.timeRange?.minTs;
     const maxTs = state.derived.timeRange?.maxTs;
@@ -10459,8 +11639,8 @@
         </table>
       `;
     };
-    const renderSpotterReliabilityTable = (spots) => {
-      if (!spots || !spots.length) return '<p>No data.</p>';
+    const computeSpotterReliabilityEntries = (spots, minSpots = 3) => {
+      if (!spots || !spots.length) return [];
       const map = new Map();
       spots.forEach((s) => {
         if (!map.has(s.spotter)) map.set(s.spotter, { spotter: s.spotter, spots: 0, matched: 0 });
@@ -10468,9 +11648,69 @@
         entry.spots += 1;
         if (s.matched) entry.matched += 1;
       });
-      const rows = Array.from(map.values()).filter((e) => e.spots >= 3)
+      return Array.from(map.values())
+        .filter((e) => e.spots >= minSpots)
         .map((e) => ({ ...e, pct: e.spots ? (e.matched / e.spots) * 100 : 0 }))
-        .sort((a, b) => b.pct - a.pct || b.spots - a.spots)
+        .sort((a, b) => b.pct - a.pct || b.spots - a.spots);
+    };
+
+    const buildMissedMultEntries = (spots, analysis) => {
+      if (!spots || !spots.length) return [];
+      const missed = [];
+      spots.forEach((s) => {
+        if (s.matchedDx) return;
+        const prefix = lookupPrefix(s.dxCall || '');
+        const country = prefix?.country || '';
+        if (!country) return;
+        const first = analysis.firstCountryTime.get(country);
+        if (first != null && first < s.ts) return;
+        missed.push({
+          ts: s.ts,
+          band: s.band,
+          dx: s.dxCall,
+          country
+        });
+      });
+      return missed;
+    };
+
+    const buildBestBandHourWindows = (spots, limit = 3) => {
+      if (!spots || !spots.length) return [];
+      const map = new Map();
+      spots.forEach((spot) => {
+        if (!Number.isFinite(spot.ts)) return;
+        const band = normalizeBandToken(spot.band || '') || 'unknown';
+        const hour = new Date(spot.ts).getUTCHours();
+        const key = `${band}|${hour}`;
+        if (!map.has(key)) map.set(key, { band, hour, spots: 0, matched: 0 });
+        const entry = map.get(key);
+        entry.spots += 1;
+        if (spot.matched) entry.matched += 1;
+      });
+      return Array.from(map.values())
+        .map((entry) => ({
+          ...entry,
+          conv: entry.spots ? (entry.matched / entry.spots) * 100 : 0
+        }))
+        .filter((entry) => entry.spots >= 3)
+        .sort((a, b) => {
+          if (b.matched !== a.matched) return b.matched - a.matched;
+          if (b.conv !== a.conv) return b.conv - a.conv;
+          if (b.spots !== a.spots) return b.spots - a.spots;
+          return bandOrderIndex(a.band) - bandOrderIndex(b.band);
+        })
+        .slice(0, Math.max(1, Math.min(5, Number(limit) || 3)));
+    };
+
+    const estimateWindowConfidence = (spots) => {
+      if (spots >= 30) return 'high';
+      if (spots >= 12) return 'medium';
+      return 'low';
+    };
+
+    const renderSpotterReliabilityTable = (spots) => {
+      const entries = computeSpotterReliabilityEntries(spots, 3);
+      const rows = entries
         .slice(0, 15)
         .map((e, idx) => {
           const cls = idx % 2 === 0 ? 'td1' : 'td0';
@@ -10509,22 +11749,7 @@
       return false;
     };
     const renderMissedMultTable = (spots, analysis) => {
-      if (!spots || !spots.length) return '<p>No data.</p>';
-      const missed = [];
-      spots.forEach((s) => {
-        if (s.matchedDx) return;
-        const prefix = lookupPrefix(s.dxCall || '');
-        const country = prefix?.country || '';
-        if (!country) return;
-        const first = analysis.firstCountryTime.get(country);
-        if (first != null && first < s.ts) return;
-        missed.push({
-          ts: s.ts,
-          band: s.band,
-          dx: s.dxCall,
-          country
-        });
-      });
+      const missed = buildMissedMultEntries(spots, analysis);
       if (!missed.length) return '<p>No missed mult candidates found.</p>';
       const rows = missed.slice(0, 20).map((s, idx) => {
         const cls = idx % 2 === 0 ? 'td1' : 'td0';
@@ -10791,6 +12016,85 @@
       `;
     };
 
+    const renderSpotsCoachCards = (statsData, analysis) => {
+      if (!statsData || !analysis) return '';
+
+      const bestWindows = buildBestBandHourWindows(statsData.ofUsSpots || [], 3);
+      const bestWindowRows = bestWindows.length
+        ? bestWindows.map((entry) => {
+          const hour = String(entry.hour).padStart(2, '0');
+          const conv = Number.isFinite(entry.conv) ? `${entry.conv.toFixed(1)}%` : 'N/A';
+          return `<li><b>${escapeHtml(formatBandLabel(entry.band || ''))} ${hour}:00Z</b> · ${formatNumberSh6(entry.matched)}/${formatNumberSh6(entry.spots)} matched (${conv})</li>`;
+        }).join('')
+        : '<li>No strong hour/band window found yet. Try broader band filters.</li>';
+      const confidenceSpots = bestWindows.reduce((sum, entry) => sum + (Number(entry.spots) || 0), 0);
+      const confidenceLabel = estimateWindowConfidence(confidenceSpots);
+      const confidenceText = confidenceLabel === 'high'
+        ? 'high confidence'
+        : (confidenceLabel === 'medium' ? 'medium confidence' : 'low confidence');
+      const windowSeverity = confidenceLabel === 'low'
+        ? 'high'
+        : (confidenceLabel === 'medium' ? 'medium' : 'opportunity');
+
+      const reliableSpotters = computeSpotterReliabilityEntries(statsData.ofUsSpots || [], 4).slice(0, 3);
+      const reliableRows = reliableSpotters.length
+        ? reliableSpotters.map((entry) => `<li><b>${escapeHtml(entry.spotter || '')}</b> · ${entry.pct.toFixed(1)}% conversion (${formatNumberSh6(entry.matched)}/${formatNumberSh6(entry.spots)})</li>`).join('')
+        : '<li>No spotter with enough sample size yet (need at least 4 spots).</li>';
+      const topReliabilityPct = Number(reliableSpotters?.[0]?.pct || 0);
+      const reliabilitySeverity = !reliableSpotters.length
+        ? 'medium'
+        : (topReliabilityPct < 35 ? 'medium' : 'opportunity');
+
+      const missedMults = buildMissedMultEntries(statsData.byUsSpots || [], analysis);
+      const topMissedCountries = Array.from(missedMults.reduce((map, entry) => {
+        const key = String(entry.country || '').trim();
+        if (!key) return map;
+        map.set(key, (map.get(key) || 0) + 1);
+        return map;
+      }, new Map()).entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+      const missedRows = topMissedCountries.length
+        ? topMissedCountries.map(([country, count]) => `<li><b>${escapeHtml(country)}</b> · ${formatNumberSh6(count)} potential mult misses</li>`).join('')
+        : '<li>No clear missed multiplier concentration detected.</li>';
+      const missedTotalText = missedMults.length ? formatNumberSh6(missedMults.length) : '0';
+      const missedSeverity = missedMults.length >= 25
+        ? 'high'
+        : (missedMults.length >= 10 ? 'medium' : (missedMults.length > 0 ? 'opportunity' : 'info'));
+
+      return `
+        <div class="spots-coach-grid">
+          <article class="spots-coach-card">
+            <div class="spots-coach-head">
+              <h4>Best hour/band windows</h4>
+              <span class="coach-severity-badge coach-severity-${windowSeverity}">${coachSeverityLabel(windowSeverity)}</span>
+            </div>
+            <p class="spots-coach-note">Top match windows from your current band filter (${confidenceText}; ${formatNumberSh6(confidenceSpots)} spots sampled).</p>
+            <ul class="spots-coach-list">${bestWindowRows}</ul>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.bandHour)}">Jump to band/hour table</button>
+          </article>
+          <article class="spots-coach-card">
+            <div class="spots-coach-head">
+              <h4>Spotter reliability leaders</h4>
+              <span class="coach-severity-badge coach-severity-${reliabilitySeverity}">${coachSeverityLabel(reliabilitySeverity)}</span>
+            </div>
+            <p class="spots-coach-note">Spotters with the best QSO conversion for your station.</p>
+            <ul class="spots-coach-list">${reliableRows}</ul>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.topSpotters)}">Jump to top spotters</button>
+          </article>
+          <article class="spots-coach-card">
+            <div class="spots-coach-head">
+              <h4>Missed multiplier opportunities</h4>
+              <span class="coach-severity-badge coach-severity-${missedSeverity}">${coachSeverityLabel(missedSeverity)}</span>
+            </div>
+            <p class="spots-coach-note">Raw candidates: ${missedTotalText}. Focus first on these repeat countries.</p>
+            <ul class="spots-coach-list">${missedRows}</ul>
+            <button type="button" class="spots-coach-action" data-source="${sourceAttr}" data-slot="${slotAttr}" data-target="${escapeAttr(sectionIds.missedMults)}">Jump to missed mult table</button>
+          </article>
+        </div>
+      `;
+    };
+
     const resolveSpotterGeo = (spotterCall) => {
       const key = normalizeCall(spotterCall || '');
       const prefix = key ? (lookupPrefix(key) || lookupPrefix(baseCall(key))) : null;
@@ -10814,16 +12118,18 @@
         if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
         return String(a[0]).localeCompare(String(b[0]));
       });
+      const filterTypeClass = `type-${type}`;
+      const allLabel = type === 'continent' ? 'All continents' : (type === 'cq' ? 'All CQ zones' : 'All ITU zones');
       const buttons = entries.map(([value, count]) => {
         const active = selectedValue === value;
         const valueAttr = escapeAttr(String(value));
         const valueLabel = value === 'N/A' ? 'N/A' : escapeHtml(String(value));
-        return `<button type="button" class="spots-drill-filter-btn${active ? ' active' : ''}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="${valueAttr}" aria-pressed="${active ? 'true' : 'false'}">${valueLabel} (${formatNumberSh6(count)})</button>`;
+        return `<button type="button" class="spots-drill-filter-btn ${filterTypeClass}${active ? ' active' : ''}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="${valueAttr}" aria-pressed="${active ? 'true' : 'false'}">${valueLabel} (${formatNumberSh6(count)})</button>`;
       }).join('');
       return `
         <div class="spots-drill-filter-row">
           <span class="spots-drill-filter-label">${escapeHtml(label)}</span>
-          <button type="button" class="spots-drill-filter-btn${selectedValue ? '' : ' active'}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="" aria-pressed="${selectedValue ? 'false' : 'true'}">All</button>
+          <button type="button" class="spots-drill-filter-btn spots-drill-filter-all ${filterTypeClass}${selectedValue ? '' : ' active'}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="" aria-pressed="${selectedValue ? 'false' : 'true'}">${allLabel}</button>
           ${buttons}
         </div>
       `;
@@ -10930,10 +12236,22 @@
         </div>
       `;
     };
+    const analysisContext = stats ? buildAnalysisContext() : null;
+    const spotsCoachCards = stats && analysisContext ? renderSpotsCoachCards(stats, analysisContext) : '';
+    const spotsIntro = renderReportIntroCard(
+      `${title} analysis`,
+      intro,
+      [
+        `Call ${state.derived.contestMeta?.stationCallsign || 'N/A'}`,
+        `Window ±${windowMinutes}m`,
+        `${formatDateSh6(minTs)} to ${formatDateSh6(maxTs)}`
+      ]
+    );
+
     return `
       <div class="mtc export-panel spots-panel" data-slot="${slotAttr}">
         <div class="gradient">&nbsp;${escapeHtml(title)}</div>
-        <p>${escapeHtml(intro)}</p>
+        ${spotsIntro}
         <div class="export-actions">
           <span><b>Callsign</b>: ${call} (exact match)</span>
         </div>
@@ -10941,6 +12259,7 @@
           <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
         </div>
         ${extraNote ? `<div class="export-actions export-note">${escapeHtml(extraNote)}</div>` : ''}
+        ${renderAnalysisStepHeading(1, 'Filters and data load', 'Tune match window/bands, then refresh spot files for this slot.')}
         ${hideControls ? '' : `
         <div class="spots-controls">
           <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}" data-source="${sourceAttr}">${windowMinutes}</span></label>
@@ -10976,9 +12295,9 @@
         ${summaryNote ? `<div class="export-actions export-note">${escapeHtml(summaryNote)}</div>` : ''}
         ${errorSummary ? `<div class="export-actions export-note"><b>${escapeHtml(errorLabel)}</b>: ${errorSummary}</div>` : ''}
         ${stats ? `
-        <div class="export-actions export-note"><b>Spots of you by band/hour</b></div>
-        ${renderHeatmap(stats.heatmap)}
-        ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
+        ${renderAnalysisStepHeading(2, 'Summary snapshot', 'Validate current conversion quality before deeper analysis.')}
+        <div class="export-actions export-note"><b>Spots coach summary</b></div>
+        ${spotsCoachCards}
 
         <div class="export-actions export-note">
           <span><b>Total spots scanned</b>: ${formatNumberSh6(stats.total)}</span>
@@ -10990,6 +12309,13 @@
           <span><b>Spots by you</b>: ${formatNumberSh6(totalByUs)} (matched to QSOs: ${formatNumberSh6(stats.byUsMatched)})</span>
         </div>
 
+        ${renderAnalysisStepHeading(3, 'Primary table and drill-down', 'Click band/hour values, then filter detail rows by continent and zones.')}
+        <div id="${escapeAttr(sectionIds.bandHour)}" class="export-actions export-note"><b>Spots of you by band/hour</b><span class="spots-click-hint">Click a value to inspect actual spots and filter by Continent, CQ zone, and ITU zone.</span></div>
+        ${renderHeatmap(stats.heatmap)}
+        ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
+
+        ${renderAnalysisStepHeading(4, 'Advanced diagnostics', 'Use timeline and opportunity reports to plan next operating changes.')}
+
         <div class="export-actions export-note"><b>Spot→Rate timeline (10‑min rate with spot markers)</b></div>
         ${renderSpotRateTimeline(state.derived, stats.ofUsSpots)}
 
@@ -10999,7 +12325,7 @@
         <div class="export-actions export-note"><b>Response time distribution (minutes)</b></div>
         ${renderResponseHistogram(stats.responseTimes, windowMinutes)}
 
-        <div class="export-actions export-note"><b>Top spotters for you</b></div>
+        <div id="${escapeAttr(sectionIds.topSpotters)}" class="export-actions export-note"><b>Top spotters for you</b></div>
         ${renderSpotterTable(summarizeGroups(stats.ofUsSpots, 'spotter'))}
 
         <div class="export-actions export-note"><b>Top DX you spotted</b></div>
@@ -11011,7 +12337,8 @@
         `}
 
         ${(() => {
-          const analysis = buildAnalysisContext();
+          const analysis = analysisContext;
+          if (!analysis) return '';
           const concurrentBands = hasConcurrentBands(state.qsoData?.qsos || []);
           return `
             ${hideRbnExtras ? '' : `
@@ -11044,7 +12371,7 @@
             <div class="export-actions export-note">Which spotters give you the most “actionable” spots (they turn into QSOs). Higher % is better.</div>
             ${renderSpotterReliabilityTable(stats.ofUsSpots)}
 
-            <div class="export-actions export-note"><b>Missed mult opportunities</b></div>
+            <div id="${escapeAttr(sectionIds.missedMults)}" class="export-actions export-note"><b>Missed mult opportunities</b></div>
             <div class="export-actions export-note">Spots you sent where you never worked the DX and it looked like a new country at that time. Lower is better.</div>
             ${renderMissedMultTable(stats.byUsSpots, analysis)}
 
@@ -11074,7 +12401,11 @@
 
   function renderRbnSpots() {
     if (!state.qsoData || !state.derived) {
-      return '<p>No log loaded yet. Load a log to enable RBN spots analysis.</p>';
+      return renderStateCard({
+        type: 'info',
+        title: 'RBN spots unavailable',
+        message: 'Load a log to enable RBN spots analysis for this report.'
+      });
     }
     const minTs = state.derived.timeRange?.minTs;
     const maxTs = state.derived.timeRange?.maxTs;
@@ -11112,6 +12443,957 @@
       note: 'RBN spotters can include a “-#” suffix (skimmer ID). These are grouped by the base callsign.',
       dayPickerHtml
     });
+  }
+
+  function resolveSpotterContinent(spotterCall) {
+    const key = normalizeSpotterBase(spotterCall || '');
+    const prefix = key ? (lookupPrefix(key) || lookupPrefix(baseCall(key))) : null;
+    return normalizeContinent(prefix?.continent || '') || 'N/A';
+  }
+
+  const rbnCompareSignalIndexCache = new Map(); // slotId -> { dataKey, bySpotter: Map(spotter -> entry) }
+  const rbnCompareSignalIndexJobs = new Map(); // slotId -> { dataKey, slotRef, spots, i, bySpotter }
+  const rbnCompareSignalRankingCache = new Map(); // `${slotId}|${bandKey||'ALL'}` -> { dataKey, byContinent }
+  const rbnCompareSignalCanvasJobs = new WeakMap(); // canvas -> { token, raf }
+  let rbnCompareSignalDrawRaf = 0;
+  let rbnCompareSignalIntersectionObserver = null;
+
+  function rbnCompareSlotDataKey(slot) {
+    const r = slot?.rbnState;
+    if (!r || r.status !== 'ready' || !r.raw || !Array.isArray(r.raw.ofUsSpots)) return '';
+    const days = Array.isArray(r.selectedDays) ? r.selectedDays.join(',') : '';
+    const count = Number.isFinite(r.totalOfUs) ? r.totalOfUs : r.raw.ofUsSpots.length;
+    return `${String(r.lastCall || '')}|${String(r.lastWindowKey || '')}|${days}|${count}`;
+  }
+
+  function sampleFlatStride(data, capPoints) {
+    const arr = Array.isArray(data) ? data : [];
+    const total = Math.floor(arr.length / 2);
+    const cap = Math.max(0, Math.floor(Number(capPoints) || 0));
+    if (!cap || total <= cap) return arr;
+    const stride = Math.max(1, Math.ceil(total / cap));
+    const out = [];
+    for (let i = 0; i < total; i += stride) {
+      const idx = i * 2;
+      out.push(arr[idx], arr[idx + 1]);
+    }
+    return out;
+  }
+
+  function hashString32(value) {
+    const str = String(value || '');
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i += 1) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function sampleFlatStrideSeeded(data, capPoints, seed) {
+    const arr = Array.isArray(data) ? data : [];
+    const total = Math.floor(arr.length / 2);
+    const cap = Math.max(0, Math.floor(Number(capPoints) || 0));
+    if (!cap || total <= cap) return arr;
+    const stride = Math.max(1, Math.ceil(total / cap));
+    const offset = stride > 1 ? (hashString32(seed) % stride) : 0;
+    const out = [];
+    for (let i = offset; i < total; i += stride) {
+      const idx = i * 2;
+      out.push(arr[idx], arr[idx + 1]);
+    }
+    return out;
+  }
+
+  function computeProportionalCaps(entries, total, capTotal, minEach = 200) {
+    const safeTotal = Math.max(0, Math.floor(total || 0));
+    const cap = Math.max(0, Math.floor(capTotal || 0));
+    if (!cap || safeTotal <= cap) {
+      return entries.map(([band, count]) => [band, count]);
+    }
+    const out = entries.map(([band, count]) => {
+      const c = Math.max(0, Math.floor(count || 0));
+      const raw = Math.floor((cap * c) / Math.max(1, safeTotal));
+      return [band, Math.min(c, Math.max(minEach, raw))];
+    });
+    let sum = out.reduce((acc, [, c]) => acc + c, 0);
+    if (sum > cap) {
+      // Trim from largest allocations first.
+      const order = out.map(([, c], idx) => ({ idx, c })).sort((a, b) => b.c - a.c);
+      for (const it of order) {
+        if (sum <= cap) break;
+        const current = out[it.idx][1];
+        const next = Math.max(minEach, current - (sum - cap));
+        out[it.idx][1] = next;
+        sum -= (current - next);
+      }
+    } else if (sum < cap) {
+      // Distribute remainder to largest bands where available.
+      const need = cap - sum;
+      const byAvail = out.map(([band, c], idx) => {
+        const original = Math.max(0, Math.floor(entries[idx]?.[1] || 0));
+        return { idx, band, avail: Math.max(0, original - c) };
+      }).sort((a, b) => b.avail - a.avail);
+      let left = need;
+      for (const it of byAvail) {
+        if (!left) break;
+        if (it.avail <= 0) continue;
+        const add = Math.min(it.avail, left);
+        out[it.idx][1] += add;
+        left -= add;
+      }
+    }
+    return out;
+  }
+
+  function getRbnCompareIndexCached(slotId, slot) {
+    const key = rbnCompareSlotDataKey(slot);
+    if (!key) return null;
+    const cached = rbnCompareSignalIndexCache.get(slotId);
+    if (cached && cached.dataKey === key) return cached;
+    return null;
+  }
+
+  function buildRbnCompareIndexSync(slotId, slot) {
+    const dataKey = rbnCompareSlotDataKey(slot);
+    if (!dataKey) return null;
+    const cached = rbnCompareSignalIndexCache.get(slotId);
+    if (cached && cached.dataKey === dataKey) return cached;
+    const list = slot?.rbnState?.raw?.ofUsSpots || [];
+    const bySpotter = new Map();
+    (list || []).forEach((s) => {
+      if (!s || !s.spotter) return;
+      if (!Number.isFinite(s.ts) || !Number.isFinite(s.snr)) return;
+      const spotter = normalizeSpotterBase(s.spotter);
+      if (!spotter) return;
+      const band = normalizeBandToken(s.band || '') || '';
+      let entry = bySpotter.get(spotter);
+      if (!entry) {
+        entry = {
+          spotter,
+          continent: resolveSpotterContinent(spotter),
+          totalCount: 0,
+          bandCounts: new Map(),
+          byBand: new Map(), // band -> flat [ts,snr,...]
+          minSnr: null,
+          maxSnr: null
+        };
+        bySpotter.set(spotter, entry);
+      }
+      entry.totalCount += 1;
+      entry.bandCounts.set(band, (entry.bandCounts.get(band) || 0) + 1);
+      if (!entry.byBand.has(band)) entry.byBand.set(band, []);
+      entry.byBand.get(band).push(s.ts, s.snr);
+      entry.minSnr = entry.minSnr == null ? s.snr : Math.min(entry.minSnr, s.snr);
+      entry.maxSnr = entry.maxSnr == null ? s.snr : Math.max(entry.maxSnr, s.snr);
+    });
+    const built = { dataKey, bySpotter };
+    rbnCompareSignalIndexCache.set(slotId, built);
+    // Rankings depend on this index; clear any stale entries for this slot.
+    Array.from(rbnCompareSignalRankingCache.keys()).forEach((k) => {
+      if (k.startsWith(`${slotId}|`)) rbnCompareSignalRankingCache.delete(k);
+    });
+    return built;
+  }
+
+  function scheduleRbnCompareIndexBuild(slotId, slot) {
+    const dataKey = rbnCompareSlotDataKey(slot);
+    if (!dataKey) return;
+    const cached = rbnCompareSignalIndexCache.get(slotId);
+    if (cached && cached.dataKey === dataKey) return;
+    const existing = rbnCompareSignalIndexJobs.get(slotId);
+    if (existing && existing.dataKey === dataKey) return;
+    const spots = slot?.rbnState?.raw?.ofUsSpots || [];
+    const job = {
+      slotId,
+      slotRef: slot,
+      dataKey,
+      spots,
+      i: 0,
+      bySpotter: new Map()
+    };
+    rbnCompareSignalIndexJobs.set(slotId, job);
+    const step = () => {
+      const liveKey = rbnCompareSlotDataKey(job.slotRef);
+      if (liveKey !== job.dataKey) {
+        rbnCompareSignalIndexJobs.delete(slotId);
+        return;
+      }
+      const chunk = 6000;
+      const end = Math.min(job.spots.length, job.i + chunk);
+      for (; job.i < end; job.i += 1) {
+        const s = job.spots[job.i];
+        if (!s || !s.spotter) continue;
+        if (!Number.isFinite(s.ts) || !Number.isFinite(s.snr)) continue;
+        const spotter = normalizeSpotterBase(s.spotter);
+        if (!spotter) continue;
+        const band = normalizeBandToken(s.band || '') || '';
+        let entry = job.bySpotter.get(spotter);
+        if (!entry) {
+          entry = {
+            spotter,
+            continent: resolveSpotterContinent(spotter),
+            totalCount: 0,
+            bandCounts: new Map(),
+            byBand: new Map(),
+            minSnr: null,
+            maxSnr: null
+          };
+          job.bySpotter.set(spotter, entry);
+        }
+        entry.totalCount += 1;
+        entry.bandCounts.set(band, (entry.bandCounts.get(band) || 0) + 1);
+        if (!entry.byBand.has(band)) entry.byBand.set(band, []);
+        entry.byBand.get(band).push(s.ts, s.snr);
+        entry.minSnr = entry.minSnr == null ? s.snr : Math.min(entry.minSnr, s.snr);
+        entry.maxSnr = entry.maxSnr == null ? s.snr : Math.max(entry.maxSnr, s.snr);
+      }
+      if (job.i >= job.spots.length) {
+        rbnCompareSignalIndexJobs.delete(slotId);
+        rbnCompareSignalIndexCache.set(slotId, { dataKey: job.dataKey, bySpotter: job.bySpotter });
+        Array.from(rbnCompareSignalRankingCache.keys()).forEach((k) => {
+          if (k.startsWith(`${slotId}|`)) rbnCompareSignalRankingCache.delete(k);
+        });
+        scheduleRbnCompareSignalDraw();
+        populateRbnCompareSignalSpotterSelects();
+        return;
+      }
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(step, { timeout: 200 });
+      } else {
+        setTimeout(step, 0);
+      }
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(step, { timeout: 200 });
+    } else {
+      setTimeout(step, 0);
+    }
+  }
+
+  function getRbnCompareRankingCached(slotId, slot, bandKey) {
+    const dataKey = rbnCompareSlotDataKey(slot);
+    if (!dataKey) return null;
+    const key = `${slotId}|${bandKey || 'ALL'}`;
+    const cached = rbnCompareSignalRankingCache.get(key);
+    if (cached && cached.dataKey === dataKey) return cached;
+    return null;
+  }
+
+  function buildRbnCompareRankingFromIndex(slotId, slot, bandKey, index) {
+    const dataKey = rbnCompareSlotDataKey(slot);
+    if (!dataKey || !index || index.dataKey !== dataKey) return null;
+    const byContinent = new Map();
+    const normBand = normalizeBandToken(bandKey || '');
+    index.bySpotter.forEach((entry) => {
+      const count = normBand ? (entry.bandCounts.get(normBand) || 0) : (entry.totalCount || 0);
+      if (!count) return;
+      const cont = entry.continent || 'N/A';
+      if (!byContinent.has(cont)) byContinent.set(cont, []);
+      byContinent.get(cont).push({ spotter: entry.spotter, count });
+    });
+    byContinent.forEach((list, cont) => {
+      list.sort((a, b) => b.count - a.count || a.spotter.localeCompare(b.spotter));
+      byContinent.set(cont, list);
+    });
+    const key = `${slotId}|${normBand || 'ALL'}`;
+    const built = { dataKey, byContinent };
+    rbnCompareSignalRankingCache.set(key, built);
+    return built;
+  }
+
+  function scheduleRbnCompareSignalDraw() {
+    if (rbnCompareSignalDrawRaf) return;
+    rbnCompareSignalDrawRaf = requestAnimationFrame(() => {
+      rbnCompareSignalDrawRaf = 0;
+      if (reports[state.activeIndex]?.id === 'rbn_compare_signal') {
+        drawRbnCompareSignalCharts();
+      }
+    });
+  }
+
+  function bandColorForChart(band) {
+    const key = normalizeBandToken(band || '');
+    // More saturated colors for dense scatter plots (better contrast with alpha).
+    if (key === '160M') return '#334155'; // slate
+    if (key === '80M') return '#2563eb'; // blue
+    if (key === '40M') return '#16a34a'; // green
+    if (key === '20M') return '#f59e0b'; // amber
+    if (key === '15M') return '#dc2626'; // red
+    if (key === '10M') return '#7c3aed'; // violet
+    return '#0f172a';
+  }
+
+  function slotMarkerShape(slotId) {
+    const id = String(slotId || 'A').toUpperCase();
+    if (id === 'B') return 'triangle';
+    if (id === 'C') return 'square';
+    if (id === 'D') return 'diamond';
+    return 'circle';
+  }
+
+  function slotMarkerSymbol(slotId) {
+    const shape = slotMarkerShape(slotId);
+    if (shape === 'triangle') return '▲';
+    if (shape === 'square') return '■';
+    if (shape === 'diamond') return '◆';
+    return '●';
+  }
+
+  function slotLineDash(slotId) {
+    const id = String(slotId || 'A').toUpperCase();
+    if (id === 'B') return [8, 6];
+    if (id === 'C') return [2, 5];
+    if (id === 'D') return [10, 5, 2, 5];
+    return [];
+  }
+
+  function slotLineStyleLabel(slotId) {
+    const id = String(slotId || 'A').toUpperCase();
+    if (id === 'B') return 'dashed';
+    if (id === 'C') return 'dotted';
+    if (id === 'D') return 'dash-dot';
+    return 'solid';
+  }
+
+  function slotLineStyleSample(slotId) {
+    const id = String(slotId || 'A').toUpperCase();
+    if (id === 'B') return '- - -';
+    if (id === 'C') return '. . .';
+    if (id === 'D') return '-.-.-';
+    return '-----';
+  }
+
+  function formatUtcTick(ts) {
+    if (!Number.isFinite(ts)) return '';
+    const d = new Date(ts);
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    return `${dd} ${hh}Z`;
+  }
+
+  function drawRbnSignalCanvas(canvas, model) {
+    if (!(canvas instanceof HTMLCanvasElement) || !model) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const prev = rbnCompareSignalCanvasJobs.get(canvas);
+    if (prev && prev.raf) cancelAnimationFrame(prev.raf);
+    const token = (prev?.token || 0) + 1;
+    const job = { token, raf: 0 };
+    rbnCompareSignalCanvasJobs.set(canvas, job);
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const cssWidth = Math.max(320, canvas.clientWidth || 920);
+    const cssHeight = Math.max(220, Number(canvas.dataset.height) || 260);
+    const width = Math.round(cssWidth * dpr);
+    const height = Math.round(cssHeight * dpr);
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    canvas.style.height = `${cssHeight}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    const margin = { left: 52, right: 12, top: 14, bottom: 26 };
+    const plotW = Math.max(10, cssWidth - margin.left - margin.right);
+    const plotH = Math.max(10, cssHeight - margin.top - margin.bottom);
+    const minTs = model.minTs;
+    const maxTs = model.maxTs;
+    const minY = model.minY;
+    const maxY = model.maxY;
+    const series = Array.isArray(model.series) ? model.series : [];
+    const pointCount = series.reduce((acc, s) => acc + Math.floor((Array.isArray(s?.data) ? s.data.length : 0) / 2), 0);
+
+    const xOf = (ts) => margin.left + ((ts - minTs) / Math.max(1, (maxTs - minTs))) * plotW;
+    const yOf = (y) => margin.top + (1 - ((y - minY) / Math.max(1e-9, (maxY - minY)))) * plotH;
+
+    // Axes
+    ctx.strokeStyle = '#b9cbe7';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top);
+    ctx.lineTo(margin.left, margin.top + plotH);
+    ctx.lineTo(margin.left + plotW, margin.top + plotH);
+    ctx.stroke();
+
+    // Grid + ticks
+    ctx.fillStyle = '#23456f';
+    ctx.font = '11px var(--sh6-font-family, verdana, arial, sans-serif)';
+    ctx.textBaseline = 'middle';
+
+    const yTicks = 5;
+    for (let i = 0; i <= yTicks; i += 1) {
+      const t = i / yTicks;
+      const yVal = minY + (1 - t) * (maxY - minY);
+      const y = margin.top + t * plotH;
+      ctx.strokeStyle = 'rgba(185, 203, 231, 0.45)';
+      ctx.beginPath();
+      ctx.moveTo(margin.left, y);
+      ctx.lineTo(margin.left + plotW, y);
+      ctx.stroke();
+      ctx.fillText(`${Math.round(yVal)}`, 6, y);
+    }
+
+    ctx.textBaseline = 'top';
+    const xTicks = Math.max(2, Math.min(10, Math.floor(plotW / 120)));
+    for (let i = 0; i <= xTicks; i += 1) {
+      const t = i / xTicks;
+      const ts = minTs + t * (maxTs - minTs);
+      const x = margin.left + t * plotW;
+      ctx.strokeStyle = 'rgba(185, 203, 231, 0.45)';
+      ctx.beginPath();
+      ctx.moveTo(x, margin.top);
+      ctx.lineTo(x, margin.top + plotH);
+      ctx.stroke();
+      const label = formatUtcTick(ts);
+      const labelW = Math.max(0, ctx.measureText(label).width || 0);
+      const clamped = Math.max(margin.left, Math.min(x - labelW / 2, margin.left + plotW - labelW));
+      ctx.fillText(label, clamped, margin.top + plotH + 6);
+    }
+
+    const drawMarker = (x, y, shape, size) => {
+      const s = size;
+      if (shape === 'triangle') {
+        ctx.moveTo(x, y - s);
+        ctx.lineTo(x + s, y + s);
+        ctx.lineTo(x - s, y + s);
+        ctx.closePath();
+      } else if (shape === 'square') {
+        ctx.rect(x - s, y - s, s * 2, s * 2);
+      } else if (shape === 'diamond') {
+        ctx.moveTo(x, y - s);
+        ctx.lineTo(x + s, y);
+        ctx.lineTo(x, y + s);
+        ctx.lineTo(x - s, y);
+        ctx.closePath();
+      } else {
+        ctx.arc(x, y, s, 0, Math.PI * 2);
+      }
+    };
+
+    const trendBreakMs = 30 * 60 * 1000;
+    // Optional trendlines (subtle).
+    const trendlines = Array.isArray(model.trendlines) ? model.trendlines : [];
+    if (trendlines.length) {
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      trendlines.forEach((t) => {
+        const data = Array.isArray(t?.data) ? t.data : [];
+        if (data.length < 4) return;
+        ctx.strokeStyle = t.color || bandColorForChart(t.band);
+        ctx.lineWidth = Number.isFinite(t.width) ? t.width : 1.8;
+        ctx.setLineDash(Array.isArray(t.dash) ? t.dash : []);
+        ctx.beginPath();
+        let started = false;
+        let prevTs = null;
+        for (let i = 0; i < data.length; i += 2) {
+          const ts = data[i];
+          const snr = data[i + 1];
+          if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+          const x = xOf(ts);
+          const y = yOf(snr);
+          const shouldBreak = started && Number.isFinite(prevTs) && (ts - prevTs) > trendBreakMs;
+          if (!started || shouldBreak) {
+            if (started) ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+          prevTs = ts;
+        }
+        if (started) ctx.stroke();
+        ctx.setLineDash([]);
+      });
+      ctx.restore();
+    }
+
+    // Points (progressive + batching, alpha + jitter to reduce overplotting).
+    // Keep markers at a consistent size; reduce points (sampling) elsewhere for performance/clarity.
+    const pointAlpha = pointCount > 20000 ? 0.14 : (pointCount > 12000 ? 0.18 : (pointCount > 7000 ? 0.22 : (pointCount > 3500 ? 0.26 : 0.32)));
+    const pointSize = 3.0;
+    const jitterScale = pointCount > 20000 ? 0.55 : (pointCount > 12000 ? 0.45 : (pointCount > 7000 ? 0.35 : (pointCount > 3500 ? 0.2 : 0)));
+    const jitterOf = (ts, snr) => {
+      if (!jitterScale) return { x: 0, y: 0 };
+      const a = (Number.isFinite(ts) ? Math.floor(ts / 1000) : 0) | 0;
+      const b = (Number.isFinite(snr) ? Math.round(snr * 100) : 0) | 0;
+      const h = (Math.imul(a, 2654435761) ^ Math.imul(b, 1597334677)) >>> 0;
+      const jx = (((h & 1023) / 1023) - 0.5) * 2 * jitterScale;
+      const jy = ((((h >>> 10) & 1023) / 1023) - 0.5) * 2 * jitterScale;
+      return { x: jx, y: jy };
+    };
+
+    // Title
+    ctx.fillStyle = '#193d6e';
+    ctx.font = '12px var(--sh6-font-family, verdana, arial, sans-serif)';
+    ctx.textBaseline = 'top';
+    ctx.fillText(model.title || '', margin.left, 2);
+
+    const budgetPerFrame = pointCount > 20000 ? 4200 : (pointCount > 12000 ? 5000 : 6200);
+    let seriesIdx = 0;
+    let pointIdx = 0; // index in flat array (ts at idx, snr at idx+1)
+    const step = () => {
+      const live = rbnCompareSignalCanvasJobs.get(canvas);
+      if (!live || live.token !== token) return;
+      ctx.save();
+      ctx.globalAlpha = pointAlpha;
+      let remaining = budgetPerFrame;
+      while (remaining > 0 && seriesIdx < series.length) {
+        const s = series[seriesIdx] || {};
+        const data = Array.isArray(s.data) ? s.data : [];
+        const shape = s.shape || 'circle';
+        const color = s.color || bandColorForChart(s.band);
+        ctx.fillStyle = color;
+        if (!data.length) {
+          seriesIdx += 1;
+          pointIdx = 0;
+          continue;
+        }
+        ctx.beginPath();
+        let drawn = 0;
+        while (remaining > 0 && pointIdx < data.length) {
+          const ts = data[pointIdx];
+          const snr = data[pointIdx + 1];
+          pointIdx += 2;
+          if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+          const { x: jx, y: jy } = jitterOf(ts, snr);
+          const x = xOf(ts) + jx;
+          const y = yOf(snr) + jy;
+          // Append marker path, fill once per chunk.
+          if (shape === 'triangle' || shape === 'square' || shape === 'diamond') {
+            drawMarker(x, y, shape, pointSize);
+          } else {
+            ctx.moveTo(x + pointSize, y);
+            ctx.arc(x, y, pointSize, 0, Math.PI * 2);
+          }
+          drawn += 1;
+          remaining -= 1;
+        }
+        if (drawn) ctx.fill();
+        if (pointIdx >= data.length) {
+          seriesIdx += 1;
+          pointIdx = 0;
+        }
+      }
+      ctx.restore();
+      if (seriesIdx < series.length) {
+        job.raf = requestAnimationFrame(step);
+        rbnCompareSignalCanvasJobs.set(canvas, job);
+      }
+    };
+    job.raf = requestAnimationFrame(step);
+    rbnCompareSignalCanvasJobs.set(canvas, job);
+  }
+
+  function drawRbnCompareSignalCharts() {
+    const root = dom.viewContainer;
+    if (!root) return;
+    const canvases = Array.from(root.querySelectorAll('.rbn-signal-canvas')).filter((c) => {
+      if (!(c instanceof HTMLCanvasElement)) return false;
+      if (!rbnCompareSignalIntersectionObserver) return true;
+      return c.dataset.rbnVisible === '1';
+    });
+    if (!canvases.length) return;
+
+    const slots = getActiveCompareSlots().filter((entry) => entry.slot?.qsoData && entry.slot?.derived);
+    const base = slots.find((e) => e.id === 'A') || slots[0] || null;
+    const bandFilter = state.globalBandFilter || '';
+    const bandKey = normalizeBandToken(bandFilter);
+
+    const minTs = Math.min(...slots.map((e) => Number(e.slot?.derived?.timeRange?.minTs)).filter(Number.isFinite));
+    const maxTs = Math.max(...slots.map((e) => Number(e.slot?.derived?.timeRange?.maxTs)).filter(Number.isFinite));
+    const safeMinTs = Number.isFinite(minTs) ? minTs : Date.now() - 24 * 3600 * 1000;
+    const safeMaxTs = Number.isFinite(maxTs) ? maxTs : Date.now();
+    const slotKeys = slots.map((e) => {
+      const dk = rbnCompareSlotDataKey(e.slot);
+      const idx = getRbnCompareIndexCached(e.id, e.slot);
+      const idxFlag = idx && idx.dataKey === dk ? '1' : '0';
+      return `${e.id}:${dk}:${idxFlag}`;
+    }).join('|');
+
+    canvases.forEach((canvas) => {
+      const continent = String(canvas.dataset.continent || '').trim().toUpperCase() || 'N/A';
+      const selectedSpotter = normalizeSpotterBase(String(canvas.dataset.spotter || '').trim());
+      const card = canvas.closest('.rbn-signal-card');
+      const legendBandsNode = card ? card.querySelector('.rbn-signal-legend-bands') : null;
+      const metaNode = card ? card.querySelector('.rbn-signal-meta') : null;
+      const sizeKey = `${canvas.clientWidth || 0}x${Number(canvas.dataset.height) || 260}`;
+      const drawKey = `${selectedSpotter}|${bandKey || 'ALL'}|${slotKeys}|${sizeKey}`;
+      if (canvas.dataset.rbnDrawKey === drawKey) return;
+      canvas.dataset.rbnDrawKey = drawKey;
+      if (!base || !selectedSpotter) {
+        drawRbnSignalCanvas(canvas, {
+          title: 'RBN signal',
+          minTs: safeMinTs,
+          maxTs: safeMaxTs,
+          minY: -30,
+          maxY: 40,
+          series: []
+        });
+        if (legendBandsNode) legendBandsNode.innerHTML = '';
+        if (metaNode) metaNode.textContent = '0 points plotted · SNR range: N/A';
+        canvas.setAttribute('role', 'img');
+        canvas.setAttribute('aria-label', 'RBN signal scatter plot. No data plotted.');
+        return;
+      }
+
+      const bandsPlotted = new Set();
+      let minSnr = null;
+      let maxSnr = null;
+      let minY = null;
+      let maxY = null;
+      const series = [];
+      let pointTotal = 0;
+      slots.forEach((entry) => {
+        const slotId = entry.id;
+        const shape = slotMarkerShape(slotId);
+        const slot = entry.slot;
+        const idx = getRbnCompareIndexCached(slotId, slot);
+        if (!idx) {
+          // Build index in background, then redraw.
+          scheduleRbnCompareIndexBuild(slotId, slot);
+          return;
+        }
+        const spotterEntry = idx.bySpotter.get(selectedSpotter);
+        if (!spotterEntry) return;
+        const perSlotCap = 6500;
+        if (bandKey) {
+          const raw = spotterEntry.byBand.get(bandKey) || [];
+          const seed = `${selectedSpotter}|${slotId}|${idx.dataKey}|${bandKey}`;
+          const sampled = sampleFlatStrideSeeded(raw, perSlotCap, seed);
+          if (!sampled.length) return;
+          pointTotal += Math.floor(sampled.length / 2);
+          series.push({ band: bandKey, slotId, shape, color: bandColorForChart(bandKey), data: sampled });
+          bandsPlotted.add(bandKey);
+          for (let i = 1; i < sampled.length; i += 2) {
+            const snr = sampled[i];
+            if (!Number.isFinite(snr)) continue;
+            minSnr = minSnr == null ? snr : Math.min(minSnr, snr);
+            maxSnr = maxSnr == null ? snr : Math.max(maxSnr, snr);
+            minY = minY == null ? snr : Math.min(minY, snr);
+            maxY = maxY == null ? snr : Math.max(maxY, snr);
+          }
+          return;
+        }
+        const bandCounts = Array.from(spotterEntry.bandCounts.entries()).filter(([b, c]) => b && c > 0);
+        const total = spotterEntry.totalCount || bandCounts.reduce((acc, [, c]) => acc + c, 0);
+        const caps = computeProportionalCaps(bandCounts, total, perSlotCap, 120);
+        caps.forEach(([band, cap]) => {
+          const raw = spotterEntry.byBand.get(band) || [];
+          const seed = `${selectedSpotter}|${slotId}|${idx.dataKey}|${band}`;
+          const sampled = sampleFlatStrideSeeded(raw, cap, seed);
+          if (!sampled.length) return;
+          pointTotal += Math.floor(sampled.length / 2);
+          series.push({ band, slotId, shape, color: bandColorForChart(band), data: sampled });
+          bandsPlotted.add(band);
+          for (let i = 1; i < sampled.length; i += 2) {
+            const snr = sampled[i];
+            if (!Number.isFinite(snr)) continue;
+            minSnr = minSnr == null ? snr : Math.min(minSnr, snr);
+            maxSnr = maxSnr == null ? snr : Math.max(maxSnr, snr);
+            minY = minY == null ? snr : Math.min(minY, snr);
+            maxY = maxY == null ? snr : Math.max(maxY, snr);
+          }
+        });
+      });
+      if (minY == null || maxY == null) {
+        minY = -30;
+        maxY = 40;
+      } else if (minY === maxY) {
+        minY -= 5;
+        maxY += 5;
+      } else {
+        const pad = Math.max(2, (maxY - minY) * 0.08);
+        minY -= pad;
+        maxY += pad;
+      }
+
+      const titleBand = bandKey ? formatBandLabel(bandKey) : 'All bands';
+      const title = `${continent} · ${selectedSpotter} · ${titleBand}`;
+      const p75 = (values) => {
+        if (!values || !values.length) return null;
+        values.sort((a, b) => a - b);
+        const n = values.length;
+        const idx = Math.max(0, Math.min(n - 1, Math.floor(0.75 * (n - 1))));
+        return values[idx];
+      };
+      const trendlines = series.map((s) => {
+        const data = Array.isArray(s?.data) ? s.data : [];
+        const slotId = String(s?.slotId || 'A').toUpperCase();
+        const band = normalizeBandToken(s?.band || '');
+        if (!data.length || !band) return null;
+        const pointsInSeries = Math.floor(data.length / 2);
+        const bucketMs = pointsInSeries <= 250 ? 15 * 60 * 1000 : (pointsInSeries <= 700 ? 10 * 60 * 1000 : 5 * 60 * 1000);
+        const trendBins = Math.max(1, Math.ceil((safeMaxTs - safeMinTs) / bucketMs));
+        const bins = Array.from({ length: trendBins }, () => []);
+        for (let i = 0; i < data.length; i += 2) {
+          const ts = data[i];
+          const snr = data[i + 1];
+          if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+          const bin = Math.floor((ts - safeMinTs) / bucketMs);
+          if (bin < 0 || bin >= trendBins) continue;
+          bins[bin].push(snr);
+        }
+        const points = [];
+        for (let i = 0; i < trendBins; i += 1) {
+          const vals = bins[i];
+          if (!vals || vals.length < 1) continue; // keep gaps; disappear when no spots in this bucket
+          const window = [];
+          // Light smoothing: include immediate neighbor buckets when available.
+          if (i > 0 && bins[i - 1] && bins[i - 1].length) window.push(...bins[i - 1]);
+          window.push(...vals);
+          if (i + 1 < trendBins && bins[i + 1] && bins[i + 1].length) window.push(...bins[i + 1]);
+          const v = p75(window);
+          if (!Number.isFinite(v)) continue;
+          const ts = safeMinTs + (i + 0.5) * bucketMs;
+          points.push(ts, v);
+        }
+        // Require at least 2 plotted points to show a line.
+        if (points.length < 4) return null;
+        return {
+          slotId,
+          band,
+          color: s.color || bandColorForChart(band),
+          dash: slotLineDash(slotId),
+          width: slotId === 'A' ? 2.1 : 1.7,
+          data: points
+        };
+      }).filter(Boolean);
+      drawRbnSignalCanvas(canvas, {
+        title,
+        minTs: safeMinTs,
+        maxTs: safeMaxTs,
+        minY,
+        maxY,
+        series,
+        trendlines
+      });
+
+      if (legendBandsNode) {
+        const bands = sortBands(Array.from(bandsPlotted).filter(Boolean));
+        legendBandsNode.innerHTML = bands.map((b) => (
+          `<span class="rbn-legend-item"><i style="background:${bandColorForChart(b)}"></i>${escapeHtml(formatBandLabel(b) || b)}</span>`
+        )).join('');
+      }
+      if (metaNode) {
+        const fmt = (v) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)}` : 'N/A');
+        const rangeText = (Number.isFinite(minSnr) && Number.isFinite(maxSnr)) ? `${fmt(minSnr)}..${fmt(maxSnr)} dB` : 'N/A';
+        metaNode.textContent = `${formatNumberSh6(pointTotal)} points plotted · SNR range: ${rangeText}`;
+      }
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', `${title}. ${formatNumberSh6(pointTotal)} points plotted. ${metaNode ? metaNode.textContent : ''}`);
+    });
+  }
+
+  function populateRbnCompareSignalSpotterSelects() {
+    if (reports[state.activeIndex]?.id !== 'rbn_compare_signal') return;
+    const root = dom.viewContainer;
+    if (!root) return;
+    const slots = getActiveCompareSlots();
+    const base = slots.find((e) => e.id === 'A') || slots[0] || null;
+    if (!base) return;
+    const bandKey = normalizeBandToken(state.globalBandFilter || '');
+    const cached = getRbnCompareRankingCached(base.id, base.slot, bandKey);
+    const index = cached ? null : getRbnCompareIndexCached(base.id, base.slot);
+    const ranking = cached || (index ? buildRbnCompareRankingFromIndex(base.id, base.slot, bandKey, index) : null);
+    if (!ranking) {
+      if (base.slot?.rbnState?.status === 'ready') scheduleRbnCompareIndexBuild(base.id, base.slot);
+      return;
+    }
+    const selections = (state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object')
+      ? state.rbnCompareSignal
+      : { selectedByContinent: {} };
+    if (!state.rbnCompareSignal) state.rbnCompareSignal = selections;
+    if (!selections.selectedByContinent) selections.selectedByContinent = {};
+    const selects = Array.from(root.querySelectorAll('.rbn-signal-select'));
+    selects.forEach((select) => {
+      const cont = String(select.dataset.continent || '').trim().toUpperCase() || 'N/A';
+      const list = ranking.byContinent.get(cont) || [];
+      if (!list.length) {
+        select.innerHTML = '<option value="">No skimmers</option>';
+        select.disabled = true;
+        const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
+        if (canvas) canvas.dataset.spotter = '';
+        return;
+      }
+      const saved = normalizeSpotterBase(String(selections.selectedByContinent[cont] || '').trim());
+      const defaultSpotter = saved && list.some((e) => e.spotter === saved) ? saved : list[0].spotter;
+      selections.selectedByContinent[cont] = defaultSpotter;
+      select.disabled = false;
+      select.innerHTML = list.slice(0, 80).map((e) => {
+        const label = `${e.spotter} (${formatNumberSh6(e.count)})`;
+        return `<option value="${escapeAttr(e.spotter)}" ${e.spotter === defaultSpotter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+      }).join('');
+      const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
+      if (canvas) canvas.dataset.spotter = defaultSpotter;
+    });
+    scheduleRbnCompareSignalDraw();
+  }
+
+  function renderRbnCompareSignal() {
+    if (!state.qsoData || !state.derived) {
+      return renderStateCard({
+        type: 'info',
+        title: 'RBN compare signal unavailable',
+        message: 'Load a log to enable RBN signal compare.'
+      });
+    }
+
+    const slots = getActiveCompareSlots();
+    const loaded = slots.filter((e) => e.slot?.qsoData && e.slot?.derived);
+    const base = loaded.find((e) => e.id === 'A') || loaded[0] || null;
+    const bandKey = normalizeBandToken(state.globalBandFilter || '');
+    const bandLabel = bandKey ? formatBandLabel(bandKey) : 'All bands';
+    const slotLegendHtml = loaded.map((entry) => {
+      const call = normalizeCall(entry.slot?.derived?.contestMeta?.stationCallsign || '');
+      const label = call || entry.label || `Log ${entry.id}`;
+      const sym = slotMarkerSymbol(entry.id);
+      const sample = slotLineStyleSample(entry.id);
+      return `<span class="rbn-slot-legend-item"><b>${escapeHtml(label)}</b> ${sym} <span class="rbn-slot-legend-style" title="${escapeAttr(slotLineStyleLabel(entry.id))}">${escapeHtml(sample)}</span></span>`;
+    }).join('');
+
+    const compareOffer = (() => {
+      const emptySlots = COMPARE_SLOT_IDS.filter((slotId) => !getSlotById(slotId)?.qsoData);
+      if (!emptySlots.length) return '';
+      const coach = state.competitorCoach || createCompetitorCoachState();
+      const context = buildCompetitorCoachContext(state.cqApiClient || null);
+      const contestId = String(coach.contestId || context.contestId || '').trim().toUpperCase();
+      const mode = String(coach.mode || context.mode || '').trim().toLowerCase();
+      const currentCall = normalizeCall(state.derived?.contestMeta?.stationCallsign || '');
+      const rivals = Array.isArray(coach.closestRivals) ? coach.closestRivals : [];
+      const picks = [];
+      const seen = new Set();
+      for (const row of rivals) {
+        const call = normalizeCall(row?.callsign || '');
+        const year = Number(row?.year);
+        if (!call || call === currentCall) continue;
+        if (!Number.isFinite(year)) continue;
+        const key = `${call}|${year}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        picks.push({ call, year });
+        if (picks.length >= emptySlots.length) break;
+      }
+      const buttons = emptySlots.map((slotId, idx) => {
+        const pick = picks[idx] || picks[0] || null;
+        if (!pick || !contestId || !mode) return '';
+        return `<button type="button" class="cqapi-load-btn coach-load-btn" data-slot="${escapeAttr(slotId)}" data-year="${escapeAttr(String(pick.year))}" data-callsign="${escapeAttr(pick.call)}" data-contest="${escapeAttr(contestId)}" data-mode="${escapeAttr(mode)}">Load ${escapeHtml(pick.call)} to Log ${escapeHtml(slotId)}</button>`;
+      }).filter(Boolean).join(' ');
+      const navBtn = `<button type="button" class="button rbn-coach-nav" data-report="competitor_coach">Open Competitor coach</button>`;
+      const note = buttons
+        ? 'Load a few nearby rivals for side-by-side signal comparison:'
+        : 'Tip: open Competitor coach to select and load rivals into Log B/C/D for compare.';
+      return `
+        <div class="export-actions export-note">
+          <b>Compare tip</b> ${escapeHtml(note)}
+          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">${buttons || ''}${navBtn}</div>
+        </div>
+      `;
+    })();
+
+    const rbnControls = loaded.map((entry) => {
+      const status = mapSpotStatus(entry.slot?.rbnState?.status || 'idle');
+      const statusText = status === 'ready' ? 'ready' : (status === 'loading' ? 'loading' : (status === 'error' ? 'error' : 'idle'));
+      return `
+        <button type="button" class="button spots-load-btn" data-source="rbn" data-slot="${escapeAttr(entry.id)}">Load RBN (${escapeHtml(entry.label)})</button>
+        <span class="cqapi-muted">${escapeHtml(statusText)}</span>
+      `;
+    }).join(' ');
+
+    const warning = (() => {
+      const minTs = state.derived?.timeRange?.minTs;
+      const maxTs = state.derived?.timeRange?.maxTs;
+      const days = buildRbnDayList(minTs, maxTs);
+      if ((days || []).length > 2) {
+        return `<div class="export-actions export-note">Note: this contest spans more than 2 UTC dates; RBN queries are limited to 2 dates at a time. Adjust selected days in <b>RBN spots</b> if needed.</div>`;
+      }
+      return '';
+    })();
+
+    const contOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC', 'N/A'];
+    const selections = (state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object')
+      ? state.rbnCompareSignal
+      : { selectedByContinent: {} };
+    if (!state.rbnCompareSignal) state.rbnCompareSignal = selections;
+    if (!selections.selectedByContinent) selections.selectedByContinent = {};
+
+    const rankingCached = base ? getRbnCompareRankingCached(base.id, base.slot, bandKey) : null;
+    const byContinent = rankingCached?.byContinent || new Map();
+    const cards = contOrder.map((cont) => {
+      const list = byContinent.get(cont) || [];
+      if (!list.length) {
+        return `
+          <article class="rbn-signal-card">
+            <div class="rbn-signal-head">
+              <h4>${escapeHtml(continentLabel(cont) || cont)} top skimmer</h4>
+              <span class="cqapi-muted">${base?.slot?.rbnState?.status === 'ready' ? 'No RBN spots found.' : 'Load RBN spots to populate charts.'}</span>
+            </div>
+            <label class="rbn-signal-picker">
+              <span>Skimmer</span>
+              <select class="rbn-signal-select" data-continent="${escapeAttr(cont)}" disabled>
+                <option value="">${rankingCached ? 'No skimmers' : 'Building list...'}</option>
+              </select>
+            </label>
+            <div class="rbn-signal-body">
+              <div class="rbn-signal-plot">
+                <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
+                <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
+              </div>
+              <div class="rbn-signal-legend">
+                <span class="rbn-signal-legend-bands"></span>
+                <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
+              </div>
+            </div>
+          </article>
+        `;
+      }
+      const saved = normalizeSpotterBase(String(selections.selectedByContinent[cont] || '').trim());
+      const defaultSpotter = saved && list.some((e) => e.spotter === saved) ? saved : list[0].spotter;
+      selections.selectedByContinent[cont] = defaultSpotter;
+      const options = list.slice(0, 80).map((e) => {
+        const label = `${e.spotter} (${formatNumberSh6(e.count)})`;
+        return `<option value="${escapeAttr(e.spotter)}" ${e.spotter === defaultSpotter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+      }).join('');
+      return `
+        <article class="rbn-signal-card">
+          <div class="rbn-signal-head">
+            <h4>${escapeHtml(continentLabel(cont) || cont)} top skimmer</h4>
+            <label class="rbn-signal-picker">
+              <span>Skimmer</span>
+              <select class="rbn-signal-select" data-continent="${escapeAttr(cont)}">
+                ${options}
+              </select>
+            </label>
+          </div>
+          <div class="rbn-signal-body">
+            <div class="rbn-signal-plot">
+              <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="${escapeAttr(defaultSpotter)}" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
+              <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
+            </div>
+            <div class="rbn-signal-legend">
+              <span class="rbn-signal-legend-bands"></span>
+              <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    const intro = renderReportIntroCard(
+      'RBN compare signal',
+      'Scatter charts of RBN SNR (dB) versus time, colored by band and overlaid across loaded logs.',
+      []
+    );
+
+    return `
+      ${intro}
+      ${warning}
+      <div class="export-actions">${rbnControls || '<span class="cqapi-muted">Load at least one log to enable RBN charts.</span>'}</div>
+      ${compareOffer}
+      <div class="rbn-signal-grid">${cards}</div>
+    `;
   }
 
   function renderSpotsSharedControls(source) {
@@ -11295,7 +13577,7 @@
           <th>All</th><th>Unique</th><th>%</th>
         </tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bandCols.length + 13)}
       </table>
     `;
   }
@@ -11431,11 +13713,11 @@
     const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="40px"/><col width="30px"/><col width="200px"/><col span="${qsoCols}" width="120px"/><col width="5%"/></colgroup>
+        <colgroup><col width="40px"/><col width="30px"/><col width="200px"/><col span="${qsoCols}" width="120px"/><col width="56px"/></colgroup>
         <tr class="thc"><th rowspan="2">#</th><th colspan="2" rowspan="2">Continent</th><th colspan="${qsoCols}">QSOs</th><th rowspan="2">Map</th></tr>
         <tr class="thc">${bandHeaders}<th>All</th><th>%</th><th>CW</th><th>Digital</th><th>Phone</th></tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bandCols.length + 9)}
       </table>
     `;
   }
@@ -11474,6 +13756,7 @@
   }
 
   function renderZoneRowsFromList(list, derived, field) {
+    const bandCols = getDisplayBandList();
     const summaryMap = buildZoneSummaryMap(derived, field);
     const scope = field === 'itu' ? 'itu_zone' : 'cq_zone';
     const dataAttr = field === 'itu' ? 'data-itu' : 'data-cq';
@@ -11484,11 +13767,18 @@
       const zoneAttr = escapeAttr(info.zone ?? '');
       const mapLink = z ? `<a href="#" class="map-link" data-scope="${scope}" data-key="${zoneAttr}">map</a>` : '';
       const zoneLink = z ? `<a href="#" class="${linkClass}" ${dataAttr}="${zoneAttr}">${zoneText}</a>` : zoneText;
+      const bandCells = bandCols.map((b) => {
+        const count = z?.bandCounts?.get(b) || 0;
+        if (!count) return '<td></td>';
+        return `<td><a href=\"#\" class=\"${linkClass}\" ${dataAttr}=\"${zoneAttr}\" data-band=\"${escapeAttr(b)}\">${formatNumberSh6(count)}</a></td>`;
+      }).join('');
+      const allLink = z ? `<a href=\"#\" class=\"${linkClass}\" ${dataAttr}=\"${zoneAttr}\">${formatNumberSh6(z.qsos)}</a>` : '';
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${zoneLink}</td>
         <td>${z ? formatNumberSh6(z.countries) : ''}</td>
-        <td>${z ? formatNumberSh6(z.qsos) : ''}</td>
+        ${bandCells}
+        <td>${allLink}</td>
         <td class="tac">${mapLink}</td>
       </tr>
     `;
@@ -11496,11 +13786,13 @@
   }
 
   function renderZonesTable(rows) {
+    const bandCols = getDisplayBandList();
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Zone</th><th>DXCC</th><th>QSOs</th><th>Map</th></tr>
+        <tr class="thc"><th>Zone</th><th>DXCC</th>${bandHeaders}<th>All</th><th>Map</th></tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bandCols.length + 4)}
       </table>
     `;
   }
@@ -11957,7 +14249,7 @@
       rowIndex += 1;
     }
     return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+      <table class="mtc minute-grid-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th rowspan="2">Day</th><th rowspan="2">Hour</th><th colspan="60">Minute</th></tr>
         <tr class="thc">
           <th style="text-align:left" colspan="10">0</th>
@@ -12348,6 +14640,7 @@
   function renderDistanceRowsFromList(list, derived) {
     const ds = derived?.distanceSummary;
     const map = buildDistanceMap(derived);
+    const bandCols = getDisplayBandList();
     return list.map((info, idx) => {
       const b = map.get(info.range);
       const pct = b && ds?.count ? ((b.count / ds.count) * 100).toFixed(2) : '';
@@ -12358,17 +14651,41 @@
       const startAttr = Number.isFinite(start) ? escapeAttr(start) : '';
       const endAttr = Number.isFinite(end) ? escapeAttr(end) : '';
       const mapLink = b ? `<a href="#" class="map-link" data-scope="distance" data-key="${rangeAttr}">map</a>` : '';
+      const renderBandCount = (band) => {
+        const count = b?.bands?.get(band) || 0;
+        if (!count) return '<td></td>';
+        const bandAttr = escapeAttr(band || '');
+        return `<td><a href="#" class="log-distance" data-start="${startAttr}" data-end="${endAttr}" data-band="${bandAttr}">${formatNumberSh6(count)}</a></td>`;
+      };
+      const bandCells = bandCols.map((band) => renderBandCount(band)).join('');
       const qsoLink = b ? `<a href="#" class="log-distance" data-start="${startAttr}" data-end="${endAttr}">${formatNumberSh6(b.count)}</a>` : '';
-      return `<tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${formatNumberSh6(info.range)} km</td><td>${qsoLink}</td><td>${pct}</td><td class="tac">${mapLink}</td></tr>`;
+      return `
+        <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+          <td>${formatNumberSh6(info.range)} km</td>
+          ${bandCells}
+          <td>${qsoLink}</td>
+          <td><i>${pct}</i></td>
+          <td class="tac">${mapLink}</td>
+        </tr>
+      `;
     }).join('');
   }
 
   function renderDistanceTable(rows) {
+    const bandCols = getDisplayBandList();
+    const qsoCols = bandCols.length + 1;
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Distance, km</th><th>QSOs</th><th>%</th><th>Map</th></tr>
+        <tr class="thc">
+          <th rowspan="2">Distance, km</th>
+          <th colspan="${qsoCols}">QSOs</th>
+          <th rowspan="2">%</th>
+          <th rowspan="2">Map</th>
+        </tr>
+        <tr class="thc">${bandHeaders}<th>All</th></tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bandCols.length + 4)}
       </table>
     `;
   }
@@ -12445,11 +14762,11 @@
     const bandHeaders = bands.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <colgroup><col width="100px" align="center"/><col span="${bands.length + 1}" width="60px"/><col width="5%"/></colgroup>
+        <colgroup><col width="100px" align="center"/><col span="${bands.length + 1}" width="60px"/><col width="56px"/></colgroup>
         <tr class="thc"><th rowspan="2">Heading, &#176;</th><th colspan="${qsoCols}">QSOs</th><th colspan="2" rowspan="2">%</th><th rowspan="2">Map</th></tr>
         <tr class="thc">${bandHeaders}<th>All</th></tr>
         ${rows}
-        ${mapAllFooter()}
+        ${mapAllFooter(bands.length + 5)}
       </table>
     `;
   }
@@ -12511,6 +14828,7 @@
   function renderAllCallsigns() {
     if (!state.derived) return renderPlaceholder({ id: 'all_callsigns', title: 'All callsigns' });
     const countryFilter = (state.allCallsignsCountryFilter || '').trim().toUpperCase();
+    const bandCols = getDisplayBandList();
     let list = state.derived.allCallsList || [];
     if (countryFilter && Array.isArray(state.qsoData?.qsos)) {
       const byCall = new Map();
@@ -12519,19 +14837,32 @@
         const qCountry = (q.country || '').trim().toUpperCase();
         if (qCountry !== countryFilter) return;
         const entry = byCall.get(q.call);
-        if (entry) entry.qsos += 1;
-        else byCall.set(q.call, { call: q.call, qsos: 1 });
+        if (entry) {
+          entry.qsos += 1;
+        } else {
+          byCall.set(q.call, { call: q.call, qsos: 0, bandCounts: new Map() });
+        }
+        const next = byCall.get(q.call);
+        next.qsos += 1;
+        if (q.band) next.bandCounts.set(q.band, (next.bandCounts.get(q.band) || 0) + 1);
       });
       list = Array.from(byCall.values()).sort((a, b) => a.call.localeCompare(b.call));
     }
     const rows = list.slice(0, 2000).map((c, idx) => {
       const call = escapeHtml(c.call || '');
       const callAttr = escapeAttr(c.call || '');
+      const renderBandCell = (band) => {
+        const count = c?.bandCounts?.get(band) || 0;
+        if (!count) return '<td></td>';
+        return `<td><a href="#" class="log-call-band" data-call="${callAttr}" data-band="${escapeAttr(band)}">${formatNumberSh6(count)}</a></td>`;
+      };
+      const bandCells = bandCols.map((band) => renderBandCell(band)).join('');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
         <td>${formatNumberSh6(idx + 1)}</td>
         <td><a href="#" class="log-call" data-call="${callAttr}">${call}</a></td>
-        <td>${formatNumberSh6(c.qsos)}</td>
+        ${bandCells}
+        <td><a href="#" class="log-call" data-call="${callAttr}">${formatNumberSh6(c.qsos)}</a></td>
       </tr>
     `;
     }).join('');
@@ -12539,11 +14870,12 @@
       ? `<p>Country filter: <b>${escapeHtml(countryFilter)}</b> (<a href="#" class="all-calls-clear-country">clear</a>)</p>`
       : '';
     const note = list.length > 2000 ? `<p>Showing first 2000 of ${list.length} calls.</p>` : '';
+    const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       ${filterNote}
       ${note}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Callsign</th><th>QSOs</th></tr>
+        <tr class="thc"><th>#</th><th>Callsign</th>${bandHeaders}<th>All</th></tr>
         ${rows}
       </table>
     `;
@@ -13223,6 +15555,19 @@
   }
 
   function renderAppInfo() {
+    const perfSummary = getRenderPerfSummary();
+    const lastRender = perfSummary.last;
+    const hotspot = perfSummary.hotspot;
+    const reportTitleForId = (reportId) => {
+      const hit = reports.find((entry) => entry.id === reportId);
+      return hit?.title || reportId || 'N/A';
+    };
+    const lastRenderText = lastRender
+      ? `${reportTitleForId(lastRender.reportId)} · ${Number(lastRender.ms).toFixed(1)} ms`
+      : 'N/A';
+    const hotspotText = hotspot
+      ? `${reportTitleForId(perfSummary.hotspotId)} · max ${Number(hotspot.maxMs).toFixed(1)} ms · avg ${Number(hotspot.avgMs || 0).toFixed(1)} ms`
+      : 'N/A';
     const rows = [
       ['Report generator', `SH6 ${APP_VERSION}`],
       ['Generated', formatDateSh6(Date.now())],
@@ -13230,13 +15575,40 @@
       ['QSOs parsed', state.qsoData ? formatNumberSh6(state.qsoData.qsos.length) : '0'],
       ['Event', escapeHtml(state.derived?.contestMeta?.contestId || 'N/A')],
       ['Station callsign', escapeHtml(state.derived?.contestMeta?.stationCallsign || 'N/A')],
+      ['Render (last)', escapeHtml(lastRenderText)],
+      ['Render hotspot', escapeHtml(hotspotText)],
       ['cty.dat', escapeHtml(state.ctyStatus || 'pending')],
       ['MASTER.DTA', escapeHtml(state.masterStatus || 'pending')]
     ];
+    const cards = `
+      <div class="appinfo-grid">
+        <article class="appinfo-card">
+          <h4>Build</h4>
+          <p><b>Version:</b> ${escapeHtml(APP_VERSION)}</p>
+          <p><b>Generated:</b> ${escapeHtml(formatDateSh6(Date.now()))}</p>
+        </article>
+        <article class="appinfo-card">
+          <h4>Loaded log</h4>
+          <p><b>File:</b> ${escapeHtml(state.logFile ? state.logFile.name : 'N/A')}</p>
+          <p><b>QSOs:</b> ${state.qsoData ? formatNumberSh6(state.qsoData.qsos.length) : '0'}</p>
+        </article>
+        <article class="appinfo-card">
+          <h4>Performance</h4>
+          <p><b>Last render:</b> ${escapeHtml(lastRenderText)}</p>
+          <p><b>Hotspot:</b> ${escapeHtml(hotspotText)}</p>
+        </article>
+        <article class="appinfo-card">
+          <h4>Data files</h4>
+          <p><b>cty.dat:</b> ${escapeHtml(state.ctyStatus || 'pending')}</p>
+          <p><b>MASTER.DTA:</b> ${escapeHtml(state.masterStatus || 'pending')}</p>
+        </article>
+      </div>
+    `;
     const rowHtml = rows.map(([label, value], idx) => `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
     `).join('');
     return `
+      ${cards}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <tr class="thc"><th>Parameter</th><th>Value</th></tr>
         ${rowHtml}
@@ -13244,25 +15616,72 @@
     `;
   }
 
-  function renderBars(data, labelField, valueField, maxOverride) {
+  function renderBars(data, labelField, valueField, maxOverride, options = {}) {
     const values = data.map((d) => Number(d[valueField]) || 0);
     const computedMax = Math.max(...values, 1);
     const max = Number.isFinite(maxOverride) && maxOverride > 0
       ? Math.max(maxOverride, computedMax)
       : computedMax;
+    const valueTextField = String(options.valueTextField || '').trim();
+    const barClass = String(options.barClass || '').trim();
     return data.map((d) => {
-      const w = Math.max(4, (d[valueField] / max) * 200);
+      const value = Number(d[valueField]) || 0;
+      const w = value > 0 ? Math.max(4, (value / max) * 200) : 0;
       const label = escapeHtml(d[labelField] ?? '');
       const labelAttr = escapeAttr(d[labelField] ?? '');
-      const valueText = escapeHtml(d[valueField] ?? '');
+      const valueRaw = valueTextField ? d[valueTextField] : d[valueField];
+      const valueText = escapeHtml(valueRaw ?? '');
       return `
         <div class="bar-row">
           <div class="bar-label" title="${labelAttr}">${label}</div>
-          <div class="bar" style="width:${w}px"></div>
-          <div>${valueText}</div>
+          <div class="bar-track"><div class="bar${barClass ? ` ${barClass}` : ''}" style="width:${w}px"></div></div>
+          <div class="bar-value">${valueText}</div>
         </div>
       `;
     }).join('');
+  }
+
+  function renderChartModeControls(reportId, mode) {
+    const normalizedMode = normalizeChartMetricMode(mode);
+    return `
+      <div class="chart-mode-controls" role="group" aria-label="Chart metric mode">
+        <span class="chart-mode-label">Metric view</span>
+        <button type="button" class="chart-mode-btn${normalizedMode === CHART_MODE_ABSOLUTE ? ' active' : ''}" data-chart-mode="${CHART_MODE_ABSOLUTE}" data-chart-report="${escapeAttr(reportId)}" aria-pressed="${normalizedMode === CHART_MODE_ABSOLUTE ? 'true' : 'false'}">Absolute</button>
+        <button type="button" class="chart-mode-btn${normalizedMode === CHART_MODE_NORMALIZED ? ' active' : ''}" data-chart-mode="${CHART_MODE_NORMALIZED}" data-chart-report="${escapeAttr(reportId)}" aria-pressed="${normalizedMode === CHART_MODE_NORMALIZED ? 'true' : 'false'}">Normalized %</button>
+      </div>
+    `;
+  }
+
+  function resolveChartRowsWithMetric(data, valueField, mode, totalOverride = null) {
+    const list = Array.isArray(data) ? data : [];
+    const metricMode = normalizeChartMetricMode(mode);
+    const derivedTotal = Number(totalOverride);
+    const total = Number.isFinite(derivedTotal) && derivedTotal > 0
+      ? derivedTotal
+      : list.reduce((sum, row) => sum + (Number(row?.[valueField]) || 0), 0);
+    return list.map((row) => {
+      const raw = Number(row?.[valueField]) || 0;
+      if (metricMode === CHART_MODE_NORMALIZED) {
+        const pct = total > 0 ? (raw / total) * 100 : 0;
+        return {
+          ...row,
+          chartValue: pct,
+          chartText: `${pct.toFixed(1)}% (${formatNumberSh6(raw)})`
+        };
+      }
+      return {
+        ...row,
+        chartValue: raw,
+        chartText: formatNumberSh6(raw)
+      };
+    });
+  }
+
+  function resolveDerivedQsoTotal(derived) {
+    const bandSummary = Array.isArray(derived?.bandSummary) ? derived.bandSummary : [];
+    const sum = bandSummary.reduce((total, row) => total + (Number(row?.qsos) || 0), 0);
+    if (sum > 0) return sum;
+    return 0;
   }
 
   function renderChartsIndex() {
@@ -13276,15 +15695,18 @@
     return derived.bandSummary.map((b) => ({ ...b, bandLabel: formatBandLabel(b.band) }));
   }
 
-  function renderChartQsByBandForDerived(derived, maxOverride) {
+  function renderChartQsByBandForDerived(derived, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!derived) return '<p>No data.</p>';
     const data = buildChartQsByBandData(derived);
-    return `<div class="mtc"><div class="gradient">&nbsp;Qs by band</div>${renderBars(data, 'bandLabel', 'qsos', maxOverride)}</div>`;
+    const metricRows = resolveChartRowsWithMetric(data, 'qsos', mode, resolveDerivedQsoTotal(derived));
+    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
+    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Qs by band</div>${renderBars(metricRows, 'bandLabel', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartQsByBand() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_qs_by_band', title: 'Qs by band' });
-    return renderChartQsByBandForDerived(state.derived);
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
+    return `${renderChartModeControls('charts_qs_by_band', mode)}${renderChartQsByBandForDerived(state.derived, null, mode)}`;
   }
 
   function buildChartTop10CountriesData(derived) {
@@ -13292,15 +15714,18 @@
     return derived.countrySummary.slice().sort((a, b) => (b.qsos || 0) - (a.qsos || 0)).slice(0, 10);
   }
 
-  function renderChartTop10CountriesForDerived(derived, maxOverride) {
+  function renderChartTop10CountriesForDerived(derived, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!derived) return '<p>No data.</p>';
     const top = buildChartTop10CountriesData(derived);
-    return `<div class="mtc"><div class="gradient">&nbsp;Top 10 countries</div>${renderBars(top, 'country', 'qsos', maxOverride)}</div>`;
+    const metricRows = resolveChartRowsWithMetric(top, 'qsos', mode, resolveDerivedQsoTotal(derived));
+    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
+    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Top 10 countries</div>${renderBars(metricRows, 'country', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartTop10Countries() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_top_10_countries', title: 'Top 10 countries' });
-    return renderChartTop10CountriesForDerived(state.derived);
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
+    return `${renderChartModeControls('charts_top_10_countries', mode)}${renderChartTop10CountriesForDerived(state.derived, null, mode)}`;
   }
 
   function buildChartContinentsData(derived) {
@@ -13308,44 +15733,56 @@
     return derived.continentSummary;
   }
 
-  function renderChartContinentsForDerived(derived, maxOverride) {
+  function renderChartContinentsForDerived(derived, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!derived) return '<p>No data.</p>';
-    return `<div class="mtc"><div class="gradient">&nbsp;Continents</div>${renderBars(buildChartContinentsData(derived), 'continent', 'qsos', maxOverride)}</div>`;
+    const metricRows = resolveChartRowsWithMetric(buildChartContinentsData(derived), 'qsos', mode, resolveDerivedQsoTotal(derived));
+    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
+    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Continents</div>${renderBars(metricRows, 'continent', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartContinents() {
     if (!state.derived) return renderPlaceholder({ id: 'charts_continents', title: 'Continents chart' });
-    return renderChartContinentsForDerived(state.derived);
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
+    return `${renderChartModeControls('charts_continents', mode)}${renderChartContinentsForDerived(state.derived, null, mode)}`;
   }
 
   function renderChartQsByBandCompareAligned() {
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
     const dataSets = slots.map((entry) => buildChartQsByBandData(entry.snapshot.derived));
-    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const maxValue = mode === CHART_MODE_NORMALIZED
+      ? 100
+      : Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartQsByBandForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartQsByBandForDerived(entry.snapshot.derived, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'charts_qs_by_band', { chart: true });
+    return `${renderChartModeControls('charts_qs_by_band', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_qs_by_band', { chart: true })}`;
   }
 
   function renderChartTop10CountriesCompareAligned() {
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
     const dataSets = slots.map((entry) => buildChartTop10CountriesData(entry.snapshot.derived));
-    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const maxValue = mode === CHART_MODE_NORMALIZED
+      ? 100
+      : Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartTop10CountriesForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartTop10CountriesForDerived(entry.snapshot.derived, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'charts_top_10_countries', { chart: true });
+    return `${renderChartModeControls('charts_top_10_countries', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_top_10_countries', { chart: true })}`;
   }
 
   function renderChartContinentsCompareAligned() {
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
     const dataSets = slots.map((entry) => buildChartContinentsData(entry.snapshot.derived));
-    const maxValue = Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
+    const maxValue = mode === CHART_MODE_NORMALIZED
+      ? 100
+      : Math.max(1, ...dataSets.flat().map((d) => Number(d.qsos) || 0));
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartContinentsForDerived(entry.snapshot.derived, maxValue) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartContinentsForDerived(entry.snapshot.derived, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'charts_continents', { chart: true });
+    return `${renderChartModeControls('charts_continents', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_continents', { chart: true })}`;
   }
 
   function renderFrequencyScatterChart(qsos, rangeOverride, title) {
@@ -13428,8 +15865,11 @@
 
   function renderChartBeamHeading() {
     if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
-    const data = state.derived.headingSummary.map((h) => ({ label: h.sector, value: h.count }));
-    return `<div class="mtc"><div class="gradient">&nbsp;Beam heading</div>${renderBars(data, 'label', 'value')}</div>`;
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
+    const rawData = state.derived.headingSummary.map((h) => ({ label: h.sector, value: h.count }));
+    const metricRows = resolveChartRowsWithMetric(rawData, 'value', mode);
+    const maxForMode = mode === CHART_MODE_NORMALIZED ? 100 : null;
+    return `${renderChartModeControls('charts_beam_heading', mode)}<div class="mtc chart-card"><div class="gradient">&nbsp;Beam heading</div>${renderBars(metricRows, 'label', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartBeamHeadingByHour() {
@@ -13640,6 +16080,7 @@
         case 'session': return renderSessionPage();
         case 'spots': return renderSpots();
         case 'rbn_spots': return renderRbnSpots();
+        case 'rbn_compare_signal': return renderRbnCompareSignal();
         case 'spot_hunter': return renderSpotHunter();
         case 'charts': return renderChartsIndex();
         case 'charts_qs_by_band': return renderChartQsByBand();
@@ -13682,12 +16123,121 @@
     return result;
   }
 
-  function formatCompareHeader(slot, label) {
+  const COMPARE_SCROLL_SYNC_REPORTS = new Set([
+    'summary',
+    'countries',
+    'continents',
+    'zones_cq',
+    'zones_itu',
+    'qs_per_station',
+    'qs_by_hour_sheet',
+    'points_by_hour_sheet',
+    'qs_by_minute',
+    'points_by_minute',
+    'rates',
+    'points_rates',
+    'one_minute_rates',
+    'one_minute_point_rates',
+    'spots',
+    'rbn_spots'
+  ]);
+
+  function renderCompareHeader(slot, label, slotId) {
     const call = escapeHtml(slot.derived?.contestMeta?.stationCallsign || 'N/A');
     const contest = escapeHtml(slot.derived?.contestMeta?.contestId || 'N/A');
     const year = slot.derived?.timeRange?.minTs ? new Date(slot.derived.timeRange.minTs).getUTCFullYear() : 'N/A';
     const qsos = slot.qsoData?.qsos?.length ? formatNumberSh6(slot.qsoData.qsos.length) : '0';
-    return `${label}: ${call} · ${contest} · ${year} · ${qsos} QSOs`;
+    const slotLabel = escapeHtml(label || `Log ${slotId}`);
+    return `
+      <div class="compare-head-main">
+        <span class="compare-slot-badge compare-slot-${String(slotId || '').toLowerCase()}">${slotLabel}</span>
+        <span class="compare-head-call">${call}</span>
+      </div>
+      <div class="compare-head-meta">${contest} · ${year} · ${qsos} QSOs</div>
+    `;
+  }
+
+  function renderCompareWorkspaceToolbar(reportId, slotEntries) {
+    const safeReportId = String(reportId || '').split('::')[0];
+    const reportTitle = reports.find((entry) => entry.id === safeReportId)?.title || safeReportId;
+    const slotSummary = (slotEntries || []).map((entry) => {
+      const call = escapeHtml(entry.snapshot?.derived?.contestMeta?.stationCallsign || 'N/A');
+      const contest = escapeHtml(entry.snapshot?.derived?.contestMeta?.contestId || 'N/A');
+      const qsos = entry.snapshot?.qsoData?.qsos?.length || 0;
+      return `<span class="compare-workspace-slot compare-${entry.id.toLowerCase()}">${escapeHtml(entry.label)} · ${call} · ${contest} · ${formatNumberSh6(qsos)} QSOs</span>`;
+    }).join('');
+    const insightStrip = renderCompareInsightStrip(slotEntries, safeReportId);
+    return `
+      <div class="compare-workspace">
+        <div class="compare-workspace-head">
+          <span class="compare-workspace-title">Compare workspace</span>
+          <span class="compare-workspace-report">Report: ${escapeHtml(reportTitle)}</span>
+        </div>
+        <div class="compare-workspace-slot-row">${slotSummary}</div>
+        ${insightStrip}
+      </div>
+    `;
+  }
+
+  function resolveCompareScore(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return null;
+    const scoring = snapshot?.derived?.scoring || {};
+    const computed = Number(scoring.computedScore);
+    if (Number.isFinite(computed) && computed > 0) return computed;
+    const claimed = parseClaimedScoreNumber(snapshot?.derived?.contestMeta?.claimedScore);
+    if (Number.isFinite(claimed) && claimed > 0) return claimed;
+    const effective = Number(snapshot?.derived?.effectivePointsTotal);
+    if (Number.isFinite(effective) && effective > 0) return Math.round(effective);
+    return null;
+  }
+
+  function resolveCompareMultiplier(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return null;
+    const scoring = snapshot?.derived?.scoring || {};
+    const mult = Number(scoring.computedMultiplierTotal);
+    if (Number.isFinite(mult) && mult >= 0) return mult;
+    return null;
+  }
+
+  function buildCompareInsightChip(slotMetrics, key, label, reportJump) {
+    const values = slotMetrics
+      .map((entry) => ({
+        ...entry,
+        metricValue: Number(entry[key])
+      }))
+      .filter((entry) => Number.isFinite(entry.metricValue));
+    if (values.length < 2) {
+      return `<button type="button" class="compare-insight-chip" disabled>${escapeHtml(label)}: N/A</button>`;
+    }
+    const leader = values.reduce((best, entry) => (
+      !best || entry.metricValue > best.metricValue ? entry : best
+    ), null);
+    const minValue = Math.min(...values.map((entry) => entry.metricValue));
+    const spread = Math.max(0, Math.round((leader?.metricValue || 0) - minValue));
+    const baseline = values.find((entry) => entry.id === 'A') || values[0];
+    const gap = Number.isFinite(baseline?.metricValue) && Number.isFinite(leader?.metricValue)
+      ? Math.round((leader.metricValue || 0) - (baseline.metricValue || 0))
+      : null;
+    const gapPct = Number.isFinite(gap) && Number.isFinite(baseline?.metricValue) && baseline.metricValue > 0
+      ? (gap / baseline.metricValue) * 100
+      : null;
+    const baselineText = Number.isFinite(gap)
+      ? (gap > 0
+          ? `${formatNumberSh6(Math.abs(gap))} behind Log ${escapeHtml(String(baseline?.id || '').toUpperCase())}${Number.isFinite(gapPct) ? ` (${gapPct.toFixed(1)}%)` : ''}`
+          : `Leading from Log ${escapeHtml(String(baseline?.id || '').toUpperCase())}`)
+      : 'No baseline';
+    const summary = `${label} spread ${formatNumberSh6(spread)} · leader ${escapeHtml(leader?.call || 'N/A')} · ${baselineText}`;
+    return `<button type="button" class="compare-insight-chip" data-compare-jump="${escapeAttr(reportJump)}">${summary}</button>`;
+  }
+
+  function renderCompareInsightStrip(slotEntries, currentReportId) {
+    const quickLinks = [
+      { report: 'rates', label: 'Open Rates' },
+    ].filter((entry) => entry.report !== currentReportId)
+      .map((entry) => `<button type="button" class="compare-workspace-jump" data-compare-jump="${escapeAttr(entry.report)}">${escapeHtml(entry.label)}</button>`)
+      .join('');
+    if (!quickLinks) return '';
+    return `<div class="compare-insight-strip"><div class="compare-insight-jumps">${quickLinks}</div></div>`;
   }
 
   function estimateReportRows(reportId, derived) {
@@ -13781,16 +16331,22 @@
     const isChart = options.chart || baseId.startsWith('charts_');
     const isQuad = isChart || quadReports.has(baseId);
     const shouldStack = stackReports.has(baseId);
-    const gridClass = `compare-grid compare-count-${slotEntries.length}${isNarrow ? ' compare-narrow' : ''}${isChart ? ' compare-chart' : ''}${isQuad ? ' compare-quad' : ''}${shouldStack ? ' compare-stack' : ''}`;
+    const syncScroll = state.compareSyncEnabled && !isChart && COMPARE_SCROLL_SYNC_REPORTS.has(baseId);
+    const syncGroup = `compare-sync-${baseId}-${slotEntries.map((entry) => entry.id).join('').toLowerCase()}`;
+    const gridClass = `compare-grid compare-count-${slotEntries.length}${isNarrow ? ' compare-narrow' : ''}${isChart ? ' compare-chart' : ''}${isQuad ? ' compare-quad' : ''}${shouldStack ? ' compare-stack' : ''}${state.compareStickyEnabled ? '' : ' compare-sticky-off'}`;
+    const toolbar = slotEntries.length > 1 && !options.hideToolbar
+      ? renderCompareWorkspaceToolbar(baseId, slotEntries)
+      : '';
     return `
-      <div class="${gridClass}">
+      ${toolbar}
+      <div class="${gridClass}"${syncScroll ? ` data-compare-sync-group="${escapeAttr(syncGroup)}"` : ''} data-compare-report="${escapeAttr(baseId)}">
         ${slotEntries.map((entry, idx) => {
           const html = htmlBlocks[idx] || '';
           const panelClass = `compare-panel compare-${entry.id.toLowerCase()}`;
           return `
             <div class="${panelClass}">
-              <div class="compare-head">${formatCompareHeader(entry.snapshot, entry.label)}</div>
-              <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}">${html}</div>
+              <div class="compare-head">${renderCompareHeader(entry.snapshot, entry.label, entry.id)}</div>
+              <div class="compare-scroll${shouldWrap ? ' compare-scroll-wrap' : ''}${syncScroll ? ' compare-scroll-sync' : ''}"${syncScroll ? ` data-sync-group="${escapeAttr(syncGroup)}" data-sync-slot="${escapeAttr(entry.id)}"` : ''}>${html}</div>
             </div>
           `;
         }).join('')}
@@ -13871,6 +16427,46 @@
         el.style.minHeight = `${target}px`;
       });
     }
+  }
+
+  function bindCompareScrollSync(reportId) {
+    const baseId = getFocusReportId(reportId);
+    if (!state.compareEnabled) return;
+    if (!COMPARE_SCROLL_SYNC_REPORTS.has(baseId)) return;
+    const scrollers = Array.from(document.querySelectorAll('.compare-scroll-sync[data-sync-group]'));
+    if (scrollers.length < 2) return;
+
+    const groups = new Map();
+    scrollers.forEach((el) => {
+      const key = String(el.dataset.syncGroup || '').trim();
+      if (!key) return;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(el);
+    });
+
+    groups.forEach((items) => {
+      if (!Array.isArray(items) || items.length < 2) return;
+      let syncing = false;
+      const syncTo = (source) => {
+        const left = source.scrollLeft;
+        items.forEach((el) => {
+          if (el === source) return;
+          if (Math.abs((el.scrollLeft || 0) - left) < 1) return;
+          el.scrollLeft = left;
+        });
+      };
+      items.forEach((el) => {
+        if (el.dataset.syncBound === '1') return;
+        el.dataset.syncBound = '1';
+        el.addEventListener('scroll', () => {
+          if (syncing) return;
+          syncing = true;
+          syncTo(el);
+          syncing = false;
+        }, { passive: true });
+      });
+      syncTo(items[0]);
+    });
   }
 
   function getFocusReportId(reportId) {
@@ -14201,32 +16797,35 @@
     return Array.from(starts).sort((a, b) => a - b);
   }
 
-  function renderChartBeamHeadingForSlot(slot, order, maxOverride) {
+  function renderChartBeamHeadingForSlot(slot, order, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!slot.derived || !slot.derived.headingSummary) {
       return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     }
     const map = buildHeadingChartMap(slot.derived);
-    const data = order.map((start) => {
+    const rawData = order.map((start) => {
       const entry = map.get(start);
       return {
         label: entry ? entry.label : `${start}-${start + 29}`,
         value: entry ? entry.value : 0
       };
     });
-    return `<div class="mtc"><div class="gradient">&nbsp;Beam heading</div>${renderBars(data, 'label', 'value', maxOverride)}</div>`;
+    const metricRows = resolveChartRowsWithMetric(rawData, 'value', mode);
+    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
+    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Beam heading</div>${renderBars(metricRows, 'label', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
   }
 
   function renderChartBeamHeadingCompareAligned() {
+    const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
     const maps = slots.map((entry) => buildHeadingChartMap(entry.snapshot.derived));
     const order = buildHeadingChartOrderFromMaps(maps);
     const values = [];
     maps.forEach((map) => map.forEach((entry) => values.push(entry.value || 0)));
-    const maxValue = Math.max(1, ...values);
+    const maxValue = mode === CHART_MODE_NORMALIZED ? 100 : Math.max(1, ...values);
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, order, maxValue) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, order, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
-    return renderComparePanels(slots, htmlBlocks, 'charts_beam_heading', { chart: true });
+    return `${renderChartModeControls('charts_beam_heading', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_beam_heading', { chart: true })}`;
   }
 
   function buildHeadingByHourMap(derived) {
@@ -14441,8 +17040,57 @@
 
   let focusRenderTimer = null;
   function bindReportInteractions(reportId) {
+    if (reportId !== 'rbn_compare_signal' && rbnCompareSignalResizeObserver) {
+      rbnCompareSignalResizeObserver.disconnect();
+      rbnCompareSignalResizeObserver = null;
+      rbnCompareSignalResizeRaf = 0;
+    }
+    if (reportId !== 'rbn_compare_signal' && rbnCompareSignalIntersectionObserver) {
+      rbnCompareSignalIntersectionObserver.disconnect();
+      rbnCompareSignalIntersectionObserver = null;
+    }
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
+    bindCompareScrollSync(reportId);
+    attachLongReportJumpBar(dom.viewContainer, reportId);
+    const compareToggleButtons = dom.viewContainer.querySelectorAll('.compare-ui-toggle');
+    compareToggleButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const toggle = String(btn.dataset.compareToggle || '').trim().toLowerCase();
+        if (toggle === 'sync') {
+          state.compareSyncEnabled = !state.compareSyncEnabled;
+        } else if (toggle === 'sticky') {
+          state.compareStickyEnabled = !state.compareStickyEnabled;
+        } else {
+          return;
+        }
+        renderReportWithLoading(reports[state.activeIndex]);
+      });
+    });
+    const compareJumpButtons = dom.viewContainer.querySelectorAll('[data-compare-jump]');
+    compareJumpButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const targetId = String(btn.dataset.compareJump || '').trim();
+        if (!targetId) return;
+        if (reports[state.activeIndex]?.id === targetId) {
+          renderReportWithLoading(reports[state.activeIndex]);
+          return;
+        }
+        setActiveReportById(targetId, { silent: true });
+      });
+    });
+    const chartModeButtons = dom.viewContainer.querySelectorAll('.chart-mode-btn');
+    chartModeButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const nextMode = normalizeChartMetricMode(btn.dataset.chartMode || '');
+        if (nextMode === state.chartMetricMode) return;
+        state.chartMetricMode = nextMode;
+        renderReportWithLoading(reports[state.activeIndex]);
+      });
+    });
     const focusSelects = dom.viewContainer.querySelectorAll('.compare-focus-select');
     if (focusSelects.length) {
       focusSelects.forEach((select) => {
@@ -14502,6 +17150,7 @@
     if (reportId === 'competitor_coach') {
       const scopeButtons = document.querySelectorAll('.coach-scope-btn');
       const categoryButtons = document.querySelectorAll('.coach-category-btn');
+      const navButtons = document.querySelectorAll('.coach-brief-nav');
 
       const setActiveChoice = (buttons, predicate) => {
         buttons.forEach((btn) => {
@@ -14538,6 +17187,15 @@
           setActiveChoice(categoryButtons, (item) => (item.dataset.categoryMode || 'same') === nextMode);
           syncCoachControls();
           triggerCompetitorCoachRefresh(true);
+        });
+      });
+
+      navButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const target = String(btn.dataset.report || '').trim();
+          if (!target) return;
+          setActiveReportById(target);
         });
       });
 
@@ -14697,6 +17355,21 @@
           renderActiveReport();
         });
       });
+      const coachActions = document.querySelectorAll(`.spots-coach-action[data-source="${source}"]`);
+      coachActions.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const targetId = String(btn.dataset.target || '').trim();
+          if (!targetId) return;
+          const target = document.getElementById(targetId);
+          if (!target) return;
+          const reduceMotion = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+          target.scrollIntoView({
+            block: 'start',
+            behavior: reduceMotion ? 'auto' : 'smooth'
+          });
+        });
+      });
       const sharedWindow = document.querySelectorAll(`.spots-window[data-source="${source}"][data-shared="1"]`);
       sharedWindow.forEach((input) => {
         input.addEventListener('input', () => {
@@ -14767,6 +17440,83 @@
       bindSpotControls('rbn');
       alignSpotsCompareSections(reportId);
     }
+    if (reportId === 'rbn_compare_signal') {
+      if (dom.rbnStatusRow) dom.rbnStatusRow.classList.remove('hidden');
+      updateDataStatus();
+      bindSpotControls('rbn');
+      const slotEntries = getActiveCompareSlots().filter((e) => e.slot?.qsoData && e.slot?.derived);
+      slotEntries.forEach((entry) => {
+        if (entry.slot?.rbnState?.status === 'ready') scheduleRbnCompareIndexBuild(entry.id, entry.slot);
+      });
+      const coachNav = dom.viewContainer.querySelectorAll('.rbn-coach-nav');
+      coachNav.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const target = String(btn.dataset.report || 'competitor_coach').trim();
+          if (!target) return;
+          setActiveReportById(target, { silent: true });
+        });
+      });
+      const selects = dom.viewContainer.querySelectorAll('.rbn-signal-select');
+      selects.forEach((select) => {
+        select.addEventListener('change', () => {
+          const cont = String(select.dataset.continent || '').trim().toUpperCase() || 'N/A';
+          const value = normalizeSpotterBase(String(select.value || '').trim());
+          state.rbnCompareSignal = state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object'
+            ? state.rbnCompareSignal
+            : { selectedByContinent: {} };
+          if (!state.rbnCompareSignal.selectedByContinent) state.rbnCompareSignal.selectedByContinent = {};
+          state.rbnCompareSignal.selectedByContinent[cont] = value;
+          const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
+          if (canvas) canvas.dataset.spotter = value;
+          scheduleRbnCompareSignalDraw();
+        });
+      });
+      if (rbnCompareSignalResizeObserver) {
+        rbnCompareSignalResizeObserver.disconnect();
+        rbnCompareSignalResizeObserver = null;
+        rbnCompareSignalResizeRaf = 0;
+      }
+      const grid = dom.viewContainer ? dom.viewContainer.querySelector('.rbn-signal-grid') : null;
+      if (grid && typeof ResizeObserver === 'function') {
+        const schedule = () => {
+          if (rbnCompareSignalResizeRaf) return;
+          rbnCompareSignalResizeRaf = requestAnimationFrame(() => {
+            rbnCompareSignalResizeRaf = 0;
+            scheduleRbnCompareSignalDraw();
+          });
+        };
+        rbnCompareSignalResizeObserver = new ResizeObserver(schedule);
+        rbnCompareSignalResizeObserver.observe(grid);
+      }
+      if (rbnCompareSignalIntersectionObserver) {
+        rbnCompareSignalIntersectionObserver.disconnect();
+        rbnCompareSignalIntersectionObserver = null;
+      }
+      const canvases = Array.from(dom.viewContainer.querySelectorAll('.rbn-signal-canvas'));
+      canvases.forEach((c) => { if (c instanceof HTMLCanvasElement) c.dataset.rbnVisible = '0'; });
+      if (typeof IntersectionObserver === 'function') {
+        rbnCompareSignalIntersectionObserver = new IntersectionObserver((entries) => {
+          let touched = false;
+          entries.forEach((e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLCanvasElement)) return;
+            if (e.isIntersecting) {
+              target.dataset.rbnVisible = '1';
+              touched = true;
+            }
+          });
+          if (touched) scheduleRbnCompareSignalDraw();
+        }, { root: null, rootMargin: '240px 0px', threshold: 0.01 });
+        canvases.forEach((c) => {
+          if (c instanceof HTMLCanvasElement) rbnCompareSignalIntersectionObserver.observe(c);
+        });
+      } else {
+        canvases.forEach((c) => { if (c instanceof HTMLCanvasElement) c.dataset.rbnVisible = '1'; });
+      }
+      populateRbnCompareSignalSpotterSelects();
+      scheduleRbnCompareSignalDraw();
+    }
     if (reportId === 'load_logs') {
       const revealLoadPanel = () => {
         state.showLoadPanel = true;
@@ -14801,8 +17551,7 @@
             return;
           }
           if (!reportId) return;
-          const idx = reports.findIndex((r) => r.id === reportId);
-          if (idx >= 0) setActiveReport(idx);
+          setActiveReportById(reportId, { silent: true });
         });
       });
     }
@@ -15334,6 +18083,35 @@
       });
     });
 
+    const callBandLinks = document.querySelectorAll('.log-call-band');
+    callBandLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const call = (link.dataset.call || '').trim().toUpperCase();
+        const band = (link.dataset.band || '').trim().toUpperCase();
+        if (!call || !band) return;
+        state.logRange = null;
+        state.logSearch = call;
+        state.logFieldFilter = '';
+        state.logBandFilter = band;
+        state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = null;
+        state.logHeadingRange = null;
+        state.logStationQsoRange = null;
+        state.logDistanceRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
     const opLinks = document.querySelectorAll('.log-op');
     opLinks.forEach((link) => {
       link.addEventListener('click', (evt) => {
@@ -15502,11 +18280,12 @@
         evt.preventDefault();
         const start = Number(link.dataset.start);
         const end = Number(link.dataset.end);
+        const band = (link.dataset.band || '').trim().toUpperCase();
         if (!Number.isFinite(start) || !Number.isFinite(end)) return;
         state.logRange = null;
         state.logSearch = '';
         state.logFieldFilter = '';
-        state.logBandFilter = '';
+        state.logBandFilter = band;
         state.logModeFilter = '';
         state.logOpFilter = '';
         state.logCallLenFilter = null;
@@ -15764,11 +18543,12 @@
       link.addEventListener('click', (evt) => {
         evt.preventDefault();
         const cq = (link.dataset.cq || '').trim();
+        const band = (link.dataset.band || '').trim().toUpperCase();
         if (!cq) return;
         state.logRange = null;
         state.logSearch = '';
         state.logFieldFilter = '';
-        state.logBandFilter = '';
+        state.logBandFilter = band;
         state.logModeFilter = '';
         state.logOpFilter = '';
         state.logCallLenFilter = null;
@@ -15792,11 +18572,12 @@
       link.addEventListener('click', (evt) => {
         evt.preventDefault();
         const itu = (link.dataset.itu || '').trim();
+        const band = (link.dataset.band || '').trim().toUpperCase();
         if (!itu) return;
         state.logRange = null;
         state.logSearch = '';
         state.logFieldFilter = '';
-        state.logBandFilter = '';
+        state.logBandFilter = band;
         state.logModeFilter = '';
         state.logOpFilter = '';
         state.logCallLenFilter = null;
@@ -16345,6 +19126,12 @@
         if (input) input.focus();
       });
     });
+    ['A', 'B', 'C', 'D'].forEach((slotId) => {
+      const panel = getSlotPanel(slotId);
+      const activeBtn = panel ? panel.querySelector('.slot-choice.is-active') : null;
+      const action = activeBtn ? (activeBtn.dataset.action || 'upload') : 'upload';
+      setSlotAction(slotId, action);
+    });
     updateSlotStatus('A');
     updateSlotStatus('B');
     updateSlotStatus('C');
@@ -16382,8 +19169,38 @@
     setCompareCount(selected ? selected.value : 1, true);
   }
 
+  function setupUiThemeToggle() {
+    applyUiTheme(getPreferredUiTheme(), false);
+    if (!dom.uiThemeSwitch) return;
+    const buttons = dom.uiThemeSwitch.querySelectorAll('.ui-theme-btn');
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const theme = normalizeUiTheme(btn.dataset.theme || '');
+        if (theme === state.uiTheme) return;
+        applyUiTheme(theme, true);
+        trackEvent('ui_theme_change', { theme });
+      });
+      btn.addEventListener('keydown', (evt) => {
+        if (evt.key !== 'ArrowLeft' && evt.key !== 'ArrowRight') return;
+        evt.preventDefault();
+        const order = [UI_THEME_CLASSIC, UI_THEME_NT];
+        const current = order.indexOf(normalizeUiTheme(state.uiTheme));
+        const dir = evt.key === 'ArrowRight' ? 1 : -1;
+        const next = order[(current + dir + order.length) % order.length];
+        applyUiTheme(next, true);
+        trackEvent('ui_theme_change', { theme: next });
+      });
+    });
+    syncUiThemeButtons();
+  }
+
   async function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
+    if (dom.viewTitle) dom.viewTitle.setAttribute('aria-live', 'polite');
+    if (dom.viewContainer) dom.viewContainer.setAttribute('aria-busy', 'false');
+    setupUiThemeToggle();
+    setupNavSearch();
     rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
@@ -16445,6 +19262,9 @@
     lookupPrefix,
     bandClass,
     getSlotById,
+    getUiTheme: () => state.uiTheme,
+    setUiTheme: (theme) => applyUiTheme(theme, true),
+    getRenderPerf: () => getRenderPerfSummary(),
     trackEvent,
     setSpotHunterStatus: (status, payload = {}) => {
       state.spotHunterStatus = status || 'pending';

@@ -152,9 +152,96 @@
     return null;
   }
 
+  function isSameEntry(a, b) {
+    if (!a || !b) return false;
+    const callA = safeString(a.callsign).trim().toUpperCase();
+    const callB = safeString(b.callsign).trim().toUpperCase();
+    const catA = normalizeCategoryKey(a.category);
+    const catB = normalizeCategoryKey(b.category);
+    return callA === callB && catA === catB;
+  }
+
+  function buildClosestRivals(rows, currentRow, limit = 5) {
+    if (!Array.isArray(rows) || !rows.length || !currentRow) return [];
+    return rows
+      .filter((row) => !isSameEntry(row, currentRow))
+      .filter((row) => Number.isFinite(row.score) && Number.isFinite(row.scoreGap))
+      .map((row) => ({
+        ...row,
+        absScoreGap: Math.abs(Number(row.scoreGap) || 0),
+        direction: Number(row.scoreGap) > 0 ? 'ahead' : 'behind'
+      }))
+      .sort((a, b) => {
+        if (a.absScoreGap !== b.absScoreGap) return a.absScoreGap - b.absScoreGap;
+        if (a.direction !== b.direction) return a.direction === 'ahead' ? -1 : 1;
+        return safeString(a.callsign).localeCompare(safeString(b.callsign));
+      })
+      .slice(0, Math.max(1, Math.min(10, Number(limit) || 5)));
+  }
+
+  function buildGapDriver(rows, currentRow) {
+    if (!Array.isArray(rows) || !rows.length || !currentRow) return null;
+    const leaders = rows.filter((row) => Number.isFinite(row.scoreGap) && row.scoreGap > 0);
+    const closestAhead = leaders.slice().sort((a, b) => a.scoreGap - b.scoreGap)[0] || null;
+    const challengers = rows.filter((row) => Number.isFinite(row.scoreGap) && row.scoreGap < 0);
+    const closestBehind = challengers.slice().sort((a, b) => b.scoreGap - a.scoreGap)[0] || null;
+    const target = closestAhead || closestBehind;
+    if (!target || !Number.isFinite(target.scoreGap)) return null;
+
+    const currentScore = Number(currentRow.score);
+    const currentQsos = Number(currentRow.qsos);
+    const currentMult = Number(currentRow.multTotal);
+    const avgScorePerQso = Number.isFinite(currentScore) && Number.isFinite(currentQsos) && currentQsos > 0
+      ? currentScore / currentQsos
+      : null;
+    const avgScorePerMult = Number.isFinite(currentScore) && Number.isFinite(currentMult) && currentMult > 0
+      ? currentScore / currentMult
+      : null;
+
+    const qsoGap = Number(target.qsoGap);
+    const multGap = Number(target.multGap);
+    const qsoImpact = Number.isFinite(qsoGap) && Number.isFinite(avgScorePerQso)
+      ? Math.abs(qsoGap) * avgScorePerQso
+      : null;
+    const multImpact = Number.isFinite(multGap) && Number.isFinite(avgScorePerMult)
+      ? Math.abs(multGap) * avgScorePerMult
+      : null;
+
+    let driver = 'mixed';
+    if (Number.isFinite(qsoImpact) && Number.isFinite(multImpact) && (qsoImpact > 0 || multImpact > 0)) {
+      driver = qsoImpact >= multImpact ? 'qso' : 'mult';
+    } else if (Number.isFinite(qsoGap) && Math.abs(qsoGap) > 0) {
+      driver = 'qso';
+    } else if (Number.isFinite(multGap) && Math.abs(multGap) > 0) {
+      driver = 'mult';
+    }
+
+    const totalImpact = (Number.isFinite(qsoImpact) ? qsoImpact : 0) + (Number.isFinite(multImpact) ? multImpact : 0);
+    const driverImpact = driver === 'qso' ? qsoImpact : (driver === 'mult' ? multImpact : null);
+    const driverSharePct = Number.isFinite(driverImpact) && totalImpact > 0 ? (driverImpact / totalImpact) * 100 : null;
+    const scoreGap = Math.abs(Number(target.scoreGap) || 0);
+    const neededQsos = Number.isFinite(avgScorePerQso) && avgScorePerQso > 0 ? Math.ceil(scoreGap / avgScorePerQso) : null;
+    const neededMults = Number.isFinite(avgScorePerMult) && avgScorePerMult > 0 ? Math.ceil(scoreGap / avgScorePerMult) : null;
+
+    return {
+      direction: target.scoreGap > 0 ? 'chasing' : 'defending',
+      targetCallsign: safeString(target.callsign).trim().toUpperCase(),
+      targetCategory: normalizeCategoryKey(target.category),
+      scoreGap,
+      qsoGap: Number.isFinite(qsoGap) ? qsoGap : null,
+      multGap: Number.isFinite(multGap) ? multGap : null,
+      driver,
+      driverSharePct,
+      neededQsos,
+      neededMults
+    };
+  }
+
   function buildInsights(model) {
     const rows = Array.isArray(model?.rows) ? model.rows : [];
     const current = model?.currentRow || null;
+    const closestRivals = Array.isArray(model?.closestRivals) ? model.closestRivals : [];
+    const gapDriver = model?.gapDriver || null;
     const scopeType = normalizeScopeType(model?.scopeType);
     const scopeValue = normalizeScopeValue(scopeType, model?.targetScopeValue);
     const categoryMode = safeString(model?.categoryMode).trim().toLowerCase() === 'all' ? 'all' : 'same';
@@ -197,6 +284,24 @@
         insights.push('QSO volume is the main gap driver in this cohort. Prioritize higher sustained rate.');
       }
     }
+
+    if (closestRivals.length) {
+      const nearest = closestRivals[0];
+      const absGap = Math.abs(Number(nearest.scoreGap) || 0);
+      const verb = Number(nearest.scoreGap) > 0 ? 'ahead' : 'behind';
+      insights.push(`Nearest rival is ${safeString(nearest.callsign).toUpperCase()} (${absGap.toLocaleString('en-US')} ${verb}).`);
+    }
+
+    if (gapDriver && Number.isFinite(gapDriver.scoreGap) && gapDriver.scoreGap > 0) {
+      if (gapDriver.driver === 'qso' && Number.isFinite(gapDriver.neededQsos)) {
+        insights.push(`Gap driver: QSOs. Roughly ${gapDriver.neededQsos.toLocaleString('en-US')} extra QSOs would close the nearest score gap.`);
+      } else if (gapDriver.driver === 'mult' && Number.isFinite(gapDriver.neededMults)) {
+        insights.push(`Gap driver: multipliers. Roughly ${gapDriver.neededMults.toLocaleString('en-US')} extra mults would close the nearest score gap.`);
+      } else {
+        insights.push('Gap driver: mixed QSO and multiplier deficit. Improve both axes in parallel.');
+      }
+    }
+
     insights.push(`Cohort rows analyzed: ${rows.length.toLocaleString('en-US')}.`);
     return insights.slice(0, 6);
   }
@@ -301,10 +406,14 @@
       if (hit) currentRow = hit;
     }
 
+    const closestRivals = buildClosestRivals(withGaps, currentRow, 5);
+    const gapDriver = buildGapDriver(withGaps, currentRow);
     const limitedRows = withGaps.slice(0, limit);
     const insights = buildInsights({
       rows: withGaps,
-      currentRow
+      currentRow,
+      closestRivals,
+      gapDriver
     });
 
     return {
@@ -314,13 +423,15 @@
       categoryMode,
       totalRows: withGaps.length,
       currentRow,
+      closestRivals,
+      gapDriver,
       rows: limitedRows,
       insights
     };
   }
 
   window.SH6CompetitorCoach = {
-    version: '1.0.0',
+    version: '1.1.0',
     normalizeCategoryKey,
     normalizeScopeType,
     normalizeScopeValue,

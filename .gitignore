@@ -1,2 +1,5 @@
 .DS_Store
+*.swp
+*.swo
+*~
 favicon-256.png

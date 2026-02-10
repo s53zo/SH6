@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.1.24';
+  const APP_VERSION = 'v5.1.25';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -13254,6 +13254,45 @@
       return `<span class="rbn-slot-legend-item"><b>${escapeHtml(label)}</b> ${sym} <span class="rbn-slot-legend-style" title="${escapeAttr(slotLineStyleLabel(entry.id))}">${escapeHtml(sample)}</span></span>`;
     }).join('');
 
+    const compareOffer = (() => {
+      const emptySlots = COMPARE_SLOT_IDS.filter((slotId) => !getSlotById(slotId)?.qsoData);
+      if (!emptySlots.length) return '';
+      const coach = state.competitorCoach || createCompetitorCoachState();
+      const context = buildCompetitorCoachContext(state.cqApiClient || null);
+      const contestId = String(coach.contestId || context.contestId || '').trim().toUpperCase();
+      const mode = String(coach.mode || context.mode || '').trim().toLowerCase();
+      const currentCall = normalizeCall(state.derived?.contestMeta?.stationCallsign || '');
+      const rivals = Array.isArray(coach.closestRivals) ? coach.closestRivals : [];
+      const picks = [];
+      const seen = new Set();
+      for (const row of rivals) {
+        const call = normalizeCall(row?.callsign || '');
+        const year = Number(row?.year);
+        if (!call || call === currentCall) continue;
+        if (!Number.isFinite(year)) continue;
+        const key = `${call}|${year}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        picks.push({ call, year });
+        if (picks.length >= emptySlots.length) break;
+      }
+      const buttons = emptySlots.map((slotId, idx) => {
+        const pick = picks[idx] || picks[0] || null;
+        if (!pick || !contestId || !mode) return '';
+        return `<button type="button" class="cqapi-load-btn coach-load-btn" data-slot="${escapeAttr(slotId)}" data-year="${escapeAttr(String(pick.year))}" data-callsign="${escapeAttr(pick.call)}" data-contest="${escapeAttr(contestId)}" data-mode="${escapeAttr(mode)}">Load ${escapeHtml(pick.call)} to Log ${escapeHtml(slotId)}</button>`;
+      }).filter(Boolean).join(' ');
+      const navBtn = `<button type="button" class="button rbn-coach-nav" data-report="competitor_coach">Open Competitor coach</button>`;
+      const note = buttons
+        ? 'Load a few nearby rivals for side-by-side signal comparison:'
+        : 'Tip: open Competitor coach to select and load rivals into Log B/C/D for compare.';
+      return `
+        <div class="export-actions export-note">
+          <b>Compare tip</b> ${escapeHtml(note)}
+          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">${buttons || ''}${navBtn}</div>
+        </div>
+      `;
+    })();
+
     const rbnControls = loaded.map((entry) => {
       const status = mapSpotStatus(entry.slot?.rbnState?.status || 'idle');
       const statusText = status === 'ready' ? 'ready' : (status === 'loading' ? 'loading' : (status === 'error' ? 'error' : 'idle'));
@@ -13345,17 +13384,14 @@
     const intro = renderReportIntroCard(
       'RBN compare signal',
       'Scatter charts of RBN SNR (dB) versus time, colored by band and overlaid across loaded logs.',
-      [
-        `Band filter ${bandLabel}`,
-        `Charts based on Log A skimmers`,
-        'Skimmer ranking follows band filter'
-      ]
+      []
     );
 
     return `
       ${intro}
       ${warning}
       <div class="export-actions">${rbnControls || '<span class="cqapi-muted">Load at least one log to enable RBN charts.</span>'}</div>
+      ${compareOffer}
       <div class="rbn-signal-grid">${cards}</div>
     `;
   }
@@ -17411,6 +17447,15 @@
       const slotEntries = getActiveCompareSlots().filter((e) => e.slot?.qsoData && e.slot?.derived);
       slotEntries.forEach((entry) => {
         if (entry.slot?.rbnState?.status === 'ready') scheduleRbnCompareIndexBuild(entry.id, entry.slot);
+      });
+      const coachNav = dom.viewContainer.querySelectorAll('.rbn-coach-nav');
+      coachNav.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const target = String(btn.dataset.report || 'competitor_coach').trim();
+          if (!target) return;
+          setActiveReportById(target, { silent: true });
+        });
       });
       const selects = dom.viewContainer.querySelectorAll('.rbn-signal-select');
       selects.forEach((select) => {

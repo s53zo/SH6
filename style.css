@@ -580,6 +580,7 @@ a:hover {
   display: flex;
   align-items: stretch;
   gap: 12px;
+  flex-direction: column;
 }
 
 .rbn-signal-plot {
@@ -635,10 +636,10 @@ a:hover {
 }
 
 .rbn-signal-legend {
-  flex: 0 0 280px;
-  min-width: 240px;
-  border-left: 1px dashed rgba(34, 69, 111, 0.18);
-  padding-left: 12px;
+  width: 100%;
+  min-width: 0;
+  border-top: 1px dashed rgba(34, 69, 111, 0.18);
+  padding-top: 10px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -715,21 +716,7 @@ a:hover {
   font-family: "Courier New", courier, monospace;
 }
 
-@media (max-width: 980px) {
-  .rbn-signal-body {
-    flex-direction: column;
-  }
-
-  .rbn-signal-legend {
-    flex: 0 0 auto;
-    width: 100%;
-    min-width: 0;
-    border-left: none;
-    border-top: 1px dashed rgba(34, 69, 111, 0.18);
-    padding-left: 0;
-    padding-top: 10px;
-  }
-}
+/* Legend is always below the plot to keep the chart as wide as possible. */
 
 .log-panel {
   margin-top: 10px;

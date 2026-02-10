@@ -13219,6 +13219,7 @@
     const slots = getActiveCompareSlots();
     const base = slots.find((e) => e.id === 'A') || slots[0] || null;
     if (!base) return;
+    const baseReady = base?.slot?.rbnState?.status === 'ready';
     const bandKey = normalizeBandToken(state.globalBandFilter || '');
     const cached = getRbnCompareRankingCached(base.id, base.slot, bandKey);
     const index = cached ? null : getRbnCompareIndexCached(base.id, base.slot);
@@ -13233,14 +13234,46 @@
     if (!state.rbnCompareSignal) state.rbnCompareSignal = selections;
     if (!selections.selectedByContinent) selections.selectedByContinent = {};
     const selects = Array.from(root.querySelectorAll('.rbn-signal-select'));
+
+    // Reorder cards by spot volume (top skimmer count), descending.
+    const grid = root.querySelector('.rbn-signal-grid');
+    if (grid) {
+      const contOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
+      const orderIdx = new Map(contOrder.map((c, i) => [c, i]));
+      const cards = Array.from(grid.querySelectorAll('.rbn-signal-card'));
+      const getCardCont = (card) => {
+        const sel = card.querySelector('.rbn-signal-select');
+        const canvas = card.querySelector('.rbn-signal-canvas');
+        return String(sel?.dataset?.continent || canvas?.dataset?.continent || '').trim().toUpperCase() || 'N/A';
+      };
+      cards.sort((a, b) => {
+        const ca = getCardCont(a);
+        const cb = getCardCont(b);
+        const ta = (ranking.byContinent.get(ca)?.[0]?.count) || 0;
+        const tb = (ranking.byContinent.get(cb)?.[0]?.count) || 0;
+        if (tb !== ta) return tb - ta;
+        return (orderIdx.get(ca) ?? 999) - (orderIdx.get(cb) ?? 999);
+      });
+      cards.forEach((c) => grid.appendChild(c));
+    }
+
     selects.forEach((select) => {
       const cont = String(select.dataset.continent || '').trim().toUpperCase() || 'N/A';
       const list = ranking.byContinent.get(cont) || [];
+      const card = select.closest('.rbn-signal-card');
+      const statusEl = card ? card.querySelector('.rbn-signal-status') : null;
+      const contLabel = continentLabel(cont) || cont;
       if (!list.length) {
         select.innerHTML = '<option value="">No skimmers</option>';
         select.disabled = true;
         const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
         if (canvas) canvas.dataset.spotter = '';
+        if (statusEl) {
+          statusEl.textContent = baseReady
+            ? `No RBN spots found for ${contLabel}.`
+            : 'Load RBN spots to populate charts.';
+          statusEl.hidden = false;
+        }
         return;
       }
       const saved = normalizeSpotterBase(String(selections.selectedByContinent[cont] || '').trim());
@@ -13253,6 +13286,10 @@
       }).join('');
       const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
       if (canvas) canvas.dataset.spotter = defaultSpotter;
+      if (statusEl) {
+        statusEl.textContent = '';
+        statusEl.hidden = true;
+      }
     });
     scheduleRbnCompareSignalDraw();
   }
@@ -13357,57 +13394,39 @@
     }).sort((a, b) => (b.topCount - a.topCount) || (a.orderIndex - b.orderIndex));
 
     const cards = contSorted.map(({ cont, list }) => {
-      if (!list.length) {
-        const contLabel = escapeHtml(continentLabel(cont) || cont);
-        const statusMsg = baseReady
-          ? `No RBN spots found for ${contLabel}.`
-          : 'Load RBN spots to populate charts.';
-        return `
-          <article class="rbn-signal-card">
-            <div class="rbn-signal-head">
-              <h4>${contLabel} top skimmer</h4>
-              <span class="cqapi-muted">${statusMsg}</span>
-            </div>
-            <label class="rbn-signal-picker">
-              <span>Skimmer</span>
-              <select class="rbn-signal-select" data-continent="${escapeAttr(cont)}" disabled>
-                <option value="">${rankingCached ? 'No skimmers' : 'Building list...'}</option>
-              </select>
-            </label>
-            <div class="rbn-signal-body">
-              <div class="rbn-signal-plot">
-                <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
-                <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
-              </div>
-              <div class="rbn-signal-legend">
-                <span class="rbn-signal-legend-bands"></span>
-                <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
-              </div>
-            </div>
-          </article>
-        `;
-      }
+      const contLabelText = continentLabel(cont) || cont;
+      const contLabel = escapeHtml(contLabelText);
       const saved = normalizeSpotterBase(String(selections.selectedByContinent[cont] || '').trim());
-      const defaultSpotter = saved && list.some((e) => e.spotter === saved) ? saved : list[0].spotter;
-      selections.selectedByContinent[cont] = defaultSpotter;
-      const options = list.slice(0, 80).map((e) => {
-        const label = `${e.spotter} (${formatNumberSh6(e.count)})`;
-        return `<option value="${escapeAttr(e.spotter)}" ${e.spotter === defaultSpotter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-      }).join('');
+      const defaultSpotter = (list.length && saved && list.some((e) => e.spotter === saved)) ? saved : (list[0]?.spotter || '');
+      if (defaultSpotter) selections.selectedByContinent[cont] = defaultSpotter;
+      const options = list.length
+        ? list.slice(0, 80).map((e) => {
+          const label = `${e.spotter} (${formatNumberSh6(e.count)})`;
+          const spot = e.spotter;
+          return `<option value="${escapeAttr(spot)}" ${spot === defaultSpotter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+        }).join('')
+        : `<option value="">${rankingCached ? 'No skimmers' : 'Building list...'}</option>`;
+      const statusMsg = !list.length
+        ? (baseReady ? `No RBN spots found for ${contLabelText}.` : 'Load RBN spots to populate charts.')
+        : '';
+      const statusHidden = list.length ? 'hidden' : '';
+      const spotterAttr = list.length ? escapeAttr(defaultSpotter) : '';
+      const selectDisabled = list.length ? '' : 'disabled';
       return `
         <article class="rbn-signal-card">
           <div class="rbn-signal-head">
-            <h4>${escapeHtml(continentLabel(cont) || cont)} top skimmer</h4>
+            <h4>${contLabel} top skimmer</h4>
             <label class="rbn-signal-picker">
               <span>Skimmer</span>
-              <select class="rbn-signal-select" data-continent="${escapeAttr(cont)}">
+              <select class="rbn-signal-select" data-continent="${escapeAttr(cont)}" ${selectDisabled}>
                 ${options}
               </select>
             </label>
+            <span class="rbn-signal-status cqapi-muted" ${statusHidden}>${escapeHtml(statusMsg)}</span>
           </div>
           <div class="rbn-signal-body">
             <div class="rbn-signal-plot">
-              <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="${escapeAttr(defaultSpotter)}" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
+              <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="${spotterAttr}" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
               <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
             </div>
             <div class="rbn-signal-legend">

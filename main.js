@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.1.23';
+  const APP_VERSION = 'v5.1.24';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -13112,8 +13112,6 @@
 
       const titleBand = bandKey ? formatBandLabel(bandKey) : 'All bands';
       const title = `${continent} · ${selectedSpotter} · ${titleBand}`;
-      const bucketMs = 5 * 60 * 1000;
-      const trendBins = Math.max(1, Math.ceil((safeMaxTs - safeMinTs) / bucketMs));
       const p75 = (values) => {
         if (!values || !values.length) return null;
         values.sort((a, b) => a - b);
@@ -13126,6 +13124,9 @@
         const slotId = String(s?.slotId || 'A').toUpperCase();
         const band = normalizeBandToken(s?.band || '');
         if (!data.length || !band) return null;
+        const pointsInSeries = Math.floor(data.length / 2);
+        const bucketMs = pointsInSeries <= 250 ? 15 * 60 * 1000 : (pointsInSeries <= 700 ? 10 * 60 * 1000 : 5 * 60 * 1000);
+        const trendBins = Math.max(1, Math.ceil((safeMaxTs - safeMinTs) / bucketMs));
         const bins = Array.from({ length: trendBins }, () => []);
         for (let i = 0; i < data.length; i += 2) {
           const ts = data[i];
@@ -13138,13 +13139,19 @@
         const points = [];
         for (let i = 0; i < trendBins; i += 1) {
           const vals = bins[i];
-          if (!vals || vals.length < 3) continue;
-          const v = p75(vals);
+          if (!vals || vals.length < 1) continue; // keep gaps; disappear when no spots in this bucket
+          const window = [];
+          // Light smoothing: include immediate neighbor buckets when available.
+          if (i > 0 && bins[i - 1] && bins[i - 1].length) window.push(...bins[i - 1]);
+          window.push(...vals);
+          if (i + 1 < trendBins && bins[i + 1] && bins[i + 1].length) window.push(...bins[i + 1]);
+          const v = p75(window);
           if (!Number.isFinite(v)) continue;
           const ts = safeMinTs + (i + 0.5) * bucketMs;
           points.push(ts, v);
         }
-        if (points.length < 6) return null;
+        // Require at least 2 plotted points to show a line.
+        if (points.length < 4) return null;
         return {
           slotId,
           band,
@@ -13296,15 +13303,8 @@
                 <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
               </div>
               <div class="rbn-signal-legend">
-                <span class="rbn-legend-title">Legend</span>
-                <div class="rbn-signal-legend-section">
-                  <span class="rbn-legend-subtitle">Bands</span>
-                  <span class="rbn-signal-legend-bands"></span>
-                </div>
-                <div class="rbn-signal-legend-section">
-                  <span class="rbn-legend-subtitle">Logs (markers + trendline)</span>
-                  <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
-                </div>
+                <span class="rbn-signal-legend-bands"></span>
+                <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
               </div>
             </div>
           </article>
@@ -13334,15 +13334,8 @@
               <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
             </div>
             <div class="rbn-signal-legend">
-              <span class="rbn-legend-title">Legend</span>
-              <div class="rbn-signal-legend-section">
-                <span class="rbn-legend-subtitle">Bands</span>
-                <span class="rbn-signal-legend-bands"></span>
-              </div>
-              <div class="rbn-signal-legend-section">
-                <span class="rbn-legend-subtitle">Logs (markers + trendline)</span>
-                <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
-              </div>
+              <span class="rbn-signal-legend-bands"></span>
+              <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
             </div>
           </div>
         </article>

@@ -16,6 +16,9 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 ## v5.1.23 (2026-02-10)
 - RBN compare signal: move legend below the plot to keep charts full width.
 
+## v5.1.24 (2026-02-10)
+- RBN compare signal: keep legend below plot in a single row, and make p75 trendlines easier to appear while still dropping out during no-spot gaps.
+
 ## v5.1.19 (2026-02-09)
 - Table hardening: eliminate page-level horizontal overflow across all menus and extend wrapper coverage to wide matrix tables (including Fields map).
 - Table context: add sticky report headers plus sticky key columns for long/wide reports (`Log`, minute matrices, Countries, Countries by time, Continents, Beam heading family).

@@ -641,26 +641,11 @@ a:hover {
   border-top: 1px dashed rgba(34, 69, 111, 0.18);
   padding-top: 10px;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
   font-size: 11px;
   color: #23466f;
-}
-
-.rbn-signal-legend-section {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.rbn-legend-subtitle {
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #2a4f80;
-  font-size: 10px;
 }
 
 .rbn-signal-legend-bands {
@@ -702,6 +687,7 @@ a:hover {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-left: auto;
 }
 
 .rbn-slot-legend-item {

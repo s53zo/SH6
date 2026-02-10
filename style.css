@@ -722,6 +722,11 @@ a:hover {
 
 /* Legend is always below the plot to keep the chart as wide as possible. */
 
+/* Hide verbose analysis blocks (kept in code for later iterations). */
+.sh6-hide-advanced-analysis .sh6-advanced-analysis {
+  display: none !important;
+}
+
 .log-panel {
   margin-top: 10px;
   padding: 10px 11px;

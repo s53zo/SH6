@@ -9041,11 +9041,13 @@
           ${quickActionBlock}
           ${renderAnalysisStepHeading(3, 'Primary cohort table', 'Load one or more rivals directly into compare slots.')}
           ${tableBlock}
-          ${renderAnalysisStepHeading(4, 'Coaching detail', 'Review priority cards and tactical guidance before the next session.')}
-          ${priorityBlock}
-          ${coachBriefingBlock}
           ${rivalsBlock}
-          ${gapDriverBlock}
+          <div class="sh6-advanced-analysis">
+            ${renderAnalysisStepHeading(4, 'Coaching detail', 'Review priority cards and tactical guidance before the next session.')}
+            ${priorityBlock}
+            ${coachBriefingBlock}
+            ${gapDriverBlock}
+          </div>
         </div>
       </div>
     `;
@@ -12253,15 +12255,17 @@
     return `
       <div class="mtc export-panel spots-panel" data-slot="${slotAttr}">
         <div class="gradient">&nbsp;${escapeHtml(title)}</div>
-        ${spotsIntro}
-        <div class="export-actions">
-          <span><b>Callsign</b>: ${call} (exact match)</span>
+        <div class="sh6-advanced-analysis">
+          ${spotsIntro}
+          <div class="export-actions">
+            <span><b>Callsign</b>: ${call} (exact match)</span>
+          </div>
+          <div class="export-actions">
+            <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
+          </div>
+          ${extraNote ? `<div class="export-actions export-note">${escapeHtml(extraNote)}</div>` : ''}
+          ${renderAnalysisStepHeading(1, 'Filters and data load', 'Tune match window/bands, then refresh spot files for this slot.')}
         </div>
-        <div class="export-actions">
-          <span><b>Time window</b>: ${start} → ${end} (±${windowMinutes} minutes, same frequency band)</span>
-        </div>
-        ${extraNote ? `<div class="export-actions export-note">${escapeHtml(extraNote)}</div>` : ''}
-        ${renderAnalysisStepHeading(1, 'Filters and data load', 'Tune match window/bands, then refresh spot files for this slot.')}
         ${hideControls ? '' : `
         <div class="spots-controls">
           <label for="spotsWindow-${slotAttr}">Match window (minutes): <span class="spots-window-value" data-slot="${slotAttr}" data-source="${sourceAttr}">${windowMinutes}</span></label>
@@ -12297,21 +12301,23 @@
         ${summaryNote ? `<div class="export-actions export-note">${escapeHtml(summaryNote)}</div>` : ''}
         ${errorSummary ? `<div class="export-actions export-note"><b>${escapeHtml(errorLabel)}</b>: ${errorSummary}</div>` : ''}
         ${stats ? `
-        ${renderAnalysisStepHeading(2, 'Summary snapshot', 'Validate current conversion quality before deeper analysis.')}
-        <div class="export-actions export-note"><b>Spots coach summary</b></div>
-        ${spotsCoachCards}
+        <div class="sh6-advanced-analysis">
+          ${renderAnalysisStepHeading(2, 'Summary snapshot', 'Validate current conversion quality before deeper analysis.')}
+          <div class="export-actions export-note"><b>Spots coach summary</b></div>
+          ${spotsCoachCards}
 
-        <div class="export-actions export-note">
-          <span><b>Total spots scanned</b>: ${formatNumberSh6(stats.total)}</span>
-        </div>
-        <div class="export-actions export-note">
-          <span><b>Spots of you</b>: ${formatNumberSh6(totalOfUs)} (matched to QSOs: ${formatNumberSh6(stats.ofUsMatched)})</span>
-        </div>
-        <div class="export-actions export-note">
-          <span><b>Spots by you</b>: ${formatNumberSh6(totalByUs)} (matched to QSOs: ${formatNumberSh6(stats.byUsMatched)})</span>
-        </div>
+          <div class="export-actions export-note">
+            <span><b>Total spots scanned</b>: ${formatNumberSh6(stats.total)}</span>
+          </div>
+          <div class="export-actions export-note">
+            <span><b>Spots of you</b>: ${formatNumberSh6(totalOfUs)} (matched to QSOs: ${formatNumberSh6(stats.ofUsMatched)})</span>
+          </div>
+          <div class="export-actions export-note">
+            <span><b>Spots by you</b>: ${formatNumberSh6(totalByUs)} (matched to QSOs: ${formatNumberSh6(stats.byUsMatched)})</span>
+          </div>
 
-        ${renderAnalysisStepHeading(3, 'Primary table and drill-down', 'Click band/hour values, then filter detail rows by continent and zones.')}
+          ${renderAnalysisStepHeading(3, 'Primary table and drill-down', 'Click band/hour values, then filter detail rows by continent and zones.')}
+        </div>
         <div id="${escapeAttr(sectionIds.bandHour)}" class="export-actions export-note"><b>Spots of you by band/hour</b><span class="spots-click-hint">Click a value to inspect actual spots and filter by Continent, CQ zone, and ITU zone.</span></div>
         ${renderHeatmap(stats.heatmap)}
         ${summaryOnly ? '' : renderSpotBucketDetail(stats.ofUsSpots)}
@@ -19258,6 +19264,8 @@
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     if (dom.viewTitle) dom.viewTitle.setAttribute('aria-live', 'polite');
     if (dom.viewContainer) dom.viewContainer.setAttribute('aria-busy', 'false');
+    // Default: hide verbose analysis narratives while we iterate on advanced analysis.
+    document.body.classList.add('sh6-hide-advanced-analysis');
     setupUiThemeToggle();
     setupNavSearch();
     rebuildReports();

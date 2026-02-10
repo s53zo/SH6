@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.1.20 (2026-02-10)
+- RBN compare signal: show continental skimmer charts as full-width stacked panels.
+- RBN compare signal: use stronger band colors and display log callsigns in the marker legend.
+- RBN compare signal: add subtle per-band trendlines and stabilize performance with caching, lazy rendering, sampling, and progressive drawing.
+
 ## v5.1.19 (2026-02-09)
 - Table hardening: eliminate page-level horizontal overflow across all menus and extend wrapper coverage to wide matrix tables (including Fields map).
 - Table context: add sticky report headers plus sticky key columns for long/wide reports (`Log`, minute matrices, Countries, Countries by time, Continents, Beam heading family).

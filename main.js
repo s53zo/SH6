@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.1.19';
+  const APP_VERSION = 'v5.1.20';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -12732,6 +12732,14 @@
     return 'circle';
   }
 
+  function slotMarkerSymbol(slotId) {
+    const shape = slotMarkerShape(slotId);
+    if (shape === 'triangle') return '▲';
+    if (shape === 'square') return '■';
+    if (shape === 'diamond') return '◆';
+    return '●';
+  }
+
   function formatUtcTick(ts) {
     if (!Number.isFinite(ts)) return '';
     const d = new Date(ts);
@@ -13204,6 +13212,12 @@
     const base = loaded.find((e) => e.id === 'A') || loaded[0] || null;
     const bandKey = normalizeBandToken(state.globalBandFilter || '');
     const bandLabel = bandKey ? formatBandLabel(bandKey) : 'All bands';
+    const slotLegendHtml = loaded.map((entry) => {
+      const call = normalizeCall(entry.slot?.derived?.contestMeta?.stationCallsign || '');
+      const label = call || entry.label || `Log ${entry.id}`;
+      const sym = slotMarkerSymbol(entry.id);
+      return `<span class="rbn-slot-legend-item"><b>${escapeHtml(label)}</b> ${sym}</span>`;
+    }).join('');
 
     const rbnControls = loaded.map((entry) => {
       const status = mapSpotStatus(entry.slot?.rbnState?.status || 'idle');
@@ -13253,7 +13267,7 @@
             <div class="rbn-signal-legend">
               <span class="rbn-legend-title">Legend</span>
               <span class="rbn-signal-legend-bands"></span>
-              <span class="rbn-legend-item rbn-legend-shape">A ● B ▲ C ■ D ◆</span>
+              <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
             </div>
           </article>
         `;
@@ -13281,7 +13295,7 @@
           <div class="rbn-signal-legend">
             <span class="rbn-legend-title">Legend</span>
             <span class="rbn-signal-legend-bands"></span>
-            <span class="rbn-legend-item rbn-legend-shape">A ● B ▲ C ■ D ◆</span>
+            <span class="rbn-legend-item rbn-legend-shape">${slotLegendHtml}</span>
           </div>
         </article>
       `;

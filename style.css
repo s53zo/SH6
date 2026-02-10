@@ -667,9 +667,18 @@ a:hover {
 }
 
 .rbn-legend-shape {
-  margin-left: auto;
+  margin-left: 0;
   font-weight: 700;
   color: #2a4f80;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rbn-slot-legend-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .log-panel {

@@ -599,12 +599,11 @@
         };
         const geos = dedupe([scopeGeos.dxcc, scopeGeos.continent, scopeGeos.world, ...requestedGeos].filter(Boolean));
 
-        const [geoRes, catRes, currentRes, historyRes, rawRes] = await Promise.all([
+        const [geoRes, catRes, currentRes, historyRes] = await Promise.all([
           this.geolist(contestId),
           this.catlist(contestId),
           this.score(contestId, mode, year, callsign),
-          this.history(contestId, mode, callsign),
-          this.raw(contestId, mode, callsign)
+          this.history(contestId, mode, callsign)
         ]);
 
         const history = (historyRes.rows || []).slice().sort((a, b) => {
@@ -620,6 +619,16 @@
           }, 0)
           : 0;
         const nowYear = new Date().getUTCFullYear();
+
+        // Raw endpoint can return HTTP 400 ("No results found") and pollute browser consoles.
+        // Only call it when we actually need it as a fallback for missing current score.
+        let currentScore = currentRes.ok ? (currentRes.rows[0] || null) : null;
+        let currentScoreSource = currentScore ? 'final' : null;
+        const shouldTryRawFallback = !currentScore && Number.isFinite(selectedYear);
+        const rawRes = shouldTryRawFallback
+          ? await this.raw(contestId, mode, callsign)
+          : { ok: false, rows: [], source: '', statusMessage: '', rawPayload: null };
+
         const rawRows = (rawRes.rows || [])
           .filter((row) => {
             const rowCall = safeString(row?.callsign).trim().toUpperCase();
@@ -655,10 +664,7 @@
           }
           return pickTopScore(candidates);
         };
-        let currentScore = currentRes.ok ? (currentRes.rows[0] || null) : null;
-        let currentScoreSource = currentScore ? 'final' : null;
         const fallbackCategory = normalizeCategoryLabel(history[0]?.category || '');
-        const shouldTryRawFallback = !currentScore && Number.isFinite(selectedYear);
         if (shouldTryRawFallback && rawRes.ok) {
           const rawCurrent = pickRawCandidate(selectedYear, fallbackCategory) || pickRawCandidate(selectedYear, '');
           if (rawCurrent) {

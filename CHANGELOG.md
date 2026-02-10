@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.18 (2026-02-10)
+- CQ API: avoid noisy HTTP 400 console errors by not calling the `raw/.../callsign/...` endpoint unless it is required as a fallback, and stop using it in Competitor coach.
+
 ## v5.2.17 (2026-02-10)
 - Status bar: show `QRX` (instead of `error`) for HTTP 429 rate limiting across CTY, MASTER, QTH lookup, CQ API, Spots, and RBN; retry automatically and throttle repeat requests.
 

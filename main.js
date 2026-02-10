@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.2.17';
+  const APP_VERSION = 'v5.2.18';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -6980,10 +6980,15 @@
       let sourceKind = 'official';
       let rawSource = '';
 
-      const selfRawRes = await client.raw(context.contestId, context.mode, context.callsign);
-      const selfRawCategory = selfRawRes?.ok && Array.isArray(selfRawRes.rows) && selfRawRes.rows.length
-        ? normalizeCoachCategory(selfRawRes.rows[0]?.category || '')
-        : '';
+      // Avoid callsign raw endpoint here: some CQ APIs return HTTP 400 ("No results found"),
+      // which creates noisy console errors even though the rest of the cohort data loads fine.
+      // The coach can still proceed without a raw category hint.
+      const selfRawCategory = normalizeCoachCategory(
+        state.apiEnrichment?.data?.currentScore?.category
+        || state.apiEnrichment?.data?.history?.[0]?.category
+        || state.apiEnrichment?.data?.matchedCategory
+        || state.derived?.contestMeta?.category
+      );
       const effectiveTargetCategory = normalizeCoachCategory(
         selfRawCategory
         || targetCategory

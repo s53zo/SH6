@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.21 (2026-02-10)
+- UI: remove Classic theme and the theme toggle; keep NT as the only/default design.
+
 ## v5.2.20 (2026-02-10)
 - Cache busting: load `main.js` and `style.css` with a `?v=` query param so browsers pick up new releases immediately.
 

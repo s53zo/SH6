@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.16 (2026-02-10)
+- RBN fetch: handle HTTP 429 rate limiting with a visible retry message, respect `Retry-After` when present, and coalesce in-flight requests to avoid accidental parallel fetches.
+
 ## v5.2.15 (2026-02-10)
 - Hide verbose analysis sections (kept in code) for Spots/RBN Spots and Competitor coach, keeping the focused tables.
 - Remove manual spot-loading controls (spots auto-load) and keep compare workspace header informational only.

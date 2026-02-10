@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.2.15';
+  const APP_VERSION = 'v5.2.16';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -259,6 +259,11 @@
       lastDaysKey: null, // RBN only: selected day(s) key to validate cached data.
       lastErrorKey: null,
       lastErrorAt: 0,
+      lastErrorStatus: null,
+      retryAfterMs: 0,
+      retryTimer: null,
+      inflightKey: null,
+      inflightPromise: null,
       windowMinutes: 15,
       bandFilter: [],
       raw: null,
@@ -10794,6 +10799,14 @@
     if (days && days.length) params.set('days', days.join(','));
     const url = `${RBN_PROXY_URL}?${params.toString()}`;
     const res = await fetch(url, { cache: 'no-store' });
+    if (res.status === 429) {
+      const retryAfter = String(res.headers.get('retry-after') || '').trim();
+      const retryAfterSeconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null;
+      const err = new Error('Rate limited (HTTP 429).');
+      err.status = 429;
+      err.retryAfterMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : 15000;
+      throw err;
+    }
     if (res.status === 404) {
       // Treat "not found" as an empty dataset; some calls/days simply have no RBN coverage.
       return {
@@ -10944,10 +10957,13 @@
     const daysKey = (days || []).join(',');
     const attemptKey = `${call}|${windowKey}|${daysKey}`;
     const now = Date.now();
+    const minRetryDelayMs = (rbnState.lastErrorStatus === 429)
+      ? Math.max(3000, Math.min(60000, Number(rbnState.retryAfterMs) || 15000))
+      : 60000;
     if (
       rbnState.status === 'error'
       && String(rbnState.lastErrorKey || '') === attemptKey
-      && (now - Number(rbnState.lastErrorAt || 0)) < 60000
+      && (now - Number(rbnState.lastErrorAt || 0)) < minRetryDelayMs
     ) {
       // Avoid rapid retry loops on stable errors.
       return;
@@ -10965,14 +10981,28 @@
     rbnState.error = null;
     rbnState.lastErrorKey = null;
     rbnState.lastErrorAt = 0;
+    rbnState.lastErrorStatus = null;
+    rbnState.retryAfterMs = 0;
     rbnState.errors = [];
     rbnState.stats = null;
+    rbnState.inflightKey = attemptKey;
     updateDataStatus();
     renderActiveReport();
     const qsoIndex = buildQsoTimeIndex(slot.qsoData.qsos);
     const qsoCallIndex = buildQsoCallIndex(slot.qsoData.qsos);
     try {
-      const data = await fetchRbnSpots(call, days);
+      if (rbnState.retryTimer) {
+        window.clearTimeout(rbnState.retryTimer);
+        rbnState.retryTimer = null;
+      }
+      if (rbnState.inflightPromise && String(rbnState.inflightKey || '') === attemptKey) {
+        // Reuse the in-flight promise if we got retriggered by a render loop.
+        // (Prevents accidental parallel fetches + extra rate-limit hits.)
+      } else {
+        rbnState.inflightKey = attemptKey;
+        rbnState.inflightPromise = fetchRbnSpots(call, days);
+      }
+      const data = await rbnState.inflightPromise;
       const ofUsSpots = (data.ofUsSpots || []).map(normalizeRbnSpot).filter(Boolean);
       const byUsSpots = (data.byUsSpots || []).map(normalizeRbnSpot).filter(Boolean);
       rbnState.status = 'ready';
@@ -10994,9 +11024,24 @@
       computeSpotsStats(slot, rbnState);
     } catch (err) {
       rbnState.status = 'error';
-      rbnState.error = err && err.message ? err.message : 'Failed to load RBN spots.';
+      const status = err && typeof err === 'object' && Number.isFinite(err.status) ? Number(err.status) : null;
+      const retryAfterMs = err && typeof err === 'object' && Number.isFinite(err.retryAfterMs) ? Number(err.retryAfterMs) : 0;
+      rbnState.lastErrorStatus = status;
+      rbnState.retryAfterMs = retryAfterMs;
+      if (status === 429) {
+        const seconds = Math.max(1, Math.round((retryAfterMs || 15000) / 1000));
+        rbnState.error = `Rate limited (HTTP 429). Retrying in ~${seconds}s.`;
+        if (rbnState.retryTimer) window.clearTimeout(rbnState.retryTimer);
+        rbnState.retryTimer = window.setTimeout(() => loadRbnForCurrentLog(slot), retryAfterMs || 15000);
+      } else {
+        rbnState.error = err && err.message ? err.message : 'Failed to load RBN spots.';
+      }
       rbnState.lastErrorKey = attemptKey;
       rbnState.lastErrorAt = Date.now();
+    }
+    if (rbnState.status !== 'loading') {
+      rbnState.inflightKey = null;
+      rbnState.inflightPromise = null;
     }
     updateDataStatus();
     renderActiveReport();

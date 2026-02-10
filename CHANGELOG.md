@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.19 (2026-02-10)
+- CQ API: disable `raw/.../callsign/...` requests for contests that don't support the endpoint (prevents HTTP 400 noise on CQWPX/CQ160, etc.).
+
 ## v5.2.18 (2026-02-10)
 - CQ API: avoid noisy HTTP 400 console errors by not calling the `raw/.../callsign/...` endpoint unless it is required as a fallback, and stop using it in Competitor coach.
 

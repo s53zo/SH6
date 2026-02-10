@@ -6,6 +6,7 @@
       id: 'CQWW',
       directBase: 'https://cqww.com',
       proxyKey: 'cqww',
+      supportsRawCallsign: true,
       modes: ['cw', 'ph']
     },
     CQWPX: {
@@ -18,6 +19,7 @@
       id: 'CQWWRTTY',
       directBase: 'https://cqwwrtty.com',
       proxyKey: 'cqwwrtty',
+      supportsRawCallsign: true,
       modes: ['rtty', 'ry']
     },
     CQWPXRTTY: {
@@ -537,6 +539,9 @@
     }
 
     async raw(contestId, mode, callsign) {
+      if (!CONTESTS[contestId]?.supportsRawCallsign) {
+        return { ok: false, rows: [], source: '', statusMessage: 'Raw callsign endpoint not supported', rawPayload: null };
+      }
       const callPath = encodeCallPath(callsign);
       const path = `raw/${encodePathSegment(mode)}/callsign/${callPath}`;
       const resp = await this._request(contestId, path, `raw:${mode}:${callsign}`, RAW_TTL_MS, false);

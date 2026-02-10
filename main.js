@@ -12764,6 +12764,31 @@
     return '-----';
   }
 
+  function slotLegendMarkerSvg(slotId) {
+    const shape = slotMarkerShape(slotId);
+    // Use a neutral marker color; in the plot, markers are band-colored.
+    const fill = '#23466f';
+    if (shape === 'triangle') {
+      return `<svg class="rbn-slot-marker" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,2 10,10 2,10" fill="${fill}"/></svg>`;
+    }
+    if (shape === 'square') {
+      return `<svg class="rbn-slot-marker" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="3" y="3" width="6" height="6" fill="${fill}"/></svg>`;
+    }
+    if (shape === 'diamond') {
+      return `<svg class="rbn-slot-marker" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,1.7 10.3,6 6,10.3 1.7,6" fill="${fill}"/></svg>`;
+    }
+    return `<svg class="rbn-slot-marker" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="${fill}"/></svg>`;
+  }
+
+  function slotLegendLineSvg(slotId) {
+    const dash = slotLineDash(slotId);
+    const width = String(slotId || 'A').toUpperCase() === 'A' ? 2.1 : 1.7;
+    // Use the same dash + stroke characteristics as the trendlines in the chart.
+    const stroke = '#23466f';
+    const dashAttr = (dash && dash.length) ? ` stroke-dasharray="${dash.join(' ')}"` : '';
+    return `<svg class="rbn-slot-line" width="46" height="12" viewBox="0 0 46 12" aria-hidden="true"><line x1="2" y1="6" x2="44" y2="6" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round"${dashAttr} vector-effect="non-scaling-stroke" opacity="0.45"/></svg>`;
+  }
+
   function formatUtcTick(ts) {
     if (!Number.isFinite(ts)) return '';
     const d = new Date(ts);
@@ -13249,9 +13274,9 @@
     const slotLegendHtml = loaded.map((entry) => {
       const call = normalizeCall(entry.slot?.derived?.contestMeta?.stationCallsign || '');
       const label = call || entry.label || `Log ${entry.id}`;
-      const sym = slotMarkerSymbol(entry.id);
-      const sample = slotLineStyleSample(entry.id);
-      return `<span class="rbn-slot-legend-item"><b>${escapeHtml(label)}</b> ${sym} <span class="rbn-slot-legend-style" title="${escapeAttr(slotLineStyleLabel(entry.id))}">${escapeHtml(sample)}</span></span>`;
+      const markerSvg = slotLegendMarkerSvg(entry.id);
+      const lineSvg = slotLegendLineSvg(entry.id);
+      return `<span class="rbn-slot-chip" title="${escapeAttr(slotLineStyleLabel(entry.id))}"><span class="rbn-slot-chip-call">${escapeHtml(label)}</span>${markerSvg}${lineSvg}</span>`;
     }).join('');
 
     const compareOffer = (() => {

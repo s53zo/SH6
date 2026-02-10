@@ -641,7 +641,10 @@ a:hover {
   border-top: 1px dashed rgba(34, 69, 111, 0.18);
   padding-top: 10px;
   display: flex;
-  flex-wrap: wrap;
+  /* Keep legend on a single row; scroll horizontally if needed. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   align-items: center;
   gap: 8px 12px;
   font-size: 11px;
@@ -650,7 +653,7 @@ a:hover {
 
 .rbn-signal-legend-bands {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px 10px;
 }
@@ -685,21 +688,36 @@ a:hover {
   font-weight: 700;
   color: #2a4f80;
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   margin-left: auto;
 }
 
-.rbn-slot-legend-item {
+.rbn-slot-chip {
   display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid rgba(35, 70, 111, 0.28);
+  border-radius: 6px;
+  background: #ffffff;
+  color: #23466f;
+  white-space: nowrap;
 }
 
-.rbn-slot-legend-style {
-  font-weight: 600;
-  color: #3a5f91;
-  font-family: "Courier New", courier, monospace;
+.rbn-slot-chip-call {
+  font-weight: 800;
+  color: #193d6e;
+}
+
+.rbn-slot-marker {
+  flex: 0 0 auto;
+  display: block;
+}
+
+.rbn-slot-line {
+  flex: 0 0 auto;
+  display: block;
 }
 
 /* Legend is always below the plot to keep the chart as wide as possible. */

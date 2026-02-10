@@ -2,6 +2,9 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.17 (2026-02-10)
+- Status bar: show `QRX` (instead of `error`) for HTTP 429 rate limiting across CTY, MASTER, QTH lookup, CQ API, Spots, and RBN; retry automatically and throttle repeat requests.
+
 ## v5.2.16 (2026-02-10)
 - RBN fetch: handle HTTP 429 rate limiting with a visible retry message, respect `Retry-After` when present, and coalesce in-flight requests to avoid accidental parallel fetches.
 

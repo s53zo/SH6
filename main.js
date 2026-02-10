@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.2.16';
+  const APP_VERSION = 'v5.2.17';
   const UI_THEME_STORAGE_KEY = 'sh6_ui_theme';
   const UI_THEME_CLASSIC = 'classic';
   const UI_THEME_NT = 'nt';
@@ -1110,6 +1110,8 @@
   let archiveSqlBaseUrl = null;
   let rbnCompareSignalResizeObserver = null;
   let rbnCompareSignalResizeRaf = 0;
+  let cqApiRetryTimer = null;
+  let competitorCoachRetryTimer = null;
 
   const base64UrlEncode = (value) => {
     const text = String(value == null ? '' : value);
@@ -5191,6 +5193,7 @@
   function mapSpotStatus(status) {
     if (status === 'ready') return 'ok';
     if (status === 'loading') return 'loading';
+    if (status === 'qrx') return 'qrx';
     if (status === 'error') return 'error';
     if (status === 'idle') return 'pending';
     return status || '';
@@ -5208,6 +5211,7 @@
     const formatStatus = (status, src) => {
       if (status === 'ok') return isProxy(src) ? 'OK - Ready' : 'OK';
       if (status === 'loading') return isProxy(src) ? 'proxy loading' : 'loading';
+      if (status === 'qrx') return 'QRX';
       if (status === 'error') return 'error';
       return status || '';
     };
@@ -5219,6 +5223,7 @@
         'status-indicator',
         state.ctyStatus === 'ok' ? 'status-ok' : '',
         state.ctyStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        state.ctyStatus === 'qrx' ? 'status-qrx' : '',
         state.ctyStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
@@ -5236,6 +5241,7 @@
         'status-indicator',
         state.masterStatus === 'ok' ? 'status-ok' : '',
         state.masterStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        state.masterStatus === 'qrx' ? 'status-qrx' : '',
         state.masterStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
@@ -5253,6 +5259,7 @@
         'status-indicator',
         state.qthStatus === 'ok' ? 'status-ok' : '',
         state.qthStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        state.qthStatus === 'qrx' ? 'status-qrx' : '',
         state.qthStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
@@ -5273,6 +5280,7 @@
         'status-indicator',
         state.cqApiStatus === 'ok' ? 'status-ok' : '',
         state.cqApiStatus === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        state.cqApiStatus === 'qrx' ? 'status-qrx' : '',
         state.cqApiStatus === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
@@ -5295,6 +5303,7 @@
         'status-indicator',
         status === 'ok' ? 'status-ok' : '',
         status === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        status === 'qrx' ? 'status-qrx' : '',
         status === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
@@ -5314,6 +5323,7 @@
         'status-indicator',
         status === 'ok' ? 'status-ok' : '',
         status === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        status === 'qrx' ? 'status-qrx' : '',
         status === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
@@ -5332,6 +5342,7 @@
         'status-indicator',
         status === 'ok' ? 'status-ok' : '',
         status === 'loading' ? (proxy ? 'status-proxy-loading' : 'status-loading') : '',
+        status === 'qrx' ? 'status-qrx' : '',
         status === 'error' ? 'status-error' : ''
       ].filter(Boolean).join(' ');
     }
@@ -5765,6 +5776,13 @@
     try {
       onStatus('loading');
       const res = await fetch(url, { cache: 'no-store' });
+      if (res.status === 429) {
+        const retryAfterHeader = String(res.headers.get('retry-after') || '').trim();
+        const retryAfterSeconds = retryAfterHeader && /^\d+$/.test(retryAfterHeader) ? Number(retryAfterHeader) : null;
+        const retryAfterMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : 15000;
+        onStatus('qrx');
+        return { error: 'HTTP 429', status: 429, retryAfterMs, retryable: true };
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       onStatus('ok');
@@ -5778,15 +5796,29 @@
 
   async function fetchWithFallback(urls, onStatus) {
     let lastError = null;
+    let lastRetryAfterMs = 0;
     for (const url of urls) {
-      const res = await fetchResource(url, (status) => onStatus(status, url));
-      if (res && typeof res === 'object' && res.error) {
-        lastError = res.error;
-        continue;
+      // Retry a single source a few times when the server asks us to slow down.
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await fetchResource(url, (status) => onStatus(status, url));
+        if (res && typeof res === 'object' && res.error) {
+          lastError = res.error;
+          lastRetryAfterMs = Number(res.retryAfterMs) || lastRetryAfterMs || 0;
+          if (res.retryable && attempt < 4) {
+            const base = Number(res.retryAfterMs) || 15000;
+            const jitter = Math.floor(Math.random() * 180);
+            const waitMs = Math.max(1000, base + jitter);
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+            continue;
+          }
+          break;
+        }
+        return { text: res, url };
       }
-      return { text: res, url };
     }
-    return { error: lastError || 'All sources failed' };
+    return { error: lastError || (lastRetryAfterMs ? `HTTP 429 (QRX ${Math.round(lastRetryAfterMs / 1000)}s)` : 'All sources failed') };
   }
 
   const archiveCrc32Table = (() => {
@@ -6169,6 +6201,9 @@
         continue;
       }
       const status = Number(res.status);
+      if (status === 429) {
+        return { ok: false, warning: warnings.join(' | '), error: res.error || 'HTTP 429', status: 429, retryAfterMs: CALLSIGN_LOOKUP_RETRY_DELAY_MS };
+      }
       const canSplit = CALLSIGN_LOOKUP_SPLIT_STATUSES.has(status) && chunk.length > 1;
       if (canSplit) {
         const mid = Math.floor(chunk.length / 2);
@@ -6179,7 +6214,15 @@
         // eslint-disable-next-line no-await-in-loop
         const rightResult = await fetchCallsignGridBatchViaUrl(url, right);
         if (!leftResult.ok || !rightResult.ok) {
-          return { ok: false, warning: [leftResult.warning, rightResult.warning].filter(Boolean).join(' | '), error: res.error || `HTTP ${status}` };
+          const statusOut = Number.isFinite(leftResult.status) ? leftResult.status : (Number.isFinite(rightResult.status) ? rightResult.status : status);
+          const retryAfterOut = Number.isFinite(leftResult.retryAfterMs) ? leftResult.retryAfterMs : (Number.isFinite(rightResult.retryAfterMs) ? rightResult.retryAfterMs : 0);
+          return {
+            ok: false,
+            warning: [leftResult.warning, rightResult.warning].filter(Boolean).join(' | '),
+            error: res.error || `HTTP ${status}`,
+            status: statusOut,
+            retryAfterMs: retryAfterOut
+          };
         }
         if (leftResult.warning) warnings.push(leftResult.warning);
         if (rightResult.warning) warnings.push(rightResult.warning);
@@ -6192,11 +6235,11 @@
           warnings.push(`Lookup skipped for ${chunk[0]} (${res.error || `HTTP ${status}`})`);
           continue;
         }
-        return { ok: false, warning: warnings.join(' | '), error: res.error || `HTTP ${status || 0}` };
+        return { ok: false, warning: warnings.join(' | '), error: res.error || `HTTP ${status || 0}`, status };
       }
-      return { ok: false, warning: warnings.join(' | '), error: res.error || `HTTP ${status || 0}` };
+      return { ok: false, warning: warnings.join(' | '), error: res.error || `HTTP ${status || 0}`, status };
     }
-    return { ok: true, warning: warnings.join(' | ') };
+    return { ok: true, warning: warnings.join(' | '), status: 200 };
   }
 
   async function fetchCallsignGridBatch(calls) {
@@ -6207,17 +6250,21 @@
       for (const url of CALLSIGN_LOOKUP_URLS) {
         // eslint-disable-next-line no-await-in-loop
         const result = await fetchCallsignGridBatchViaUrl(url, calls);
+        if (Number(result?.status) === 429) {
+          state.qthSource = url;
+          return { ok: false, warning: warnings.join(' | '), error: result.error || 'HTTP 429', status: 429, retryAfterMs: result.retryAfterMs || CALLSIGN_LOOKUP_RETRY_DELAY_MS };
+        }
         if (result.ok) {
           state.qthSource = url;
           if (result.warning) warnings.push(result.warning);
-          return { ok: true, warning: warnings.join(' | ') };
+          return { ok: true, warning: warnings.join(' | '), status: 200 };
         }
         if (result.warning) warnings.push(result.warning);
         lastError = result.error || 'Lookup failed';
       }
-      return { ok: false, warning: warnings.join(' | '), error: lastError || 'Lookup failed' };
+      return { ok: false, warning: warnings.join(' | '), error: lastError || 'Lookup failed', status: 0 };
     } catch (err) {
-      return { ok: false, warning: '', error: err && err.message ? err.message : 'Lookup failed' };
+      return { ok: false, warning: '', error: err && err.message ? err.message : 'Lookup failed', status: 0 };
     }
   }
 
@@ -6228,6 +6275,8 @@
     callsignGridPending.clear();
     callsignGridInFlight = true;
     let hadError = false;
+    let hadRateLimit = false;
+    let retryAfterMs = 0;
     const warnings = [];
     let lastError = '';
     try {
@@ -6235,6 +6284,15 @@
         const batch = pending.slice(i, i + CALLSIGN_LOOKUP_BATCH);
         // eslint-disable-next-line no-await-in-loop
         const result = await fetchCallsignGridBatch(batch);
+        if (Number(result?.status) === 429) {
+          hadRateLimit = true;
+          retryAfterMs = Number(result.retryAfterMs) || CALLSIGN_LOOKUP_RETRY_DELAY_MS;
+          batch.forEach((call) => callsignGridPending.add(call));
+          for (let j = i + CALLSIGN_LOOKUP_BATCH; j < pending.length; j += 1) {
+            callsignGridPending.add(pending[j]);
+          }
+          break;
+        }
         if (!result.ok) {
           hadError = true;
           lastError = result.error || lastError || 'Lookup failed';
@@ -6243,7 +6301,16 @@
       }
     } finally {
       callsignGridInFlight = false;
-      if (!hadError) {
+      if (hadRateLimit) {
+        state.qthStatus = 'qrx';
+        state.qthError = null;
+        updateDataStatus();
+        if (callsignGridTimer) {
+          clearTimeout(callsignGridTimer);
+          callsignGridTimer = null;
+        }
+        scheduleCallsignGridLookup(Math.max(1000, retryAfterMs || CALLSIGN_LOOKUP_RETRY_DELAY_MS));
+      } else if (!hadError) {
         state.qthStatus = 'ok';
         state.qthError = null;
       } else {
@@ -6261,12 +6328,12 @@
     }
   }
 
-  function scheduleCallsignGridLookup() {
+  function scheduleCallsignGridLookup(delayMs = 250) {
     if (callsignGridTimer) return;
     callsignGridTimer = setTimeout(() => {
       callsignGridTimer = null;
       flushCallsignGridLookup();
-    }, 250);
+    }, Math.max(0, Number(delayMs) || 0));
   }
 
   function queueCallsignGridLookup(qsos) {
@@ -6433,6 +6500,27 @@
     updateDataStatus();
   }
 
+  function isRateLimitText(value) {
+    const msg = String(value || '');
+    return /\b429\b/i.test(msg) || /rate\s*limit/i.test(msg) || /Transient API status 429/i.test(msg);
+  }
+
+  function scheduleCqApiRetry(fn, delayMs = 15000) {
+    if (cqApiRetryTimer) return;
+    cqApiRetryTimer = window.setTimeout(() => {
+      cqApiRetryTimer = null;
+      fn();
+    }, Math.max(1000, Number(delayMs) || 15000));
+  }
+
+  function scheduleCompetitorCoachRetry(fn, delayMs = 15000) {
+    if (competitorCoachRetryTimer) return;
+    competitorCoachRetryTimer = window.setTimeout(() => {
+      competitorCoachRetryTimer = null;
+      fn();
+    }, Math.max(1000, Number(delayMs) || 15000));
+  }
+
   async function triggerCqApiEnrichmentForSlot(slot, slotId = 'A') {
     if (!slot || !slot.qsoData || !slot.derived) return;
 
@@ -6497,21 +6585,43 @@
         };
         setCqApiStatus('pending', CQ_API_PROXY_BASE, null);
       } else {
-        slot.apiEnrichment = {
-          ...createApiEnrichmentState(),
-          status: 'error',
-          error: result?.error || 'CQ API request failed'
-        };
-        setCqApiStatus('error', result?.source || CQ_API_PROXY_BASE, slot.apiEnrichment.error);
+        const errText = result?.error || result?.statusMessage || 'CQ API request failed';
+        if (isRateLimitText(errText)) {
+          slot.apiEnrichment = {
+            ...createApiEnrichmentState(),
+            status: 'loading',
+            requestKey: token
+          };
+          setCqApiStatus('qrx', result?.source || CQ_API_PROXY_BASE, null);
+          scheduleCqApiRetry(() => triggerCqApiEnrichmentForSlot(slot, slotId), 15000);
+        } else {
+          slot.apiEnrichment = {
+            ...createApiEnrichmentState(),
+            status: 'error',
+            error: errText
+          };
+          setCqApiStatus('error', result?.source || CQ_API_PROXY_BASE, slot.apiEnrichment.error);
+        }
       }
     } catch (err) {
       if (!slot.apiEnrichment || slot.apiEnrichment.requestKey !== token) return;
-      slot.apiEnrichment = {
-        ...createApiEnrichmentState(),
-        status: 'error',
-        error: err && err.message ? err.message : 'CQ API request failed'
-      };
-      setCqApiStatus('error', CQ_API_PROXY_BASE, slot.apiEnrichment.error);
+      const msg = err && err.message ? err.message : 'CQ API request failed';
+      if (isRateLimitText(msg)) {
+        slot.apiEnrichment = {
+          ...createApiEnrichmentState(),
+          status: 'loading',
+          requestKey: token
+        };
+        setCqApiStatus('qrx', CQ_API_PROXY_BASE, null);
+        scheduleCqApiRetry(() => triggerCqApiEnrichmentForSlot(slot, slotId), 15000);
+      } else {
+        slot.apiEnrichment = {
+          ...createApiEnrichmentState(),
+          status: 'error',
+          error: msg
+        };
+        setCqApiStatus('error', CQ_API_PROXY_BASE, slot.apiEnrichment.error);
+      }
     }
     renderActiveReport();
   }
@@ -6973,10 +7083,23 @@
         cohort_rows: state.competitorCoach.totalRows
       });
     } catch (err) {
+      const msg = err && err.message ? err.message : 'Competitor cohort fetch failed.';
+      if (isRateLimitText(msg)) {
+        state.competitorCoach = {
+          ...state.competitorCoach,
+          status: 'loading',
+          error: null,
+          statusMessage: 'QRX (rate limited). Retrying...'
+        };
+        setCqApiStatus('qrx', CQ_API_PROXY_BASE, null);
+        scheduleCompetitorCoachRetry(() => triggerCompetitorCoachRefresh(true), 15000);
+        if (reports[state.activeIndex]?.id === 'competitor_coach') renderActiveReport();
+        return;
+      }
       state.competitorCoach = {
         ...state.competitorCoach,
         status: 'error',
-        error: err && err.message ? err.message : 'Competitor cohort fetch failed.',
+        error: msg,
         rows: [],
         totalRows: 0,
         currentRow: null,
@@ -7131,6 +7254,7 @@
       state.ctyStatus = status;
       if (status === 'error') state.ctySource = url;
       if (status === 'loading') state.ctySource = url;
+      if (status === 'qrx') state.ctySource = url;
       updateDataStatus();
     }).then((res) => {
       if (res.error) {
@@ -7164,6 +7288,7 @@
       state.masterStatus = status;
       if (status === 'error') state.masterSource = url;
       if (status === 'loading') state.masterSource = url;
+      if (status === 'qrx') state.masterSource = url;
       updateDataStatus();
     }).then((res) => {
       if (res.error) {
@@ -7192,7 +7317,7 @@
 
     fetchWithFallback(scoringUrls, (status, url) => {
       state.scoringStatus = status;
-      if (status === 'error' || status === 'loading') state.scoringSource = url;
+      if (status === 'error' || status === 'loading' || status === 'qrx') state.scoringSource = url;
     }).then((res) => {
       if (res.error) {
         state.scoringError = res.error;
@@ -10740,6 +10865,14 @@
 
   async function fetchSpotFile(url) {
     const res = await fetch(url, { cache: 'no-store' });
+    if (res.status === 429) {
+      const retryAfter = String(res.headers.get('retry-after') || '').trim();
+      const retryAfterSeconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null;
+      const err = new Error('Rate limited (HTTP 429).');
+      err.status = 429;
+      err.retryAfterMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : 15000;
+      throw err;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (!/\.gz$/i.test(url)) return res.text();
     if (typeof DecompressionStream !== 'function') {
@@ -10854,12 +10987,22 @@
     const windowKey = buildSpotWindowKey(minTs, maxTs);
     const attemptKey = `${call}|${windowKey}`;
     const now = Date.now();
+    const minRetryDelayMs = (spotsState.lastErrorStatus === 429)
+      ? Math.max(3000, Math.min(60000, Number(spotsState.retryAfterMs) || 15000))
+      : 60000;
     if (
       spotsState.status === 'error'
       && String(spotsState.lastErrorKey || '') === attemptKey
-      && (now - Number(spotsState.lastErrorAt || 0)) < 60000
+      && (now - Number(spotsState.lastErrorAt || 0)) < minRetryDelayMs
     ) {
       // Avoid rapid retry loops on stable errors (e.g., missing files).
+      return;
+    }
+    if (
+      spotsState.status === 'qrx'
+      && String(spotsState.lastErrorKey || '') === attemptKey
+      && (now - Number(spotsState.lastErrorAt || 0)) < minRetryDelayMs
+    ) {
       return;
     }
     if (spotsState.status === 'ready' && spotsState.lastWindowKey === windowKey && spotsState.lastCall === call) {
@@ -10870,6 +11013,8 @@
     spotsState.error = null;
     spotsState.lastErrorKey = null;
     spotsState.lastErrorAt = 0;
+    spotsState.lastErrorStatus = null;
+    spotsState.retryAfterMs = 0;
     spotsState.errors = [];
     spotsState.stats = null;
     updateDataStatus();
@@ -10931,8 +11076,19 @@
       spotsState.qsoCallIndex = qsoCallIndex;
       computeSpotsStats(slot);
     } catch (err) {
-      spotsState.status = 'error';
-      spotsState.error = err && err.message ? err.message : 'Failed to load spots.';
+      const status = err && typeof err === 'object' && Number.isFinite(err.status) ? Number(err.status) : null;
+      const retryAfterMs = err && typeof err === 'object' && Number.isFinite(err.retryAfterMs) ? Number(err.retryAfterMs) : 0;
+      spotsState.lastErrorStatus = status;
+      spotsState.retryAfterMs = retryAfterMs;
+      if (status === 429) {
+        spotsState.status = 'qrx';
+        spotsState.error = null;
+        if (spotsState.retryTimer) window.clearTimeout(spotsState.retryTimer);
+        spotsState.retryTimer = window.setTimeout(() => loadSpotsForCurrentLog(slot), retryAfterMs || 15000);
+      } else {
+        spotsState.status = 'error';
+        spotsState.error = err && err.message ? err.message : 'Failed to load spots.';
+      }
       spotsState.lastErrorKey = attemptKey;
       spotsState.lastErrorAt = Date.now();
     }
@@ -11023,17 +11179,17 @@
       rbnState.qsoCallIndex = qsoCallIndex;
       computeSpotsStats(slot, rbnState);
     } catch (err) {
-      rbnState.status = 'error';
       const status = err && typeof err === 'object' && Number.isFinite(err.status) ? Number(err.status) : null;
       const retryAfterMs = err && typeof err === 'object' && Number.isFinite(err.retryAfterMs) ? Number(err.retryAfterMs) : 0;
       rbnState.lastErrorStatus = status;
       rbnState.retryAfterMs = retryAfterMs;
       if (status === 429) {
-        const seconds = Math.max(1, Math.round((retryAfterMs || 15000) / 1000));
-        rbnState.error = `Rate limited (HTTP 429). Retrying in ~${seconds}s.`;
+        rbnState.status = 'qrx';
+        rbnState.error = null;
         if (rbnState.retryTimer) window.clearTimeout(rbnState.retryTimer);
         rbnState.retryTimer = window.setTimeout(() => loadRbnForCurrentLog(slot), retryAfterMs || 15000);
       } else {
+        rbnState.status = 'error';
         rbnState.error = err && err.message ? err.message : 'Failed to load RBN spots.';
       }
       rbnState.lastErrorKey = attemptKey;
@@ -11184,7 +11340,11 @@
     const stats = spotsState.stats;
     const statusText = spotsState.status === 'loading'
       ? loadingLabel
-      : (spotsState.status === 'error' ? `Error: ${escapeHtml(spotsState.error || '')}` : (spotsState.status === 'ready' ? readyLabel : 'Not loaded'));
+      : (spotsState.status === 'qrx'
+          ? 'QRX (rate limited). Retrying...'
+          : (spotsState.status === 'error'
+              ? `Error: ${escapeHtml(spotsState.error || '')}`
+              : (spotsState.status === 'ready' ? readyLabel : 'Not loaded')));
     const totalOfUs = Number.isFinite(spotsState.totalOfUs) ? spotsState.totalOfUs : (stats?.ofUs || 0);
     const totalByUs = Number.isFinite(spotsState.totalByUs) ? spotsState.totalByUs : (stats?.byUs || 0);
     const truncated = Boolean(spotsState.truncatedOfUs || spotsState.truncatedByUs);

@@ -2054,6 +2054,11 @@ a:hover {
   color: #c62828;
 }
 
+.status-qrx {
+  color: #ef6c00;
+  animation: statusPulse 1.2s ease-in-out infinite;
+}
+
 .status-loading,
 .status-proxy-loading {
   color: #c62828;
@@ -4281,7 +4286,8 @@ table.mtc {
   }
 
   .status-loading,
-  .status-proxy-loading {
+  .status-proxy-loading,
+  .status-qrx {
     animation: none !important;
   }
 }

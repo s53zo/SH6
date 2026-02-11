@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.23 (2026-02-11)
+- Spots/RBN compare: fix repeated reload/render loop (blinking) by coalescing in-flight Spots fetches and avoiding redundant auto-load triggers while loading/QRX/current-ready.
+- Spots/RBN time window: clip displayed spot analytics to log hours; in compare mode, use the combined min/max window across loaded logs.
+- Spots/RBN compare UI: improve horizontal swipe/scroll reliability for wide `Spots of you by band/hour` tables and harden compare scroll sync behavior.
+
 ## v5.2.22 (2026-02-10)
 - Status bar: show green source checkmarks only when the corresponding feed status is `OK` (hide them for loading/QRX/error).
 

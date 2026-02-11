@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.2.22';
+  const APP_VERSION = 'v5.2.23';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -10668,6 +10668,54 @@
     return `${minTs || 0}-${maxTs || 0}`;
   }
 
+  function resolveSpotDisplayRange(slot = state) {
+    const localMin = Number(slot?.derived?.timeRange?.minTs);
+    const localMax = Number(slot?.derived?.timeRange?.maxTs);
+    if (!Number.isFinite(localMin) || !Number.isFinite(localMax)) {
+      return { minTs: null, maxTs: null };
+    }
+    let minTs = localMin;
+    let maxTs = localMax;
+    if (state.compareEnabled) {
+      const ranges = getLoadedCompareSlots()
+        .map((entry) => ({
+          minTs: Number(entry.slot?.derived?.timeRange?.minTs),
+          maxTs: Number(entry.slot?.derived?.timeRange?.maxTs)
+        }))
+        .filter((range) => Number.isFinite(range.minTs) && Number.isFinite(range.maxTs));
+      if (ranges.length) {
+        minTs = Math.min(...ranges.map((range) => range.minTs));
+        maxTs = Math.max(...ranges.map((range) => range.maxTs));
+      }
+    }
+    return { minTs, maxTs };
+  }
+
+  function isSpotWithinDisplayRange(ts, range) {
+    if (!Number.isFinite(ts)) return false;
+    if (!range || !Number.isFinite(range.minTs) || !Number.isFinite(range.maxTs)) return true;
+    return ts >= range.minTs && ts <= range.maxTs;
+  }
+
+  function getSpotHeatmapHours(minTs, maxTs) {
+    const full = Array.from({ length: 24 }, (_, h) => h);
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return full;
+    if ((maxTs - minTs) >= (24 * 3600000 - 1)) return full;
+    const startBucket = Math.floor(minTs / 3600000);
+    const endBucket = Math.floor(maxTs / 3600000);
+    if (!Number.isFinite(startBucket) || !Number.isFinite(endBucket) || endBucket < startBucket) return full;
+    const out = [];
+    const seen = new Set();
+    for (let bucket = startBucket; bucket <= endBucket; bucket += 1) {
+      const hour = ((bucket % 24) + 24) % 24;
+      if (!seen.has(hour)) {
+        seen.add(hour);
+        out.push(hour);
+      }
+    }
+    return out.length ? out : full;
+  }
+
   function parseSpotLine(line) {
     const parts = String(line || '').split('^');
     if (parts.length < 6) return null;
@@ -10942,6 +10990,13 @@
       renderActiveReport();
       return;
     }
+    if (
+      spotsState.status === 'loading'
+      && spotsState.inflightPromise
+      && String(spotsState.inflightKey || '') === attemptKey
+    ) {
+      return spotsState.inflightPromise;
+    }
     spotsState.status = 'loading';
     spotsState.error = null;
     spotsState.lastErrorKey = null;
@@ -10950,6 +11005,7 @@
     spotsState.retryAfterMs = 0;
     spotsState.errors = [];
     spotsState.stats = null;
+    spotsState.inflightKey = attemptKey;
     updateDataStatus();
     renderActiveReport();
     const days = buildSpotDayList(minTs, maxTs);
@@ -10962,45 +11018,53 @@
     }));
     const qsoIndex = buildQsoTimeIndex(slot.qsoData.qsos);
     const qsoCallIndex = buildQsoCallIndex(slot.qsoData.qsos);
-    let total = 0;
-    const ofUsSpots = [];
-    const byUsSpots = [];
     try {
-      for (const entry of urls) {
-        let text = null;
-        let lastErr = null;
-        for (const url of entry.urls) {
-          try {
-            text = await fetchSpotFile(url);
-            break;
-          } catch (err) {
-            lastErr = err;
-            continue;
-          }
-        }
-        if (text == null) throw lastErr || new Error('Spot file missing');
-        const lines = text.split(/\r?\n/);
-        for (const line of lines) {
-          if (!line) continue;
-          const spot = parseSpotLine(line);
-          if (!spot) continue;
-          total += 1;
-          if (spot.dxCall === call) {
-            ofUsSpots.push(spot);
-          }
-          if (spot.spotter === call) {
-            byUsSpots.push(spot);
-          }
-        }
+      if (spotsState.retryTimer) {
+        window.clearTimeout(spotsState.retryTimer);
+        spotsState.retryTimer = null;
       }
+      spotsState.inflightPromise = (async () => {
+        let total = 0;
+        const ofUsSpots = [];
+        const byUsSpots = [];
+        for (const entry of urls) {
+          let text = null;
+          let lastErr = null;
+          for (const url of entry.urls) {
+            try {
+              text = await fetchSpotFile(url);
+              break;
+            } catch (err) {
+              lastErr = err;
+              continue;
+            }
+          }
+          if (text == null) throw lastErr || new Error('Spot file missing');
+          const lines = text.split(/\r?\n/);
+          for (const line of lines) {
+            if (!line) continue;
+            const spot = parseSpotLine(line);
+            if (!spot) continue;
+            total += 1;
+            if (spot.dxCall === call) {
+              ofUsSpots.push(spot);
+            }
+            if (spot.spotter === call) {
+              byUsSpots.push(spot);
+            }
+          }
+        }
+        return { total, ofUsSpots, byUsSpots };
+      })();
+      const data = await spotsState.inflightPromise;
       spotsState.status = 'ready';
       spotsState.error = null;
       spotsState.lastWindowKey = windowKey;
       spotsState.lastCall = call;
-      spotsState.totalScanned = total;
-      spotsState.raw = { ofUsSpots, byUsSpots };
-      spotsState.totalOfUs = ofUsSpots.length;
-      spotsState.totalByUs = byUsSpots.length;
+      spotsState.totalScanned = data.total;
+      spotsState.raw = { ofUsSpots: data.ofUsSpots, byUsSpots: data.byUsSpots };
+      spotsState.totalOfUs = data.ofUsSpots.length;
+      spotsState.totalByUs = data.byUsSpots.length;
       spotsState.capPerSide = null;
       spotsState.truncatedOfUs = false;
       spotsState.truncatedByUs = false;
@@ -11024,6 +11088,10 @@
       }
       spotsState.lastErrorKey = attemptKey;
       spotsState.lastErrorAt = Date.now();
+    }
+    if (spotsState.status !== 'loading') {
+      spotsState.inflightKey = null;
+      spotsState.inflightPromise = null;
     }
     updateDataStatus();
     renderActiveReport();
@@ -11148,6 +11216,7 @@
       const key = band || 'unknown';
       return filterSet.has(key);
     };
+    const displayRange = resolveSpotDisplayRange(slot);
     const qsoIndex = spotsState.qsoIndex || buildQsoTimeIndex(slot.qsoData.qsos);
     const qsoCallIndex = spotsState.qsoCallIndex || buildQsoCallIndex(slot.qsoData.qsos);
     let ofUs = 0;
@@ -11164,6 +11233,7 @@
     const ofUsSpots = [];
     const byUsSpots = [];
     (spotsState.raw.ofUsSpots || []).forEach((spot) => {
+      if (!isSpotWithinDisplayRange(spot.ts, displayRange)) return;
       if (!bandAllowed(spot.band)) return;
       ofUs += 1;
       spotters.set(spot.spotter, (spotters.get(spot.spotter) || 0) + 1);
@@ -11185,6 +11255,7 @@
       }
     });
     (spotsState.raw.byUsSpots || []).forEach((spot) => {
+      if (!isSpotWithinDisplayRange(spot.ts, displayRange)) return;
       if (!bandAllowed(spot.band)) return;
       byUs += 1;
       dxTargets.set(spot.dxCall, (dxTargets.get(spot.dxCall) || 0) + 1);
@@ -11254,8 +11325,10 @@
       missedMults: `${sectionIdBase}-missed-mults`
     };
     const call = escapeHtml(state.derived.contestMeta?.stationCallsign || 'N/A');
-    const minTs = state.derived.timeRange?.minTs;
-    const maxTs = state.derived.timeRange?.maxTs;
+    const displayRange = resolveSpotDisplayRange(state);
+    const minTs = Number.isFinite(displayRange.minTs) ? displayRange.minTs : state.derived.timeRange?.minTs;
+    const maxTs = Number.isFinite(displayRange.maxTs) ? displayRange.maxTs : state.derived.timeRange?.maxTs;
+    const heatmapHours = getSpotHeatmapHours(minTs, maxTs);
     const start = Number.isFinite(minTs) ? formatDateSh6(minTs) : 'N/A';
     const end = Number.isFinite(maxTs) ? formatDateSh6(maxTs) : 'N/A';
     const days = buildSpotDayList(minTs, maxTs);
@@ -12193,14 +12266,18 @@
     };
     const renderHeatmap = (heatmapData) => {
       if (!heatmapData || !heatmapData.length) return '<p>No heatmap data.</p>';
+      const visibleHours = (heatmapHours && heatmapHours.length) ? heatmapHours : Array.from({ length: 24 }, (_, h) => h);
       const bands = sortBands(heatmapData.map((h) => h.band));
-      const maxVal = Math.max(...heatmapData.flatMap((h) => h.hours || []), 1);
-      const header = Array.from({ length: 24 }, (_, h) => `<th>${String(h).padStart(2, '0')}</th>`).join('');
+      const maxVal = Math.max(
+        1,
+        ...heatmapData.flatMap((entry) => visibleHours.map((hour) => Number(entry?.hours?.[hour] || 0)))
+      );
+      const header = visibleHours.map((h) => `<th>${String(h).padStart(2, '0')}</th>`).join('');
       const rows = bands.map((band, idx) => {
         const entry = heatmapData.find((h) => h.band === band);
-        const hours = entry ? entry.hours : Array.from({ length: 24 }, () => 0);
-        const cells = hours.map((value, hour) => {
-          const count = Number(value) || 0;
+        const hours = entry ? entry.hours : [];
+        const cells = visibleHours.map((hour) => {
+          const count = Number(hours[hour] || 0);
           const active = drillBand === band && Number(drillHour) === hour;
           const intensity = count ? Math.min(0.85, 0.15 + (count / maxVal) * 0.7) : 0;
           const bg = count ? `background: rgba(30, 91, 214, ${intensity}); color: #fff;` : '';
@@ -16705,18 +16782,22 @@
     groups.forEach((items) => {
       if (!Array.isArray(items) || items.length < 2) return;
       let syncing = false;
+      const muted = new WeakSet();
       const syncTo = (source) => {
         const left = source.scrollLeft;
         items.forEach((el) => {
           if (el === source) return;
           if (Math.abs((el.scrollLeft || 0) - left) < 1) return;
+          muted.add(el);
           el.scrollLeft = left;
+          requestAnimationFrame(() => muted.delete(el));
         });
       };
       items.forEach((el) => {
         if (el.dataset.syncBound === '1') return;
         el.dataset.syncBound = '1';
         el.addEventListener('scroll', () => {
+          if (muted.has(el)) return;
           if (syncing) return;
           syncing = true;
           syncTo(el);
@@ -17519,20 +17600,27 @@
         const minTs = entry.slot?.derived?.timeRange?.minTs;
         const maxTs = entry.slot?.derived?.timeRange?.maxTs;
         const windowKey = (Number.isFinite(minTs) && Number.isFinite(maxTs)) ? buildSpotWindowKey(minTs, maxTs) : '';
-        let needs = spotState.status === 'idle' || spotState.status === 'error';
+        const days = source === 'rbn' ? selectRbnDaysForSlot(entry.slot, minTs, maxTs) : [];
+        const daysKey = source === 'rbn' ? (days || []).join(',') : '';
+        const requestKey = source === 'rbn'
+          ? `${call}|${windowKey}|${daysKey}`
+          : `${call}|${windowKey}`;
+        let needs = spotState.status === 'idle';
         if (!needs && call && windowKey) {
-          needs = spotState.status !== 'ready' || spotState.lastCall !== call || spotState.lastWindowKey !== windowKey;
-          if (!needs && source === 'rbn') {
-            const days = selectRbnDaysForSlot(entry.slot, minTs, maxTs);
-            const daysKey = (days || []).join(',');
-            needs = String(spotState.lastDaysKey || '') !== daysKey;
-          }
+          const readyCurrent = spotState.status === 'ready'
+            && spotState.lastCall === call
+            && spotState.lastWindowKey === windowKey
+            && (source !== 'rbn' || String(spotState.lastDaysKey || '') === daysKey);
+          const loadingCurrent = spotState.status === 'loading'
+            && Boolean(spotState.inflightPromise)
+            && String(spotState.inflightKey || '') === requestKey;
+          const qrxCurrent = spotState.status === 'qrx'
+            && String(spotState.lastErrorKey || '') === requestKey;
+          needs = !(readyCurrent || loadingCurrent || qrxCurrent);
         }
         if (needs && spotState.status === 'error' && call && windowKey) {
           const now = Date.now();
-          const errorKey = source === 'rbn'
-            ? `${call}|${windowKey}|${(selectRbnDaysForSlot(entry.slot, minTs, maxTs) || []).join(',')}`
-            : `${call}|${windowKey}`;
+          const errorKey = requestKey;
           const lastKey = String(spotState.lastErrorKey || '');
           const lastAt = Number(spotState.lastErrorAt || 0);
           if (lastKey === errorKey && (now - lastAt) < 60000) {

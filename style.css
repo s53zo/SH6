@@ -1482,6 +1482,9 @@ a:hover {
 .compare-scroll {
   padding: 8px 10px 10px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
   max-width: 100%;
 }
 
@@ -1495,6 +1498,11 @@ a:hover {
 .compare-scroll table {
   width: auto !important;
   display: inline-table;
+}
+
+.compare-scroll table.mtc {
+  max-width: none;
+  min-width: max-content;
 }
 
 .compare-scroll.compare-scroll-wrap table {

@@ -202,6 +202,70 @@ def _bucket_start(now_s: float, interval_s: int) -> float:
     return now_s - (now_s % interval_s)
 
 
+def _run_cmd_text(cmd: List[str], timeout_s: int = 2) -> str:
+    try:
+        out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True, timeout=timeout_s)
+        return out.strip()
+    except Exception:
+        return ""
+
+
+def _read_cpu_total_idle() -> Optional[Tuple[int, int]]:
+    try:
+        with open("/proc/stat", "r", encoding="utf-8") as fh:
+            line = fh.readline().strip()
+    except Exception:
+        return None
+    if not line.startswith("cpu "):
+        return None
+    parts = line.split()[1:]
+    try:
+        vals = [int(x) for x in parts]
+    except Exception:
+        return None
+    if len(vals) < 4:
+        return None
+    total = sum(vals)
+    idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
+    return (total, idle)
+
+
+def _cpu_pct(prev: Tuple[int, int], curr: Tuple[int, int]) -> float:
+    total_d = curr[0] - prev[0]
+    idle_d = curr[1] - prev[1]
+    if total_d <= 0:
+        return 0.0
+    busy = max(0.0, 1.0 - (idle_d / total_d))
+    return max(0.0, min(100.0, busy * 100.0))
+
+
+def _collect_dxspider_users() -> Optional[int]:
+    # DXSpider daemon process: perl /spider/perl/cluster.pl
+    pid_s = _run_cmd_text(["pgrep", "-u", "sysop", "-f", "/spider/perl/cluster.pl"]).splitlines()
+    if not pid_s:
+        return None
+    pid = pid_s[0].strip()
+    if not pid:
+        return None
+
+    # Count established sessions on local DXSpider listener :8000 for this PID.
+    ss_out = _run_cmd_text(["ss", "-tnpH"])
+    users_connected = 0
+    if ss_out:
+        for line in ss_out.splitlines():
+            if f"pid={pid}," not in line:
+                continue
+            cols = line.split()
+            # Expected: ESTAB ... local_addr:port peer_addr:port users:(...)
+            if len(cols) < 5:
+                continue
+            local = cols[3]
+            if local.endswith(":8000"):
+                users_connected += 1
+
+    return max(0, users_connected)
+
+
 def main() -> int:
     interval_s = _env_int("PUBLISH_INTERVAL_S", 60)
     host_tag = _env_str("HOST_TAG", "azure.s53m.com")
@@ -229,9 +293,10 @@ def main() -> int:
     now = time.time()
     bucket0 = _bucket_start(now, interval_s)
     next_flush = bucket0 + interval_s
+    prev_cpu = _read_cpu_total_idle()
 
     def flush(ts_end_s: float) -> None:
-        nonlocal agg, dropped
+        nonlocal agg, dropped, prev_cpu
 
         ts_start_s = ts_end_s - interval_s
 
@@ -253,6 +318,39 @@ def main() -> int:
             if rt_p95_ms is not None:
                 item["rt_p95_ms"] = round(rt_p95_ms, 2)
             metrics.append(item)
+
+        # Add non-HTTP host metrics as synthetic metric rows.
+        dx_users = _collect_dxspider_users()
+        if dx_users is not None:
+            metrics.append(
+                {
+                    "route_group": "dxspider",
+                    "endpoint_family": "dxspider_users",
+                    "status": "2xx",
+                    "count": dx_users,
+                    "bytes_out": 0,
+                    "items": dx_users,
+                    "rt_avg_ms": 0.0,
+                    "rt_p95_ms": 0.0,
+                }
+            )
+
+        curr_cpu = _read_cpu_total_idle()
+        if prev_cpu is not None and curr_cpu is not None:
+            cpu_pct = _cpu_pct(prev_cpu, curr_cpu)
+            metrics.append(
+                {
+                    "route_group": "system",
+                    "endpoint_family": "server_cpu",
+                    "status": "2xx",
+                    "count": round(cpu_pct, 2),
+                    "bytes_out": 0,
+                    "items": 0,
+                    "rt_avg_ms": 0.0,
+                    "rt_p95_ms": 0.0,
+                }
+            )
+        prev_cpu = curr_cpu
 
         payload = {
             "schema": 1,

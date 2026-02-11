@@ -9467,7 +9467,7 @@
       columns = ['num', 'time', 'band', 'mode', 'freq', 'call'];
       timeOnly = true;
     } else if (total === 3) {
-      columns = columns.filter((c) => c !== 'exchSent' && c !== 'exchRcvd');
+      columns = columns.filter((c) => !['exchSent', 'exchRcvd', 'country', 'op', 'cq', 'itu', 'grid', 'flags'].includes(c));
     } else if (total === 2) {
       columns = columns.filter((c) => !['rstS', 'rstR', 'exchSent', 'exchRcvd', 'country', 'grid', 'flags'].includes(c));
     }

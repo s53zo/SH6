@@ -4722,6 +4722,11 @@ td {
   overflow: hidden;
 }
 
+/* Spots/RBN panels contain wide matrices; allow overflow so compare scroller can pan horizontally. */
+.mtc.export-panel.spots-panel {
+  overflow: visible;
+}
+
 .thc th,
 .thc td {
   background: linear-gradient(180deg, #4f66da 0%, #4259ca 100%);

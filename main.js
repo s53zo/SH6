@@ -16661,7 +16661,8 @@
       'sh6_info',
       'charts'
     ]);
-    const isNarrow = narrowReports.has(baseId);
+    const isWideHourSheet = (baseId === 'qs_by_hour_sheet' || baseId === 'points_by_hour_sheet') && slotEntries.length >= 3;
+    const isNarrow = !isWideHourSheet && narrowReports.has(baseId);
     const shouldWrap = wrapReports.has(baseId);
     const isChart = options.chart || baseId.startsWith('charts_');
     const isQuad = isChart || quadReports.has(baseId);

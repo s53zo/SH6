@@ -68,6 +68,7 @@ def _status_bucket(code: int) -> str:
 def _route_group_and_family(uri: str) -> Tuple[str, str]:
     # Keep these stable and bounded.
     u = uri or ""
+    lu = u.lower()
 
     if u.startswith("/cors/rbn"):
         return ("rbn", "rbn")
@@ -116,13 +117,61 @@ def _route_group_and_family(uri: str) -> Tuple[str, str]:
     if u.startswith("/reports/"):
         return ("reports", "reports")
 
+    if u.startswith("/copilot"):
+        return ("copilot", "copilot_ui")
+
+    if u.startswith("/K8"):
+        return ("k8", "k8_ui")
+
+    if u.startswith("/matrigs-desktop"):
+        return ("matrigs", "desktop_ui")
+
+    if u in ("/index.html", "/favicon.ico", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"):
+        return ("static", "site")
+
     if u.startswith("/SH6/") or u == "/" or u.startswith("/assets/"):
         return ("static", "site")
+
+    # Group common internet scans/probing (we can drop these at ingest time).
+    if not u:
+        return ("probe", "empty_uri")
+    if lu.startswith("/.env") or "/.env" in lu:
+        return ("probe", "env_scan")
+    if lu.startswith("/.git") or "/.git/" in lu:
+        return ("probe", "git_scan")
+    if lu.startswith("/actuator/") or "/actuator/" in lu:
+        return ("probe", "actuator_scan")
+    if lu.startswith("/docker-compose") or lu.startswith("/compose.yml"):
+        return ("probe", "compose_scan")
+    if lu.startswith("/bins/") or lu == "/env" or lu == "/env.js" or lu == "/env.json":
+        return ("probe", "generic_scan")
+    if (
+        lu.startswith("/wp-config")
+        or lu.startswith("/application.")
+        or lu.startswith("/appsettings")
+        or lu.startswith("/serverless")
+        or lu.startswith("/terraform")
+        or lu.startswith("/.streamlit")
+        or lu.startswith("/@fs/")
+        or "/proc/self/environ" in lu
+        or "/.aws/credentials" in lu
+    ):
+        return ("probe", "generic_scan")
 
     if u.startswith("/cors/"):
         return ("cors_other", "cors_other")
 
     return ("other", "other")
+
+
+def _is_ignored_uri(uri: str) -> bool:
+    # Ignore very common browser asset probes that add noise but little value.
+    return uri in (
+        "/index.html",
+        "/favicon.ico",
+        "/apple-touch-icon.png",
+        "/apple-touch-icon-precomposed.png",
+    )
 
 
 def _quantile(values: List[float], q: float) -> Optional[float]:
@@ -391,6 +440,8 @@ def main() -> int:
 
                 # Expected keys from nginx log_format.
                 uri = str(ev.get("uri") or "")
+                if _is_ignored_uri(uri):
+                    continue
                 status_raw = ev.get("status")
                 bytes_raw = ev.get("bytes")
                 rt_raw = ev.get("rt")
@@ -415,6 +466,9 @@ def main() -> int:
                     items = 0
 
                 route_group, endpoint_family = _route_group_and_family(uri)
+                # Discard scan/probe traffic entirely (avoid polluting metrics).
+                if route_group == "probe":
+                    continue
                 sb = _status_bucket(status)
 
                 key = (route_group, endpoint_family, sb)

@@ -9469,7 +9469,7 @@
     } else if (total === 3) {
       columns = columns.filter((c) => c !== 'exchSent' && c !== 'exchRcvd');
     } else if (total === 2) {
-      columns = columns.filter((c) => !['rstS', 'rstR', 'grid', 'flags'].includes(c));
+      columns = columns.filter((c) => !['rstS', 'rstR', 'exchSent', 'exchRcvd', 'country', 'grid', 'flags'].includes(c));
     }
     return { columns, timeOnly };
   }

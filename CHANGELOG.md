@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.24 (2026-02-11)
+- Header: make the SH6 logo clickable to `https://s53m.com/SH6`.
+- Load panel: add `Reset selections` action to return to a clean first-load page state (clears permalink/query/hash).
+- RBN compare signal: add per-card `Copy as image` action next to the skimmer selector, capturing the full chart panel including legends; when clipboard image write is unavailable, automatically download PNG.
+
 ## v5.2.23 (2026-02-11)
 - Spots/RBN compare: fix repeated reload/render loop (blinking) by coalescing in-flight Spots fetches and avoiding redundant auto-load triggers while loading/QRX/current-ready.
 - Spots/RBN time window: clip displayed spot analytics to log hours; in compare mode, use the combined min/max window across loaded logs.

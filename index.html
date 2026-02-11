@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SH6 Hamradio Log Report</title>
-  <link rel="stylesheet" href="style.css?v=5.2.23">
+  <link rel="stylesheet" href="style.css?v=5.2.24">
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" href="favicon-32x32.png" sizes="32x32">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -15,7 +15,9 @@
     <tr>
       <td>
         <div class="brand">
-          <img class="brand-logo" src="SH6_logo.png" alt="SH6" decoding="async">
+          <a class="brand-logo-link" href="https://s53m.com/SH6" aria-label="Open SH6 home">
+            <img class="brand-logo" src="SH6_logo.png" alt="SH6" decoding="async">
+          </a>
           <span class="subtitle">Client-side hamradio log report</span>
         </div>
       </td>
@@ -62,8 +64,11 @@
         <div class="content">
           <div id="loadPanel">
             <div class="load-panel-head">
-              <div class="load-panel-title">Start log selection</div>
-              <div class="load-panel-subtitle">Set compare mode first, then load logs into active slots.</div>
+              <div class="load-panel-head-main">
+                <div class="load-panel-title">Start log selection</div>
+                <div class="load-panel-subtitle">Set compare mode first, then load logs into active slots.</div>
+              </div>
+              <button type="button" class="button load-panel-reset-btn" id="resetSelectionsBtn">Reset selections</button>
             </div>
             <div class="load-step">
               <div class="load-step-title">Step 1 · Choose compare mode</div>
@@ -325,6 +330,6 @@
     gtag('js', new Date());
     gtag('config', 'G-N11FPFQNJG');
   </script>
-  <script src="main.js?v=5.2.23"></script>
+  <script src="main.js?v=5.2.24"></script>
 </body>
 </html>

@@ -167,6 +167,18 @@ a:hover {
   gap: 10px;
 }
 
+.brand-logo-link {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  text-decoration: none;
+}
+
+.brand-logo-link:hover,
+.brand-logo-link:focus-visible {
+  text-decoration: none;
+}
+
 .brand-logo {
   height: 28px;
   width: auto;
@@ -207,11 +219,26 @@ a:hover {
 }
 
 .load-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin: 2px 0 10px;
   padding: 8px 10px;
   border: 1px solid #d5def0;
   border-radius: var(--sh6-radius-md);
   background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+}
+
+.load-panel-head-main {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.load-panel-reset-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .load-panel-title {
@@ -592,7 +619,7 @@ a:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px 10px;
   margin-bottom: 8px;
 }
@@ -620,6 +647,40 @@ a:hover {
   background: #ffffff;
   color: #23456f;
   max-width: min(320px, 100%);
+}
+
+.rbn-signal-copy-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.rbn-signal-copy-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+}
+
+.rbn-signal-copy-icon svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.rbn-signal-copy-btn.is-working {
+  opacity: 0.72;
+  cursor: progress;
+}
+
+.rbn-signal-status {
+  flex: 1 1 100%;
 }
 
 .rbn-signal-canvas {
@@ -4233,6 +4294,14 @@ table.mtc {
     flex-wrap: wrap;
     gap: 6px;
     padding: 2px 0;
+  }
+
+  .load-panel-head {
+    align-items: flex-start;
+  }
+
+  .load-panel-reset-btn {
+    align-self: flex-start;
   }
 
   .subtitle {

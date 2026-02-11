@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.2.23';
+  const APP_VERSION = 'v5.2.24';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -1179,6 +1179,7 @@
     loadSummaryItems: document.getElementById('loadSummaryItems'),
     loadSummaryHint: document.getElementById('loadSummaryHint'),
     viewReportsBtn: document.getElementById('viewReportsBtn'),
+    resetSelectionsBtn: document.getElementById('resetSelectionsBtn'),
     repoSearch: document.getElementById('repoSearch'),
     repoStatus: document.getElementById('repoStatus'),
     repoResults: document.getElementById('repoResults'),
@@ -2822,6 +2823,266 @@
     }
     document.body.removeChild(textarea);
     return ok;
+  }
+
+  function sanitizeFilenameToken(value, fallback = 'item') {
+    const safe = String(value == null ? '' : value)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    return safe || fallback;
+  }
+
+  function downloadBlobFile(blob, filename) {
+    if (!(blob instanceof Blob)) return;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename || 'image.png';
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(() => URL.revokeObjectURL(url), 1200);
+  }
+
+  function canvasToBlobAsync(canvas, type = 'image/png', quality) {
+    return new Promise((resolve, reject) => {
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        reject(new Error('Invalid canvas'));
+        return;
+      }
+      if (canvas.toBlob) {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to create PNG blob'));
+        }, type, quality);
+        return;
+      }
+      try {
+        const dataUrl = canvas.toDataURL(type, quality);
+        const payload = dataUrl.split(',')[1] || '';
+        const bytes = atob(payload);
+        const buffer = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i += 1) buffer[i] = bytes.charCodeAt(i);
+        resolve(new Blob([buffer], { type }));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  function loadImageFromUrl(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Unable to load rendered SVG image'));
+      img.src = url;
+    });
+  }
+
+  function copyComputedStyleToNode(sourceNode, targetNode) {
+    if (!(sourceNode instanceof Element) || !(targetNode instanceof Element)) return;
+    const computed = window.getComputedStyle(sourceNode);
+    for (let i = 0; i < computed.length; i += 1) {
+      const prop = computed[i];
+      targetNode.style.setProperty(prop, computed.getPropertyValue(prop), computed.getPropertyPriority(prop));
+    }
+  }
+
+  function inlineComputedStylesDeep(sourceRoot, cloneRoot) {
+    if (!(sourceRoot instanceof Element) || !(cloneRoot instanceof Element)) return;
+    copyComputedStyleToNode(sourceRoot, cloneRoot);
+    const sourceChildren = Array.from(sourceRoot.children);
+    const cloneChildren = Array.from(cloneRoot.children);
+    const count = Math.min(sourceChildren.length, cloneChildren.length);
+    for (let i = 0; i < count; i += 1) {
+      inlineComputedStylesDeep(sourceChildren[i], cloneChildren[i]);
+    }
+  }
+
+  function replaceCanvasWithImageSnapshots(sourceRoot, cloneRoot) {
+    if (!(sourceRoot instanceof Element) || !(cloneRoot instanceof Element)) return;
+    const sourceCanvases = Array.from(sourceRoot.querySelectorAll('canvas'));
+    const cloneCanvases = Array.from(cloneRoot.querySelectorAll('canvas'));
+    const count = Math.min(sourceCanvases.length, cloneCanvases.length);
+    for (let i = 0; i < count; i += 1) {
+      const sourceCanvas = sourceCanvases[i];
+      const cloneCanvas = cloneCanvases[i];
+      if (!(sourceCanvas instanceof HTMLCanvasElement) || !(cloneCanvas instanceof HTMLCanvasElement)) continue;
+      let dataUrl = '';
+      try {
+        dataUrl = sourceCanvas.toDataURL('image/png');
+      } catch (err) {
+        dataUrl = '';
+      }
+      if (!dataUrl) continue;
+      const image = document.createElement('img');
+      image.src = dataUrl;
+      image.alt = sourceCanvas.getAttribute('aria-label') || 'Graph image';
+      copyComputedStyleToNode(sourceCanvas, image);
+      const width = sourceCanvas.clientWidth || sourceCanvas.width || 1;
+      const height = sourceCanvas.clientHeight || sourceCanvas.height || 1;
+      image.style.width = `${Math.max(1, Math.round(width))}px`;
+      image.style.height = `${Math.max(1, Math.round(height))}px`;
+      image.width = Math.max(1, Math.round(width));
+      image.height = Math.max(1, Math.round(height));
+      image.style.display = 'block';
+      cloneCanvas.replaceWith(image);
+    }
+  }
+
+  function applyRbnSignalExportLayout(root) {
+    if (!(root instanceof Element)) return;
+    root.querySelectorAll('.rbn-signal-legend').forEach((legend) => {
+      legend.style.overflowX = 'visible';
+      legend.style.overflowY = 'visible';
+      legend.style.flexWrap = 'wrap';
+      legend.style.alignItems = 'flex-start';
+    });
+    root.querySelectorAll('.rbn-signal-legend-bands').forEach((bands) => {
+      bands.style.flexWrap = 'wrap';
+    });
+    root.querySelectorAll('.rbn-legend-shape').forEach((shape) => {
+      shape.style.marginLeft = '0';
+      shape.style.flexWrap = 'wrap';
+    });
+  }
+
+  async function renderElementToPngBlob(element, options = {}) {
+    if (!(element instanceof HTMLElement)) {
+      throw new Error('Element not found');
+    }
+    const rect = element.getBoundingClientRect();
+    const baseWidth = Math.max(1, Math.ceil(rect.width || element.offsetWidth || 1));
+    const clone = element.cloneNode(true);
+    if (!(clone instanceof HTMLElement)) {
+      throw new Error('Unable to clone element');
+    }
+    inlineComputedStylesDeep(element, clone);
+    replaceCanvasWithImageSnapshots(element, clone);
+    if (typeof options.prepareClone === 'function') {
+      options.prepareClone(clone);
+    }
+
+    const host = document.createElement('div');
+    host.style.position = 'fixed';
+    host.style.left = '-100000px';
+    host.style.top = '0';
+    host.style.opacity = '0';
+    host.style.pointerEvents = 'none';
+    host.style.zIndex = '-1';
+    host.style.width = `${baseWidth}px`;
+    clone.style.width = `${baseWidth}px`;
+    clone.style.maxWidth = `${baseWidth}px`;
+    host.appendChild(clone);
+    document.body.appendChild(host);
+    let width = baseWidth;
+    let height = Math.max(1, Math.ceil(element.getBoundingClientRect().height || element.offsetHeight || 1));
+    let serialized = '';
+    try {
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch (err) {
+          // Continue even when fonts cannot be awaited.
+        }
+      }
+
+      const measureRect = clone.getBoundingClientRect();
+      width = Math.max(1, Math.ceil(measureRect.width || baseWidth));
+      height = Math.max(1, Math.ceil(measureRect.height || clone.scrollHeight || element.scrollHeight || 1));
+
+      const wrapper = document.createElement('div');
+      wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+      wrapper.style.width = `${width}px`;
+      wrapper.style.height = `${height}px`;
+      wrapper.style.boxSizing = 'border-box';
+      wrapper.appendChild(clone);
+      serialized = new XMLSerializer().serializeToString(wrapper);
+    } finally {
+      if (host.parentNode) host.parentNode.removeChild(host);
+    }
+    if (!serialized) throw new Error('Failed to serialize graph content');
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><foreignObject x="0" y="0" width="100%" height="100%">${serialized}</foreignObject></svg>`;
+    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    try {
+      const img = await loadImageFromUrl(svgUrl);
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(width * dpr));
+      canvas.height = Math.max(1, Math.round(height * dpr));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context unavailable');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      return await canvasToBlobAsync(canvas, 'image/png');
+    } finally {
+      URL.revokeObjectURL(svgUrl);
+    }
+  }
+
+  async function copyImageBlobToClipboard(blob) {
+    if (!(blob instanceof Blob)) return false;
+    if (!(navigator.clipboard && navigator.clipboard.write) || typeof ClipboardItem === 'undefined') {
+      return false;
+    }
+    try {
+      const item = new ClipboardItem({ [blob.type || 'image/png']: blob });
+      await navigator.clipboard.write([item]);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  async function copyRbnSignalCardImage(button) {
+    if (!(button instanceof HTMLButtonElement)) return;
+    const card = button.closest('.rbn-signal-card');
+    const body = card ? card.querySelector('.rbn-signal-body') : null;
+    if (!(body instanceof HTMLElement)) {
+      showOverlayNotice('Unable to find graph to copy.', 2600);
+      return;
+    }
+    const labelEl = button.querySelector('.rbn-signal-copy-label');
+    const prevLabel = labelEl ? labelEl.textContent : '';
+    const continent = String(button.dataset.continent || '').trim().toUpperCase() || 'N/A';
+    const select = card ? card.querySelector('.rbn-signal-select') : null;
+    const spotter = normalizeSpotterBase(String(select?.value || '').trim()) || 'spotter';
+    const filename = `rbn_compare_signal_${sanitizeFilenameToken(continent)}_${sanitizeFilenameToken(spotter)}.png`;
+
+    button.disabled = true;
+    button.classList.add('is-working');
+    if (labelEl) labelEl.textContent = 'Copying...';
+    try {
+      const blob = await renderElementToPngBlob(body, {
+        prepareClone: applyRbnSignalExportLayout
+      });
+      const copied = await copyImageBlobToClipboard(blob);
+      trackEvent('rbn_compare_signal_copy_image', {
+        continent,
+        method: copied ? 'clipboard' : 'download'
+      });
+      if (copied) {
+        showOverlayNotice('Graph copied as image.', 2200);
+      } else {
+        downloadBlobFile(blob, filename);
+        showOverlayNotice('Clipboard image copy is not available, PNG downloaded instead.', 3200);
+      }
+    } catch (err) {
+      console.error('Copy graph as image failed:', err);
+      showOverlayNotice('Unable to copy graph as image.', 3200);
+    } finally {
+      button.disabled = false;
+      button.classList.remove('is-working');
+      if (labelEl) labelEl.textContent = prevLabel || 'Copy as image';
+    }
   }
 
   function dateKeyFromTs(ts) {
@@ -13548,10 +13809,12 @@
       const list = ranking.byContinent.get(cont) || [];
       const card = select.closest('.rbn-signal-card');
       const statusEl = card ? card.querySelector('.rbn-signal-status') : null;
+      const copyBtn = card ? card.querySelector('.rbn-signal-copy-btn') : null;
       const contLabel = continentLabel(cont) || cont;
       if (!list.length) {
         select.innerHTML = '<option value="">No skimmers</option>';
         select.disabled = true;
+        if (copyBtn instanceof HTMLButtonElement) copyBtn.disabled = true;
         const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
         if (canvas) canvas.dataset.spotter = '';
         if (statusEl) {
@@ -13566,6 +13829,7 @@
       const defaultSpotter = saved && list.some((e) => e.spotter === saved) ? saved : list[0].spotter;
       selections.selectedByContinent[cont] = defaultSpotter;
       select.disabled = false;
+      if (copyBtn instanceof HTMLButtonElement) copyBtn.disabled = false;
       select.innerHTML = list.slice(0, 80).map((e) => {
         const label = `${e.spotter} (${formatNumberSh6(e.count)})`;
         return `<option value="${escapeAttr(e.spotter)}" ${e.spotter === defaultSpotter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
@@ -13695,6 +13959,7 @@
       const statusHidden = list.length ? 'hidden' : '';
       const spotterAttr = list.length ? escapeAttr(defaultSpotter) : '';
       const selectDisabled = list.length ? '' : 'disabled';
+      const copyDisabled = list.length ? '' : 'disabled';
       return `
         <article class="rbn-signal-card">
           <div class="rbn-signal-head">
@@ -13705,6 +13970,10 @@
                 ${options}
               </select>
             </label>
+            <button type="button" class="button rbn-signal-copy-btn" data-continent="${escapeAttr(cont)}" ${copyDisabled} aria-label="Copy ${contLabel} graph as image">
+              <span class="rbn-signal-copy-icon" aria-hidden="true"><svg viewBox="0 0 16 16" role="presentation" focusable="false"><rect x="2.25" y="2.25" width="8.5" height="8.5" rx="1.2" ry="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="5.25" y="5.25" width="8.5" height="8.5" rx="1.2" ry="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>
+              <span class="rbn-signal-copy-label">Copy as image</span>
+            </button>
             <span class="rbn-signal-status cqapi-muted" ${statusHidden}>${escapeHtml(statusMsg)}</span>
           </div>
           <div class="rbn-signal-body">
@@ -17834,6 +18103,13 @@
           scheduleRbnCompareSignalDraw();
         });
       });
+      const copyButtons = dom.viewContainer.querySelectorAll('.rbn-signal-copy-btn');
+      copyButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          copyRbnSignalCardImage(btn);
+        });
+      });
       if (rbnCompareSignalResizeObserver) {
         rbnCompareSignalResizeObserver.disconnect();
         rbnCompareSignalResizeObserver = null;
@@ -19515,6 +19791,20 @@
     });
   }
 
+  function setupResetSelectionsAction() {
+    if (!dom.resetSelectionsBtn) return;
+    dom.resetSelectionsBtn.addEventListener('click', (evt) => {
+      evt.preventDefault();
+      trackEvent('reset_selections_click', {
+        compareCount: Number(state.compareCount) || 1
+      });
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.hash = '';
+      window.location.assign(url.toString());
+    });
+  }
+
   function setupCompareToggle() {
     if (!dom.compareModeRadios || !dom.compareModeRadios.length) return;
     dom.compareModeRadios.forEach((radio) => {
@@ -19555,6 +19845,7 @@
     setupCompareToggle();
     setupSlotActions();
     setupLoadSummaryActions();
+    setupResetSelectionsAction();
     setupDataFileInputs();
     setupPrevNext();
     initDataFetches();

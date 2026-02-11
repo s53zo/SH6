@@ -1110,6 +1110,7 @@
   let rbnCompareSignalResizeRaf = 0;
   let cqApiRetryTimer = null;
   let competitorCoachRetryTimer = null;
+  let html2CanvasLoadPromise = null;
 
   const base64UrlEncode = (value) => {
     const text = String(value == null ? '' : value);
@@ -2883,6 +2884,31 @@
     });
   }
 
+  function loadHtml2CanvasLibrary() {
+    if (typeof window.html2canvas === 'function') {
+      return Promise.resolve(window.html2canvas);
+    }
+    if (html2CanvasLoadPromise) return html2CanvasLoadPromise;
+    html2CanvasLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.async = true;
+      script.onload = () => {
+        if (typeof window.html2canvas === 'function') {
+          resolve(window.html2canvas);
+        } else {
+          reject(new Error('html2canvas loaded but API is unavailable'));
+        }
+      };
+      script.onerror = () => reject(new Error('Failed to load html2canvas'));
+      document.head.appendChild(script);
+    }).catch((err) => {
+      html2CanvasLoadPromise = null;
+      throw err;
+    });
+    return html2CanvasLoadPromise;
+  }
+
   function copyComputedStyleToNode(sourceNode, targetNode) {
     if (!(sourceNode instanceof Element) || !(targetNode instanceof Element)) return;
     const computed = window.getComputedStyle(sourceNode);
@@ -3028,6 +3054,31 @@
     }
   }
 
+  async function renderElementToPngBlobWithHtml2Canvas(element) {
+    if (!(element instanceof HTMLElement)) {
+      throw new Error('Element not found');
+    }
+    const html2canvas = await loadHtml2CanvasLibrary();
+    const token = `rbn-export-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    element.dataset.exportToken = token;
+    try {
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
+        scale: dpr,
+        useCORS: true,
+        logging: false,
+        onclone: (doc) => {
+          const clone = doc.querySelector(`[data-export-token="${token}"]`);
+          if (clone) applyRbnSignalExportLayout(clone);
+        }
+      });
+      return await canvasToBlobAsync(canvas, 'image/png');
+    } finally {
+      delete element.dataset.exportToken;
+    }
+  }
+
   async function copyImageBlobToClipboard(blob) {
     if (!(blob instanceof Blob)) return false;
     if (!(navigator.clipboard && navigator.clipboard.write) || typeof ClipboardItem === 'undefined') {
@@ -3061,9 +3112,15 @@
     button.classList.add('is-working');
     if (labelEl) labelEl.textContent = 'Copying...';
     try {
-      const blob = await renderElementToPngBlob(body, {
-        prepareClone: applyRbnSignalExportLayout
-      });
+      let blob = null;
+      try {
+        blob = await renderElementToPngBlob(body, {
+          prepareClone: applyRbnSignalExportLayout
+        });
+      } catch (primaryErr) {
+        console.warn('Primary graph export failed, trying html2canvas fallback:', primaryErr);
+        blob = await renderElementToPngBlobWithHtml2Canvas(body);
+      }
       const copied = await copyImageBlobToClipboard(blob);
       trackEvent('rbn_compare_signal_copy_image', {
         continent,
@@ -3077,7 +3134,7 @@
       }
     } catch (err) {
       console.error('Copy graph as image failed:', err);
-      showOverlayNotice('Unable to copy graph as image.', 3200);
+      showOverlayNotice('Unable to copy graph as an image.', 3200);
     } finally {
       button.disabled = false;
       button.classList.remove('is-working');
@@ -7708,13 +7765,17 @@
     return set;
   }
 
+  const PORTABLE_CALL_SUFFIXES = new Set(['P', 'M', 'MM', 'AM', 'QRP']);
+  const SLASH_AREA_TOKEN_RE = /^[A-Z]{1,2}\d{1,2}$/;
+  const KG4_US_CALL_RE = /^KG4[A-Z]{1,3}$/;
+  const KG4_GITMO_RE = /^KG4[A-Z]{2}$/;
+
   function baseCall(call) {
     if (!call) return '';
     const parts = call.split('/');
     if (parts.length === 1) return call;
     const suffix = parts[parts.length - 1];
-    const portable = new Set(['P', 'M', 'MM', 'AM', 'QRP']);
-    if (portable.has(suffix)) return parts[0];
+    if (PORTABLE_CALL_SUFFIXES.has(suffix)) return parts[0];
     // Prefer the longer segment that looks like a callsign
     const cand = parts.reduce((best, p) => (p.length > best.length ? p : best), '');
     return cand || call;
@@ -7770,23 +7831,61 @@
     });
   }
 
+  function findPrefixEntry(key) {
+    if (!state.ctyTable || !key) return null;
+    for (const entry of state.ctyTable) {
+      if (entry.exact) {
+        if (key === entry.prefix) return entry;
+      } else if (key.startsWith(entry.prefix)) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  function getUnitedStatesEntry() {
+    if (!state.ctyTable) return null;
+    return state.ctyTable.find((entry) => !entry.exact && entry.country === 'United States' && entry.prefix === 'K') || null;
+  }
+
+  function isLikelyUsKg4Call(key) {
+    if (!key) return false;
+    const base = key.split('/')[0] || key;
+    if (!KG4_US_CALL_RE.test(base)) return false;
+    return !KG4_GITMO_RE.test(base);
+  }
+
   function lookupPrefix(call) {
     if (!state.ctyTable || !call) return null;
     const key = normalizeCall(call);
     if (!key) return null;
     if (state.prefixCache.has(key)) return state.prefixCache.get(key);
-    let found = null;
-    for (const entry of state.ctyTable) {
-      if (entry.exact) {
-        if (key === entry.prefix) {
-          found = entry;
-          break;
+
+    let found = findPrefixEntry(key);
+    if (key.includes('/')) {
+      const fullExact = Boolean(found && found.exact && found.prefix === key);
+      if (!fullExact) {
+        const parts = key.split('/').filter(Boolean);
+        const suffix = parts[parts.length - 1] || '';
+        if (SLASH_AREA_TOKEN_RE.test(suffix) && !PORTABLE_CALL_SUFFIXES.has(suffix)) {
+          const suffixHit = findPrefixEntry(suffix);
+          if (suffixHit) {
+            found = suffixHit;
+          }
         }
-      } else if (key.startsWith(entry.prefix)) {
-        found = entry;
-        break;
+        const base = baseCall(key);
+        const baseHit = base && base !== key ? findPrefixEntry(base) : null;
+        if (baseHit && baseHit.exact) {
+          found = baseHit;
+        }
       }
     }
+
+    if (found && found.country === 'Guantanamo Bay' && found.prefix === 'KG4' && isLikelyUsKg4Call(key)) {
+      const usEntry = getUnitedStatesEntry();
+      if (usEntry) found = usEntry;
+    }
+
     if (state.prefixCache.size > 10000) state.prefixCache.clear();
     state.prefixCache.set(key, found);
     return found;

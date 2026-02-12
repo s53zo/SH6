@@ -613,6 +613,7 @@ a:hover {
 .rbn-signal-plot {
   flex: 1 1 auto;
   min-width: 0;
+  position: relative;
 }
 
 .rbn-signal-head {
@@ -660,6 +661,15 @@ a:hover {
   white-space: nowrap;
 }
 
+.rbn-signal-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .rbn-signal-copy-icon {
   display: inline-flex;
   align-items: center;
@@ -683,12 +693,38 @@ a:hover {
   flex: 1 1 100%;
 }
 
+.rbn-signal-hint {
+  flex: 1 1 100%;
+  font-size: 11px;
+}
+
 .rbn-signal-canvas {
   width: 100%;
   display: block;
   border: 1px solid #c8d7f0;
   border-radius: 10px;
   background: linear-gradient(180deg, #f9fbff 0%, #f2f7ff 100%);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.rbn-signal-canvas.is-zoom-dragging {
+  cursor: ew-resize;
+}
+
+.spots-signal-canvas {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.rbn-signal-zoom-box,
+.chart-zoom-box {
+  position: absolute;
+  border: 1px solid rgba(42, 95, 170, 0.9);
+  background: rgba(88, 147, 234, 0.2);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .rbn-signal-empty {

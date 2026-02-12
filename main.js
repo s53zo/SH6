@@ -172,6 +172,8 @@
   const CALLSIGN_LOOKUP_TIMEOUT_MS = 8000;
   const RBN_SUMMARY_ONLY_THRESHOLD = 200000;
   const SPOT_TABLE_LIMIT = 2000;
+  const CANVAS_ZOOM_MIN_DRAG_PX = 8;
+  const CANVAS_ZOOM_MIN_SPAN_MS = 5 * 60 * 1000;
   const QSL_LABEL_TOOL_URL = 'https://s53zo.github.io/ADIF-to-QSL-label/make_qsl_labels.html';
   const QRZ_URLS = ['https://azure.s53m.com/cors/qrz', 'https://www.qrz.com/db'];
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
@@ -13443,6 +13445,238 @@
     return `${dd} ${hh}Z`;
   }
 
+  function ensureCanvasZoomStore(chartType = 'rbn') {
+    if (chartType === 'rbn') {
+      state.rbnCompareSignal = state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object'
+        ? state.rbnCompareSignal
+        : { selectedByContinent: {} };
+      if (!state.rbnCompareSignal.selectedByContinent) state.rbnCompareSignal.selectedByContinent = {};
+      if (!state.rbnCompareSignal.zoomByKey || typeof state.rbnCompareSignal.zoomByKey !== 'object') {
+        state.rbnCompareSignal.zoomByKey = {};
+      }
+      return state.rbnCompareSignal.zoomByKey;
+    }
+    if (!state.spotsCanvasZoomByKey || typeof state.spotsCanvasZoomByKey !== 'object') {
+      state.spotsCanvasZoomByKey = {};
+    }
+    return state.spotsCanvasZoomByKey;
+  }
+
+  function getCanvasZoomKey(canvas, chartType = 'rbn', bandKey = '') {
+    if (!(canvas instanceof HTMLCanvasElement)) return '';
+    if (chartType === 'rbn') {
+      const continent = String(canvas.dataset.continent || '').trim().toUpperCase() || 'N/A';
+      const spotter = normalizeSpotterBase(String(canvas.dataset.spotter || '').trim()) || 'none';
+      return `${continent}|${spotter}|${bandKey || 'ALL'}`;
+    }
+    const slot = String(canvas.dataset.slot || '').trim().toUpperCase() || 'A';
+    const source = String(canvas.dataset.source || '').trim().toLowerCase() || 'spots';
+    return `${slot}|${source}|${bandKey || 'ALL'}`;
+  }
+
+  function resolveCanvasZoomWindow(chartType, key, fallbackMinTs, fallbackMaxTs) {
+    const out = { minTs: fallbackMinTs, maxTs: fallbackMaxTs, zoomed: false };
+    if (!Number.isFinite(fallbackMinTs) || !Number.isFinite(fallbackMaxTs) || fallbackMaxTs <= fallbackMinTs) return out;
+    if (!key) return out;
+    const zoomStore = ensureCanvasZoomStore(chartType);
+    const zoom = zoomStore[key];
+    if (!zoom || typeof zoom !== 'object') return out;
+    let minTs = Number(zoom.minTs);
+    let maxTs = Number(zoom.maxTs);
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return out;
+    minTs = Math.max(fallbackMinTs, minTs);
+    maxTs = Math.min(fallbackMaxTs, maxTs);
+    if (maxTs <= minTs) return out;
+    if ((maxTs - minTs) < CANVAS_ZOOM_MIN_SPAN_MS) {
+      const mid = (minTs + maxTs) / 2;
+      minTs = mid - CANVAS_ZOOM_MIN_SPAN_MS / 2;
+      maxTs = mid + CANVAS_ZOOM_MIN_SPAN_MS / 2;
+      if (minTs < fallbackMinTs) {
+        minTs = fallbackMinTs;
+        maxTs = Math.min(fallbackMaxTs, minTs + CANVAS_ZOOM_MIN_SPAN_MS);
+      }
+      if (maxTs > fallbackMaxTs) {
+        maxTs = fallbackMaxTs;
+        minTs = Math.max(fallbackMinTs, maxTs - CANVAS_ZOOM_MIN_SPAN_MS);
+      }
+      if (maxTs <= minTs) return out;
+    }
+    out.minTs = minTs;
+    out.maxTs = maxTs;
+    out.zoomed = true;
+    return out;
+  }
+
+  function clearCanvasZoom(chartType, key, onZoomChanged) {
+    if (!key) return;
+    const zoomStore = ensureCanvasZoomStore(chartType);
+    if (!Object.prototype.hasOwnProperty.call(zoomStore, key)) return;
+    delete zoomStore[key];
+    if (typeof onZoomChanged === 'function') onZoomChanged();
+  }
+
+  function getCanvasPlotMetrics(canvas) {
+    if (!(canvas instanceof HTMLCanvasElement)) return null;
+    const plotLeft = Number(canvas.dataset.plotLeft);
+    const plotRight = Number(canvas.dataset.plotRight);
+    const plotTop = Number(canvas.dataset.plotTop);
+    const plotBottom = Number(canvas.dataset.plotBottom);
+    const viewMinTs = Number(canvas.dataset.viewMinTs);
+    const viewMaxTs = Number(canvas.dataset.viewMaxTs);
+    const fullMinTs = Number(canvas.dataset.fullMinTs);
+    const fullMaxTs = Number(canvas.dataset.fullMaxTs);
+    if (!Number.isFinite(plotLeft) || !Number.isFinite(plotRight) || plotRight <= plotLeft) return null;
+    if (!Number.isFinite(plotTop) || !Number.isFinite(plotBottom) || plotBottom <= plotTop) return null;
+    if (!Number.isFinite(viewMinTs) || !Number.isFinite(viewMaxTs) || viewMaxTs <= viewMinTs) return null;
+    if (!Number.isFinite(fullMinTs) || !Number.isFinite(fullMaxTs) || fullMaxTs <= fullMinTs) return null;
+    return { plotLeft, plotRight, plotTop, plotBottom, viewMinTs, viewMaxTs, fullMinTs, fullMaxTs };
+  }
+
+  function updateCanvasZoomBox(canvas, startX, currentX) {
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+    const parent = canvas.parentElement;
+    let box = parent ? parent.querySelector('.rbn-signal-zoom-box, .chart-zoom-box') : null;
+    if (!box && parent) {
+      if (!parent.style.position) parent.style.position = 'relative';
+      box = document.createElement('div');
+      box.className = 'chart-zoom-box';
+      box.hidden = true;
+      parent.appendChild(box);
+    }
+    const metrics = getCanvasPlotMetrics(canvas);
+    if (!box || !metrics) return;
+    const left = Math.max(metrics.plotLeft, Math.min(startX, currentX));
+    const right = Math.min(metrics.plotRight, Math.max(startX, currentX));
+    const width = Math.max(0, right - left);
+    box.style.left = `${left}px`;
+    box.style.top = `${metrics.plotTop}px`;
+    box.style.width = `${width}px`;
+    box.style.height = `${Math.max(0, metrics.plotBottom - metrics.plotTop)}px`;
+    box.hidden = width <= 0;
+  }
+
+  function hideCanvasZoomBox(canvas) {
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+    const parent = canvas.parentElement;
+    const box = parent ? parent.querySelector('.rbn-signal-zoom-box, .chart-zoom-box') : null;
+    if (!box) return;
+    box.hidden = true;
+    box.style.width = '0px';
+  }
+
+  function applyCanvasZoomFromPixels(canvas, chartType, key, startX, endX, onZoomChanged) {
+    const metrics = getCanvasPlotMetrics(canvas);
+    if (!metrics || !key) return;
+    const width = Math.abs(endX - startX);
+    if (width < CANVAS_ZOOM_MIN_DRAG_PX) return;
+    const plotW = Math.max(1, metrics.plotRight - metrics.plotLeft);
+    const leftPx = Math.max(metrics.plotLeft, Math.min(startX, endX));
+    const rightPx = Math.min(metrics.plotRight, Math.max(startX, endX));
+    const leftRatio = (leftPx - metrics.plotLeft) / plotW;
+    const rightRatio = (rightPx - metrics.plotLeft) / plotW;
+    const viewSpan = Math.max(1, metrics.viewMaxTs - metrics.viewMinTs);
+    let minTs = metrics.viewMinTs + leftRatio * viewSpan;
+    let maxTs = metrics.viewMinTs + rightRatio * viewSpan;
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs) || maxTs <= minTs) return;
+    if ((maxTs - minTs) < CANVAS_ZOOM_MIN_SPAN_MS) {
+      const mid = (minTs + maxTs) / 2;
+      minTs = mid - CANVAS_ZOOM_MIN_SPAN_MS / 2;
+      maxTs = mid + CANVAS_ZOOM_MIN_SPAN_MS / 2;
+    }
+    minTs = Math.max(metrics.fullMinTs, minTs);
+    maxTs = Math.min(metrics.fullMaxTs, maxTs);
+    if (maxTs <= minTs) return;
+    const zoomStore = ensureCanvasZoomStore(chartType);
+    zoomStore[key] = { minTs, maxTs };
+    if (typeof onZoomChanged === 'function') onZoomChanged();
+  }
+
+  function bindDragZoomOnCanvas(canvas, options = {}) {
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+    const chartType = String(options.chartType || 'rbn');
+    if (canvas.dataset.zoomBound === chartType) return;
+    canvas.dataset.zoomBound = chartType;
+    const resolveBandKey = typeof options.getBandKey === 'function'
+      ? options.getBandKey
+      : (() => '');
+    const onZoomChanged = typeof options.onZoomChanged === 'function'
+      ? options.onZoomChanged
+      : (() => {});
+    const toLocalPoint = (evt) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    };
+    const clampX = (x, metrics) => Math.max(metrics.plotLeft, Math.min(metrics.plotRight, x));
+    let drag = null;
+    const finishDrag = (evt, applyZoom) => {
+      if (!drag) return;
+      const active = drag;
+      drag = null;
+      canvas.classList.remove('is-zoom-dragging');
+      hideCanvasZoomBox(canvas);
+      try {
+        if (Number.isFinite(active.pointerId) && canvas.hasPointerCapture(active.pointerId)) {
+          canvas.releasePointerCapture(active.pointerId);
+        }
+      } catch (err) {
+        // ignore capture release errors
+      }
+      if (!applyZoom) return;
+      const point = toLocalPoint(evt);
+      const metrics = getCanvasPlotMetrics(canvas);
+      if (!metrics) return;
+      const endX = clampX(point.x, metrics);
+      const bandKey = normalizeBandToken(resolveBandKey() || '');
+      const key = getCanvasZoomKey(canvas, chartType, bandKey);
+      applyCanvasZoomFromPixels(canvas, chartType, key, active.startX, endX, () => {
+        canvas.dataset.rbnDrawKey = '';
+        onZoomChanged();
+      });
+    };
+    canvas.addEventListener('pointerdown', (evt) => {
+      if (evt.button !== 0) return;
+      const metrics = getCanvasPlotMetrics(canvas);
+      if (!metrics) return;
+      const point = toLocalPoint(evt);
+      if (point.x < metrics.plotLeft || point.x > metrics.plotRight || point.y < metrics.plotTop || point.y > metrics.plotBottom) return;
+      const startX = clampX(point.x, metrics);
+      drag = { pointerId: evt.pointerId, startX };
+      canvas.classList.add('is-zoom-dragging');
+      updateCanvasZoomBox(canvas, startX, startX);
+      try {
+        canvas.setPointerCapture(evt.pointerId);
+      } catch (err) {
+        // ignore capture errors
+      }
+      evt.preventDefault();
+    });
+    canvas.addEventListener('pointermove', (evt) => {
+      if (!drag || evt.pointerId !== drag.pointerId) return;
+      const metrics = getCanvasPlotMetrics(canvas);
+      if (!metrics) return;
+      const point = toLocalPoint(evt);
+      const currentX = clampX(point.x, metrics);
+      updateCanvasZoomBox(canvas, drag.startX, currentX);
+    });
+    canvas.addEventListener('pointerup', (evt) => {
+      if (!drag || evt.pointerId !== drag.pointerId) return;
+      finishDrag(evt, true);
+    });
+    canvas.addEventListener('pointercancel', (evt) => {
+      if (!drag || evt.pointerId !== drag.pointerId) return;
+      finishDrag(evt, false);
+    });
+    canvas.addEventListener('dblclick', (evt) => {
+      evt.preventDefault();
+      const bandKey = normalizeBandToken(resolveBandKey() || '');
+      const key = getCanvasZoomKey(canvas, chartType, bandKey);
+      clearCanvasZoom(chartType, key, () => {
+        canvas.dataset.rbnDrawKey = '';
+        onZoomChanged();
+      });
+    });
+  }
+
   function drawRbnSignalCanvas(canvas, model) {
     if (!(canvas instanceof HTMLCanvasElement) || !model) return;
     const ctx = canvas.getContext('2d');
@@ -13475,6 +13709,14 @@
 
     const xOf = (ts) => margin.left + ((ts - minTs) / Math.max(1, (maxTs - minTs))) * plotW;
     const yOf = (y) => margin.top + (1 - ((y - minY) / Math.max(1e-9, (maxY - minY)))) * plotH;
+    canvas.dataset.plotLeft = String(margin.left);
+    canvas.dataset.plotRight = String(margin.left + plotW);
+    canvas.dataset.plotTop = String(margin.top);
+    canvas.dataset.plotBottom = String(margin.top + plotH);
+    canvas.dataset.viewMinTs = String(minTs);
+    canvas.dataset.viewMaxTs = String(maxTs);
+    canvas.dataset.fullMinTs = String(Number.isFinite(model.fullMinTs) ? model.fullMinTs : minTs);
+    canvas.dataset.fullMaxTs = String(Number.isFinite(model.fullMaxTs) ? model.fullMaxTs : maxTs);
 
     // Axes
     ctx.strokeStyle = '#b9cbe7';
@@ -13562,6 +13804,7 @@
           const ts = data[i];
           const snr = data[i + 1];
           if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+          if (ts < minTs || ts > maxTs) continue;
           const x = xOf(ts);
           const y = yOf(snr);
           const shouldBreak = started && Number.isFinite(prevTs) && (ts - prevTs) > trendBreakMs;
@@ -13629,6 +13872,7 @@
           const snr = data[pointIdx + 1];
           pointIdx += 2;
           if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
+          if (ts < minTs || ts > maxTs) continue;
           const { x: jx, y: jy } = jitterOf(ts, snr);
           const x = xOf(ts) + jx;
           const y = yOf(snr) + jy;
@@ -13690,21 +13934,29 @@
       const card = canvas.closest('.rbn-signal-card');
       const legendBandsNode = card ? card.querySelector('.rbn-signal-legend-bands') : null;
       const metaNode = card ? card.querySelector('.rbn-signal-meta') : null;
+      const hintNode = card ? card.querySelector('.rbn-signal-hint') : null;
       const sizeKey = `${canvas.clientWidth || 0}x${Number(canvas.dataset.height) || 260}`;
-      const drawKey = `${selectedSpotter}|${bandKey || 'ALL'}|${slotKeys}|${sizeKey}`;
+      const zoomKey = getCanvasZoomKey(canvas, 'rbn', bandKey);
+      const zoomWindow = resolveCanvasZoomWindow('rbn', zoomKey, safeMinTs, safeMaxTs);
+      const viewMinTs = zoomWindow.minTs;
+      const viewMaxTs = zoomWindow.maxTs;
+      const drawKey = `${selectedSpotter}|${bandKey || 'ALL'}|${slotKeys}|${sizeKey}|${Math.round(viewMinTs)}-${Math.round(viewMaxTs)}`;
       if (canvas.dataset.rbnDrawKey === drawKey) return;
       canvas.dataset.rbnDrawKey = drawKey;
       if (!base || !selectedSpotter) {
         drawRbnSignalCanvas(canvas, {
           title: 'RBN signal',
-          minTs: safeMinTs,
-          maxTs: safeMaxTs,
+          minTs: viewMinTs,
+          maxTs: viewMaxTs,
+          fullMinTs: safeMinTs,
+          fullMaxTs: safeMaxTs,
           minY: -30,
           maxY: 40,
           series: []
         });
         if (legendBandsNode) legendBandsNode.innerHTML = '';
         if (metaNode) metaNode.textContent = '0 points plotted · SNR range: N/A';
+        if (hintNode) hintNode.textContent = 'Drag to zoom time, double-click to reset.';
         canvas.setAttribute('role', 'img');
         canvas.setAttribute('aria-label', 'RBN signal scatter plot. No data plotted.');
         return;
@@ -13797,13 +14049,14 @@
         if (!data.length || !band) return null;
         const pointsInSeries = Math.floor(data.length / 2);
         const bucketMs = pointsInSeries <= 250 ? 15 * 60 * 1000 : (pointsInSeries <= 700 ? 10 * 60 * 1000 : 5 * 60 * 1000);
-        const trendBins = Math.max(1, Math.ceil((safeMaxTs - safeMinTs) / bucketMs));
+        const trendBins = Math.max(1, Math.ceil((viewMaxTs - viewMinTs) / bucketMs));
         const bins = Array.from({ length: trendBins }, () => []);
         for (let i = 0; i < data.length; i += 2) {
           const ts = data[i];
           const snr = data[i + 1];
           if (!Number.isFinite(ts) || !Number.isFinite(snr)) continue;
-          const bin = Math.floor((ts - safeMinTs) / bucketMs);
+          if (ts < viewMinTs || ts > viewMaxTs) continue;
+          const bin = Math.floor((ts - viewMinTs) / bucketMs);
           if (bin < 0 || bin >= trendBins) continue;
           bins[bin].push(snr);
         }
@@ -13818,7 +14071,7 @@
           if (i + 1 < trendBins && bins[i + 1] && bins[i + 1].length) window.push(...bins[i + 1]);
           const v = p75(window);
           if (!Number.isFinite(v)) continue;
-          const ts = safeMinTs + (i + 0.5) * bucketMs;
+          const ts = viewMinTs + (i + 0.5) * bucketMs;
           points.push(ts, v);
         }
         // Require at least 2 plotted points to show a line.
@@ -13834,8 +14087,10 @@
       }).filter(Boolean);
       drawRbnSignalCanvas(canvas, {
         title,
-        minTs: safeMinTs,
-        maxTs: safeMaxTs,
+        minTs: viewMinTs,
+        maxTs: viewMaxTs,
+        fullMinTs: safeMinTs,
+        fullMaxTs: safeMaxTs,
         minY,
         maxY,
         series,
@@ -13852,6 +14107,11 @@
         const fmt = (v) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${Math.round(v)}` : 'N/A');
         const rangeText = (Number.isFinite(minSnr) && Number.isFinite(maxSnr)) ? `${fmt(minSnr)}..${fmt(maxSnr)} dB` : 'N/A';
         metaNode.textContent = `${formatNumberSh6(pointTotal)} points plotted · SNR range: ${rangeText}`;
+      }
+      if (hintNode) {
+        hintNode.textContent = zoomWindow.zoomed
+          ? 'Drag to zoom time, double-click to reset (zoom active).'
+          : 'Drag to zoom time, double-click to reset.';
       }
       canvas.setAttribute('role', 'img');
       canvas.setAttribute('aria-label', `${title}. ${formatNumberSh6(pointTotal)} points plotted. ${metaNode ? metaNode.textContent : ''}`);
@@ -14073,11 +14333,14 @@
               <span class="rbn-signal-copy-icon" aria-hidden="true"><svg viewBox="0 0 16 16" role="presentation" focusable="false"><rect x="2.25" y="2.25" width="8.5" height="8.5" rx="1.2" ry="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="5.25" y="5.25" width="8.5" height="8.5" rx="1.2" ry="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>
               <span class="rbn-signal-copy-label">Copy as image</span>
             </button>
+            <button type="button" class="button rbn-signal-reset-btn" ${copyDisabled}>Reset zoom</button>
+            <span class="rbn-signal-hint cqapi-muted">Drag to zoom time, double-click to reset.</span>
             <span class="rbn-signal-status cqapi-muted" ${statusHidden}>${escapeHtml(statusMsg)}</span>
           </div>
           <div class="rbn-signal-body">
             <div class="rbn-signal-plot">
               <canvas class="rbn-signal-canvas" data-continent="${escapeAttr(cont)}" data-spotter="${spotterAttr}" data-height="260" role="img" aria-label="RBN signal scatter plot"></canvas>
+              <div class="rbn-signal-zoom-box" hidden></div>
               <div class="rbn-signal-meta cqapi-muted">0 points plotted · SNR range: N/A</div>
             </div>
             <div class="rbn-signal-legend">
@@ -18162,12 +18425,28 @@
       if (dom.spotsStatusRow) dom.spotsStatusRow.classList.remove('hidden');
       updateDataStatus();
       bindSpotControls('spots');
+      const spotsCanvases = Array.from(dom.viewContainer.querySelectorAll('.spots-signal-canvas'));
+      spotsCanvases.forEach((canvas) => {
+        bindDragZoomOnCanvas(canvas, {
+          chartType: 'spots',
+          getBandKey: () => normalizeBandToken(state.globalBandFilter || ''),
+          onZoomChanged: () => renderActiveReport()
+        });
+      });
       alignSpotsCompareSections(reportId);
     }
     if (reportId === 'rbn_spots') {
       if (dom.rbnStatusRow) dom.rbnStatusRow.classList.remove('hidden');
       updateDataStatus();
       bindSpotControls('rbn');
+      const spotsCanvases = Array.from(dom.viewContainer.querySelectorAll('.spots-signal-canvas'));
+      spotsCanvases.forEach((canvas) => {
+        bindDragZoomOnCanvas(canvas, {
+          chartType: 'spots',
+          getBandKey: () => normalizeBandToken(state.globalBandFilter || ''),
+          onZoomChanged: () => renderActiveReport()
+        });
+      });
       alignSpotsCompareSections(reportId);
     }
     if (reportId === 'rbn_compare_signal') {
@@ -18209,6 +18488,18 @@
           copyRbnSignalCardImage(btn);
         });
       });
+      const resetButtons = dom.viewContainer.querySelectorAll('.rbn-signal-reset-btn');
+      resetButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const canvas = btn.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
+          if (!(canvas instanceof HTMLCanvasElement)) return;
+          const bandKey = normalizeBandToken(state.globalBandFilter || '');
+          const key = getCanvasZoomKey(canvas, 'rbn', bandKey);
+          clearCanvasZoom('rbn', key, scheduleRbnCompareSignalDraw);
+          canvas.dataset.rbnDrawKey = '';
+        });
+      });
       if (rbnCompareSignalResizeObserver) {
         rbnCompareSignalResizeObserver.disconnect();
         rbnCompareSignalResizeObserver = null;
@@ -18232,6 +18523,13 @@
       }
       const canvases = Array.from(dom.viewContainer.querySelectorAll('.rbn-signal-canvas'));
       canvases.forEach((c) => { if (c instanceof HTMLCanvasElement) c.dataset.rbnVisible = '0'; });
+      canvases.forEach((canvas) => {
+        bindDragZoomOnCanvas(canvas, {
+          chartType: 'rbn',
+          getBandKey: () => normalizeBandToken(state.globalBandFilter || ''),
+          onZoomChanged: scheduleRbnCompareSignalDraw
+        });
+      });
       if (typeof IntersectionObserver === 'function') {
         rbnCompareSignalIntersectionObserver = new IntersectionObserver((entries) => {
           let touched = false;

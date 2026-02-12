@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.25 (2026-02-12)
+- RBN compare signal: add drag-to-zoom on the time axis (X only), with double-click reset and per-card `Reset zoom` button.
+- RBN compare signal: add inline chart hint text and visible drag-selection overlay/cursor feedback.
+- Spots canvas hook: add shared canvas zoom handlers so future Spots canvases can use the same drag-zoom/reset behavior.
+
 ## v5.2.24 (2026-02-11)
 - Header: make the SH6 logo clickable to `https://s53m.com/SH6`.
 - Load panel: add `Reset selections` action to return to a clean first-load page state (clears permalink/query/hash).

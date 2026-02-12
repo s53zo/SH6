@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.2.24';
+  const APP_VERSION = 'v5.2.25';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';

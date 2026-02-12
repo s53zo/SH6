@@ -123,7 +123,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v5.2.25';
+  const APP_VERSION = 'v5.2.26';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -8120,8 +8120,8 @@
         }
       }
 
-      // Hourly aggregation (UTC)
-      if (typeof q.ts === 'number') {
+      // Hourly aggregation (UTC) excludes duplicate QSOs.
+      if (typeof q.ts === 'number' && !q.isDupe) {
         const hourBucket = Math.floor(q.ts / 3600000); // ms to hours
         if (!hours.has(hourBucket)) {
           hours.set(hourBucket, { qsos: 0, byBand: new Map() });
@@ -8497,6 +8497,7 @@
     const minutePoints = new Map();
     qsos.forEach((q, idx) => {
       if (!Number.isFinite(q?.ts)) return;
+      if (q?.isDupe) return;
       const points = Number(effectivePointsByIndex[idx] || 0);
       if (!Number.isFinite(points)) return;
       const hourBucket = Math.floor(q.ts / 3600000);
@@ -15090,10 +15091,11 @@
     const data = (qsos || [])
       .map((q, idx) => ({
         ts: q?.ts,
+        isDupe: Boolean(q?.isDupe),
         qsoNumber: q?.qsoNumber,
         points: Number(Array.isArray(pointsByIndex) ? pointsByIndex[idx] : q?.points) || 0
       }))
-      .filter((item) => Number.isFinite(item.ts))
+      .filter((item) => Number.isFinite(item.ts) && !item.isDupe)
       .sort((a, b) => a.ts - b.ts);
     let best = { points: 0, startTs: null, endTs: null, startQso: null, endQso: null };
     let sum = 0;
@@ -15159,7 +15161,9 @@
 
   function computePeakWindow(qsos, windowMinutes) {
     const windowMs = windowMinutes * 60000;
-    const data = qsos.filter((q) => typeof q.ts === 'number').sort((a, b) => a.ts - b.ts);
+    const data = (qsos || [])
+      .filter((q) => typeof q.ts === 'number' && !q.isDupe)
+      .sort((a, b) => a.ts - b.ts);
     let best = { count: 0, startTs: null, endTs: null, startQso: null, endQso: null };
     let j = 0;
     for (let i = 0; i < data.length; i++) {

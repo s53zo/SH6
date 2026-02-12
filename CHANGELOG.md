@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v5.2.26 (2026-02-12)
+- Rates and time-series reports: exclude duplicate QSOs from UTC hour/minute/10-minute rate buckets.
+- Peak-rate windows: exclude duplicate QSOs from best QSO window and best points window calculations (10/20/30/60/120 min).
+- Point time-series: exclude duplicate QSOs from points-by-hour and points-by-minute aggregates.
+
 ## v5.2.25 (2026-02-12)
 - RBN compare signal: add drag-to-zoom on the time axis (X only), with double-click reset and per-card `Reset zoom` button.
 - RBN compare signal: add inline chart hint text and visible drag-selection overlay/cursor feedback.

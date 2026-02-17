@@ -268,6 +268,9 @@
     zones_itu_by_month: ['A', 'B']
   });
   const DXER_HIDDEN_REPORTS = new Set([
+    'main',
+    'summary',
+    'points_rates',
     'qs_by_hour_sheet',
     'points_by_hour_sheet',
     'graphs_qs_by_hour',

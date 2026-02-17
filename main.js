@@ -941,16 +941,22 @@
     state.sessionNotice = [];
     state.allCallsignsCountryFilter = '';
     state.analysisMode = normalizeAnalysisMode(migrated.analysisMode) || ANALYSIS_MODE_DEFAULT;
-    if (!hadAnalysisMode) {
-      state.sessionNotice.push('Session load used default analysis mode: Contester.');
-    }
     if (dom.analysisModeRadios && dom.analysisModeRadios.length) {
       dom.analysisModeRadios.forEach((radio) => {
         radio.checked = String(radio.value) === state.analysisMode;
       });
     }
+    if (!hadAnalysisMode) {
+      state.sessionNotice.push('Session load used default analysis mode: Contester.');
+    }
     const compareCount = Math.min(4, Math.max(1, Number(migrated.compareCount) || 1));
-    setCompareCount(compareCount, true);
+    if (state.analysisMode === ANALYSIS_MODE_DXER) {
+      if (compareCount > 1) state.compareCountBeforeDxer = compareCount;
+      setCompareCount(1, true);
+    } else {
+      setCompareCount(compareCount, true);
+    }
+    syncLoadPanelFlowForAnalysisMode();
     state.compareFocus = migrated.compareFocus || state.compareFocus;
     state.globalBandFilter = migrated.globalBandFilter || '';
     state.breakThreshold = Number(migrated.breakThreshold) || state.breakThreshold;
@@ -1208,6 +1214,7 @@
     analysisMode: ANALYSIS_MODE_DEFAULT,
     analysisModeSuggestion: null,
     compareCount: 1,
+    compareCountBeforeDxer: 1,
     compareSyncEnabled: true,
     compareStickyEnabled: true,
     chartMetricMode: CHART_MODE_ABSOLUTE,
@@ -1316,6 +1323,12 @@
     compareHelper: document.getElementById('compareHelper'),
     appVersion: document.getElementById('appVersion'),
     bandRibbon: document.getElementById('bandRibbon'),
+    loadPanelSubtitle: document.getElementById('loadPanelSubtitle'),
+    loadStepAnalysisTitle: document.getElementById('loadStepAnalysisTitle'),
+    compareModeLoadStep: document.getElementById('compareModeLoadStep'),
+    loadStepCompareTitle: document.getElementById('loadStepCompareTitle'),
+    loadStepLoadTitle: document.getElementById('loadStepLoadTitle'),
+    loadStepReportsTitle: document.getElementById('loadStepReportsTitle'),
     loadSummary: document.getElementById('loadSummary'),
     loadSummaryItems: document.getElementById('loadSummaryItems'),
     loadSummaryHint: document.getElementById('loadSummaryHint'),
@@ -20676,15 +20689,60 @@
     updateLoadSummary();
   }
 
+  function syncLoadPanelFlowForAnalysisMode() {
+    const isDxer = state.analysisMode === ANALYSIS_MODE_DXER;
+    if (dom.compareModeLoadStep) {
+      dom.compareModeLoadStep.hidden = isDxer;
+    }
+    if (dom.loadStepAnalysisTitle) {
+      dom.loadStepAnalysisTitle.textContent = 'Step 1 · Choose analysis mode';
+    }
+    if (dom.loadStepCompareTitle) {
+      dom.loadStepCompareTitle.textContent = isDxer ? 'Step 2 · Log compare is disabled in DXer mode' : 'Step 2 · Choose how many logs to compare';
+    }
+    if (dom.loadStepLoadTitle) {
+      dom.loadStepLoadTitle.textContent = isDxer ? 'Step 2 · Load logs' : 'Step 3 · Load logs';
+    }
+    if (dom.loadStepReportsTitle) {
+      dom.loadStepReportsTitle.textContent = isDxer ? 'Step 3 · View reports' : 'Step 4 · View reports';
+    }
+    if (dom.loadPanelSubtitle) {
+      dom.loadPanelSubtitle.textContent = isDxer
+        ? 'Choose analysis mode first, then load one log to continue.'
+        : 'Choose analysis mode first, then choose compare mode and load logs.';
+    }
+  }
+
+  function enforceCompareCountForAnalysisMode(mode, previousMode = '') {
+    if (mode === ANALYSIS_MODE_DXER) {
+      if (state.compareCount > 1) {
+        state.compareCountBeforeDxer = Math.min(4, Math.max(1, Number(state.compareCount) || 1));
+      }
+      if (state.compareCount !== 1) {
+        setCompareCount(1, previousMode !== ANALYSIS_MODE_DXER);
+      }
+      return;
+    }
+    const restoreCount = Math.min(4, Math.max(1, Number(state.compareCountBeforeDxer) || 1));
+    if (state.compareCount !== restoreCount) {
+      setCompareCount(restoreCount, previousMode === ANALYSIS_MODE_DXER);
+    }
+  }
+
   function setAnalysisMode(mode, updateRadios = false) {
     const safeMode = normalizeAnalysisMode(mode) || ANALYSIS_MODE_DEFAULT;
+    const previousMode = state.analysisMode;
     state.analysisMode = safeMode;
     clearAnalysisModeSuggestion();
+    if (previousMode !== safeMode) {
+      enforceCompareCountForAnalysisMode(safeMode, previousMode);
+    }
     if (updateRadios && dom.analysisModeRadios && dom.analysisModeRadios.length) {
       dom.analysisModeRadios.forEach((radio) => {
         radio.checked = String(radio.value) === safeMode;
       });
     }
+    syncLoadPanelFlowForAnalysisMode();
     rebuildReports();
     if (state.qsoData || state.compareSlots.some((slot) => slot && slot.qsoData)) {
       recomputeDerived('analysisMode');

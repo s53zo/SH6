@@ -78,12 +78,30 @@
             <div class="load-panel-head">
               <div class="load-panel-head-main">
                 <div class="load-panel-title">Start log selection</div>
-                <div class="load-panel-subtitle">Set compare mode first, then load logs into active slots.</div>
+                <div class="load-panel-subtitle" id="loadPanelSubtitle">Choose analysis mode first, then load one or more logs.</div>
               </div>
               <button type="button" class="button load-panel-reset-btn" id="resetSelectionsBtn">Reset selections</button>
-            </div>
+          </div>
             <div class="load-step">
-              <div class="load-step-title">Step 1 · Choose compare mode</div>
+              <div class="load-step-title" id="loadStepAnalysisTitle">Step 1 · Choose analysis mode</div>
+              <div class="compare-toggle" role="group" aria-label="Analysis mode">
+                <div class="compare-toggle-title">Analysis mode</div>
+                <div class="compare-options">
+                <label class="compare-option">
+                  <input type="radio" class="analysis-mode-option" name="analysisModeLoad" value="contester" checked>
+                  <span title="Contester mode is for contest workflows: keep strict call + band + mode duplicate detection and contest-focused reports.">Contester</span>
+                </label>
+                <label class="compare-option">
+                  <input type="radio" class="analysis-mode-option" name="analysisModeLoad" value="dxer">
+                  <span title="DXer mode is for long-term DX logs: uses rolling 15-minute duplicate detection and month-based geography views.">DXer</span>
+                </label>
+                <button type="button" class="analysis-mode-diff-hint" title="Contester is optimized for contest logs with short sessions, while DXer is for long logs and DX operating: duplicate logic relaxes, and month summaries stay visible.">What&apos;s the difference?</button>
+                </div>
+                <div class="analysis-mode-suggestion export-note" id="analysisModeSuggestion" hidden></div>
+              </div>
+            </div>
+            <div class="load-step" id="compareModeLoadStep">
+              <div class="load-step-title" id="loadStepCompareTitle">Step 2 · Choose how many logs to compare</div>
               <div class="compare-toggle" role="group" aria-label="Compare logs">
                 <div class="compare-toggle-title">Compare logs</div>
                 <div class="compare-options">
@@ -106,24 +124,9 @@
                 </div>
                 <div class="compare-helper" id="compareHelper">Single log mode</div>
               </div>
-              <div class="compare-toggle" role="group" aria-label="Analysis mode">
-                <div class="compare-toggle-title">Analysis mode</div>
-                <div class="compare-options">
-                <label class="compare-option">
-                  <input type="radio" class="analysis-mode-option" name="analysisModeLoad" value="contester" checked>
-                  <span title="Contester mode is for contest workflows: keep strict call + band + mode duplicate detection and contest-focused reports.">Contester</span>
-                </label>
-                <label class="compare-option">
-                  <input type="radio" class="analysis-mode-option" name="analysisModeLoad" value="dxer">
-                  <span title="DXer mode is for long-term DX logs: uses rolling 15-minute duplicate detection and month-based geography views.">DXer</span>
-                </label>
-                <button type="button" class="analysis-mode-diff-hint" title="Contester is optimized for contest logs with short sessions, while DXer is for long logs and DX operating: duplicate logic relaxes, and month summaries stay visible.">What&apos;s the difference?</button>
-                </div>
-                <div class="analysis-mode-suggestion export-note" id="analysisModeSuggestion" hidden></div>
-              </div>
             </div>
             <div class="load-step">
-              <div class="load-step-title">Step 2 · Load logs</div>
+              <div class="load-step-title" id="loadStepLoadTitle">Step 3 · Load logs</div>
               <div class="load-step-note">Choose a source per slot: upload, archive search, or demo log.
                 <span class="load-tip-badge"><span class="load-tip-title">Author recommends</span> try archive search! Great for log comparison.</span>
               </div>
@@ -316,6 +319,7 @@
               <div class="slot-summary status" id="fileStatusD">No log loaded</div>
             </div>
             <div class="load-summary" id="loadSummary">
+              <div class="load-step-title" id="loadStepReportsTitle">Step 4 · View reports</div>
               <div class="load-summary-title">Ready</div>
               <div class="load-summary-items" id="loadSummaryItems"></div>
               <div class="load-summary-actions">

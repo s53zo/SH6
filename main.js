@@ -271,6 +271,7 @@
     'main',
     'summary',
     'points_rates',
+    'competitor_coach',
     'qs_by_hour_sheet',
     'points_by_hour_sheet',
     'graphs_qs_by_hour',

@@ -1939,7 +1939,7 @@
         }
         if (dom.periodFilterRibbon) {
           const isPeriodReport = report && shouldPeriodFilterReport(report.id);
-          const shouldShow = report.id !== 'load_logs' && isPeriodReport && state.analysisMode === ANALYSIS_MODE_DXER;
+          const shouldShow = report.id !== 'load_logs' && state.analysisMode === ANALYSIS_MODE_DXER;
           dom.periodFilterRibbon.style.display = shouldShow ? '' : 'none';
           if (shouldShow) {
             updatePeriodRibbon();
@@ -1989,8 +1989,12 @@
   function updatePeriodRibbon() {
     if (!dom.periodFilterRibbon) return;
     const report = reports[state.activeIndex];
-    if (!report || !shouldPeriodFilterReport(report.id)) {
+    if (!report) {
       dom.periodFilterRibbon.innerHTML = '';
+      return;
+    }
+    if (!shouldPeriodFilterReport(report.id)) {
+      dom.periodFilterRibbon.innerHTML = '<span class="period-message">Period filters are available for countries by month reports.</span>';
       return;
     }
     syncPeriodFiltersWithAvailableData();

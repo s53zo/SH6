@@ -1340,6 +1340,7 @@
     loadStepCompareTitle: document.getElementById('loadStepCompareTitle'),
     loadStepLoadTitle: document.getElementById('loadStepLoadTitle'),
     loadStepReportsTitle: document.getElementById('loadStepReportsTitle'),
+    loadTipBadge: document.getElementById('loadTipBadge'),
     loadSummary: document.getElementById('loadSummary'),
     loadSummaryItems: document.getElementById('loadSummaryItems'),
     loadSummaryHint: document.getElementById('loadSummaryHint'),
@@ -20948,6 +20949,9 @@
 
   function syncLoadPanelFlowForAnalysisMode() {
     const isDxer = state.analysisMode === ANALYSIS_MODE_DXER;
+    if (dom.loadTipBadge) {
+      dom.loadTipBadge.hidden = isDxer;
+    }
     if (dom.compareModeLoadStep) {
       dom.compareModeLoadStep.hidden = isDxer;
     }

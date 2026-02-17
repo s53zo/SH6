@@ -321,6 +321,7 @@ a:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .compare-option {
@@ -368,17 +369,25 @@ a:hover {
 }
 
 .analysis-mode-diff-hint {
-  margin-top: 4px;
-  margin-bottom: 0;
-  color: var(--sh6-text-secondary);
-  font-size: 11px;
+  margin: 0;
+  padding: 0;
+  color: #6f8fb8;
   text-decoration: underline;
-  text-decoration-color: var(--sh6-text-secondary);
+  text-decoration-color: #6f8fb8;
   text-underline-offset: 2px;
   text-decoration-thickness: 1px;
-  opacity: 0.75;
+  opacity: 0.9;
   cursor: help;
+  font-size: 11px;
+  white-space: nowrap;
+  text-align: center;
+  align-self: center;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1.2;
+  border-bottom: 1px solid transparent;
 }
+
 
 .spots-controls {
   margin: 8px 0;

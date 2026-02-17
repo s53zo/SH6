@@ -846,6 +846,10 @@
     return ANALYSIS_MODE_LABELS[key] || '';
   }
 
+  function resolveAnalysisMode(mode) {
+    return normalizeAnalysisMode(mode);
+  }
+
   function resolveAnalysisModeSuggestion(logData, derived) {
     const qsos = Array.isArray(logData?.qsos) ? logData.qsos : [];
     if (!qsos.length) return null;

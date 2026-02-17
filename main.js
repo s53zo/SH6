@@ -853,19 +853,6 @@
   function resolveAnalysisModeSuggestion(logData, derived) {
     const qsos = Array.isArray(logData?.qsos) ? logData.qsos : [];
     if (!qsos.length) return null;
-    const contestMeta = derived?.contestMeta || deriveContestMeta(qsos);
-    const contestId = String(contestMeta?.contestId || '').trim();
-    const category = String(contestMeta?.category || '').trim();
-    const categoryMode = String(contestMeta?.categoryMode || '').trim();
-    const categoryStation = String(contestMeta?.categoryStation || '').trim();
-    const hasContestSignal = contestId || category || categoryMode || categoryStation;
-    if (hasContestSignal) {
-      return {
-        mode: ANALYSIS_MODE_CONTESTER,
-        reason: `Contest metadata detected (${hasContestSignal}).`
-      };
-    }
-
     const minTs = Number(derived?.timeRange?.minTs);
     const maxTs = Number(derived?.timeRange?.maxTs);
     const qsoCount = Number.isFinite(qsos.length) ? qsos.length : 0;

@@ -367,6 +367,19 @@ a:hover {
   color: var(--sh6-text-secondary);
 }
 
+.analysis-mode-diff-hint {
+  margin-top: 4px;
+  margin-bottom: 0;
+  color: var(--sh6-text-secondary);
+  font-size: 11px;
+  text-decoration: underline;
+  text-decoration-color: var(--sh6-text-secondary);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  opacity: 0.75;
+  cursor: help;
+}
+
 .spots-controls {
   margin: 8px 0;
   padding: 8px 10px;

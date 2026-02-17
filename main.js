@@ -21239,7 +21239,18 @@
         if (seq !== searchSeq) return;
         statusEl.textContent = 'Querying archive...';
         const where = `callsign = ?`;
-        const sql = `SELECT path, contest, year, mode, season, subcontest FROM logs WHERE ${where}`;
+        let hasSubcontest = false;
+        try {
+          const info = db.exec("PRAGMA table_info(logs)");
+          hasSubcontest = Array.isArray(info) && info.length > 0 && info[0].columns.includes('name')
+            ? info[0].values.some((row) => row[1] === 'subcontest')
+            : false;
+        } catch (err) {
+          console.warn('Archive schema inspection failed, using legacy archive query shape.', err);
+        }
+        const sql = hasSubcontest
+          ? `SELECT path, contest, year, mode, season, subcontest FROM logs WHERE ${where}`
+          : `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`;
         const stmt = db.prepare(sql);
         stmt.bind([callsign]);
         const rows = [];

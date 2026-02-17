@@ -94,7 +94,14 @@
                   <input type="radio" class="analysis-mode-option" name="analysisModeLoad" value="dxer">
                   <span title="DXer mode is for long-term DX logs: uses rolling 15-minute duplicate detection and month-based geography views.">DXer</span>
                 </label>
-                <button type="button" class="analysis-mode-diff-hint" title="Contester is optimized for contest logs with short sessions, while DXer is for long logs and DX operating: duplicate logic relaxes, and month summaries stay visible.">What&apos;s the difference?</button>
+                <div class="analysis-mode-diff-wrap">
+                  <button
+                    type="button"
+                    class="analysis-mode-diff-hint"
+                    data-analysis-mode-diff-hint="Contester is optimized for contest workflows with strict duplicate checks and contest-focused reports, while DXer is for long-term DX logs with relaxed duplicate handling and month/year summaries."
+                  >What&apos;s the difference?</button>
+                  <div class="analysis-mode-diff-tooltip" id="analysisModeDiffTooltip" role="tooltip" aria-hidden="true"></div>
+                </div>
                 </div>
                 <div class="analysis-mode-suggestion export-note" id="analysisModeSuggestion" hidden></div>
               </div>

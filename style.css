@@ -398,6 +398,37 @@ body.analysis-mode-dxer .load-tip-badge {
   min-width: auto;
 }
 
+.analysis-mode-diff-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.analysis-mode-diff-tooltip {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 6px);
+  left: 0;
+  max-width: 280px;
+  width: max-content;
+  padding: 8px 10px;
+  border-radius: var(--sh6-radius-md);
+  border: 1px solid #c6d8f2;
+  background: #f7fbff;
+  color: var(--sh6-text-accent);
+  font-size: 11px;
+  line-height: 1.35;
+  box-shadow: 0 4px 14px rgba(18, 53, 100, 0.12);
+  white-space: normal;
+  text-align: left;
+  display: none;
+}
+
+.analysis-mode-diff-tooltip[aria-hidden="false"],
+.analysis-mode-diff-tooltip.analysis-mode-diff-tooltip-visible {
+  display: block;
+}
+
 .analysis-mode-diff-hint:hover,
 .analysis-mode-diff-hint:focus-visible {
   color: #4a6b95;

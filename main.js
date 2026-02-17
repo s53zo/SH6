@@ -64,6 +64,7 @@
     [ANALYSIS_MODE_CONTESTER]: 'Contester',
     [ANALYSIS_MODE_DXER]: 'DXer'
   });
+  const ANALYSIS_MODE_DIFFERENCE_TEXT = 'Contester is optimized for contest workflows with strict duplicate checks and contest-focused reports, while DXer is for long-term DX logs with relaxed duplicate handling and month/year summaries.';
 
   const NAV_SECTIONS = [
     { id: 'load_core', title: 'Load & Core', openByDefault: true },
@@ -1400,6 +1401,8 @@
     compareModeRadios: document.querySelectorAll('input[name="compareCount"]'),
     analysisModeRadios: document.querySelectorAll('.analysis-mode-option'),
     analysisModeSuggestion: document.getElementById('analysisModeSuggestion'),
+    analysisModeDiffHint: document.querySelector('.analysis-mode-diff-hint'),
+    analysisModeDiffTooltip: document.getElementById('analysisModeDiffTooltip'),
     dropReplace: document.getElementById('dropReplace'),
     dropReplaceActions: document.getElementById('dropReplaceActions'),
     dropReplaceCancel: document.getElementById('dropReplaceCancel'),
@@ -21539,6 +21542,44 @@
         setAnalysisMode(targetMode, true);
         showOverlayNotice(`Analysis mode set to ${resolveAnalysisModeLabel(targetMode)}.`);
       });
+    }
+    if (dom.analysisModeDiffHint && dom.analysisModeDiffTooltip) {
+      const diffHint = dom.analysisModeDiffHint;
+      const tooltip = dom.analysisModeDiffTooltip;
+      const text = diffHint.getAttribute('data-analysis-mode-diff-hint') || ANALYSIS_MODE_DIFFERENCE_TEXT;
+      tooltip.textContent = text;
+      const showDiffHint = () => {
+        tooltip.textContent = text;
+        tooltip.hidden = false;
+        tooltip.setAttribute('aria-hidden', 'false');
+        tooltip.classList.add('analysis-mode-diff-tooltip-visible');
+      };
+      const hideDiffHint = () => {
+        tooltip.hidden = true;
+        tooltip.setAttribute('aria-hidden', 'true');
+        tooltip.classList.remove('analysis-mode-diff-tooltip-visible');
+      };
+      diffHint.addEventListener('mouseenter', showDiffHint);
+      diffHint.addEventListener('mouseleave', hideDiffHint);
+      diffHint.addEventListener('focus', showDiffHint);
+      diffHint.addEventListener('blur', hideDiffHint);
+      diffHint.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        if (tooltip.hidden) {
+          showDiffHint();
+        } else {
+          hideDiffHint();
+        }
+      });
+      document.addEventListener('click', (evt) => {
+        if (evt.target === diffHint || tooltip.contains(evt.target)) return;
+        hideDiffHint();
+      });
+      diffHint.addEventListener('keydown', (evt) => {
+        if (evt.key !== 'Escape') return;
+        hideDiffHint();
+      });
+      hideDiffHint();
     }
     const selected = Array.from(dom.analysisModeRadios).find((r) => r.checked);
     setAnalysisMode(selected ? selected.value : ANALYSIS_MODE_DEFAULT, true);

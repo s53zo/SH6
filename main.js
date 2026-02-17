@@ -57,6 +57,10 @@
   const ANALYSIS_MODE_CONTESTER = 'contester';
   const ANALYSIS_MODE_DXER = 'dxer';
   const DUPE_WINDOW_MS = 15 * 60 * 1000;
+  const ANALYSIS_MODE_LABELS = Object.freeze({
+    [ANALYSIS_MODE_CONTESTER]: 'Contester',
+    [ANALYSIS_MODE_DXER]: 'DXer'
+  });
 
   const NAV_SECTIONS = [
     { id: 'load_core', title: 'Load & Core', openByDefault: true },
@@ -400,6 +404,7 @@
     state.rbnState = createRbnState();
     state.apiEnrichment = createApiEnrichmentState();
     state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
+    clearAnalysisModeSuggestion();
   }
 
   function resetCompareSlot(slotId) {
@@ -836,6 +841,82 @@
     return ANALYSIS_MODE_OPTIONS.has(value) ? value : '';
   }
 
+  function resolveAnalysisModeLabel(mode) {
+    const key = normalizeAnalysisMode(mode);
+    return ANALYSIS_MODE_LABELS[key] || '';
+  }
+
+  function resolveAnalysisModeSuggestion(logData, derived) {
+    const qsos = Array.isArray(logData?.qsos) ? logData.qsos : [];
+    if (!qsos.length) return null;
+    const contestMeta = derived?.contestMeta || deriveContestMeta(qsos);
+    const contestId = String(contestMeta?.contestId || '').trim();
+    const category = String(contestMeta?.category || '').trim();
+    const categoryMode = String(contestMeta?.categoryMode || '').trim();
+    const categoryStation = String(contestMeta?.categoryStation || '').trim();
+    const hasContestSignal = contestId || category || categoryMode || categoryStation;
+    if (hasContestSignal) {
+      return {
+        mode: ANALYSIS_MODE_CONTESTER,
+        reason: `Contest metadata detected (${hasContestSignal}).`
+      };
+    }
+
+    const minTs = Number(derived?.timeRange?.minTs);
+    const maxTs = Number(derived?.timeRange?.maxTs);
+    const qsoCount = Number.isFinite(qsos.length) ? qsos.length : 0;
+    if (Number.isFinite(minTs) && Number.isFinite(maxTs) && qsoCount > 0 && maxTs > minTs) {
+      const spanMs = maxTs - minTs;
+      const spanHours = spanMs / 3600000;
+      if (spanHours >= 24 * 14) {
+        return { mode: ANALYSIS_MODE_DXER, reason: 'Very long log duration (14+ days).' };
+      }
+      if (spanHours >= 24 * 7 && qsoCount < 1000) {
+        return { mode: ANALYSIS_MODE_DXER, reason: 'Week-long log without contest metadata.' };
+      }
+    }
+    return null;
+  }
+
+  function setAnalysisModeSuggestion(rawSuggestion) {
+    state.analysisModeSuggestion = rawSuggestion && rawSuggestion.mode ? { ...rawSuggestion } : null;
+    if (state.analysisModeSuggestion && resolveAnalysisMode(state.analysisModeSuggestion.mode) === state.analysisMode) {
+      state.analysisModeSuggestion = null;
+    }
+    renderAnalysisModeSuggestion();
+  }
+
+  function clearAnalysisModeSuggestion() {
+    state.analysisModeSuggestion = null;
+    renderAnalysisModeSuggestion();
+  }
+
+  function renderAnalysisModeSuggestion() {
+    const suggestion = state.analysisModeSuggestion;
+    const target = dom.analysisModeSuggestion;
+    if (!target) return;
+    if (!suggestion || !suggestion.mode) {
+      target.hidden = true;
+      target.textContent = '';
+      return;
+    }
+    const modeLabel = resolveAnalysisModeLabel(suggestion.mode);
+    if (!modeLabel) {
+      target.hidden = true;
+      target.textContent = '';
+      return;
+    }
+    target.hidden = false;
+    const reason = suggestion.reason || 'Log context suggests this mode.';
+    const mode = escapeAttr(suggestion.mode);
+    const modeText = escapeHtml(modeLabel);
+    const reasonText = escapeHtml(reason);
+    target.innerHTML = `
+      <span class="load-step-note"><b>Suggestion:</b> ${modeText} mode appears more suitable for this log (${reasonText}).</span>
+      <button type="button" class="button" data-mode-suggestion="${mode}">Use ${modeText}</button>
+    `;
+  }
+
   function migrateSessionPayload(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const payload = { ...raw };
@@ -855,6 +936,7 @@
   async function applySessionPayload(payload, options = {}) {
     const migrated = migrateSessionPayload(payload);
     if (!migrated || typeof migrated !== 'object') return;
+    clearAnalysisModeSuggestion();
     const hadAnalysisMode = Object.prototype.hasOwnProperty.call(migrated, 'analysisMode');
     state.sessionNotice = [];
     state.allCallsignsCountryFilter = '';
@@ -1124,6 +1206,7 @@
     showLoadPanel: false,
     compareEnabled: false,
     analysisMode: ANALYSIS_MODE_DEFAULT,
+    analysisModeSuggestion: null,
     compareCount: 1,
     compareSyncEnabled: true,
     compareStickyEnabled: true,
@@ -1268,6 +1351,7 @@
     repoControlsD: document.getElementById('repoControlsD'),
     compareModeRadios: document.querySelectorAll('input[name="compareCount"]'),
     analysisModeRadios: document.querySelectorAll('input[name="analysisMode"]'),
+    analysisModeSuggestion: document.getElementById('analysisModeSuggestion'),
     dropReplace: document.getElementById('dropReplace'),
     dropReplaceActions: document.getElementById('dropReplaceActions'),
     dropReplaceCancel: document.getElementById('dropReplaceCancel'),
@@ -5848,6 +5932,10 @@
       logFile: target.logFile,
       analysisMode: state.analysisMode
     });
+    const suggestedMode = target === state || !state.qsoData ? resolveAnalysisModeSuggestion(target.qsoData, target.derived) : null;
+    if (target === state || !state.qsoData) {
+      setAnalysisModeSuggestion(suggestedMode);
+    }
     target.qsoLite = buildQsoLiteArray(target.qsoData.qsos);
     target.fullQsoData = target.qsoData;
     target.fullDerived = target.derived;
@@ -8717,6 +8805,66 @@
       breakSummary,
       totalPoints,
       effectivePointsTotal
+    };
+  }
+
+  function runDupeModeRegressionChecks() {
+    const checks = [];
+    const baseTs = 1_700_000_000_000;
+    const mkQso = (call, band, mode, offsetMinutes) => ({
+      call,
+      band,
+      mode,
+      ts: baseTs + (offsetMinutes * 60 * 1000)
+    });
+
+    const contestModeQsos = [
+      mkQso('W1ABC', '20M', 'SSB', 0),
+      mkQso('W1ABC', '20M', 'SSB', 1),
+      mkQso('W1ABC', '20M', 'CW', 2),
+      mkQso('W1ABC', '40M', 'SSB', 3),
+      mkQso('W1ABC', '20M', 'SSB', 4)
+    ];
+
+    const contestModeDerived = buildDerived(contestModeQsos, {
+      analysisMode: ANALYSIS_MODE_CONTESTER
+    });
+    const contestModeMap = contestModeQsos.map((q) => Boolean(q.isDupe));
+    checks.push({
+      name: 'Contester mode: same call + band + mode duplicates only',
+      passed: contestModeMap[0] === false && contestModeMap[1] === true && contestModeMap[2] === false && contestModeMap[3] === false && contestModeMap[4] === true,
+      details: {
+        dupes: contestModeQsos
+          .map((q, index) => ({ index: index + 1, isDupe: contestModeMap[index], mode: q.mode, band: q.band }))
+      }
+    });
+
+    const dxerQsos = [
+      mkQso('K4ABC', '20M', 'SSB', 0),
+      mkQso('K4ABC', '20M', 'SSB', 10),
+      mkQso('K4ABC', '20M', 'SSB', 30),
+      mkQso('K4ABC', '20M', 'CW', 41),
+      mkQso('K4ABC', '40M', 'SSB', 42)
+    ];
+    const dxerModeDerived = buildDerived(dxerQsos, {
+      analysisMode: ANALYSIS_MODE_DXER
+    });
+    const dxerModeMap = dxerQsos.map((q) => Boolean(q.isDupe));
+    checks.push({
+      name: 'DXer mode: same call + band duplicates within rolling 15 minutes',
+      passed: dxerModeMap[0] === false && dxerModeMap[1] === true && dxerModeMap[2] === false && dxerModeMap[3] === true && dxerModeMap[4] === false,
+      details: {
+        dupes: dxerQsos.map((q, index) => ({ index: index + 1, isDupe: dxerModeMap[index], mode: q.mode, band: q.band }))
+      }
+    });
+
+    return {
+      passed: checks.every((check) => check.passed),
+      checks,
+      summary: {
+        contestModeDupes: contestModeDerived?.dupes?.length || 0,
+        dxerModeDupes: dxerModeDerived?.dupes?.length || 0
+      }
     };
   }
 
@@ -20531,6 +20679,7 @@
   function setAnalysisMode(mode, updateRadios = false) {
     const safeMode = normalizeAnalysisMode(mode) || ANALYSIS_MODE_DEFAULT;
     state.analysisMode = safeMode;
+    clearAnalysisModeSuggestion();
     if (updateRadios && dom.analysisModeRadios && dom.analysisModeRadios.length) {
       dom.analysisModeRadios.forEach((radio) => {
         radio.checked = String(radio.value) === safeMode;
@@ -20641,6 +20790,15 @@
         setAnalysisMode(radio.value, false);
       });
     });
+    if (dom.analysisModeSuggestion) {
+      dom.analysisModeSuggestion.addEventListener('click', (evt) => {
+        const btn = evt.target && evt.target.closest ? evt.target.closest('[data-mode-suggestion]') : null;
+        if (!btn) return;
+        const targetMode = btn.dataset.modeSuggestion;
+        setAnalysisMode(targetMode, false);
+        showOverlayNotice(`Analysis mode set to ${resolveAnalysisModeLabel(targetMode)}.`);
+      });
+    }
     const selected = Array.from(dom.analysisModeRadios).find((r) => r.checked);
     setAnalysisMode(selected ? selected.value : ANALYSIS_MODE_DEFAULT, true);
   }
@@ -20719,6 +20877,7 @@
     bandClass,
     getSlotById,
     getRenderPerf: () => getRenderPerfSummary(),
+    runDupeModeRegressionChecks,
     trackEvent,
     setSpotHunterStatus: (status, payload = {}) => {
       state.spotHunterStatus = status || 'pending';

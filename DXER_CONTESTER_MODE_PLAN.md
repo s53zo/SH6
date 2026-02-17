@@ -56,7 +56,8 @@ Keep `rates` and `points_rates` visible/usable in both modes.
 - [x] Add DXER rule: same call+band within a rolling 15-minute window becomes duplicate (time-aware; not contest strict duplicate).
 - [x] Ensure `buildDerived()` passes current analysis mode when marking dupes so all downstream reports inherit the correct semantics.
 - [x] Confirm dupes still surface correctly in `dupes`, `rates`, and `log` table `DUPE` flags.
-- [ ] Add targeted regression checks for both behaviors using small in-memory fixtures.
+- [x] Add targeted regression checks for both behaviors using small in-memory fixtures.
+  - Added `runDupeModeRegressionChecks()` in `main.js` and exposed it as `window.SH6.runDupeModeRegressionChecks()`.
 
 ### 6) Compare and mode interaction
 - [x] Verify `rates`/`points_rates` keep existing behavior in both single and compare.
@@ -64,12 +65,13 @@ Keep `rates` and `points_rates` visible/usable in both modes.
 - [x] Ensure country/month and zone/month compare uses existing compare pair selector logic when slot count > 2.
 
 ### 7) Detection and safety hooks
-- [ ] Add optional auto-mode suggestion from loaded log context (duration, contest metadata) with manual override in load panel.
-- [ ] Add non-destructive defaulting so legacy sessions/local usage behaves predictably.
+- [x] Add optional auto-mode suggestion from loaded log context (duration, contest metadata) with manual override in load panel.
+- [x] Add non-destructive defaulting so legacy sessions/local usage behaves predictably.
 
 ### 8) Manual test plan before implementation handoff
 - [ ] Test session/permalink roundtrip keeps mode + compare focus.
 - [ ] Test DXER single log: countries-by-month appears, CQ/ITU-by-month appears, old minute/hour-specific reports are handled by mode rules, and `rates` still available.
 - [ ] Test CONTESTER single log: pre-existing menu remains and current duplicate behavior unchanged.
+- [ ] Quick spot check: run `window.SH6.runDupeModeRegressionChecks().passed` in browser console for fixture validation.
 - [ ] Test DXER compare with 2+ logs and month reports for alignment.
 - [ ] Validate no parsing regressions for cty.dat and existing country lookups.

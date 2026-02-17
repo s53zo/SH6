@@ -245,11 +245,6 @@
   const PERMALINK_COMPACT_PREFIX = 'v2.';
   const ANALYSIS_MODE_DEFAULT = ANALYSIS_MODE_CONTESTER;
   const ANALYSIS_MODE_OPTIONS = Object.freeze(new Set([ANALYSIS_MODE_CONTESTER, ANALYSIS_MODE_DXER]));
-  const MONTH_REPORT_IDS = Object.freeze(new Set([
-    'countries_by_month',
-    'zones_cq_by_month',
-    'zones_itu_by_month'
-  ]));
   const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const PERIOD_FILTER_COMPACT_YEARS = 'py';
   const PERIOD_FILTER_COMPACT_MONTHS = 'pm';
@@ -1937,14 +1932,14 @@
         if (dom.bandRibbon) {
           dom.bandRibbon.style.display = report.id === 'load_logs' ? 'none' : '';
         }
-        if (dom.periodFilterRibbon) {
-          const isPeriodReport = report && shouldPeriodFilterReport(report.id);
-          const shouldShow = report.id !== 'load_logs' && state.analysisMode === ANALYSIS_MODE_DXER;
-          dom.periodFilterRibbon.style.display = shouldShow ? '' : 'none';
-          if (shouldShow) {
-            updatePeriodRibbon();
-          }
-        }
+    if (dom.periodFilterRibbon) {
+      const isPeriodReport = report && shouldPeriodFilterReport(report.id);
+      const shouldShow = report.id !== 'load_logs' && isPeriodReport && state.analysisMode === ANALYSIS_MODE_DXER;
+      dom.periodFilterRibbon.style.display = shouldShow ? '' : 'none';
+      if (shouldShow) {
+        updatePeriodRibbon();
+      }
+    }
         const isLoadReport = report.id === 'load_logs';
         document.body.classList.toggle('landing-only', isLoadReport && !state.showLoadPanel);
         document.body.classList.toggle('load-active', isLoadReport && state.showLoadPanel);
@@ -1991,10 +1986,6 @@
     const report = reports[state.activeIndex];
     if (!report) {
       dom.periodFilterRibbon.innerHTML = '';
-      return;
-    }
-    if (!shouldPeriodFilterReport(report.id)) {
-      dom.periodFilterRibbon.innerHTML = '<span class="period-message">Period filters are available for countries by month reports.</span>';
       return;
     }
     syncPeriodFiltersWithAvailableData();
@@ -6373,20 +6364,23 @@
   }
 
   function shouldBandFilterReport(reportId) {
-    if (!state.globalBandFilter) return false;
+    return shouldBandFilterControls(reportId) && !!state.globalBandFilter;
+  }
+
+  function shouldBandFilterControls(reportId) {
+    const baseId = String(reportId || '').split('::')[0];
     const excluded = new Set([
       'kmz_files',
       'comments',
       'sh6_info',
       'competitor_coach'
     ]);
-    return !excluded.has(reportId);
+    return !excluded.has(baseId);
   }
 
   function shouldPeriodFilterReport(reportId) {
     if (state.analysisMode !== ANALYSIS_MODE_DXER) return false;
-    const baseId = String(reportId || '').split('::')[0];
-    return MONTH_REPORT_IDS.has(baseId);
+    return shouldBandFilterControls(reportId);
   }
 
   function syncPeriodFiltersWithAvailableData() {

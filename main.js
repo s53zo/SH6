@@ -166,6 +166,7 @@
     './data/contest_scoring_spec.json'
   ];
   const SCORING_UNKNOWN_WARNING = 'Rules for this contest are unknown. Showing logged points only if available.';
+  const SCORING_UNKNOWN_WARNING_DXER = 'Scoring rules are unavailable. Showing logged points only.';
   const SPOTS_BASE_URL = 'https://azure.s53m.com/spots';
   const RBN_PROXY_URL = 'https://azure.s53m.com/cors/rbn';
   const CQ_API_PROXY_BASE = 'https://azure.s53m.com/cors/cqapi';
@@ -3996,8 +3997,8 @@
       return {
         supported: false,
         reason: 'unknown_rule',
-        warning: SCORING_UNKNOWN_WARNING,
-        assumptions: ['No matching contest rule set found for this log.'],
+        warning: state.analysisMode === ANALYSIS_MODE_DXER ? SCORING_UNKNOWN_WARNING_DXER : SCORING_UNKNOWN_WARNING,
+        assumptions: ['No matching scoring rule set found for this log.'],
         detectionMethod,
         detectionValue: contestRaw || folder || ''
       };
@@ -5064,12 +5065,12 @@
       return {
         supported: false,
         confidence: 'unknown',
-        warning: resolved.warning || SCORING_UNKNOWN_WARNING,
+        warning: resolved.warning || (state.analysisMode === ANALYSIS_MODE_DXER ? SCORING_UNKNOWN_WARNING_DXER : SCORING_UNKNOWN_WARNING),
         assumptions: Array.isArray(resolved.assumptions) ? resolved.assumptions : [],
         detectionMethod: resolved.detectionMethod || 'none',
         detectionValue: resolved.detectionValue || '',
         ruleId: null,
-        ruleName: 'Unknown contest',
+        ruleName: state.analysisMode === ANALYSIS_MODE_DXER ? 'Unknown rules' : 'Unknown contest',
         claimedScoreHeader,
         loggedPointsTotal,
         computedQsoPointsTotal: null,
@@ -5090,7 +5091,7 @@
       } else if (resolved.bundle?.type === 'eu_vhf') {
         bundleScore = scoreEuVhfBundle(resolved, qsos, contestMeta, assumptions);
       } else {
-        assumptions.add('Bundle contest matched but subevent was not detected. Logged points fallback is used.');
+        assumptions.add('Bundle matched but subevent was not detected. Logged points fallback is used.');
       }
       const computedScore = Number.isFinite(bundleScore?.computedScore) ? Math.round(bundleScore.computedScore) : null;
       const deltaAbs = (computedScore != null && Number.isFinite(claimedScoreHeader))
@@ -9292,6 +9293,7 @@
   }
 
   function renderCqApiEnrichmentCard(enrichment) {
+    if (state.analysisMode === ANALYSIS_MODE_DXER) return '';
     const info = enrichment || createApiEnrichmentState();
     if (info.status === 'idle') return '';
 
@@ -9502,9 +9504,9 @@
     const club = escapeHtml(state.derived.contestMeta?.club || 'N/A');
     const stationCall = stationCallRaw ? escapeHtml(stationCallRaw) : 'N/A';
 
-    const reconNote = state.logFile?.reconstructed
-      ? `<div class="recon-note">${escapeHtml(RECONSTRUCTED_NOTICE)}</div>`
-      : '';
+    const reconNote = (state.analysisMode === ANALYSIS_MODE_DXER || !state.logFile?.reconstructed)
+      ? ''
+      : `<div class="recon-note">${escapeHtml(RECONSTRUCTED_NOTICE)}</div>`;
     const rows = [
       ['Callsign', `<strong>${stationCall}</strong>`],
       ['Country', stationCountry],
@@ -9545,7 +9547,7 @@
       'Quick diagnostic summary for the loaded log and scoring model.',
       [
         `Callsign ${stationCallRaw || 'N/A'}`,
-        `Contest ${state.derived.contestMeta?.contestId || 'N/A'}`,
+        `${state.analysisMode === ANALYSIS_MODE_DXER ? 'Event' : 'Contest'} ${state.derived.contestMeta?.contestId || 'N/A'}`,
         `Category ${state.derived.contestMeta?.category || 'N/A'}`,
         `${formatNumberSh6(totalQsos)} QSOs`
       ]
@@ -9566,6 +9568,13 @@
   }
 
   function renderCompetitorCoach() {
+    if (state.analysisMode === ANALYSIS_MODE_DXER) {
+      return renderPlaceholder({
+        id: 'competitor_coach',
+        title: 'Competitor coach',
+        message: 'Competitor coach is disabled in DXer mode.'
+      });
+    }
     if (!state.qsoData || !state.derived) {
       return renderPlaceholder({ id: 'competitor_coach', title: 'Competitor coach' });
     }
@@ -14971,7 +14980,8 @@
       const maxTs = state.derived?.timeRange?.maxTs;
       const days = buildRbnDayList(minTs, maxTs);
       if ((days || []).length > 2) {
-        return `<div class="export-actions export-note">Note: this contest spans more than 2 UTC dates; RBN queries are limited to 2 dates at a time. Adjust selected days in <b>RBN spots</b> if needed.</div>`;
+        const spanText = state.analysisMode === ANALYSIS_MODE_DXER ? 'this log' : 'this contest';
+        return `<div class="export-actions export-note">Note: ${escapeHtml(spanText)} spans more than 2 UTC dates; RBN queries are limited to 2 dates at a time. Adjust selected days in <b>RBN spots</b> if needed.</div>`;
       }
       return '';
     })();

@@ -3,6 +3,10 @@
 *.swo
 *~
 favicon-256.png
+S50WWA-adif-*.adi
+S53WWA-adif-*.adi
+callsigns_locations.csv
+callsigns_locations.db
 
 # Python
 __pycache__/

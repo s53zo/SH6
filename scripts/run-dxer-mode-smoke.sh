@@ -41,6 +41,7 @@ run_ab() {
 echo "[dxer-mode-smoke] Starting static server at ${URL}"
 python3 -m http.server "${PORT}" --bind 127.0.0.1 --directory "${ROOT_DIR}" >"${SERVER_LOG}" 2>&1 &
 HTTP_PID="$!"
+disown "${HTTP_PID}" 2>/dev/null || true
 sleep 1
 
 if ! kill -0 "${HTTP_PID}" >/dev/null 2>&1; then

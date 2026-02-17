@@ -21010,13 +21010,55 @@
 
     const normalizeLabel = (value) => (value == null ? '' : String(value).trim());
 
+    const normalizeArchiveMode = (value) => {
+      const mode = normalizeLabel(value).toUpperCase();
+      return mode || 'UNSPECIFIED';
+    };
+
+    const UNSPECIFIED_ARCHIVE_SUBCONTEST = '(unspecified)';
+
+    const normalizeArchiveSubcontest = (row) => {
+      const contest = normalizeLabel(row.contest).toUpperCase();
+      if (contest !== 'ARRL') return '';
+      const explicit = normalizeLabel(row.subcontest);
+      if (explicit) return explicit;
+      const parts = normalizeLabel(row.path).split('/').filter(Boolean);
+      // Fallback to path segment #2 (1-based) for ARRL entries.
+      return parts[1] || UNSPECIFIED_ARCHIVE_SUBCONTEST;
+    };
+
+    const compareArchiveModes = (modeA, modeB) => {
+      const a = normalizeArchiveMode(modeA);
+      const b = normalizeArchiveMode(modeB);
+      const aUnspecified = a === 'UNSPECIFIED' ? 1 : 0;
+      const bUnspecified = b === 'UNSPECIFIED' ? 1 : 0;
+      if (aUnspecified !== bUnspecified) return aUnspecified - bUnspecified;
+      return a.localeCompare(b);
+    };
+
+    const getArchiveLeafName = (path) => {
+      const safePath = normalizeLabel(path);
+      const parts = safePath.split('/').filter(Boolean);
+      return parts[parts.length - 1] || '';
+    };
+
     const sortResults = (rows) => rows.slice().sort((a, b) => {
       const contestA = normalizeLabel(a.contest).toUpperCase();
       const contestB = normalizeLabel(b.contest).toUpperCase();
       if (contestA !== contestB) return contestA.localeCompare(contestB);
+      if (contestA === 'ARRL') {
+        const subA = normalizeArchiveSubcontest(a);
+        const subB = normalizeArchiveSubcontest(b);
+        if (subA !== subB) return subA.localeCompare(subB);
+      }
       const yearA = Number.isFinite(a.year) ? a.year : -1;
       const yearB = Number.isFinite(b.year) ? b.year : -1;
       if (yearA !== yearB) return yearB - yearA;
+      if (contestA === 'ARRL') {
+        const modeCmp = compareArchiveModes(a.mode, b.mode);
+        if (modeCmp !== 0) return modeCmp;
+        return normalizeLabel(getArchiveLeafName(a.path)).localeCompare(normalizeLabel(getArchiveLeafName(b.path)));
+      }
       const modeA = normalizeLabel(a.mode).toUpperCase();
       const modeB = normalizeLabel(b.mode).toUpperCase();
       if (modeA !== modeB) return modeA.localeCompare(modeB);
@@ -21066,9 +21108,32 @@
         return;
       }
       const tree = new Map();
+      const makeLeafButton = (row) => {
+        const path = row.path || '';
+        const label = path.split('/').pop();
+        const isReconstructed = path.startsWith('RECONSTRUCTED_LOGS/');
+        const suffix = isReconstructed ? ' (reconstructed log)' : '';
+        const pathAttr = escapeAttr(path);
+        const labelText = escapeHtml((label || '') + suffix);
+        return `<button type="button" class="repo-leaf" data-path="${pathAttr}">${labelText}</button>`;
+      };
       archiveRows.forEach((row) => {
         const contest = normalizeLabel(row.contest);
         const year = Number.isFinite(row.year) ? String(row.year) : '';
+        const isArrl = String(contest || '').toUpperCase() === 'ARRL';
+        if (isArrl) {
+          const subcontest = normalizeArchiveSubcontest(row);
+          if (!tree.has(contest)) tree.set(contest, new Map());
+          const subMap = tree.get(contest);
+          if (!subMap.has(subcontest)) subMap.set(subcontest, new Map());
+          const yearMap = subMap.get(subcontest);
+          if (!yearMap.has(year)) yearMap.set(year, new Map());
+          const modeMap = yearMap.get(year);
+          const mode = normalizeArchiveMode(row.mode);
+          if (!modeMap.has(mode)) modeMap.set(mode, []);
+          modeMap.get(mode).push(row);
+          return;
+        }
         const subKey = formatArchiveSubKey(row);
         if (!tree.has(contest)) tree.set(contest, new Map());
         const yearMap = tree.get(contest);
@@ -21084,27 +21149,43 @@
         const hasContest = Boolean(contest);
         const contestLabel = escapeHtml(contest);
         if (hasContest) chunks.push(`<details class="repo-contest"><summary>${contestLabel}</summary>`);
-        yearMap.forEach((modeMap, year) => {
-          const hasYear = Boolean(year);
-          const yearLabel = escapeHtml(year);
-          if (hasYear) chunks.push(`<details class="repo-year"><summary>${yearLabel}</summary>`);
-          modeMap.forEach((rows, subKey) => {
-            const hasSub = Boolean(subKey);
-            const subLabel = escapeHtml(subKey);
-            if (hasSub) chunks.push(`<details class="repo-subcat"><summary>${subLabel}</summary>`);
-            rows.forEach((row) => {
-              const path = row.path || '';
-              const label = path.split('/').pop();
-              const isReconstructed = path.startsWith('RECONSTRUCTED_LOGS/');
-              const suffix = isReconstructed ? ' (reconstructed log)' : '';
-              const pathAttr = escapeAttr(path);
-              const labelText = escapeHtml((label || '') + suffix);
-              chunks.push(`<button type="button" class="repo-leaf" data-path="${pathAttr}">${labelText}</button>`);
+        const isArrl = String(contest || '').toUpperCase() === 'ARRL';
+        if (isArrl) {
+          yearMap.forEach((yearModeMap, subcontest) => {
+            const subcontestLabel = escapeHtml(subcontest);
+            chunks.push(`<details class="repo-subcat"><summary>${subcontestLabel}</summary>`);
+            const years = Array.from(yearModeMap.keys()).sort((a, b) => Number(b) - Number(a));
+            years.forEach((year) => {
+              const modeMap = yearModeMap.get(year) || new Map();
+              const hasYear = Boolean(year);
+              if (hasYear) chunks.push(`<details class="repo-year"><summary>${escapeHtml(year)}</summary>`);
+              const modes = Array.from(modeMap.keys()).sort(compareArchiveModes);
+              modes.forEach((mode) => {
+                const rows = modeMap.get(mode) || [];
+                const hasMode = Boolean(mode);
+                if (hasMode) chunks.push(`<details class="repo-subcat"><summary>${escapeHtml(mode)}</summary>`);
+                rows.forEach((row) => chunks.push(makeLeafButton(row)));
+                if (hasMode) chunks.push('</details>');
+              });
+              if (hasYear) chunks.push('</details>');
             });
-            if (hasSub) chunks.push(`</details>`);
+            chunks.push('</details>');
           });
-          if (hasYear) chunks.push(`</details>`);
-        });
+        } else {
+          yearMap.forEach((modeMap, year) => {
+            const hasYear = Boolean(year);
+            const yearLabel = escapeHtml(year);
+            if (hasYear) chunks.push(`<details class="repo-year"><summary>${yearLabel}</summary>`);
+            modeMap.forEach((rows, subKey) => {
+              const hasSub = Boolean(subKey);
+              const subLabel = escapeHtml(subKey);
+              if (hasSub) chunks.push(`<details class="repo-subcat"><summary>${subLabel}</summary>`);
+              rows.forEach((row) => chunks.push(makeLeafButton(row)));
+              if (hasSub) chunks.push(`</details>`);
+            });
+            if (hasYear) chunks.push(`</details>`);
+          });
+        }
         if (hasContest) chunks.push(`</details>`);
       });
       chunks.push('</div>');
@@ -21158,7 +21239,7 @@
         if (seq !== searchSeq) return;
         statusEl.textContent = 'Querying archive...';
         const where = `callsign = ?`;
-        const sql = `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`;
+        const sql = `SELECT path, contest, year, mode, season, subcontest FROM logs WHERE ${where}`;
         const stmt = db.prepare(sql);
         stmt.bind([callsign]);
         const rows = [];

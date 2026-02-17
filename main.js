@@ -20949,8 +20949,10 @@
 
   function syncLoadPanelFlowForAnalysisMode() {
     const isDxer = state.analysisMode === ANALYSIS_MODE_DXER;
+    document.body.classList.toggle('analysis-mode-dxer', isDxer);
     if (dom.loadTipBadge) {
       dom.loadTipBadge.hidden = isDxer;
+      dom.loadTipBadge.style.display = isDxer ? 'none' : '';
     }
     if (dom.compareModeLoadStep) {
       dom.compareModeLoadStep.hidden = isDxer;

@@ -291,6 +291,10 @@ a:hover {
   text-transform: none;
 }
 
+body.analysis-mode-dxer .load-tip-badge {
+  display: none !important;
+}
+
 .load-tip-title {
   padding: 1px 6px;
   border-radius: 999px;

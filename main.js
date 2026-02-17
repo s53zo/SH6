@@ -20803,6 +20803,64 @@
     setAnalysisMode(selected ? selected.value : ANALYSIS_MODE_DEFAULT, true);
   }
 
+  function setupAnalysisModeDiffHint() {
+    const hints = document.querySelectorAll('.analysis-mode-diff-hint');
+    if (!hints || !hints.length) return;
+
+    const closeAllHints = (exceptHint = null) => {
+      hints.forEach((hint) => {
+        if (hint === exceptHint) return;
+        hint.classList.remove('is-open');
+        hint.setAttribute('aria-expanded', 'false');
+      });
+    };
+
+    hints.forEach((hint, index) => {
+      const tooltip = hint.nextElementSibling && hint.nextElementSibling.classList && hint.nextElementSibling.classList.contains('analysis-mode-diff-tooltip')
+        ? hint.nextElementSibling
+        : null;
+      const tooltipId = tooltip && tooltip.id
+        ? tooltip.id
+        : tooltip
+          ? `analysis-mode-diff-tooltip-${index + 1}`
+          : '';
+
+      hint.setAttribute('aria-expanded', 'false');
+      hint.setAttribute('aria-controls', tooltipId || `analysis-mode-diff-tooltip-${index + 1}`);
+      if (tooltipId) {
+        if (!tooltip.id) tooltip.id = tooltipId;
+        hint.setAttribute('aria-describedby', tooltipId);
+      }
+      hint.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        const isOpen = hint.classList.contains('is-open');
+        closeAllHints(hint);
+        if (!isOpen) {
+          hint.classList.add('is-open');
+          hint.setAttribute('aria-expanded', 'true');
+        }
+      });
+      hint.addEventListener('blur', () => {
+        hint.classList.remove('is-open');
+        hint.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    document.addEventListener('click', (evt) => {
+      const target = evt.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest('.analysis-mode-diff-hint')) return;
+      if (target.closest('.analysis-mode-diff-tooltip')) return;
+      closeAllHints();
+    });
+
+    document.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Escape') return;
+      closeAllHints();
+    });
+  }
+
   async function init() {
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     if (dom.viewTitle) dom.viewTitle.setAttribute('aria-live', 'polite');
@@ -20826,6 +20884,7 @@
     setupRepoSearch('D');
     setupCompareToggle();
     setupAnalysisModeToggle();
+    setupAnalysisModeDiffHint();
     setupSlotActions();
     setupLoadSummaryActions();
     setupResetSelectionsAction();

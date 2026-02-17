@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DXER/Contester Mode Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>DXER / Contester Mode Smoke</h1>
+  <p>Static and lightweight checks for `main.js` and `index.html` coverage of analysis modes and new month reports.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script>
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({
+        name,
+        ok,
+        details
+      });
+
+      function setResult(overallOk, payload) {
+        statusEl.textContent = overallOk ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${overallOk ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          const mark = entry.ok ? '✓' : '✗';
+          li.textContent = `${mark} ${entry.name}`;
+          if (!entry.ok && entry.details) {
+            li.textContent += ` — ${entry.details}`;
+          }
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function includes(source, token) {
+        return source.indexOf(token) !== -1;
+      }
+
+      function expect(source, token, label) {
+        const ok = includes(source, token);
+        add(label, ok, ok ? '' : `Missing: ${token}`);
+        return ok;
+      }
+
+      function extractSetItems(source, pattern) {
+        const match = source.match(pattern);
+        if (!match) return null;
+        const block = match[1] || '';
+        return Array.from(block.matchAll(/['\"]([^'\"]+)['\"]/g)).map((m) => m[1]);
+      }
+
+      try {
+        const [mainSource, indexSource] = await Promise.all([
+          fetch('../main.js').then((res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../index.html').then((res) => {
+            if (!res.ok) throw new Error(`Unable to read index.html (${res.status})`);
+            return res.text();
+          })
+        ]);
+
+        // Analysis mode scaffolding
+        expect(mainSource, "const ANALYSIS_MODE_CONTESTER = 'contester';", 'Has contester mode constant');
+        expect(mainSource, "const ANALYSIS_MODE_DXER = 'dxer';", 'Has DXer mode constant');
+        expect(mainSource, "const DUPE_WINDOW_MS = 15 * 60 * 1000;", 'Has DXer duplicate window constant');
+        expect(mainSource, 'resolveAnalysisModeSuggestion', 'Has analysis-mode suggestion function');
+        expect(mainSource, 'setAnalysisModeSuggestion', 'Has analysis-mode suggestion setter');
+        expect(mainSource, 'analysisModeSuggestion: null', 'State has analysisModeSuggestion');
+
+        // Session payload includes analysisMode
+        expect(mainSource, 'analysisMode: state.analysisMode', 'Session payload stores analysisMode');
+        expect(mainSource, 'if (payload.analysisMode === ANALYSIS_MODE_DXER) compact.am = payload.analysisMode;', 'Compact payload saves analysisMode');
+        expect(mainSource, 'const analysisMode = normalizeAnalysisMode(compact.am);', 'Compact payload restores analysisMode');
+        expect(mainSource, 'state.analysisMode = normalizeAnalysisMode(migrated.analysisMode)', 'Session load restores analysisMode');
+        expect(mainSource, 'const hadAnalysisMode = Object.prototype.hasOwnProperty.call(migrated, \'analysisMode\');', 'Legacy session load fallback path handles missing mode');
+
+        // DXER report visibility
+        expect(mainSource, "const DXER_HIDDEN_REPORTS = new Set([", 'DXER hidden reports set exists');
+        expect(mainSource, "'qs_by_hour_sheet'", 'DXER hides Qs by hour sheet');
+        expect(mainSource, "'points_by_hour_sheet'", 'DXER hides Points by hour sheet');
+        expect(mainSource, "'graphs_qs_by_hour'", 'DXER hides Qs by hour graph');
+        expect(mainSource, "'graphs_points_by_hour'", 'DXER hides Points by hour graph');
+        expect(mainSource, "'qs_by_minute'", 'DXER hides Qs by minute');
+        expect(mainSource, "'points_by_minute'", 'DXER hides Points by minute');
+        expect(mainSource, "'one_minute_rates'", 'DXER hides one-minute rates');
+        expect(mainSource, "'one_minute_point_rates'", 'DXER hides one-minute point rates');
+        expect(mainSource, "'breaks'", 'DXER hides break-time report');
+
+        expect(mainSource, "const DXER_HIDDEN_REPORTS = new Set([", 'Build reports checks DXER hidden set');
+        const hidden = extractSetItems(mainSource, /const DXER_HIDDEN_REPORTS = new Set\(\[([\s\S]*?)\]\);\s/);
+        if (hidden) {
+          const hiddenSet = new Set(hidden);
+          const expected = ['qs_by_hour_sheet', 'points_by_hour_sheet', 'graphs_qs_by_hour', 'graphs_points_by_hour', 'qs_by_minute', 'points_by_minute', 'one_minute_rates', 'one_minute_point_rates', 'breaks'];
+          const missing = expected.filter((id) => !hiddenSet.has(id));
+          add('DXER_HIDDEN_REPORTS contains all intended hidden report IDs', missing.length === 0, missing.length ? `Missing from DXER hidden set: ${missing.join(', ')}` : '');
+        } else {
+          add('DXER_HIDDEN_REPORTS contains all intended hidden report IDs', false, 'Unable to parse DXER_HIDDEN_REPORTS block');
+        }
+
+        const renderReportSingleHasMonthReports = includes(mainSource, "case 'countries_by_month': return renderCountriesByMonth();")
+          && includes(mainSource, "case 'zones_cq_by_month': return renderCqZonesByMonth();")
+          && includes(mainSource, "case 'zones_itu_by_month': return renderItuZonesByMonth();");
+        add('Single report switch routes month geography reports', renderReportSingleHasMonthReports, renderReportSingleHasMonthReports ? '' : 'Missing one or more single-report dispatch cases');
+
+        const renderReportCompareHasMonthReports = includes(mainSource, "if (report.id === 'countries_by_month') return renderCountriesByMonthCompareAligned();")
+          && includes(mainSource, "if (report.id === 'zones_cq_by_month') return renderZoneMonthCompareAligned('cq');")
+          && includes(mainSource, "if (report.id === 'zones_itu_by_month') return renderZoneMonthCompareAligned('itu');");
+        add('Compare report switch routes month geography reports', renderReportCompareHasMonthReports, renderReportCompareHasMonthReports ? '' : 'Missing one or more compare dispatch cases');
+
+        expect(mainSource, 'const DEFAULT_COMPARE_FOCUS = Object.freeze({', 'Compare focus defaults include month report entries');
+        expect(mainSource, 'countries_by_month: [\'A\', \'B\']', 'Compare focus has countries_by_month defaults');
+        expect(mainSource, 'zones_cq_by_month: [\'A\', \'B\']', 'Compare focus has CQ month defaults');
+        expect(mainSource, 'zones_itu_by_month: [\'A\', \'B\']', 'Compare focus has ITU month defaults');
+
+        // Month report data builders/renderers
+        expect(mainSource, 'buildCountryMonthBuckets(', 'Has country month bucket builder');
+        expect(mainSource, 'buildZoneMonthBuckets(qsos, field, bandFilter)', 'Has zone month bucket builder');
+        expect(mainSource, 'renderCountriesByMonth()', 'Has countries-by-month renderer');
+        expect(mainSource, 'renderCqZonesByMonth()', 'Has CQ zones-by-month renderer');
+        expect(mainSource, 'renderItuZonesByMonth()', 'Has ITU zones-by-month renderer');
+
+        // Regression check helper
+        expect(mainSource, 'function runDupeModeRegressionChecks()', 'Has dupe regression checker helper');
+        expect(mainSource, 'runDupeModeRegressionChecks,', 'dupe regression checker exposed on window.SH6');
+
+        // cty.dat parsing coverage check
+        expect(mainSource, 'function parseCtyDat(text)', 'cty.dat parser exists');
+        expect(mainSource, 'function lookupPrefix(call)', 'prefix lookup exists');
+        expect(mainSource, 'const CTY_URLS = [', 'cty dat URL fallback list exists');
+
+        // UI wiring checks in index
+        expect(indexSource, 'name=\"analysisMode\"', 'Mode radios exist in load step');
+        expect(indexSource, 'id=\"analysisModeSuggestion\"', 'Suggestion node exists for analysis-mode guidance');
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, {
+          checksTotal: checks.length,
+          checksFailed: failed.length,
+          failed
+        });
+      } catch (err) {
+        setResult(false, {
+          error: err && err.message ? err.message : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

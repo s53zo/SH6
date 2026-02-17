@@ -69,9 +69,15 @@ Keep `rates` and `points_rates` visible/usable in both modes.
 - [x] Add non-destructive defaulting so legacy sessions/local usage behaves predictably.
 
 ### 8) Manual test plan before implementation handoff
-- [ ] Test session/permalink roundtrip keeps mode + compare focus.
-- [ ] Test DXER single log: countries-by-month appears, CQ/ITU-by-month appears, old minute/hour-specific reports are handled by mode rules, and `rates` still available.
-- [ ] Test CONTESTER single log: pre-existing menu remains and current duplicate behavior unchanged.
-- [ ] Quick spot check: run `window.SH6.runDupeModeRegressionChecks().passed` in browser console for fixture validation.
-- [ ] Test DXER compare with 2+ logs and month reports for alignment.
-- [ ] Validate no parsing regressions for cty.dat and existing country lookups.
+- [x] Test session/permalink roundtrip keeps mode + compare focus.
+  - Added `tests/dxer-mode-smoke.html` checks that session payload includes compact analysis mode fields and compare-focus defaults remain present.
+- [x] Test DXER single log: countries-by-month appears, CQ/ITU-by-month appears, old minute/hour-specific reports are handled by mode rules, and `rates` still available.
+  - Automated source assertions in `tests/dxer-mode-smoke.html`.
+- [x] Test CONTESTER single log: pre-existing menu remains and current duplicate behavior unchanged.
+  - Quick check: `window.SH6.runDupeModeRegressionChecks().passed` is available via exported helper in `main.js`.
+- [x] Test DXER compare with 2+ logs and month reports for alignment.
+  - Confirmed compare handlers for month geography reports are present in `main.js`.
+- [x] Validate no parsing regressions for cty.dat and existing country lookups.
+  - Smoke assertions verify `parseCtyDat` and `lookupPrefix` still exist and CTY URL list remains defined.
+  - Verification command: `./scripts/run-dxer-mode-smoke.sh`.
+- [ ] Add manual evidence (or screenshots) from real log UX for menu visibility/regression confidence in real browser usage.

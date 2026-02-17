@@ -395,34 +395,8 @@ a:hover {
 }
 
 .analysis-mode-diff-hint:hover,
-.analysis-mode-diff-hint:focus-visible,
-.analysis-mode-diff-hint.is-open {
+.analysis-mode-diff-hint:focus-visible {
   color: #4a6b95;
-}
-
-.analysis-mode-diff-tooltip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 220px;
-  padding: 6px 8px;
-  border-radius: var(--sh6-radius-sm);
-  border: 1px solid #c7d7ef;
-  background: #f4f8ff;
-  color: #36557c;
-  font-size: 10px;
-  line-height: 1.35;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.12s ease;
-  position: relative;
-  z-index: 1;
-}
-
-.analysis-mode-diff-hint:hover + .analysis-mode-diff-tooltip,
-.analysis-mode-diff-hint:focus-visible + .analysis-mode-diff-tooltip,
-.analysis-mode-diff-hint.is-open + .analysis-mode-diff-tooltip {
-  opacity: 1;
-  visibility: visible;
 }
 
 

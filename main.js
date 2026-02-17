@@ -20845,7 +20845,7 @@
         trackEvent('analysis_mode_change', {
           mode: String(radio.value || '').trim().toLowerCase()
         });
-        setAnalysisMode(radio.value, false);
+        setAnalysisMode(radio.value, true);
       });
     });
     if (dom.analysisModeSuggestion) {
@@ -20853,7 +20853,7 @@
         const btn = evt.target && evt.target.closest ? evt.target.closest('[data-mode-suggestion]') : null;
         if (!btn) return;
         const targetMode = btn.dataset.modeSuggestion;
-        setAnalysisMode(targetMode, false);
+        setAnalysisMode(targetMode, true);
         showOverlayNotice(`Analysis mode set to ${resolveAnalysisModeLabel(targetMode)}.`);
       });
     }

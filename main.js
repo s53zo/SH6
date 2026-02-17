@@ -11,6 +11,7 @@
     { id: 'countries', title: 'Countries' },
     { id: 'countries_by_time', title: 'Countries by time' },
     { id: 'countries_by_month', title: 'Countries by month' },
+    { id: 'countries_by_year', title: 'Countries by year' },
     { id: 'qs_per_station', title: 'Qs per station' },
     { id: 'passed_qsos', title: 'Passed QSOs' },
     { id: 'dupes', title: 'Dupes' },
@@ -34,7 +35,9 @@
     { id: 'zones_cq', title: 'CQ zones' },
     { id: 'zones_itu', title: 'ITU zones' },
     { id: 'zones_cq_by_month', title: 'CQ zones by month' },
+    { id: 'zones_cq_by_year', title: 'CQ zones by year' },
     { id: 'zones_itu_by_month', title: 'ITU zones by month' },
+    { id: 'zones_itu_by_year', title: 'ITU zones by year' },
     { id: 'not_in_master', title: 'Not in master' },
     { id: 'possible_errors', title: 'Possible errors' },
     { id: 'charts_top_10_countries', title: 'Top 10 countries' },
@@ -98,8 +101,11 @@
     zones_cq: 'geo_analysis',
     zones_itu: 'geo_analysis',
     countries_by_month: 'geo_analysis',
+    countries_by_year: 'geo_analysis',
     zones_cq_by_month: 'geo_analysis',
+    zones_cq_by_year: 'geo_analysis',
     zones_itu_by_month: 'geo_analysis',
+    zones_itu_by_year: 'geo_analysis',
     prefixes: 'geo_analysis',
     distance: 'geo_analysis',
     beam_heading: 'geo_analysis',
@@ -251,11 +257,14 @@
   const DEFAULT_COMPARE_FOCUS = Object.freeze({
     countries_by_time: ['A', 'B'],
     countries_by_month: ['A', 'B'],
+    countries_by_year: ['A', 'B'],
     qs_by_minute: ['A', 'B'],
     one_minute_rates: ['A', 'B'],
     points_by_minute: ['A', 'B'],
     one_minute_point_rates: ['A', 'B'],
+    zones_cq_by_year: ['A', 'B'],
     zones_cq_by_month: ['A', 'B'],
+    zones_itu_by_year: ['A', 'B'],
     zones_itu_by_month: ['A', 'B']
   });
   const DXER_HIDDEN_REPORTS = new Set([
@@ -274,11 +283,14 @@
     return {
       countries_by_time: Array.isArray(source.countries_by_time) ? source.countries_by_time.slice() : ['A', 'B'],
       countries_by_month: Array.isArray(source.countries_by_month) ? source.countries_by_month.slice() : ['A', 'B'],
+      countries_by_year: Array.isArray(source.countries_by_year) ? source.countries_by_year.slice() : ['A', 'B'],
       qs_by_minute: Array.isArray(source.qs_by_minute) ? source.qs_by_minute.slice() : ['A', 'B'],
       one_minute_rates: Array.isArray(source.one_minute_rates) ? source.one_minute_rates.slice() : ['A', 'B'],
       points_by_minute: Array.isArray(source.points_by_minute) ? source.points_by_minute.slice() : ['A', 'B'],
       one_minute_point_rates: Array.isArray(source.one_minute_point_rates) ? source.one_minute_point_rates.slice() : ['A', 'B'],
+      zones_cq_by_year: Array.isArray(source.zones_cq_by_year) ? source.zones_cq_by_year.slice() : ['A', 'B'],
       zones_cq_by_month: Array.isArray(source.zones_cq_by_month) ? source.zones_cq_by_month.slice() : ['A', 'B'],
+      zones_itu_by_year: Array.isArray(source.zones_itu_by_year) ? source.zones_itu_by_year.slice() : ['A', 'B'],
       zones_itu_by_month: Array.isArray(source.zones_itu_by_month) ? source.zones_itu_by_month.slice() : ['A', 'B']
     };
   }
@@ -550,7 +562,10 @@
       ['one_minute_rates', 'o'],
       ['points_by_minute', 'p'],
       ['one_minute_point_rates', 'q'],
+      ['countries_by_year', 'u'],
+      ['zones_cq_by_year', 'v'],
       ['zones_cq_by_month', 's'],
+      ['zones_itu_by_year', 'w'],
       ['zones_itu_by_month', 't']
     ];
     mapping.forEach(([key, shortKey]) => {
@@ -571,7 +586,10 @@
       o: 'one_minute_rates',
       p: 'points_by_minute',
       q: 'one_minute_point_rates',
+      u: 'countries_by_year',
+      v: 'zones_cq_by_year',
       s: 'zones_cq_by_month',
+      w: 'zones_itu_by_year',
       t: 'zones_itu_by_month'
     };
     Object.entries(mapping).forEach(([shortKey, key]) => {
@@ -3466,6 +3484,12 @@
     return `${y}-${String(m).padStart(2, '0')}`;
   }
 
+  function yearKeyFromTs(ts) {
+    if (!Number.isFinite(ts)) return '';
+    const d = new Date(ts);
+    return String(d.getUTCFullYear());
+  }
+
   function monthLabelFromKey(monthKey) {
     if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey;
     const y = Number(monthKey.slice(0, 4));
@@ -3644,6 +3668,55 @@
       const buckets = map.get(zone);
       buckets.total += 1;
       buckets.months.set(monthKey, (buckets.months.get(monthKey) || 0) + 1);
+      if (q.country) buckets.countries.add(q.country);
+    });
+    return map;
+  }
+
+  function buildCountryYearBuckets(qsos, bandFilter) {
+    const map = new Map(); // country -> { total, years: Map(yearKey -> count) }
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
+    qsos.forEach((q) => {
+      const qBand = q.band ? normalizeBandToken(q.band) : '';
+      if (bandKey && qBand !== bandKey) return;
+      if (q.country == null || q.ts == null) return;
+      const yearKey = yearKeyFromTs(q.ts);
+      if (!yearKey) return;
+      if (!map.has(q.country)) {
+        map.set(q.country, {
+          total: 0,
+          years: new Map()
+        });
+      }
+      const buckets = map.get(q.country);
+      buckets.total += 1;
+      buckets.years.set(yearKey, (buckets.years.get(yearKey) || 0) + 1);
+    });
+    return map;
+  }
+
+  function buildZoneYearBuckets(qsos, field, bandFilter) {
+    const map = new Map(); // zone -> { total, years: Map(yearKey -> count), countries: Set }
+    const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
+    const fieldName = field === 'itu' ? 'ituZone' : 'cqZone';
+    qsos.forEach((q) => {
+      const qBand = q.band ? normalizeBandToken(q.band) : '';
+      if (bandKey && qBand !== bandKey) return;
+      const zone = Number.isFinite(q[fieldName]) ? q[fieldName] : null;
+      if (!zone) return;
+      if (q.ts == null) return;
+      const yearKey = yearKeyFromTs(q.ts);
+      if (!yearKey) return;
+      if (!map.has(zone)) {
+        map.set(zone, {
+          total: 0,
+          years: new Map(),
+          countries: new Set()
+        });
+      }
+      const buckets = map.get(zone);
+      buckets.total += 1;
+      buckets.years.set(yearKey, (buckets.years.get(yearKey) || 0) + 1);
       if (q.country) buckets.countries.add(q.country);
     });
     return map;
@@ -8474,6 +8547,9 @@
     const countriesByMonth = new Map(); // country -> {total, months:Map}
     const cqZonesByMonth = new Map(); // cqZone -> {total, months:Map, countries:Set}
     const ituZonesByMonth = new Map(); // ituZone -> {total, months:Map, countries:Set}
+    const countriesByYear = new Map(); // country -> {total, years:Map}
+    const cqZonesByYear = new Map(); // cqZone -> {total, years:Map, countries:Set}
+    const ituZonesByYear = new Map(); // ituZone -> {total, years:Map, countries:Set}
     const wpxPrefixes = new Map();
     const wpxPrefixGroups = new Map();
     const callsignLengths = new Map(); // len -> {callsigns:Set, qsos}
@@ -8974,7 +9050,11 @@
     const countryMonthBuckets = buildCountryMonthBuckets(qsos);
     const cqZoneMonthBuckets = buildZoneMonthBuckets(qsos, 'cq');
     const ituZoneMonthBuckets = buildZoneMonthBuckets(qsos, 'itu');
+    const countryYearBuckets = buildCountryYearBuckets(qsos);
+    const cqZoneYearBuckets = buildZoneYearBuckets(qsos, 'cq');
+    const ituZoneYearBuckets = buildZoneYearBuckets(qsos, 'itu');
     const monthColumns = new Set();
+    const yearColumns = new Set();
     for (const [, data] of countryMonthBuckets.entries()) {
       for (const key of data.months.keys()) monthColumns.add(key);
     }
@@ -8988,6 +9068,18 @@
     }
     for (const [country, data] of countryMonthBuckets.entries()) {
       countriesByMonth.set(country, data);
+    }
+    for (const [zone, data] of cqZoneYearBuckets.entries()) {
+      cqZonesByYear.set(zone, data);
+      for (const key of data.years.keys()) yearColumns.add(key);
+    }
+    for (const [zone, data] of ituZoneYearBuckets.entries()) {
+      ituZonesByYear.set(zone, data);
+      for (const key of data.years.keys()) yearColumns.add(key);
+    }
+    for (const [country, data] of countryYearBuckets.entries()) {
+      countriesByYear.set(country, data);
+      for (const key of data.years.keys()) yearColumns.add(key);
     }
 
     const structureSummary = Array.from(structures.entries()).map(([struct, info]) => ({
@@ -9033,12 +9125,17 @@
     const minutePointSeries = Array.from(minutePoints.entries()).sort((a, b) => a[0] - b[0]).map(([minute, points]) => ({ minute, points }));
     const effectivePointsTotal = effectivePointsByIndex.reduce((sum, p) => sum + (Number.isFinite(p) ? p : 0), 0);
     const monthColumnList = Array.from(monthColumns).sort((a, b) => a.localeCompare(b));
+    const yearColumnList = Array.from(yearColumns).sort((a, b) => Number(a) - Number(b));
 
     return {
       dupes,
+      countriesByYear,
       countriesByMonth,
+      cqZonesByYear,
       cqZonesByMonth,
+      ituZonesByYear,
       ituZonesByMonth,
+      yearColumns: yearColumnList,
       monthColumns: monthColumnList,
       uniqueCallsCount: calls.size,
       bandSummary,
@@ -15325,6 +15422,10 @@
     return Array.isArray(derived?.monthColumns) ? derived.monthColumns.slice() : [];
   }
 
+  function getYearColumnsFromDerived(derived) {
+    return Array.isArray(derived?.yearColumns) ? derived.yearColumns.slice() : [];
+  }
+
   function buildMonthColumnsFromDerivedList(derivedList) {
     const out = new Set();
     if (!Array.isArray(derivedList)) return [];
@@ -15333,6 +15434,16 @@
       cols.forEach((monthKey) => out.add(monthKey));
     });
     return Array.from(out).sort((a, b) => a.localeCompare(b));
+  }
+
+  function buildYearColumnsFromDerivedList(derivedList) {
+    const out = new Set();
+    if (!Array.isArray(derivedList)) return [];
+    derivedList.forEach((derived) => {
+      const cols = getYearColumnsFromDerived(derived);
+      cols.forEach((yearKey) => out.add(yearKey));
+    });
+    return Array.from(out).sort((a, b) => Number(a) - Number(b));
   }
 
   function buildZoneMonthListFromDerived(derived, field) {
@@ -15348,6 +15459,24 @@
   function buildZoneMonthSummaryMap(derived, field) {
     const map = new Map();
     const source = field === 'itu' ? derived?.ituZonesByMonth : derived?.cqZonesByMonth;
+    if (!source) return map;
+    source.forEach((z, zone) => map.set(zone, z));
+    return map;
+  }
+
+  function buildZoneYearListFromDerived(derived, field) {
+    const source = field === 'itu' ? derived?.ituZonesByYear : derived?.cqZonesByYear;
+    if (!source) return [];
+    return Array.from(source.keys()).sort((a, b) => {
+      const ai = Number(a) || 0;
+      const bi = Number(b) || 0;
+      return ai - bi;
+    }).map((zone) => ({ zone }));
+  }
+
+  function buildZoneYearSummaryMap(derived, field) {
+    const map = new Map();
+    const source = field === 'itu' ? derived?.ituZonesByYear : derived?.cqZonesByYear;
     if (!source) return map;
     source.forEach((z, zone) => map.set(zone, z));
     return map;
@@ -15441,12 +15570,56 @@
     }).join('');
   }
 
+  function renderZoneYearRowsFromList(list, derived, field, yearColumns) {
+    const yearCols = yearColumns && yearColumns.length ? yearColumns : [];
+    const summaryMap = buildZoneYearSummaryMap(derived, field);
+    const scope = field === 'itu' ? 'itu_zone' : 'cq_zone';
+    const dataAttr = field === 'itu' ? 'data-itu' : 'data-cq';
+    const linkClass = field === 'itu' ? 'log-itu' : 'log-cq';
+    return list.map((info, idx) => {
+      const zone = Number(info.zone);
+      const z = summaryMap.get(zone);
+      const zoneText = escapeHtml(String(info.zone || ''));
+      const zoneAttr = escapeAttr(String(info.zone || ''));
+      const mapLink = z ? `<a href="#" class="map-link" data-scope="${scope}" data-key="${zoneAttr}">map</a>` : '';
+      const zoneLink = z ? `<a href="#" class="${linkClass}" ${dataAttr}="${zoneAttr}">${zoneText}</a>` : zoneText;
+      const countries = z?.countries?.size ? formatNumberSh6(z.countries.size) : '';
+      const allCount = z?.total ? formatNumberSh6(z.total) : '';
+      const yearCells = yearCols.map((yearKey) => {
+        const count = z?.years?.get(yearKey) || 0;
+        if (!count) return '<td></td>';
+        return `<td>${formatNumberSh6(count)}</td>`;
+      }).join('');
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${zoneLink}</td>
+        <td>${countries}</td>
+        ${yearCells}
+        <td>${allCount}</td>
+        <td class="tac">${mapLink}</td>
+      </tr>
+    `;
+    }).join('');
+  }
+
   function renderZoneMonthTable(rows, monthColumns) {
     const monthHeaders = (monthColumns && monthColumns.length ? monthColumns : []).map((monthKey) => `<th>${escapeHtml(monthLabelFromKey(monthKey))}</th>`).join('');
     const colCount = 3 + (monthColumns && monthColumns.length ? monthColumns.length : 0);
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th>Zone</th><th>DXCC</th>${monthHeaders}<th>All</th><th>Map</th></tr>
+        ${rows}
+        ${mapAllFooter(colCount)}
+      </table>
+    `;
+  }
+
+  function renderZoneYearTable(rows, yearColumns) {
+    const yearHeaders = (yearColumns && yearColumns.length ? yearColumns : []).map((yearKey) => `<th>${escapeHtml(String(yearKey))}</th>`).join('');
+    const colCount = 3 + (yearColumns && yearColumns.length ? yearColumns.length : 0);
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>Zone</th><th>DXCC</th>${yearHeaders}<th>All</th><th>Map</th></tr>
         ${rows}
         ${mapAllFooter(colCount)}
       </table>
@@ -15469,6 +15642,24 @@
     if (!monthColumns.length || !list.length) return '<p>No data.</p>';
     const rows = renderZoneMonthRowsFromList(list, state.derived, 'itu', monthColumns);
     return renderZoneMonthTable(rows, monthColumns);
+  }
+
+  function renderCqZonesByYear() {
+    if (!state.derived) return renderPlaceholder({ id: 'zones_cq_by_year', title: 'CQ zones by year' });
+    const list = buildZoneYearListFromDerived(state.derived, 'cq');
+    const yearColumns = getYearColumnsFromDerived(state.derived);
+    if (!yearColumns.length || !list.length) return '<p>No data.</p>';
+    const rows = renderZoneYearRowsFromList(list, state.derived, 'cq', yearColumns);
+    return renderZoneYearTable(rows, yearColumns);
+  }
+
+  function renderItuZonesByYear() {
+    if (!state.derived) return renderPlaceholder({ id: 'zones_itu_by_year', title: 'ITU zones by year' });
+    const list = buildZoneYearListFromDerived(state.derived, 'itu');
+    const yearColumns = getYearColumnsFromDerived(state.derived);
+    if (!yearColumns.length || !list.length) return '<p>No data.</p>';
+    const rows = renderZoneYearRowsFromList(list, state.derived, 'itu', yearColumns);
+    return renderZoneYearTable(rows, yearColumns);
   }
 
   function renderCountryMonthRowsFromList(list, derived, monthColumns) {
@@ -15504,12 +15695,57 @@
     }).join('');
   }
 
+  function renderCountryYearRowsFromList(list, derived, yearColumns) {
+    const yearCols = yearColumns && yearColumns.length ? yearColumns : [];
+    const summaryMap = buildCountrySummaryMap(derived);
+    const yearDataMap = derived?.countriesByYear || new Map();
+    return list.map((info, idx) => {
+      const country = info.country;
+      const c = summaryMap.get(country);
+      const continent = c?.continent || info.continent || '';
+      const prefixCode = c?.prefixCode || info.prefixCode || '';
+      const countryData = yearDataMap.get(country);
+      const countryAttr = escapeAttr(country || '');
+      const rowTotal = countryData?.total || 0;
+      const mapLink = c ? `<a href="#" class="map-link" data-scope="country" data-key="${countryAttr}">map</a>` : '';
+      const countryLabel = c ? `<a href="#" class="log-country" data-country="${countryAttr}">${escapeHtml(country || '')}</a>` : escapeHtml(country || '');
+      const yearCells = yearCols.map((yearKey) => {
+        const count = countryData?.years?.get(yearKey) || 0;
+        if (!count) return '<td></td>';
+        return `<td>${formatNumberSh6(count)}</td>`;
+      }).join('');
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td>${formatNumberSh6(idx + 1)}</td>
+        <td class="${continentClass(continent)}">${escapeHtml(continent)}</td>
+        <td>${escapeHtml(prefixCode)}</td>
+        <td>${countryLabel}</td>
+        <td>${rowTotal ? formatNumberSh6(rowTotal) : ''}</td>
+        ${yearCells}
+        <td class="tac">${mapLink}</td>
+      </tr>
+    `;
+    }).join('');
+  }
+
   function renderCountriesByMonthTable(rows, monthColumns) {
     const monthHeaders = (monthColumns && monthColumns.length ? monthColumns : []).map((monthKey) => `<th>${escapeHtml(monthLabelFromKey(monthKey))}</th>`).join('');
     const colCount = 5 + (monthColumns && monthColumns.length ? monthColumns.length : 0);
     return `
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th>#</th><th>Cont.</th><th>Prefix</th><th>Country</th><th>Total</th>${monthHeaders}<th>Map</th></tr>
+        ${rows}
+        ${mapAllFooter(colCount)}
+      </table>
+    `;
+  }
+
+  function renderCountriesByYearTable(rows, yearColumns) {
+    const yearHeaders = (yearColumns && yearColumns.length ? yearColumns : []).map((yearKey) => `<th>${escapeHtml(String(yearKey))}</th>`).join('');
+    const colCount = 5 + (yearColumns && yearColumns.length ? yearColumns.length : 0);
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>#</th><th>Cont.</th><th>Prefix</th><th>Country</th><th>Total</th>${yearHeaders}<th>Map</th></tr>
         ${rows}
         ${mapAllFooter(colCount)}
       </table>
@@ -15523,6 +15759,15 @@
     if (!monthColumns.length || !list.length) return '<p>No data.</p>';
     const rows = renderCountryMonthRowsFromList(list, state.derived, monthColumns);
     return renderCountriesByMonthTable(rows, monthColumns);
+  }
+
+  function renderCountriesByYear() {
+    if (!state.derived) return renderPlaceholder({ id: 'countries_by_year', title: 'Countries by year' });
+    const yearColumns = getYearColumnsFromDerived(state.derived);
+    const list = buildCountryListFromDerived(state.derived);
+    if (!yearColumns.length || !list.length) return '<p>No data.</p>';
+    const rows = renderCountryYearRowsFromList(list, state.derived, yearColumns);
+    return renderCountriesByYearTable(rows, yearColumns);
   }
 
   function renderQsByHourSheet() {
@@ -17772,8 +18017,11 @@
         case 'zones_cq': return renderCqZones();
         case 'zones_itu': return renderItuZones();
         case 'countries_by_month': return renderCountriesByMonth();
+        case 'countries_by_year': return renderCountriesByYear();
         case 'zones_cq_by_month': return renderCqZonesByMonth();
         case 'zones_itu_by_month': return renderItuZonesByMonth();
+        case 'zones_cq_by_year': return renderCqZonesByYear();
+        case 'zones_itu_by_year': return renderItuZonesByYear();
         case 'qs_by_hour_sheet': return renderQsByHourSheet();
         case 'graphs_qs_by_hour': return renderGraphsQsByHour(null);
         case 'points_by_hour_sheet': return renderPointsByHourSheet();
@@ -17976,10 +18224,13 @@
       case 'points_rates': return derived.hourSeries?.length || 0;
       case 'continents': return derived.continentSummary?.length || 0;
       case 'countries_by_month': return derived.countrySummary?.length || 0;
+      case 'countries_by_year': return derived.countrySummary?.length || 0;
       case 'zones_cq': return derived.cqZoneSummary?.length || 0;
       case 'zones_itu': return derived.ituZoneSummary?.length || 0;
       case 'zones_cq_by_month': return derived.cqZonesByMonth?.size || 0;
       case 'zones_itu_by_month': return derived.ituZonesByMonth?.size || 0;
+      case 'zones_cq_by_year': return derived.cqZonesByYear?.size || 0;
+      case 'zones_itu_by_year': return derived.ituZonesByYear?.size || 0;
       case 'callsign_length': return derived.callsignLengthSummary?.length || 0;
       case 'callsign_structure': return derived.structureSummary?.length || 0;
       case 'distance': return derived.distanceSummary?.buckets?.length || 0;
@@ -18007,10 +18258,13 @@
       'dupes',
       'qs_per_station',
       'countries_by_month',
+      'countries_by_year',
       'zones_cq',
       'zones_itu',
       'zones_cq_by_month',
+      'zones_cq_by_year',
       'zones_itu_by_month',
+      'zones_itu_by_year',
       'callsign_length',
       'callsign_structure',
       'distance',
@@ -18312,6 +18566,35 @@
     return renderComparePanels(slots, htmlBlocks, reportId);
   }
 
+  function renderZoneYearCompareAligned(field) {
+    const reportId = field === 'itu' ? 'zones_itu_by_year' : 'zones_cq_by_year';
+    const slots = getActiveCompareSnapshots();
+    const yearColumns = buildYearColumnsFromDerivedList(slots.map((entry) => entry.snapshot?.derived));
+    if (slots.length > 2) {
+      const { pair, entries } = resolveFocusEntries(reportId, slots);
+      const lists = entries.map((entry) => buildZoneYearListFromDerived(entry.snapshot.derived, field));
+      const list = mergeListsMany(mergeZoneLists, lists);
+      const reportRows = (entry, cols) => {
+        if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+        if (!cols.length || !list.length) return '<p>No data.</p>';
+        const rows = renderZoneYearRowsFromList(list, entry.snapshot.derived, field, cols);
+        return rows ? renderZoneYearTable(rows, cols) : '<p>No data.</p>';
+      };
+      const htmlBlocks = entries.map((entry) => reportRows(entry, yearColumns));
+      const focusControls = renderCompareFocusControls(reportId, slots, pair);
+      return `${focusControls}${renderComparePanels(entries, htmlBlocks, reportId)}`;
+    }
+    const lists = slots.map((entry) => buildZoneYearListFromDerived(entry.snapshot.derived, field));
+    const list = mergeListsMany(mergeZoneLists, lists);
+    const htmlBlocks = slots.map((entry) => {
+      if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+      if (!yearColumns.length || !list.length) return '<p>No data.</p>';
+      const rows = renderZoneYearRowsFromList(list, entry.snapshot.derived, field, yearColumns);
+      return rows ? renderZoneYearTable(rows, yearColumns) : '<p>No data.</p>';
+    });
+    return renderComparePanels(slots, htmlBlocks, reportId);
+  }
+
   function renderCountriesByMonthCompareAligned() {
     const slots = getActiveCompareSnapshots();
     const monthColumns = buildMonthColumnsFromDerivedList(slots.map((entry) => entry.snapshot?.derived));
@@ -18337,6 +18620,33 @@
       return rows ? renderCountriesByMonthTable(rows, monthColumns) : '<p>No data.</p>';
     });
     return renderComparePanels(slots, htmlBlocks, 'countries_by_month');
+  }
+
+  function renderCountriesByYearCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    const yearColumns = buildYearColumnsFromDerivedList(slots.map((entry) => entry.snapshot?.derived));
+    if (slots.length > 2) {
+      const { pair, entries } = resolveFocusEntries('countries_by_year', slots);
+      const lists = entries.map((entry) => buildCountryListFromDerived(entry.snapshot.derived));
+      const list = mergeListsMany(mergeCountryLists, lists);
+      const htmlBlocks = entries.map((entry) => {
+        if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+        if (!yearColumns.length || !list.length) return '<p>No data.</p>';
+        const rows = renderCountryYearRowsFromList(list, entry.snapshot.derived, yearColumns);
+        return rows ? renderCountriesByYearTable(rows, yearColumns) : '<p>No data.</p>';
+      });
+      const focusControls = renderCompareFocusControls('countries_by_year', slots, pair);
+      return `${focusControls}${renderComparePanels(entries, htmlBlocks, 'countries_by_year')}`;
+    }
+    const lists = slots.map((entry) => buildCountryListFromDerived(entry.snapshot.derived));
+    const list = mergeListsMany(mergeCountryLists, lists);
+    const htmlBlocks = slots.map((entry) => {
+      if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+      if (!yearColumns.length || !list.length) return '<p>No data.</p>';
+      const rows = renderCountryYearRowsFromList(list, entry.snapshot.derived, yearColumns);
+      return rows ? renderCountriesByYearTable(rows, yearColumns) : '<p>No data.</p>';
+    });
+    return renderComparePanels(slots, htmlBlocks, 'countries_by_year');
   }
 
   function renderPrefixesCompareAligned() {
@@ -18801,8 +19111,11 @@
     if (report.id === 'zones_cq') return renderZoneCompareAligned('cq');
     if (report.id === 'zones_itu') return renderZoneCompareAligned('itu');
     if (report.id === 'countries_by_month') return renderCountriesByMonthCompareAligned();
+    if (report.id === 'countries_by_year') return renderCountriesByYearCompareAligned();
     if (report.id === 'zones_cq_by_month') return renderZoneMonthCompareAligned('cq');
     if (report.id === 'zones_itu_by_month') return renderZoneMonthCompareAligned('itu');
+    if (report.id === 'zones_cq_by_year') return renderZoneYearCompareAligned('cq');
+    if (report.id === 'zones_itu_by_year') return renderZoneYearCompareAligned('itu');
     if (report.id === 'prefixes') return renderPrefixesCompareAligned();
     if (report.id === 'callsign_length') return renderCallsignLengthCompareAligned();
     if (report.id === 'callsign_structure') return renderCallsignStructureCompareAligned();

@@ -2748,9 +2748,33 @@ a:hover {
   padding: 4px 0;
 }
 
+.period-filter-ribbon {
+  margin: 4px 0 8px;
+  padding: 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.period-filter-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .band-label {
   margin-right: 6px;
   font-weight: 700;
+}
+
+.period-label {
+  margin-right: 4px;
+  font-weight: 700;
+  color: var(--sh6-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .band-pill {
@@ -2767,6 +2791,31 @@ a:hover {
   background: #5266df;
   color: #ffffff;
   border-color: #5266df;
+}
+
+.period-pill {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid #d2ddf5;
+  margin-right: 4px;
+  margin-bottom: 2px;
+  text-decoration: none;
+  color: #2d4f80;
+  background: #f7f9ff;
+  border-radius: var(--sh6-radius-pill);
+  font-size: 11px;
+}
+
+.period-pill.active {
+  background: #1e5bd6;
+  color: #ffffff;
+  border-color: #1e5bd6;
+}
+
+.period-message {
+  display: inline-block;
+  color: var(--sh6-text-soft);
+  font-size: 11px;
 }
 
 .log-controls {

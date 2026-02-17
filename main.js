@@ -245,6 +245,14 @@
   const PERMALINK_COMPACT_PREFIX = 'v2.';
   const ANALYSIS_MODE_DEFAULT = ANALYSIS_MODE_CONTESTER;
   const ANALYSIS_MODE_OPTIONS = Object.freeze(new Set([ANALYSIS_MODE_CONTESTER, ANALYSIS_MODE_DXER]));
+  const MONTH_REPORT_IDS = Object.freeze(new Set([
+    'countries_by_month',
+    'zones_cq_by_month',
+    'zones_itu_by_month'
+  ]));
+  const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const PERIOD_FILTER_COMPACT_YEARS = 'py';
+  const PERIOD_FILTER_COMPACT_MONTHS = 'pm';
   const DEFAULT_COMPARE_FOCUS = Object.freeze({
     countries_by_time: ['A', 'B'],
     countries_by_month: ['A', 'B'],
@@ -469,6 +477,8 @@
       globalBandFilter: state.globalBandFilter || '',
       breakThreshold: state.breakThreshold,
       passedQsoWindow: state.passedQsoWindow,
+      globalYearsFilter: state.globalYearsFilter || [],
+      globalMonthsFilter: state.globalMonthsFilter || [],
       logPageSize: state.logPageSize,
       logPage: state.logPage,
       compareLogWindowStart: state.compareLogWindowStart,
@@ -753,6 +763,12 @@
     if (Number.isFinite(compareStart) && compareStart !== 0) compact.w = compareStart;
     const compareSize = Number(payload.compareLogWindowSize);
     if (Number.isFinite(compareSize) && compareSize !== 1000) compact.x = compareSize;
+    if (Array.isArray(payload.globalYearsFilter) && payload.globalYearsFilter.length) {
+      compact[PERIOD_FILTER_COMPACT_YEARS] = normalizePeriodYears(payload.globalYearsFilter);
+    }
+    if (Array.isArray(payload.globalMonthsFilter) && payload.globalMonthsFilter.length) {
+      compact[PERIOD_FILTER_COMPACT_MONTHS] = normalizePeriodMonths(payload.globalMonthsFilter);
+    }
     const filters = compactLogFilters(payload.logFilters);
     if (filters) compact.l = filters;
     const slots = compactSlots(payload.slots, includeRaw);
@@ -778,6 +794,8 @@
       compareCount,
       compareFocus: inflateCompareFocus(compact.f),
       globalBandFilter: typeof compact.g === 'string' ? compact.g : '',
+      globalYearsFilter: normalizePeriodYears(compact[PERIOD_FILTER_COMPACT_YEARS]),
+      globalMonthsFilter: normalizePeriodMonths(compact[PERIOD_FILTER_COMPACT_MONTHS]),
       breakThreshold: Number.isFinite(breakThreshold) ? breakThreshold : 15,
       passedQsoWindow: Number.isFinite(passedQsoWindow) ? passedQsoWindow : 10,
       logPageSize: Number.isFinite(logPageSize) ? logPageSize : 1000,
@@ -950,6 +968,8 @@
     syncLoadPanelFlowForAnalysisMode();
     state.compareFocus = migrated.compareFocus || state.compareFocus;
     state.globalBandFilter = migrated.globalBandFilter || '';
+    state.globalYearsFilter = normalizePeriodYears(migrated.globalYearsFilter);
+    state.globalMonthsFilter = normalizePeriodMonths(migrated.globalMonthsFilter);
     state.breakThreshold = Number(migrated.breakThreshold) || state.breakThreshold;
     state.passedQsoWindow = Number(migrated.passedQsoWindow) || state.passedQsoWindow;
     if (Number.isFinite(migrated.logPageSize)) state.logPageSize = migrated.logPageSize;
@@ -998,6 +1018,7 @@
     updateLoadSummary();
     invalidateCompareLogData();
     updateBandRibbon();
+    syncPeriodFiltersWithAvailableData();
     rebuildReports();
     const logIndex = reports.findIndex((r) => r.id === 'log');
     if (logIndex >= 0) setActiveReport(logIndex);
@@ -1172,9 +1193,12 @@
     breakThreshold: 15,
     passedQsoWindow: 10,
     globalBandFilter: '',
+    globalYearsFilter: [],
+    globalMonthsFilter: [],
     fullQsoData: null,
     fullDerived: null,
     bandDerivedCache: new Map(),
+    periodFilterCache: new Map(),
     leafletMap: null,
     mapContext: null,
     kmzUrls: {},
@@ -1314,6 +1338,7 @@
     compareHelper: document.getElementById('compareHelper'),
     appVersion: document.getElementById('appVersion'),
     bandRibbon: document.getElementById('bandRibbon'),
+    periodFilterRibbon: document.getElementById('periodFilterRibbon'),
     loadPanelSubtitle: document.getElementById('loadPanelSubtitle'),
     loadStepAnalysisTitle: document.getElementById('loadStepAnalysisTitle'),
     compareModeLoadStep: document.getElementById('compareModeLoadStep'),
@@ -1375,6 +1400,7 @@
       fullQsoData: source.fullQsoData,
       fullDerived: source.fullDerived,
       bandDerivedCache: source.bandDerivedCache,
+      periodFilterCache: source.periodFilterCache,
       logVersion: source.logVersion,
       spotsState: source.spotsState,
       rbnState: source.rbnState,
@@ -1911,6 +1937,14 @@
         if (dom.bandRibbon) {
           dom.bandRibbon.style.display = report.id === 'load_logs' ? 'none' : '';
         }
+        if (dom.periodFilterRibbon) {
+          const isPeriodReport = report && shouldPeriodFilterReport(report.id);
+          const shouldShow = report.id !== 'load_logs' && isPeriodReport && state.analysisMode === ANALYSIS_MODE_DXER;
+          dom.periodFilterRibbon.style.display = shouldShow ? '' : 'none';
+          if (shouldShow) {
+            updatePeriodRibbon();
+          }
+        }
         const isLoadReport = report.id === 'load_logs';
         document.body.classList.toggle('landing-only', isLoadReport && !state.showLoadPanel);
         document.body.classList.toggle('load-active', isLoadReport && state.showLoadPanel);
@@ -1950,6 +1984,53 @@
       html += `<a href="#" class="band-pill${isActive ? ' active' : ''}" data-band="${bandAttr}">${label}</a>`;
     });
     dom.bandRibbon.innerHTML = html;
+  }
+
+  function updatePeriodRibbon() {
+    if (!dom.periodFilterRibbon) return;
+    const report = reports[state.activeIndex];
+    if (!report || !shouldPeriodFilterReport(report.id)) {
+      dom.periodFilterRibbon.innerHTML = '';
+      return;
+    }
+    syncPeriodFiltersWithAvailableData();
+    const availableYears = getAvailableYearsForPeriodFilter();
+    const availableMonths = getAvailableMonthsForPeriodFilter();
+    if (!availableYears.length && !availableMonths.length) {
+      dom.periodFilterRibbon.innerHTML = '<span class="period-message">No period data available.</span>';
+      return;
+    }
+    const selectedYears = normalizePeriodYears(state.globalYearsFilter);
+    const selectedMonths = normalizePeriodMonths(state.globalMonthsFilter);
+    const yearSet = new Set(selectedYears);
+    const monthSet = new Set(selectedMonths);
+    const yearActiveAll = selectedYears.length === 0;
+    const monthActiveAll = selectedMonths.length === 0;
+    const yearLinks = availableYears.map((year) => {
+      const isActive = !yearActiveAll && yearSet.has(year);
+      const yearAttr = escapeAttr(year);
+      const cls = `period-pill${isActive ? ' active' : ''}`;
+      return `<a href="#" class="${cls}" data-period-kind="year" data-period-value="${yearAttr}">${escapeHtml(String(year))}</a>`;
+    }).join('');
+    const monthLinks = availableMonths.map((month) => {
+      const label = MONTH_LABELS[month - 1] || String(month);
+      const isActive = !monthActiveAll && monthSet.has(month);
+      const monthAttr = escapeAttr(month);
+      const cls = `period-pill${isActive ? ' active' : ''}`;
+      return `<a href="#" class="${cls}" data-period-kind="month" data-period-value="${monthAttr}">${escapeHtml(label)}</a>`;
+    }).join('');
+    dom.periodFilterRibbon.innerHTML = `
+      <div class="period-filter-group">
+        <span class="period-label">Year:</span>
+        <a href="#" class="period-pill${yearActiveAll ? ' active' : ''}" data-period-kind="all-years">All</a>
+        ${yearLinks}
+      </div>
+      <div class="period-filter-group">
+        <span class="period-label">Month:</span>
+        <a href="#" class="period-pill${monthActiveAll ? ' active' : ''}" data-period-kind="all-months">All</a>
+        ${monthLinks}
+      </div>
+    `;
   }
 
   function renderActiveReport() {
@@ -2258,6 +2339,90 @@
       });
     }
     return sortBands(Array.from(bands));
+  }
+
+  function normalizePeriodYears(values) {
+    const unique = new Map();
+    (Array.isArray(values) ? values : []).forEach((value) => {
+      const year = Number(value);
+      if (!Number.isFinite(year)) return;
+      const intYear = Math.trunc(year);
+      if (intYear >= -10000 && intYear <= 10000) {
+        unique.set(intYear, intYear);
+      }
+    });
+    return Array.from(unique.values()).sort((a, b) => a - b);
+  }
+
+  function normalizePeriodMonths(values) {
+    const unique = new Map();
+    (Array.isArray(values) ? values : []).forEach((value) => {
+      const month = Number(value);
+      if (!Number.isFinite(month)) return;
+      const intMonth = Math.trunc(month);
+      if (intMonth >= 1 && intMonth <= 12) {
+        unique.set(intMonth, intMonth);
+      }
+    });
+    return Array.from(unique.values()).sort((a, b) => a - b);
+  }
+
+  function getAvailableYearsFromQsoList(qsos) {
+    const years = new Set();
+    (qsos || []).forEach((q) => {
+      if (!Number.isFinite(q?.ts)) return;
+      years.add(new Date(q.ts).getUTCFullYear());
+    });
+    return Array.from(years).sort((a, b) => a - b);
+  }
+
+  function getAvailableMonthsFromQsoList(qsos) {
+    const months = new Set();
+    (qsos || []).forEach((q) => {
+      if (!Number.isFinite(q?.ts)) return;
+      months.add((new Date(q.ts).getUTCMonth() + 1));
+    });
+    return Array.from(months).sort((a, b) => a - b);
+  }
+
+  function getAvailablePeriodSourceQsos() {
+    const seenSlotIds = new Set();
+    const slots = getActiveCompareSlots().map((entry) => {
+      const slotId = String(entry?.id || '').toUpperCase();
+      if (!slotId) return null;
+      return {
+        slotId,
+        slot: slotId === 'A' ? state : getSlotById(slotId)
+      };
+    });
+    const sets = [];
+    slots.forEach((entry) => {
+      if (!entry || !entry.slotId || seenSlotIds.has(entry.slotId)) return;
+      seenSlotIds.add(entry.slotId);
+      const slotQsos = entry.slot?.fullQsoData?.qsos;
+      if (Array.isArray(slotQsos)) sets.push(slotQsos);
+    });
+    return sets;
+  }
+
+  function getAvailableYearsForPeriodFilter() {
+    const years = new Set();
+    getAvailablePeriodSourceQsos().forEach((qsos) => {
+      if (!Array.isArray(qsos)) return;
+      getAvailableYearsFromQsoList(qsos).forEach((year) => years.add(year));
+    });
+    return Array.from(years).sort((a, b) => a - b);
+  }
+
+  function getAvailableMonthsForPeriodFilter() {
+    const months = new Set();
+    getAvailablePeriodSourceQsos().forEach((qsos) => {
+      if (!Array.isArray(qsos)) return;
+      getAvailableMonthsFromQsoList(qsos).forEach((month) => months.add(month));
+    });
+    const available = Array.from(months).sort((a, b) => a - b);
+    const all = MONTH_LABELS.map((_, index) => index + 1);
+    return all.filter((month) => available.includes(month));
   }
 
   function getDisplayBandList() {
@@ -5958,6 +6123,7 @@
     target.fullQsoData = target.qsoData;
     target.fullDerived = target.derived;
     target.bandDerivedCache = new Map();
+    target.periodFilterCache = new Map();
     target.logVersion = (target.logVersion || 0) + 1;
     if (target === state) {
       if (state.kmzUrls) {
@@ -6175,6 +6341,7 @@
       state.fullQsoData = state.qsoData;
       state.fullDerived = state.derived;
       state.bandDerivedCache = new Map();
+      state.periodFilterCache = new Map();
       state.logVersion = (state.logVersion || 0) + 1;
     }
     state.compareSlots.forEach((slot) => {
@@ -6187,6 +6354,7 @@
         slot.fullQsoData = slot.qsoData;
         slot.fullDerived = slot.derived;
         slot.bandDerivedCache = new Map();
+        slot.periodFilterCache = new Map();
         slot.logVersion = (slot.logVersion || 0) + 1;
       }
     });
@@ -6194,6 +6362,7 @@
     if (!hasAny) return;
     state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
     invalidateCompareLogData();
+    syncPeriodFiltersWithAvailableData();
     updateBandRibbon();
     rebuildReports();
     renderActiveReport();
@@ -6210,6 +6379,88 @@
     return !excluded.has(reportId);
   }
 
+  function shouldPeriodFilterReport(reportId) {
+    if (state.analysisMode !== ANALYSIS_MODE_DXER) return false;
+    const baseId = String(reportId || '').split('::')[0];
+    return MONTH_REPORT_IDS.has(baseId);
+  }
+
+  function syncPeriodFiltersWithAvailableData() {
+    const normalizedYears = normalizePeriodYears(state.globalYearsFilter);
+    const normalizedMonths = normalizePeriodMonths(state.globalMonthsFilter);
+    const availableYears = getAvailableYearsForPeriodFilter();
+    const availableMonths = getAvailableMonthsForPeriodFilter();
+    const hasInvalidYears = normalizedYears.some((year) => !availableYears.includes(year));
+    const hasInvalidMonths = normalizedMonths.some((month) => !availableMonths.includes(month));
+    const nextYears = hasInvalidYears ? normalizedYears.filter((year) => availableYears.includes(year)) : normalizedYears;
+    const nextMonths = hasInvalidMonths ? normalizedMonths.filter((month) => availableMonths.includes(month)) : normalizedMonths;
+    state.globalYearsFilter = nextYears;
+    state.globalMonthsFilter = nextMonths;
+    if (hasInvalidYears || hasInvalidMonths) {
+      state.periodFilterCache = new Map();
+      return true;
+    }
+    return false;
+  }
+
+  function getPeriodFilteredQsosFromList(qsos, years, months) {
+    const activeYears = normalizePeriodYears(years);
+    const activeMonths = normalizePeriodMonths(months);
+    if (!activeYears.length && !activeMonths.length) {
+      return Array.isArray(qsos) ? qsos.slice() : [];
+    }
+    if (!Array.isArray(qsos)) return [];
+    return qsos.filter((q) => {
+      if (!Number.isFinite(q?.ts)) return false;
+      const d = new Date(q.ts);
+      const year = d.getUTCFullYear();
+      const month = d.getUTCMonth() + 1;
+      const matchedYear = !activeYears.length || activeYears.includes(year);
+      const matchedMonth = !activeMonths.length || activeMonths.includes(month);
+      return matchedYear && matchedMonth;
+    });
+  }
+
+  function buildPeriodFilterCacheKey(years, months, band) {
+    const yearKey = (normalizePeriodYears(years).length ? normalizePeriodYears(years).join(',') : 'all');
+    const monthKey = (normalizePeriodMonths(months).length ? normalizePeriodMonths(months).join(',') : 'all');
+    const bandKey = String(band || '').toUpperCase();
+    const sourceKey = `${state.logVersion || 0}`;
+    return `${sourceKey}|y:${yearKey}|m:${monthKey}|b:${bandKey}`;
+  }
+
+  function withPeriodContext(reportId, fn) {
+    if (!shouldPeriodFilterReport(reportId)) return fn();
+    syncPeriodFiltersWithAvailableData();
+    const years = normalizePeriodYears(state.globalYearsFilter);
+    const months = normalizePeriodMonths(state.globalMonthsFilter);
+    if (!years.length && !months.length) return fn();
+    const baseQsos = state.qsoData?.qsos || [];
+    const cache = state.periodFilterCache || new Map();
+    if (!state.periodFilterCache) state.periodFilterCache = cache;
+    const cacheKey = buildPeriodFilterCacheKey(years, months, state.globalBandFilter);
+    let cached = cache.get(cacheKey);
+    let filteredQsos = cached && Array.isArray(cached.qsos) ? cached.qsos : null;
+    let periodDerived = cached && cached.derived ? cached.derived : null;
+    if (!filteredQsos || !periodDerived) {
+      filteredQsos = getPeriodFilteredQsosFromList(baseQsos, years, months);
+      periodDerived = buildDerived(filteredQsos, {
+        logFile: state.logFile,
+        sourcePath: state.logFile?.path || '',
+        analysisMode: state.analysisMode
+      });
+      cache.set(cacheKey, { qsos: filteredQsos, derived: periodDerived });
+    }
+    const prevQsoData = state.qsoData;
+    const prevDerived = state.derived;
+    state.qsoData = { ...(state.fullQsoData || prevQsoData), qsos: filteredQsos };
+    state.derived = periodDerived;
+    const out = fn();
+    state.qsoData = prevQsoData;
+    state.derived = prevDerived;
+    return out;
+  }
+
   function getBandFilteredQsos(band) {
     const source = state.fullQsoData?.qsos || state.qsoData?.qsos || [];
     return source.filter((q) => q.band && q.band.toUpperCase() === band);
@@ -6222,7 +6473,9 @@
   }
 
   function withBandContext(reportId, fn) {
-    if (!state.globalBandFilter || !shouldBandFilterReport(reportId)) return fn();
+    if (!state.globalBandFilter || !shouldBandFilterReport(reportId)) {
+      return withPeriodContext(reportId, fn);
+    }
     const band = state.globalBandFilter;
     const cache = state.bandDerivedCache || new Map();
     if (!state.bandDerivedCache) state.bandDerivedCache = cache;
@@ -6243,7 +6496,7 @@
     const prevDerived = state.derived;
     state.qsoData = { ...(state.fullQsoData || prevQso), qsos };
     state.derived = derived;
-    const out = fn();
+    const out = withPeriodContext(reportId, () => fn());
     state.qsoData = prevQso;
     state.derived = prevDerived;
     return out;
@@ -17578,6 +17831,7 @@
       fullQsoData: state.fullQsoData,
       fullDerived: state.fullDerived,
       bandDerivedCache: state.bandDerivedCache,
+      periodFilterCache: state.periodFilterCache,
       logVersion: state.logVersion,
       spotsState: state.spotsState,
       rbnState: state.rbnState,
@@ -20748,6 +21002,7 @@
       });
     }
     syncLoadPanelFlowForAnalysisMode();
+    syncPeriodFiltersWithAvailableData();
     rebuildReports();
     if (state.qsoData || state.compareSlots.some((slot) => slot && slot.qsoData)) {
       recomputeDerived('analysisMode');
@@ -20907,6 +21162,48 @@
         pills.forEach((pill) => {
           pill.classList.toggle('active', (pill.dataset.band || '').trim().toUpperCase() === band);
         });
+        renderActiveReport();
+      });
+    }
+    if (dom.periodFilterRibbon) {
+      dom.periodFilterRibbon.addEventListener('click', (evt) => {
+        const target = evt.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.classList.contains('period-pill')) return;
+        const kind = (target.dataset.periodKind || '').trim();
+        if (!kind) return;
+        evt.preventDefault();
+        const years = new Set(normalizePeriodYears(state.globalYearsFilter));
+        const months = new Set(normalizePeriodMonths(state.globalMonthsFilter));
+        if (kind === 'all-years') {
+          years.clear();
+        } else if (kind === 'all-months') {
+          months.clear();
+        } else if (kind === 'year') {
+          const raw = Number(target.dataset.periodValue);
+          if (Number.isFinite(raw)) {
+            const year = Math.trunc(raw);
+            if (years.has(year)) {
+              years.delete(year);
+            } else {
+              years.add(year);
+            }
+          }
+        } else if (kind === 'month') {
+          const raw = Number(target.dataset.periodValue);
+          if (Number.isFinite(raw)) {
+            const month = Math.trunc(raw);
+            if (months.has(month)) {
+              months.delete(month);
+            } else {
+              months.add(month);
+            }
+          }
+        }
+        state.globalYearsFilter = Array.from(years).filter((year) => Number.isFinite(year)).sort((a, b) => a - b);
+        state.globalMonthsFilter = Array.from(months).filter((month) => Number.isFinite(month) && month >= 1 && month <= 12).sort((a, b) => a - b);
+        state.periodFilterCache = new Map();
+        syncPeriodFiltersWithAvailableData();
         renderActiveReport();
       });
     }

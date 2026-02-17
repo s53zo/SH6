@@ -100,7 +100,7 @@ runtime_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
     return entries.indexOf(value) !== -1;
   }
   function setMode(mode) {
-    const radio = document.querySelector('input[name="analysisMode"][value="' + mode + '"]');
+    const radio = document.querySelector('.analysis-mode-option[value="' + mode + '"]');
     if (!radio) return;
     radio.checked = true;
     radio.dispatchEvent(new Event('change', { bubbles: true }));

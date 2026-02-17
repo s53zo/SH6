@@ -175,7 +175,7 @@
         expect(mainSource, 'const CTY_URLS = [', 'cty dat URL fallback list exists');
 
         // UI wiring checks in index
-        expect(indexSource, 'name=\"analysisMode\"', 'Mode radios exist in load step');
+        expect(indexSource, 'analysis-mode-option', 'Mode radios exist in load step');
         expect(indexSource, 'id=\"analysisModeSuggestion\"', 'Suggestion node exists for analysis-mode guidance');
         const failed = checks.filter((entry) => !entry.ok);
         setResult(failed.length === 0, {

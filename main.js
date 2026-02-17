@@ -1350,7 +1350,7 @@
     repoCompactTextD: document.getElementById('repoCompactTextD'),
     repoControlsD: document.getElementById('repoControlsD'),
     compareModeRadios: document.querySelectorAll('input[name="compareCount"]'),
-    analysisModeRadios: document.querySelectorAll('input[name="analysisMode"]'),
+    analysisModeRadios: document.querySelectorAll('.analysis-mode-option'),
     analysisModeSuggestion: document.getElementById('analysisModeSuggestion'),
     dropReplace: document.getElementById('dropReplace'),
     dropReplaceActions: document.getElementById('dropReplaceActions'),

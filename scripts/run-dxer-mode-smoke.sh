@@ -73,4 +73,93 @@ if [[ "${status}" != "PASS" ]]; then
   exit 1
 fi
 
+# Runtime app smoke: switch to DXer mode and confirm menu items are gated as expected.
+APP_URL="http://127.0.0.1:${PORT}/index.html"
+run_ab --session "${SESSION}" open "${APP_URL}" >/dev/null
+load_panel_ready=false
+deadline=$((SECONDS + 15))
+while ((SECONDS < deadline)); do
+  if run_ab --session "${SESSION}" get text "#loadPanel" >/dev/null 2>&1; then
+    load_panel_ready=true
+    break
+  fi
+  sleep 0.5
+done
+
+if [[ "${load_panel_ready}" != true ]]; then
+  echo "[dxer-mode-smoke] Failed to load index panel for runtime check." >&2
+  exit 1
+fi
+
+runtime_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
+(() => {
+  function collectMenuEntries() {
+    return Array.from(document.querySelectorAll('#navList li[data-index]')).map((li) => li.textContent.trim());
+  }
+  function has(entries, value) {
+    return entries.indexOf(value) !== -1;
+  }
+  function setMode(mode) {
+    const radio = document.querySelector('input[name="analysisMode"][value="' + mode + '"]');
+    if (!radio) return;
+    radio.checked = true;
+    radio.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  const contesterEntries = collectMenuEntries();
+  setMode('dxer');
+  const dxerEntries = collectMenuEntries();
+
+  return {
+    contester: {
+      countriesByMonth: has(contesterEntries, 'Countries by month'),
+      cqByMonth: has(contesterEntries, 'CQ zones by month'),
+      ituByMonth: has(contesterEntries, 'ITU zones by month'),
+      qsByMinute: has(contesterEntries, 'Qs by minute'),
+      pointsByMinute: has(contesterEntries, 'Points by minute'),
+      breakTime: has(contesterEntries, 'Break time')
+    },
+    dxer: {
+      countriesByMonth: has(dxerEntries, 'Countries by month'),
+      cqByMonth: has(dxerEntries, 'CQ zones by month'),
+      ituByMonth: has(dxerEntries, 'ITU zones by month'),
+      qsByMinute: has(dxerEntries, 'Qs by minute'),
+      pointsByMinute: has(dxerEntries, 'Points by minute'),
+      breakTime: has(dxerEntries, 'Break time'),
+      qsByHour: has(dxerEntries, 'Qs by hour sheet'),
+      pointsByHour: has(dxerEntries, 'Points by hour sheet'),
+      oneMinuteRates: has(dxerEntries, 'One minute rates')
+    }
+  };
+})();
+JS
+)")"
+runtime_payload="$(echo "${runtime_eval_raw}" | jq -c '.data.result' 2>/dev/null || true)"
+
+if [[ -z "${runtime_payload}" || "${runtime_payload}" == "null" ]]; then
+  echo "[dxer-mode-smoke] Runtime eval failed to return JSON payload." >&2
+  echo "${runtime_eval_raw}"
+  exit 1
+fi
+
+runtime_ok="$(echo "${runtime_payload}" | jq -r '
+  def inv($v): if $v then false else true end;
+  . as $r |
+  (($r | .dxer.countriesByMonth) and
+   ($r | .dxer.cqByMonth) and
+   ($r | .dxer.ituByMonth) and
+   inv($r | .dxer.qsByMinute) and
+   inv($r | .dxer.pointsByMinute) and
+   inv($r | .dxer.breakTime) and
+   inv($r | .dxer.qsByHour) and
+   inv($r | .dxer.pointsByHour) and
+   inv($r | .dxer.oneMinuteRates) and
+   ($r | .contester.qsByMinute))
+' 2>/dev/null || true)"
+if [[ "${runtime_ok}" != "true" ]]; then
+  echo "[dxer-mode-smoke] Runtime mode-gating check failed."
+  echo "${runtime_payload}"
+  exit 1
+fi
+
 echo "[dxer-mode-smoke] PASS"

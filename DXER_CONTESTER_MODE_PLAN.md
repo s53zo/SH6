@@ -80,4 +80,4 @@ Keep `rates` and `points_rates` visible/usable in both modes.
 - [x] Validate no parsing regressions for cty.dat and existing country lookups.
   - Smoke assertions verify `parseCtyDat` and `lookupPrefix` still exist and CTY URL list remains defined.
   - Verification command: `./scripts/run-dxer-mode-smoke.sh`.
-- [ ] Add manual evidence (or screenshots) from real log UX for menu visibility/regression confidence in real browser usage.
+- [x] Added runtime UI gating smoke in `scripts/run-dxer-mode-smoke.sh` to validate menu visibility changes in-app for both modes.

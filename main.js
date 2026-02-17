@@ -3449,7 +3449,7 @@
   }
 
   function buildCountryMonthBuckets(qsos, bandFilter) {
-    const map = new Map(); // country -> Map(monthKey -> count)
+    const map = new Map(); // country -> { total, months: Map(monthKey -> count) }
     const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
     qsos.forEach((q) => {
       const qBand = q.band ? normalizeBandToken(q.band) : '';
@@ -3457,15 +3457,21 @@
       if (q.country == null || q.ts == null) return;
       const monthKey = monthKeyFromTs(q.ts);
       if (!monthKey) return;
-      if (!map.has(q.country)) map.set(q.country, new Map());
+      if (!map.has(q.country)) {
+        map.set(q.country, {
+          total: 0,
+          months: new Map()
+        });
+      }
       const buckets = map.get(q.country);
-      buckets.set(monthKey, (buckets.get(monthKey) || 0) + 1);
+      buckets.total += 1;
+      buckets.months.set(monthKey, (buckets.months.get(monthKey) || 0) + 1);
     });
     return map;
   }
 
   function buildZoneMonthBuckets(qsos, field, bandFilter) {
-    const map = new Map(); // zone -> Map(monthKey -> count)
+    const map = new Map(); // zone -> { total, months: Map(monthKey -> count), countries: Set }
     const bandKey = bandFilter ? normalizeBandToken(bandFilter) : '';
     const fieldName = field === 'itu' ? 'ituZone' : 'cqZone';
     qsos.forEach((q) => {
@@ -3476,9 +3482,17 @@
       if (q.ts == null) return;
       const monthKey = monthKeyFromTs(q.ts);
       if (!monthKey) return;
-      if (!map.has(zone)) map.set(zone, new Map());
+      if (!map.has(zone)) {
+        map.set(zone, {
+          total: 0,
+          months: new Map(),
+          countries: new Set()
+        });
+      }
       const buckets = map.get(zone);
-      buckets.set(monthKey, (buckets.get(monthKey) || 0) + 1);
+      buckets.total += 1;
+      buckets.months.set(monthKey, (buckets.months.get(monthKey) || 0) + 1);
+      if (q.country) buckets.countries.add(q.country);
     });
     return map;
   }

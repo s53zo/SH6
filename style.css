@@ -3045,11 +3045,50 @@ table.mtc {
   table-layout: auto;
 }
 
+table.mtc.countries-month-heatmap-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
 /* In compare panels, keep wide Spots/RBN matrices wider than the viewport so horizontal panning works. */
 .compare-scroll table.mtc {
   width: max-content !important;
   max-width: none !important;
   min-width: max-content;
+}
+
+.compare-scroll table.mtc.countries-month-heatmap-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+
+.countries-month-heatmap-table col.countries-month-col-index {
+  width: 4%;
+}
+
+.countries-month-heatmap-table col.countries-month-col-prefix {
+  width: 8%;
+}
+
+.countries-month-heatmap-table col.countries-month-col-country {
+  width: 26%;
+}
+
+.countries-month-heatmap-table col.countries-month-col-total {
+  width: 10%;
+}
+
+.countries-month-heatmap-table col.countries-month-col-month {
+  width: 4.3333%;
+}
+
+.countries-month-heatmap-table .countries-month-cell,
+.countries-month-heatmap-table .countries-month-header {
+  text-align: center;
+  white-space: nowrap;
 }
 
 .sh6-table-dense th,

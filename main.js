@@ -15825,7 +15825,7 @@
   }
 
   function monthOfYearHeaders() {
-    return MONTH_LABELS.map((label) => `<th>${escapeHtml(label)}</th>`).join('');
+    return MONTH_LABELS.map((label) => `<th class="countries-month-header">${escapeHtml(label)}</th>`).join('');
   }
 
   function buildCountryInfoMap(derived) {
@@ -15876,7 +15876,7 @@
           const title = count
             ? `${entry.country} ${MONTH_LABELS[monthIndex]}: ${formatNumberSh6(count)} QSOs`
             : '';
-          const classAttr = cls ? ` class="${cls}"` : '';
+          const classAttr = cls ? ` class="countries-month-cell ${cls}"` : ' class="countries-month-cell"';
           const titleAttr = title ? ` title="${escapeAttr(title)}"` : '';
           return `<td${classAttr}${titleAttr}>${count ? formatNumberSh6(count) : ''}</td>`;
         }).join('');
@@ -15896,8 +15896,16 @@
 
   function renderCountriesByMonthHeatmapTable(rows) {
     const legendCells = Array.from({ length: 10 }, (_, idx) => `<td class="s${idx}" title="Intensity level ${idx + 1}"></td>`).join('');
+    const monthCols = Array.from({ length: 12 }, () => '<col class="countries-month-col-month">').join('');
     return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
+      <table class="mtc countries-month-heatmap-table" style="margin-top:5px;margin-bottom:10px;">
+        <colgroup>
+          <col class="countries-month-col-index">
+          <col class="countries-month-col-prefix">
+          <col class="countries-month-col-country">
+          <col class="countries-month-col-total">
+          ${monthCols}
+        </colgroup>
         <tr>
           <td colspan="4">Legend (relative monthly intensity):</td>
           ${legendCells}

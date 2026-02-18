@@ -2,6 +2,21 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.1.15 (2026-02-18)
+- Countries by month: merge month heatmap into the main `Countries by month` report (single menu entry).
+- Countries by month: render Jan-Dec heatmap cells with contact counts shown inside each colored cell.
+- Countries by month: fix table formatting with consistent fixed-width month columns in single and compare views.
+- Version bump to `v6.1.15` and refresh cache-busting references in `index.html`.
+
+## v6.1.14 (2026-02-18)
+- Add analysis mode split (`Contester` and `DXer`) with synced toggles in sidebar and start panel.
+- Start flow redesign by mode: DXer enforces single-log flow, hides extra slots without dropping loaded data, and updates step labels.
+- DXer UX cleanup: hide contest/rules-focused wording/reports where not relevant, including competitor coach and archive recommendation tip.
+- Add DXer period filtering (year/month multi-select) across band-filtered reports.
+- Add yearly geography reports in DXer mode (`Countries/CQ zones/ITU zones by year`).
+- Archive search: fix ARRL tree grouping to `ARRL -> subcontest -> year -> mode -> file` and add compatibility fallback for shards missing `subcontest`.
+- Analysis mode help text: add interactive “What’s the difference?” tooltip with hover/click behavior.
+
 ## v5.2.26 (2026-02-12)
 - Rates and time-series reports: exclude duplicate QSOs from UTC hour/minute/10-minute rate buckets.
 - Peak-rate windows: exclude duplicate QSOs from best QSO window and best points window calculations (10/20/30/60/120 min).

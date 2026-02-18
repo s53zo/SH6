@@ -3046,8 +3046,9 @@ table.mtc {
 }
 
 table.mtc.countries-month-heatmap-table {
-  width: 100%;
-  max-width: 100%;
+  width: max-content;
+  max-width: none;
+  min-width: max-content;
   table-layout: fixed;
 }
 
@@ -3059,36 +3060,59 @@ table.mtc.countries-month-heatmap-table {
 }
 
 .compare-scroll table.mtc.countries-month-heatmap-table {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
+  width: max-content !important;
+  max-width: none !important;
+  min-width: max-content !important;
   table-layout: fixed;
 }
 
 .countries-month-heatmap-table col.countries-month-col-index {
-  width: 4%;
+  width: 42px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-prefix {
-  width: 8%;
+  width: 74px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-country {
-  width: 26%;
+  width: 240px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-total {
-  width: 10%;
+  width: 138px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-month {
-  width: 4.3333%;
+  width: 58px;
+}
+
+.countries-month-heatmap-table .countries-month-index-cell,
+.countries-month-heatmap-table .countries-month-prefix-cell,
+.countries-month-heatmap-table .countries-month-total-cell {
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.countries-month-heatmap-table .countries-month-country-cell {
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.countries-month-heatmap-table .countries-month-cell,
+.countries-month-heatmap-table .countries-month-header,
+.countries-month-heatmap-table .countries-month-total-header,
+.countries-month-heatmap-table .countries-month-total-cell {
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .countries-month-heatmap-table .countries-month-cell,
 .countries-month-heatmap-table .countries-month-header {
-  text-align: center;
-  white-space: nowrap;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 .sh6-table-dense th,

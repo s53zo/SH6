@@ -2868,7 +2868,7 @@
       case 'countries_by_time':
         return 4;
       case 'countries_by_month':
-        return 4;
+        return 0;
       case 'countries':
         return 4;
       case 'continents':
@@ -15864,7 +15864,7 @@
       if (!countries || !countries.length) return;
       const continentAttr = escapeAttr(continent);
       const continentText = escapeHtml(continentLabel(continent) || continent);
-      rows += `<tr class="thc"><th colspan="3" class="${continentClass(continent)}"><a href="#" class="log-continent" data-continent="${continentAttr}">${continentText}</a></th><th>${escapeHtml(bandLabel)}</th>${monthOfYearHeaders()}</tr>`;
+      rows += `<tr class="thc"><th colspan="3" class="${continentClass(continent)}"><a href="#" class="log-continent" data-continent="${continentAttr}">${continentText}</a></th><th class="countries-month-total-header">${escapeHtml(bandLabel)}</th>${monthOfYearHeaders()}</tr>`;
       rows += countries.map((entry, idx) => {
         const rowCls = idx % 2 === 0 ? 'td1' : 'td0';
         const prefixText = escapeHtml(entry.prefix || '');
@@ -15882,10 +15882,10 @@
         }).join('');
         return `
           <tr class="${rowCls}">
-            <td>${formatNumberSh6(idx + 1)}</td>
-            <td>${prefixText}</td>
-            <td>${countryCell}</td>
-            <td>${formatNumberSh6(entry.total)}</td>
+            <td class="countries-month-index-cell">${formatNumberSh6(idx + 1)}</td>
+            <td class="countries-month-prefix-cell">${prefixText}</td>
+            <td class="countries-month-country-cell">${countryCell}</td>
+            <td class="countries-month-total-cell">${formatNumberSh6(entry.total)}</td>
             ${monthCells}
           </tr>
         `;

@@ -3067,19 +3067,19 @@ table.mtc.countries-month-heatmap-table {
 }
 
 .countries-month-heatmap-table col.countries-month-col-index {
-  width: 42px;
+  width: 34px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-prefix {
-  width: 74px;
+  width: 62px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-country {
-  width: 240px;
+  width: 200px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-total {
-  width: 138px;
+  width: 118px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-month {

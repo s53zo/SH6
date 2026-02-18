@@ -11,7 +11,6 @@
     { id: 'countries', title: 'Countries' },
     { id: 'countries_by_time', title: 'Countries by time' },
     { id: 'countries_by_month', title: 'Countries by month' },
-    { id: 'countries_by_month_heatmap', title: 'Countries by month heatmap' },
     { id: 'countries_by_year', title: 'Countries by year' },
     { id: 'qs_per_station', title: 'Qs per station' },
     { id: 'passed_qsos', title: 'Passed QSOs' },
@@ -103,7 +102,6 @@
     zones_cq: 'geo_analysis',
     zones_itu: 'geo_analysis',
     countries_by_month: 'geo_analysis',
-    countries_by_month_heatmap: 'geo_analysis',
     countries_by_year: 'geo_analysis',
     zones_cq_by_month: 'geo_analysis',
     zones_cq_by_year: 'geo_analysis',
@@ -261,7 +259,6 @@
   const DEFAULT_COMPARE_FOCUS = Object.freeze({
     countries_by_time: ['A', 'B'],
     countries_by_month: ['A', 'B'],
-    countries_by_month_heatmap: ['A', 'B'],
     countries_by_year: ['A', 'B'],
     qs_by_minute: ['A', 'B'],
     one_minute_rates: ['A', 'B'],
@@ -292,7 +289,6 @@
     return {
       countries_by_time: Array.isArray(source.countries_by_time) ? source.countries_by_time.slice() : ['A', 'B'],
       countries_by_month: Array.isArray(source.countries_by_month) ? source.countries_by_month.slice() : ['A', 'B'],
-      countries_by_month_heatmap: Array.isArray(source.countries_by_month_heatmap) ? source.countries_by_month_heatmap.slice() : ['A', 'B'],
       countries_by_year: Array.isArray(source.countries_by_year) ? source.countries_by_year.slice() : ['A', 'B'],
       qs_by_minute: Array.isArray(source.qs_by_minute) ? source.qs_by_minute.slice() : ['A', 'B'],
       one_minute_rates: Array.isArray(source.one_minute_rates) ? source.one_minute_rates.slice() : ['A', 'B'],
@@ -568,7 +564,6 @@
     const mapping = [
       ['countries_by_time', 'c'],
       ['countries_by_month', 'r'],
-      ['countries_by_month_heatmap', 'x'],
       ['qs_by_minute', 'm'],
       ['one_minute_rates', 'o'],
       ['points_by_minute', 'p'],
@@ -593,7 +588,7 @@
     const mapping = {
       c: 'countries_by_time',
       r: 'countries_by_month',
-      x: 'countries_by_month_heatmap',
+      x: 'countries_by_month',
       m: 'qs_by_minute',
       o: 'one_minute_rates',
       p: 'points_by_minute',
@@ -2483,6 +2478,9 @@
 
   function setActiveReportById(reportId, options = {}) {
     const safeId = String(reportId || '');
+    if (safeId === 'countries_by_month_heatmap') {
+      return setActiveReportById('countries_by_month', options);
+    }
     if (safeId === 'charts') {
       // Backward compat: older sessions/permalinks used a parent Charts menu.
       return setActiveReportById('charts_qs_by_band', options);
@@ -2869,7 +2867,7 @@
         return 2;
       case 'countries_by_time':
         return 4;
-      case 'countries_by_month_heatmap':
+      case 'countries_by_month':
         return 4;
       case 'countries':
         return 4;
@@ -2943,7 +2941,7 @@
       'log',
       'countries',
       'countries_by_time',
-      'countries_by_month_heatmap',
+      'countries_by_month',
       'qs_by_minute',
       'points_by_minute',
       'all_callsigns',
@@ -2985,7 +2983,7 @@
       'log',
       'countries',
       'countries_by_time',
-      'countries_by_month_heatmap',
+      'countries_by_month',
       'qs_by_minute',
       'points_by_minute',
       'beam_heading',
@@ -15823,12 +15821,7 @@
   }
 
   function renderCountriesByMonth() {
-    if (!state.derived) return renderPlaceholder({ id: 'countries_by_month', title: 'Countries by month' });
-    const monthColumns = getMonthColumnsFromDerived(state.derived);
-    const list = buildCountryListFromDerived(state.derived);
-    if (!monthColumns.length || !list.length) return '<p>No data.</p>';
-    const rows = renderCountryMonthRowsFromList(list, state.derived, monthColumns);
-    return renderCountriesByMonthTable(rows, monthColumns);
+    return renderCountriesByMonthHeatmap(state.globalBandFilter || '');
   }
 
   function monthOfYearHeaders() {
@@ -15885,7 +15878,7 @@
             : '';
           const classAttr = cls ? ` class="${cls}"` : '';
           const titleAttr = title ? ` title="${escapeAttr(title)}"` : '';
-          return `<td${classAttr}${titleAttr}></td>`;
+          return `<td${classAttr}${titleAttr}>${count ? formatNumberSh6(count) : ''}</td>`;
         }).join('');
         return `
           <tr class="${rowCls}">
@@ -15917,10 +15910,10 @@
   }
 
   function renderCountriesByMonthHeatmap(bandFilter) {
-    if (!state.derived) return renderPlaceholder({ id: 'countries_by_month_heatmap', title: 'Countries by month heatmap' });
+    if (!state.derived) return renderPlaceholder({ id: 'countries_by_month', title: 'Countries by month' });
     const selectedBand = bandFilter
       ? normalizeBandToken(bandFilter)
-      : (state.globalBandFilter && shouldBandFilterReport('countries_by_month_heatmap')
+      : (state.globalBandFilter && shouldBandFilterReport('countries_by_month')
         ? normalizeBandToken(state.globalBandFilter)
         : '');
     const qsos = state.qsoData?.qsos || [];
@@ -18190,7 +18183,6 @@
         case 'zones_cq': return renderCqZones();
         case 'zones_itu': return renderItuZones();
         case 'countries_by_month': return renderCountriesByMonth();
-        case 'countries_by_month_heatmap': return renderCountriesByMonthHeatmap();
         case 'countries_by_year': return renderCountriesByYear();
         case 'zones_cq_by_month': return renderCqZonesByMonth();
         case 'zones_itu_by_month': return renderItuZonesByMonth();
@@ -18398,7 +18390,6 @@
       case 'points_rates': return derived.hourSeries?.length || 0;
       case 'continents': return derived.continentSummary?.length || 0;
       case 'countries_by_month': return derived.countrySummary?.length || 0;
-      case 'countries_by_month_heatmap': return derived.countrySummary?.length || 0;
       case 'countries_by_year': return derived.countrySummary?.length || 0;
       case 'zones_cq': return derived.cqZoneSummary?.length || 0;
       case 'zones_itu': return derived.ituZoneSummary?.length || 0;
@@ -18433,7 +18424,6 @@
       'dupes',
       'qs_per_station',
       'countries_by_month',
-      'countries_by_month_heatmap',
       'countries_by_year',
       'zones_cq',
       'zones_itu',
@@ -18772,34 +18762,11 @@
   }
 
   function renderCountriesByMonthCompareAligned() {
-    const slots = getActiveCompareSnapshots();
-    const monthColumns = buildMonthColumnsFromDerivedList(slots.map((entry) => entry.snapshot?.derived));
-    if (slots.length > 2) {
-      const { pair, entries } = resolveFocusEntries('countries_by_month', slots);
-      const lists = entries.map((entry) => buildCountryListFromDerived(entry.snapshot.derived));
-      const list = mergeListsMany(mergeCountryLists, lists);
-      const htmlBlocks = entries.map((entry) => {
-        if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
-        if (!monthColumns.length || !list.length) return '<p>No data.</p>';
-        const rows = renderCountryMonthRowsFromList(list, entry.snapshot.derived, monthColumns);
-        return rows ? renderCountriesByMonthTable(rows, monthColumns) : '<p>No data.</p>';
-      });
-      const focusControls = renderCompareFocusControls('countries_by_month', slots, pair);
-      return `${focusControls}${renderComparePanels(entries, htmlBlocks, 'countries_by_month')}`;
-    }
-    const lists = slots.map((entry) => buildCountryListFromDerived(entry.snapshot.derived));
-    const list = mergeListsMany(mergeCountryLists, lists);
-    const htmlBlocks = slots.map((entry) => {
-      if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
-      if (!monthColumns.length || !list.length) return '<p>No data.</p>';
-      const rows = renderCountryMonthRowsFromList(list, entry.snapshot.derived, monthColumns);
-      return rows ? renderCountriesByMonthTable(rows, monthColumns) : '<p>No data.</p>';
-    });
-    return renderComparePanels(slots, htmlBlocks, 'countries_by_month');
+    return renderCountriesByMonthHeatmapCompareAligned();
   }
 
   function renderCountriesByMonthHeatmapCompareAligned() {
-    const reportId = 'countries_by_month_heatmap';
+    const reportId = 'countries_by_month';
     const selectedBand = state.globalBandFilter && shouldBandFilterReport(reportId)
       ? normalizeBandToken(state.globalBandFilter)
       : '';
@@ -19319,8 +19286,7 @@
     if (report.id === 'continents') return renderContinentsCompareAligned();
     if (report.id === 'zones_cq') return renderZoneCompareAligned('cq');
     if (report.id === 'zones_itu') return renderZoneCompareAligned('itu');
-    if (report.id === 'countries_by_month') return renderCountriesByMonthCompareAligned();
-    if (report.id === 'countries_by_month_heatmap') return renderCountriesByMonthHeatmapCompareAligned();
+    if (report.id === 'countries_by_month') return renderCountriesByMonthHeatmapCompareAligned();
     if (report.id === 'countries_by_year') return renderCountriesByYearCompareAligned();
     if (report.id === 'zones_cq_by_month') return renderZoneMonthCompareAligned('cq');
     if (report.id === 'zones_itu_by_month') return renderZoneMonthCompareAligned('itu');

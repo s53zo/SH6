@@ -3071,11 +3071,11 @@ table.mtc.countries-month-heatmap-table {
 }
 
 .countries-month-heatmap-table col.countries-month-col-prefix {
-  width: 62px;
+  width: 55px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-country {
-  width: 200px;
+  width: 150px;
 }
 
 .countries-month-heatmap-table col.countries-month-col-total {

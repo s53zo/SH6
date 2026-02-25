@@ -2,6 +2,10 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.1.17 (2026-02-25)
+- RBN compare signal: standardize X-axis tick labels to always use `DD.MM HH:mmZ`, regardless of zoom level.
+- Version bump to `v6.1.17` and refresh cache-busting references in `index.html`.
+
 ## v6.1.16 (2026-02-25)
 - Countries by month: fix table alignment/spacing issues by switching to stable fixed-width column layout and compare-friendly horizontal scrolling.
 - Countries by month: tune first columns (`#`, Prefix, Country, All bands QSOs`) to narrower widths for denser display.

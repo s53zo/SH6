@@ -284,6 +284,14 @@
     'one_minute_point_rates',
     'breaks'
   ]);
+  const CONTESTER_HIDDEN_REPORTS = new Set([
+    'countries_by_month',
+    'countries_by_year',
+    'zones_cq_by_month',
+    'zones_cq_by_year',
+    'zones_itu_by_month',
+    'zones_itu_by_year'
+  ]);
 
   function cloneCompareFocus(source = DEFAULT_COMPARE_FOCUS) {
     return {
@@ -2461,6 +2469,7 @@
     const list = [];
     BASE_REPORTS.forEach((r) => {
       if (state.analysisMode === ANALYSIS_MODE_DXER && DXER_HIDDEN_REPORTS.has(r.id)) return;
+      if (state.analysisMode === ANALYSIS_MODE_CONTESTER && CONTESTER_HIDDEN_REPORTS.has(r.id)) return;
       list.push(r);
     });
     return list;

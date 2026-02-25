@@ -14200,14 +14200,14 @@
     return `<svg class="rbn-slot-line" width="46" height="12" viewBox="0 0 46 12" aria-hidden="true"><line x1="2" y1="6" x2="44" y2="6" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round"${dashAttr} vector-effect="non-scaling-stroke" opacity="0.45"/></svg>`;
   }
 
-  function formatUtcTick(ts, includeMinutes = false) {
+  function formatUtcTick(ts) {
     if (!Number.isFinite(ts)) return '';
     const d = new Date(ts);
     const dd = String(d.getUTCDate()).padStart(2, '0');
+    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
     const hh = String(d.getUTCHours()).padStart(2, '0');
-    if (!includeMinutes) return `${dd} ${hh}Z`;
     const mm = String(d.getUTCMinutes()).padStart(2, '0');
-    return `${dd} ${hh}:${mm}Z`;
+    return `${dd}.${mo} ${hh}:${mm}Z`;
   }
 
   function ensureCanvasZoomStore(chartType = 'rbn') {
@@ -14524,7 +14524,7 @@
       ctx.moveTo(x, margin.top);
       ctx.lineTo(x, margin.top + plotH);
       ctx.stroke();
-      const label = formatUtcTick(ts, zoomActive);
+      const label = formatUtcTick(ts);
       const labelW = Math.max(0, ctx.measureText(label).width || 0);
       const clamped = Math.max(margin.left, Math.min(x - labelW / 2, margin.left + plotW - labelW));
       ctx.fillText(label, clamped, margin.top + plotH + 6);

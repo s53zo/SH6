@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.1.16 (2026-02-25)
+- Countries by month: fix table alignment/spacing issues by switching to stable fixed-width column layout and compare-friendly horizontal scrolling.
+- Countries by month: tune first columns (`#`, Prefix, Country, All bands QSOs`) to narrower widths for denser display.
+- Analysis modes: hide month/year geography reports in `Contester` mode (`Countries/CQ zones/ITU zones by month/year` remain available in `DXer` mode).
+- Version bump to `v6.1.16` and refresh cache-busting references in `index.html`.
+
 ## v6.1.15 (2026-02-18)
 - Countries by month: merge month heatmap into the main `Countries by month` report (single menu entry).
 - Countries by month: render Jan-Dec heatmap cells with contact counts shown inside each colored cell.

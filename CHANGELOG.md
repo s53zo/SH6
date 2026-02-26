@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.1.19 (2026-02-26)
+- Compare layout audit: prevent table-based reports from using the `compare-narrow` grid path that can suppress per-panel horizontal scrolling.
+- Table-heavy compare reports now stay in standard panel-width layout, so horizontal overflow is handled consistently inside each `compare-scroll` panel.
+- Keeps `compare-narrow` only for compact non-table reports (`One minute rates`, `One minute point rates`, `Rates`).
+- Version bump to `v6.1.19` and refresh cache-busting references in `index.html`.
+
 ## v6.1.18 (2026-02-26)
 - Compare mode: fix horizontal scrolling for `Qs by hour sheet` and `Points by hour sheet` by removing these reports from the `compare-narrow` layout path.
 - Keeps scroll behavior inside each compare panel (`compare-scroll`) instead of expanding panel columns to table width.

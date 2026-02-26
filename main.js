@@ -144,7 +144,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.1.18';
+  const APP_VERSION = 'v6.1.19';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -18436,28 +18436,9 @@
   function renderComparePanels(slotEntries, htmlBlocks, reportId, options = {}) {
     const baseId = String(reportId || '').split('::')[0];
     const narrowReports = new Set([
-      'summary',
-      'operators',
-      'dupes',
-      'qs_per_station',
-      'countries_by_month',
-      'countries_by_year',
-      'zones_cq',
-      'zones_itu',
-      'zones_cq_by_month',
-      'zones_cq_by_year',
-      'zones_itu_by_month',
-      'zones_itu_by_year',
-      'callsign_length',
-      'callsign_structure',
-      'distance',
-      'passed_qsos',
-      'possible_errors',
-      'not_in_master',
       'one_minute_rates',
       'one_minute_point_rates',
-      'rates',
-      'all_callsigns'
+      'rates'
     ]);
     const wrapReports = new Set(['one_minute_rates', 'one_minute_point_rates']);
     const stackReports = new Set(['rates']);

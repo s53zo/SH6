@@ -144,7 +144,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.1.17';
+  const APP_VERSION = 'v6.1.18';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -18457,9 +18457,7 @@
       'one_minute_rates',
       'one_minute_point_rates',
       'rates',
-      'all_callsigns',
-      'qs_by_hour_sheet',
-      'points_by_hour_sheet'
+      'all_callsigns'
     ]);
     const wrapReports = new Set(['one_minute_rates', 'one_minute_point_rates']);
     const stackReports = new Set(['rates']);
@@ -18485,8 +18483,7 @@
       'sh6_info',
       'charts'
     ]);
-    const isWideHourSheet = (baseId === 'qs_by_hour_sheet' || baseId === 'points_by_hour_sheet') && slotEntries.length >= 3;
-    const isNarrow = !isWideHourSheet && narrowReports.has(baseId);
+    const isNarrow = narrowReports.has(baseId);
     const shouldWrap = wrapReports.has(baseId);
     const isChart = options.chart || baseId.startsWith('charts_');
     const isQuad = isChart || quadReports.has(baseId);

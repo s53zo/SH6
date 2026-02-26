@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.1.18 (2026-02-26)
+- Compare mode: fix horizontal scrolling for `Qs by hour sheet` and `Points by hour sheet` by removing these reports from the `compare-narrow` layout path.
+- Keeps scroll behavior inside each compare panel (`compare-scroll`) instead of expanding panel columns to table width.
+- Version bump to `v6.1.18` and refresh cache-busting references in `index.html`.
+
 ## v6.1.17 (2026-02-25)
 - RBN compare signal: standardize X-axis tick labels to always use `DD.MM HH:mmZ`, regardless of zoom level.
 - Version bump to `v6.1.17` and refresh cache-busting references in `index.html`.

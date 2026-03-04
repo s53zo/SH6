@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.1.21 (2026-03-04)
+- Frequencies chart sampling: replace global stride downsampling with deterministic stratified sampling to preserve both run-frequency lanes and S&P spread.
+- Frequencies chart sampling: allocate dot budget across bands and 10-minute buckets, with per-band anchors to keep activity boundaries visible.
+- Frequencies chart sampling: detect dominant run-frequency clusters (2 kHz bins) and balance per-bucket selection between run-like and non-run points.
+- Version bump to `v6.1.21` and refresh cache-busting references in `index.html`.
+
 ## v6.1.20 (2026-03-04)
 - Frequencies chart: redesign Y axis into per-band brackets, so each active band gets its own vertical lane.
 - Frequencies chart: map QSO dots by within-band frequency range (worked min/max with padding), reducing visual squashing when activity is concentrated (for example CW-only slices).

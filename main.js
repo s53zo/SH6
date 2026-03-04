@@ -2645,17 +2645,253 @@
     return valid.reduce((acc, range) => mergeFrequencyScatterRanges(acc, range), null);
   }
 
+  function allocateWeightedBudgets(items, total, options = {}) {
+    const list = (items || []).map((item, idx) => ({
+      key: item?.key ?? idx,
+      weight: Math.max(0, Number(item?.weight) || 0),
+      idx
+    })).filter((entry) => entry.weight > 0);
+    const budgets = new Map();
+    list.forEach((entry) => budgets.set(entry.key, 0));
+    let remaining = Math.max(0, Math.floor(Number(total) || 0));
+    if (!list.length || remaining <= 0) return budgets;
+    const ensureMin = Boolean(options.ensureMin);
+    if (ensureMin && remaining >= list.length) {
+      list.forEach((entry) => budgets.set(entry.key, 1));
+      remaining -= list.length;
+    }
+    if (remaining <= 0) return budgets;
+    const weightSum = list.reduce((sum, entry) => sum + entry.weight, 0);
+    if (!Number.isFinite(weightSum) || weightSum <= 0) return budgets;
+    let used = 0;
+    const remainders = list.map((entry) => {
+      const raw = (remaining * entry.weight) / weightSum;
+      const base = Math.floor(raw);
+      used += base;
+      budgets.set(entry.key, (budgets.get(entry.key) || 0) + base);
+      return {
+        key: entry.key,
+        frac: raw - base,
+        raw,
+        idx: entry.idx
+      };
+    });
+    let leftovers = remaining - used;
+    remainders.sort((a, b) => b.frac - a.frac || b.raw - a.raw || a.idx - b.idx);
+    for (let i = 0; i < leftovers; i += 1) {
+      const target = remainders[i % remainders.length];
+      budgets.set(target.key, (budgets.get(target.key) || 0) + 1);
+    }
+    return budgets;
+  }
+
+  function selectEvenly(items, count) {
+    const list = Array.isArray(items) ? items : [];
+    const target = Math.max(0, Math.floor(Number(count) || 0));
+    if (!target || !list.length) return [];
+    if (target >= list.length) return list.slice();
+    if (target === 1) return [list[Math.floor((list.length - 1) / 2)]];
+    const out = [];
+    const used = new Set();
+    const step = (list.length - 1) / (target - 1);
+    for (let i = 0; i < target; i += 1) {
+      let idx = Math.round(i * step);
+      while (idx < list.length && used.has(idx)) idx += 1;
+      while (idx >= 0 && used.has(idx)) idx -= 1;
+      if (idx < 0 || idx >= list.length || used.has(idx)) continue;
+      used.add(idx);
+      out.push(list[idx]);
+    }
+    if (out.length >= target) return out.slice(0, target);
+    for (let i = 0; i < list.length && out.length < target; i += 1) {
+      if (used.has(i)) continue;
+      used.add(i);
+      out.push(list[i]);
+    }
+    return out;
+  }
+
+  function appendUniquePoints(target, candidates, limit, seen) {
+    const out = target;
+    (candidates || []).forEach((point) => {
+      if (!point) return;
+      if (out.length >= limit) return;
+      const key = Number(point.idx);
+      if (!Number.isFinite(key) || seen.has(key)) return;
+      seen.add(key);
+      out.push(point);
+    });
+    return out;
+  }
+
+  function selectSpPoints(points, count) {
+    const list = Array.isArray(points) ? points : [];
+    const target = Math.max(0, Math.floor(Number(count) || 0));
+    if (!target || !list.length) return [];
+    if (target >= list.length) return list.slice();
+    const byTs = list.slice().sort((a, b) => a.ts - b.ts || a.idx - b.idx);
+    const byFreq = list.slice().sort((a, b) => a.freq - b.freq || a.ts - b.ts || a.idx - b.idx);
+    const freqBudget = Math.max(1, Math.min(target, Math.ceil(target * 0.6)));
+    const timeBudget = Math.max(0, target - freqBudget);
+    const out = [];
+    const seen = new Set();
+    appendUniquePoints(out, selectEvenly(byFreq, freqBudget), target, seen);
+    appendUniquePoints(out, selectEvenly(byTs, timeBudget), target, seen);
+    if (out.length < target) {
+      appendUniquePoints(out, selectEvenly(byTs, target), target, seen);
+    }
+    return out.slice(0, target);
+  }
+
+  function sampleFrequencyBucket(points, budget) {
+    const list = (points || []).slice().sort((a, b) => a.ts - b.ts || a.idx - b.idx);
+    const target = Math.max(0, Math.floor(Number(budget) || 0));
+    if (!target || !list.length) return [];
+    if (target >= list.length) return list;
+    const binWidth = 0.002; // 2 kHz bins for run-frequency clustering.
+    const bins = new Map();
+    list.forEach((point) => {
+      const key = Math.round(point.freq / binWidth);
+      if (!bins.has(key)) bins.set(key, []);
+      bins.get(key).push(point);
+    });
+    let dominantKey = null;
+    let dominantCount = 0;
+    bins.forEach((members, key) => {
+      if (members.length > dominantCount) {
+        dominantCount = members.length;
+        dominantKey = key;
+      }
+    });
+    const hasRunCluster = dominantKey != null && dominantCount >= 3 && (dominantCount / list.length) >= 0.2;
+    if (!hasRunCluster) return selectSpPoints(list, target);
+    const runPoints = list.filter((point) => Math.round(point.freq / binWidth) === dominantKey);
+    const spPoints = list.filter((point) => Math.round(point.freq / binWidth) !== dominantKey);
+    let runBudget = Math.min(runPoints.length, Math.max(1, Math.round(target * 0.6)));
+    let spBudget = target - runBudget;
+    if (spPoints.length && spBudget <= 0 && target >= 2) {
+      spBudget = 1;
+      runBudget = Math.max(0, target - spBudget);
+    }
+    if (spBudget > spPoints.length) {
+      runBudget = Math.min(runPoints.length, runBudget + (spBudget - spPoints.length));
+      spBudget = spPoints.length;
+    }
+    const selectedRun = selectEvenly(runPoints, runBudget);
+    const selectedSp = selectSpPoints(spPoints, spBudget);
+    const out = [];
+    const seen = new Set();
+    appendUniquePoints(out, selectedRun, target, seen);
+    appendUniquePoints(out, selectedSp, target, seen);
+    if (out.length < target) {
+      appendUniquePoints(out, selectSpPoints(list, target), target, seen);
+    }
+    return out.slice(0, target);
+  }
+
+  function sampleFrequencyBand(points, budget) {
+    const list = (points || []).slice().sort((a, b) => a.ts - b.ts || a.idx - b.idx);
+    const target = Math.max(0, Math.floor(Number(budget) || 0));
+    if (!target || !list.length) return [];
+    if (target >= list.length) return list;
+    const anchors = [];
+    anchors.push(list[0]);
+    if (list.length > 1) anchors.push(list[list.length - 1]);
+    const anchorCount = Math.min(target, anchors.length);
+    const coreBudget = Math.max(0, target - anchorCount);
+    const core = list.slice(1, -1);
+    const sampledCore = [];
+    if (coreBudget > 0 && core.length) {
+      const bucketMs = 10 * 60 * 1000;
+      const startTs = list[0].ts;
+      const buckets = new Map();
+      core.forEach((point) => {
+        const key = Math.floor((point.ts - startTs) / bucketMs);
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key).push(point);
+      });
+      const bucketItems = Array.from(buckets.entries()).map(([key, members]) => ({ key, members }));
+      const bucketBudgets = allocateWeightedBudgets(
+        bucketItems.map((entry) => ({ key: entry.key, weight: entry.members.length })),
+        coreBudget,
+        { ensureMin: true }
+      );
+      bucketItems.sort((a, b) => a.key - b.key);
+      bucketItems.forEach((entry) => {
+        const b = bucketBudgets.get(entry.key) || 0;
+        if (!b) return;
+        sampledCore.push(...sampleFrequencyBucket(entry.members, b));
+      });
+      if (sampledCore.length < coreBudget) {
+        const used = new Set(sampledCore.map((point) => point.idx));
+        const leftover = core.filter((point) => !used.has(point.idx));
+        sampledCore.push(...selectSpPoints(leftover, coreBudget - sampledCore.length));
+      } else if (sampledCore.length > coreBudget) {
+        const trimmed = selectEvenly(sampledCore.sort((a, b) => a.ts - b.ts || a.idx - b.idx), coreBudget);
+        sampledCore.length = 0;
+        sampledCore.push(...trimmed);
+      }
+    }
+    const out = [];
+    const seen = new Set();
+    appendUniquePoints(out, anchors.slice(0, anchorCount), target, seen);
+    appendUniquePoints(out, sampledCore, target, seen);
+    if (out.length < target) {
+      appendUniquePoints(out, selectSpPoints(list, target), target, seen);
+    }
+    return out.sort((a, b) => a.ts - b.ts || a.idx - b.idx).slice(0, target);
+  }
+
   function sampleFrequencyScatterPoints(qsos, maxPoints = 6000) {
     const all = [];
+    let pointIndex = 0;
     (qsos || []).forEach((q) => {
       if (!Number.isFinite(q.ts) || !Number.isFinite(q.freq)) return;
-      all.push({ ts: q.ts, freq: q.freq, band: resolveFrequencyScatterBand(q) });
+      all.push({
+        idx: pointIndex,
+        ts: Number(q.ts),
+        freq: Number(q.freq),
+        band: resolveFrequencyScatterBand(q)
+      });
+      pointIndex += 1;
     });
     if (!all.length) return { points: [], total: 0 };
-    const step = Math.ceil(all.length / maxPoints);
-    if (step <= 1) return { points: all, total: all.length };
-    const sampled = all.filter((_, idx) => idx % step === 0);
-    return { points: sampled, total: all.length };
+    const total = all.length;
+    const cap = Math.max(1, Math.floor(Number(maxPoints) || 6000));
+    if (total <= cap) {
+      const points = all
+        .slice()
+        .sort((a, b) => a.ts - b.ts || a.idx - b.idx)
+        .map((point) => ({ ts: point.ts, freq: point.freq, band: point.band }));
+      return { points, total };
+    }
+    const byBand = new Map();
+    all.forEach((point) => {
+      if (!byBand.has(point.band)) byBand.set(point.band, []);
+      byBand.get(point.band).push(point);
+    });
+    const bands = Array.from(byBand.entries()).map(([band, points]) => ({ band, points }))
+      .sort((a, b) => {
+        const ai = bandOrderIndex(a.band);
+        const bi = bandOrderIndex(b.band);
+        if (ai !== bi) return ai - bi;
+        return String(a.band || '').localeCompare(String(b.band || ''));
+      });
+    const bandBudgets = allocateWeightedBudgets(
+      bands.map((entry) => ({ key: entry.band, weight: entry.points.length })),
+      cap,
+      { ensureMin: true }
+    );
+    const sampled = [];
+    bands.forEach((entry) => {
+      const budget = bandBudgets.get(entry.band) || 0;
+      if (!budget) return;
+      sampled.push(...sampleFrequencyBand(entry.points, budget));
+    });
+    const sampledSorted = sampled.sort((a, b) => a.ts - b.ts || a.idx - b.idx);
+    const points = (sampledSorted.length > cap ? selectEvenly(sampledSorted, cap) : sampledSorted)
+      .map((point) => ({ ts: point.ts, freq: point.freq, band: point.band }));
+    return { points, total };
   }
 
   function buildFrequencyScatterBrackets(bandRanges, plotTop, plotBottom) {

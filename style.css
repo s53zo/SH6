@@ -1876,6 +1876,21 @@ body.analysis-mode-dxer .load-tip-badge {
   overflow-x: auto;
 }
 
+.virtual-table-shell {
+  max-height: min(72vh, 960px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
+.virtual-table-shell table {
+  min-width: 100%;
+}
+
+.virtual-spacer-row td {
+  background: transparent;
+}
+
 .compare-log-wrap--tall {
   max-height: min(74vh, 980px);
   overflow-y: auto;

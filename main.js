@@ -3,6 +3,7 @@
     { id: 'load_logs', title: 'Start' },
     { id: 'main', title: 'Main' },
     { id: 'competitor_coach', title: 'Competitor coach' },
+    { id: 'agent_briefing', title: 'Agent briefing' },
     { id: 'summary', title: 'Summary' },
     { id: 'log', title: 'Log' },
     { id: 'operators', title: 'Operators' },
@@ -131,6 +132,7 @@
     charts_beam_heading_by_hour: 'maps_charts',
 
     competitor_coach: 'spots_coach',
+    agent_briefing: 'spots_coach',
     spots: 'spots_coach',
     rbn_spots: 'spots_coach',
     rbn_compare_signal: 'spots_coach',
@@ -264,6 +266,7 @@
     'charts',
     'qsl_labels',
     'competitor_coach',
+    'agent_briefing',
     'rbn_compare_signal'
   ]);
   const SESSION_VERSION = 1;
@@ -410,6 +413,15 @@
       loadedSlotRows,
       lastLoadedSlot: COMPARE_SLOT_IDS.includes(lastLoadedSlot) ? lastLoadedSlot : '',
       lastLoadedRowKey: String(seed.lastLoadedRowKey || '').trim()
+    };
+  }
+
+  function createAgentBriefingState(seed = {}) {
+    return {
+      status: String(seed.status || 'idle'),
+      key: String(seed.key || ''),
+      result: seed.result || null,
+      error: seed.error ? String(seed.error) : ''
     };
   }
 
@@ -1092,6 +1104,164 @@
     return true;
   }
 
+  function buildAgentSpotSummary(spotState) {
+    if (!spotState) {
+      return {
+        status: 'idle',
+        totalScanned: 0,
+        totalOfUs: 0,
+        totalByUs: 0,
+        windowMinutes: 15
+      };
+    }
+    return {
+      status: String(spotState.status || 'idle'),
+      totalScanned: Number(spotState.totalScanned || 0),
+      totalOfUs: Number(spotState.totalOfUs || 0),
+      totalByUs: Number(spotState.totalByUs || 0),
+      windowMinutes: Number(spotState.windowMinutes || 15)
+    };
+  }
+
+  function buildAgentSlotSnapshot(slot, slotId, label) {
+    if (!slot || !slot.derived || !slot.qsoData) return null;
+    const scoring = slot.derived.scoring || {};
+    const contestMeta = slot.derived.contestMeta || {};
+    const years = slot.derived.timeRange?.minTs ? new Date(slot.derived.timeRange.minTs).getUTCFullYear() : null;
+    return {
+      slotId,
+      label,
+      sourceType: slot.logFile?.path ? 'archive' : 'local',
+      call: contestMeta.stationCallsign || '',
+      contestId: contestMeta.contestId || '',
+      year: years,
+      qsoCount: Array.isArray(slot.qsoData.qsos) ? slot.qsoData.qsos.length : 0,
+      scoring: {
+        supported: Boolean(scoring.supported),
+        confidence: scoring.confidence || 'unknown',
+        ruleName: scoring.ruleName || '',
+        ruleReferenceUrl: scoring.ruleReferenceUrl || '',
+        detectionMethod: scoring.detectionMethod || '',
+        duplicatePolicy: scoring.duplicatePolicy || '',
+        multiplierCreditPolicy: scoring.multiplierCreditPolicy || '',
+        claimedScoreHeader: Number.isFinite(scoring.claimedScoreHeader) ? scoring.claimedScoreHeader : null,
+        computedScore: Number.isFinite(scoring.computedScore) ? scoring.computedScore : null,
+        computedQsoPointsTotal: Number.isFinite(scoring.computedQsoPointsTotal) ? scoring.computedQsoPointsTotal : null,
+        computedMultiplierTotal: Number.isFinite(scoring.computedMultiplierTotal) ? scoring.computedMultiplierTotal : null,
+        scoreDeltaAbs: Number.isFinite(scoring.scoreDeltaAbs) ? scoring.scoreDeltaAbs : null,
+        assumptions: Array.isArray(scoring.assumptions) ? scoring.assumptions.slice(0, 4) : []
+      },
+      effectivePointsTotal: Number(slot.derived.effectivePointsTotal || 0),
+      dupeCount: Array.isArray(slot.derived.dupes) ? slot.derived.dupes.length : 0,
+      notInMasterCount: Array.isArray(slot.derived.notInMasterList) ? slot.derived.notInMasterList.length : 0,
+      possibleErrors: Array.isArray(slot.derived.possibleErrors)
+        ? slot.derived.possibleErrors.slice(0, 25).map((entry) => ({
+          reason: String(entry?.reason || ''),
+          call: String(entry?.q?.call || '')
+        }))
+        : [],
+      breakSummary: slot.derived.breakSummary || { totalBreakMin: 0, breaks: [] },
+      hourSeries: Array.isArray(slot.derived.hourSeries) ? slot.derived.hourSeries.map((entry) => ({ hour: entry.hour, qsos: entry.qsos })) : [],
+      minuteSeries: Array.isArray(slot.derived.minuteSeries) ? slot.derived.minuteSeries.map((entry) => ({ minute: entry.minute, qsos: entry.qsos })) : [],
+      tenMinuteSeries: Array.isArray(slot.derived.tenMinuteSeries) ? slot.derived.tenMinuteSeries.map((entry) => ({ bucket: entry.bucket, qsos: entry.qsos })) : [],
+      frequencySummary: Array.isArray(slot.derived.frequencySummary) ? slot.derived.frequencySummary.map((entry) => ({ freq: entry.freq, count: entry.count })) : [],
+      spots: buildAgentSpotSummary(slot.spotsState),
+      rbn: buildAgentSpotSummary(slot.rbnState)
+    };
+  }
+
+  function buildAgentRuntimeSnapshot() {
+    const compareSlots = getActiveCompareSlots()
+      .filter((entry) => entry.id !== 'A')
+      .map((entry) => buildAgentSlotSnapshot(entry.slot, entry.id, entry.label))
+      .filter(Boolean);
+    const coach = state.competitorCoach || createCompetitorCoachState();
+    return {
+      analysisMode: state.analysisMode,
+      compareEnabled: Boolean(state.compareEnabled),
+      compareScoreMode: state.compareScoreMode || COMPARE_SCORE_MODE_COMPUTED,
+      perspectivesCount: loadStoredComparePerspectives().length,
+      compareTimeRangeLock: cloneTsRange(state.compareTimeRangeLock),
+      primary: buildAgentSlotSnapshot(state, 'A', 'Log A'),
+      compareSlots,
+      dataStatus: {
+        ctyStatus: state.ctyStatus || 'pending',
+        masterStatus: state.masterStatus || 'pending',
+        scoringStatus: state.scoringStatus || 'pending',
+        qthStatus: state.qthStatus || 'pending',
+        cqApiStatus: state.cqApiStatus || 'pending',
+        spotsStatus: state.spotsState?.status || 'idle',
+        rbnStatus: state.rbnState?.status || 'idle'
+      },
+      coach: {
+        status: coach.status || 'idle',
+        totalRows: Number(coach.totalRows || 0),
+        gapDriver: coach.gapDriver || null,
+        closestRivals: Array.isArray(coach.closestRivals) ? coach.closestRivals.slice(0, 3).map((row) => ({
+          call: row.call || row.callsign || '',
+          scoreTotal: Number(row.scoreTotal || row.score || 0),
+          multTotal: Number(row.multTotal || row.mult || 0),
+          qsoTotal: Number(row.qsoTotal || row.qsos || 0)
+        })) : []
+      }
+    };
+  }
+
+  function buildAgentBriefingKey() {
+    const parts = [
+      state.analysisMode,
+      state.logVersion || 0,
+      state.compareScoreMode || '',
+      state.compareEnabled ? '1' : '0',
+      state.competitorCoach?.status || 'idle',
+      state.competitorCoach?.totalRows || 0,
+      state.spotsState?.status || 'idle',
+      state.spotsState?.totalScanned || 0,
+      state.rbnState?.status || 'idle',
+      state.rbnState?.totalScanned || 0
+    ];
+    state.compareSlots.forEach((slot) => {
+      parts.push(slot?.logVersion || 0);
+      parts.push(slot?.spotsState?.totalScanned || 0);
+      parts.push(slot?.rbnState?.totalScanned || 0);
+    });
+    return parts.join('|');
+  }
+
+  function requestAgentBriefing(key) {
+    if (!key) return;
+    if (state.agentBriefing?.status === 'loading' && state.agentBriefing.key === key) return;
+    state.agentBriefing = createAgentBriefingState({
+      status: 'loading',
+      key
+    });
+    loadAgentRuntimeModule().then((mod) => {
+      if (!mod || typeof mod.runSh6AgentRuntime !== 'function') {
+        throw new Error('Agent runtime unavailable.');
+      }
+      const snapshot = buildAgentRuntimeSnapshot();
+      const result = mod.runSh6AgentRuntime(snapshot);
+      if (state.agentBriefing.key !== key) return;
+      state.agentBriefing = createAgentBriefingState({
+        status: 'ready',
+        key,
+        result
+      });
+      if (reports[state.activeIndex]?.id === 'agent_briefing') {
+        renderActiveReport();
+      }
+    }).catch((err) => {
+      state.agentBriefing = createAgentBriefingState({
+        status: 'error',
+        key,
+        error: err && err.message ? err.message : 'Agent runtime failed.'
+      });
+      if (reports[state.activeIndex]?.id === 'agent_briefing') {
+        renderActiveReport();
+      }
+    });
+  }
+
   function resolveAnalysisModeSuggestion(logData, derived) {
     const qsos = Array.isArray(logData?.qsos) ? logData.qsos : [];
     if (!qsos.length) return null;
@@ -1493,6 +1663,7 @@
     cqApiRequestToken: 0,
     apiEnrichment: createApiEnrichmentState(),
     competitorCoach: createCompetitorCoachState(),
+    agentBriefing: createAgentBriefingState(),
     spotsState: null,
     rbnState: null,
     compareSlots: [createEmptyCompareSlot(), createEmptyCompareSlot(), createEmptyCompareSlot()]
@@ -1514,6 +1685,7 @@
   let cqApiRetryTimer = null;
   let competitorCoachRetryTimer = null;
   let html2CanvasLoadPromise = null;
+  let agentRuntimeModulePromise = null;
   let virtualTableModulePromise = null;
   let durableStorageModulePromise = null;
   let durableStorageReadyPromise = null;
@@ -1638,6 +1810,14 @@
     dropReplaceCancel: document.getElementById('dropReplaceCancel'),
     dragOverlay: document.getElementById('dragOverlay')
   };
+
+  function loadAgentRuntimeModule() {
+    if (!agentRuntimeModulePromise) {
+      agentRuntimeModulePromise = import('./modules/agents/runtime.js')
+        .catch(() => null);
+    }
+    return agentRuntimeModulePromise;
+  }
 
   function loadVirtualTableModule() {
     if (!virtualTableModulePromise) {
@@ -11440,6 +11620,101 @@
     `;
   }
 
+  function renderAgentBriefing() {
+    if (!state.derived || !state.qsoData) {
+      return renderPlaceholder({ id: 'agent_briefing', title: 'Agent briefing' });
+    }
+    const key = buildAgentBriefingKey();
+    if (!state.agentBriefing || state.agentBriefing.key !== key) {
+      requestAgentBriefing(key);
+    }
+    const briefing = state.agentBriefing || createAgentBriefingState();
+    const summary = briefing.result?.summary || {};
+    const findings = Array.isArray(briefing.result?.findings) ? briefing.result.findings : [];
+    const renderActions = (actions) => {
+      const list = Array.isArray(actions) ? actions : [];
+      if (!list.length) return '';
+      return list.map((action) => {
+        if (!action || action.type !== 'report' || !action.reportId) return '';
+        return `<button type="button" class="agent-action-btn" data-report="${escapeAttr(action.reportId)}">${escapeHtml(action.label || action.reportId)}</button>`;
+      }).join('');
+    };
+    const summaryPills = [
+      ['high', 'High'],
+      ['medium', 'Medium'],
+      ['opportunity', 'Opportunity'],
+      ['info', 'Info']
+    ].map(([keyName, label]) => `<span class="agent-summary-pill"><b>${escapeHtml(label)}</b> ${formatNumberSh6(summary[keyName] || 0)}</span>`).join('');
+    const intro = renderReportIntroCard(
+      'Agent briefing workspace',
+      'Run SH6 agents against the current session to rank the next analysis steps, trust warnings, and debrief prompts.',
+      [
+        `Station ${escapeHtml(state.derived?.contestMeta?.stationCallsign || 'N/A')}`,
+        `Contest ${escapeHtml(state.derived?.contestMeta?.contestId || 'N/A')}`,
+        `Compare slots ${formatNumberSh6(getActiveCompareSlots().filter((entry) => entry.slot?.qsoData).length)}`
+      ]
+    );
+    if (briefing.status === 'loading') {
+      return `
+        <div class="agent-report">
+          ${intro}
+          <div class="agent-empty-state">
+            <p>Running SH6 agents on the current session snapshot...</p>
+          </div>
+        </div>
+      `;
+    }
+    if (briefing.status === 'error') {
+      return `
+        <div class="agent-report">
+          ${intro}
+          <div class="agent-empty-state">
+            <p class="status-error">${escapeHtml(briefing.error || 'Agent runtime failed.')}</p>
+            <p><button type="button" class="agent-action-btn" data-report="summary">Open Summary</button></p>
+          </div>
+        </div>
+      `;
+    }
+    const cards = findings.map((finding) => {
+      const evidence = Array.isArray(finding.evidence) ? finding.evidence : [];
+      const provenance = finding.provenance || {};
+      return `
+        <article class="agent-card agent-level-${escapeAttr(finding.level || 'info')}">
+          <div class="agent-card-head">
+            <div>
+              <div class="agent-card-kicker">${escapeHtml(finding.agent || 'Agent')}</div>
+              <h3>${escapeHtml(finding.headline || '')}</h3>
+            </div>
+            <div class="agent-card-meta">
+              <span class="coach-severity-badge coach-severity-${escapeAttr(finding.level || 'info')}">${escapeHtml(coachSeverityLabel(finding.level || 'info'))}</span>
+              <span class="agent-confidence">${escapeHtml(String(finding.confidence || 'unknown').toUpperCase())}</span>
+            </div>
+          </div>
+          <p class="agent-summary">${escapeHtml(finding.summary || '')}</p>
+          ${evidence.length ? `<ul class="agent-evidence-list">${evidence.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>` : ''}
+          <div class="agent-provenance">
+            <span><b>Source</b> ${escapeHtml(provenance.source || 'session')}</span>
+            <span><b>Freshness</b> ${escapeHtml(provenance.freshness || 'session')}</span>
+            <span><b>Official</b> ${provenance.official ? 'Yes' : 'No / mixed'}</span>
+          </div>
+          <div class="agent-actions">${renderActions(finding.actions)}</div>
+        </article>
+      `;
+    }).join('');
+    return `
+      <div class="agent-report">
+        ${intro}
+        <div class="agent-summary-bar">
+          ${summaryPills}
+          <button type="button" class="agent-action-btn agent-refresh-btn" data-agent-refresh="1">Refresh briefing</button>
+        </div>
+        <div class="agent-grid">
+          ${cards || '<div class="agent-empty-state"><p>No agent findings available for this session yet.</p></div>'}
+        </div>
+      </div>
+    `;
+  }
+
   function renderOperators() {
     if (!state.derived) return renderPlaceholder({ id: 'operators', title: 'Operators' });
     if (!state.derived.operatorsSummary || state.derived.operatorsSummary.length === 0) return '<p>No operator data in log.</p>';
@@ -19540,6 +19815,7 @@
         case 'load_logs': return renderLoadLogs();
         case 'main': return renderMain();
         case 'competitor_coach': return renderCompetitorCoach();
+        case 'agent_briefing': return renderAgentBriefing();
         case 'summary': return renderSummary();
         case 'log': return renderLog();
         case 'raw_log': return renderRawLog();
@@ -21024,6 +21300,25 @@
             el.innerHTML = '<p>Unable to load Spot hunter module.</p>';
           });
         });
+    }
+    if (reportId === 'agent_briefing') {
+      const navButtons = document.querySelectorAll('.agent-action-btn[data-report]');
+      const refreshButtons = document.querySelectorAll('.agent-refresh-btn[data-agent-refresh]');
+      navButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const target = String(btn.dataset.report || '').trim();
+          if (!target) return;
+          setActiveReportById(target);
+        });
+      });
+      refreshButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          state.agentBriefing = createAgentBriefingState();
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      });
     }
     if (reportId === 'competitor_coach') {
       const scopeButtons = document.querySelectorAll('.coach-scope-btn');

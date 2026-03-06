@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Archive Search Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>Archive Search Runtime Smoke</h1>
+  <p>Checks the extracted archive-search runtime, including debounced callsign lookup, grouped result rendering, and archive load handoff.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        const [mainSource, moduleSource, searchModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/archive/search-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/archive/search-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/archive/search-runtime.js')
+        ]);
+
+        add('Main.js imports the archive search runtime module', mainSource.includes("const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.1.21';"));
+        add('Main.js loads archive search runtime before setupRepoSearch calls', mainSource.includes('const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();') && mainSource.includes('await archiveSearchRuntimeReady;'));
+        add('Main.js delegates setupRepoSearch to the archive search runtime', mainSource.includes('return getArchiveSearchRuntime().setupRepoSearch(slotId);'));
+        add('Archive search runtime exports the factory', moduleSource.includes('export function createArchiveSearchRuntime'));
+
+        const appRoot = document.createElement('div');
+        appRoot.innerHTML = `
+          <input id="repoSearch" aria-label="Archive search">
+          <div id="repoStatus"></div>
+          <div id="repoResults"></div>
+          <div id="fileStatus"></div>
+        `;
+        document.body.appendChild(appRoot);
+
+        const dom = {
+          searchInput: appRoot.querySelector('#repoSearch'),
+          statusEl: appRoot.querySelector('#repoStatus'),
+          resultsEl: appRoot.querySelector('#repoResults'),
+          statusTarget: appRoot.querySelector('#fileStatus')
+        };
+
+        const trackEvents = [];
+        const queryCalls = [];
+        const fetchCalls = [];
+        const applyCalls = [];
+        const fakeRows = [
+          { path: 'ARRL/DX/2024/PH/S53M.log', contest: 'ARRL', year: 2024, mode: 'PH', season: '', subcontest: 'DX' },
+          { path: 'CQWW/cw/2025/S53M.log', contest: 'CQWW', year: 2025, mode: 'CW', season: '' },
+          { path: 'RECONSTRUCTED_LOGS/CQWW/cw/2023/S53M.log', contest: 'CQWW', year: 2023, mode: 'CW', season: '' }
+        ];
+
+        const runtime = searchModule.createArchiveSearchRuntime({
+          getSlotElements: () => dom,
+          normalizeCall: (value) => String(value == null ? '' : value).trim().toUpperCase(),
+          escapeAttr: (value) => String(value == null ? '' : value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('"', '&quot;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;'),
+          escapeHtml: (value) => String(value == null ? '' : value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;'),
+          trackEvent: (name, payload) => trackEvents.push({ name, payload }),
+          queryArchiveRowsByCallsign: async (callsign) => {
+            queryCalls.push(callsign);
+            return fakeRows;
+          },
+          fetchArchiveLogText: async (path) => {
+            fetchCalls.push(path);
+            return {
+              text: 'START-OF-LOG: 3.0\nCALLSIGN: S53M\nEND-OF-LOG:',
+              source: `https://archive.example/${path}`
+            };
+          },
+          applyLoadedLogToSlot: async (...args) => {
+            applyCalls.push(args);
+          },
+          searchDebounceMs: 10,
+          minInputAgeMs: 0
+        });
+
+        runtime.setupRepoSearch('A');
+
+        dom.searchInput.value = 'S5';
+        dom.searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await wait(25);
+        add(
+          'Short searches do not query the archive',
+          queryCalls.length === 0 && dom.resultsEl.innerHTML === '' && dom.statusEl.textContent === '',
+          JSON.stringify({ queryCalls, status: dom.statusEl.textContent })
+        );
+
+        dom.searchInput.value = 'S53M';
+        dom.searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await wait(40);
+
+        add(
+          'Valid callsigns trigger a debounced archive query',
+          queryCalls.length === 1 && queryCalls[0] === 'S53M',
+          JSON.stringify(queryCalls)
+        );
+        add(
+          'Archive results render as a grouped tree',
+          dom.resultsEl.innerHTML.includes('repo-tree')
+            && dom.resultsEl.textContent.includes('CQWW')
+            && dom.resultsEl.textContent.includes('ARRL')
+            && dom.resultsEl.textContent.includes('reconstructed log'),
+          dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
+        );
+        add(
+          'Search status reflects a completed callsign lookup',
+          dom.statusEl.textContent === 'Select a log to load for S53M.',
+          dom.statusEl.textContent
+        );
+        add(
+          'Archive search event is tracked once per callsign',
+          trackEvents.some((entry) => entry.name === 'archive_search' && entry.payload.callsign === 'S53M' && entry.payload.slot === 'A'),
+          JSON.stringify(trackEvents)
+        );
+
+        const leaf = dom.resultsEl.querySelector('button[data-path="CQWW/cw/2025/S53M.log"]');
+        if (!leaf) throw new Error('Expected archive leaf button was not rendered');
+        leaf.click();
+        await wait(20);
+
+        add(
+          'Clicking an archive result downloads that archive path',
+          fetchCalls.length === 1 && fetchCalls[0] === 'CQWW/cw/2025/S53M.log',
+          JSON.stringify(fetchCalls)
+        );
+        add(
+          'Archive log selection is handed off to applyLoadedLogToSlot',
+          applyCalls.length === 1
+            && applyCalls[0][0] === 'A'
+            && applyCalls[0][2] === 'S53M.log'
+            && applyCalls[0][6] === 'CQWW/cw/2025/S53M.log',
+          JSON.stringify(applyCalls)
+        );
+        add(
+          'Archive log selection updates status and tracking',
+          dom.statusEl.textContent === 'Loaded S53M.log from archive.'
+            && dom.statusEl.title === 'https://archive.example/CQWW/cw/2025/S53M.log'
+            && trackEvents.some((entry) => entry.name === 'archive_log_select' && entry.payload.path === 'CQWW/cw/2025/S53M.log'),
+          JSON.stringify({ status: dom.statusEl.textContent, title: dom.statusEl.title, trackEvents })
+        );
+
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, {
+          checksTotal: checks.length,
+          checksFailed: failed.length,
+          queryCalls,
+          fetchCalls,
+          applyCalls,
+          trackEvents
+        });
+      } catch (err) {
+        add('Archive search smoke completed without runtime errors', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          checksTotal: checks.length,
+          checksFailed: checks.filter((entry) => !entry.ok).length,
+          error: err && err.stack ? err.stack : String(err)
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

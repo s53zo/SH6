@@ -191,6 +191,7 @@
   const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.1.21';
   const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.1.21';
   const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.1.21';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.1.21';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.1.21';
   const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.1.21';
   const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.1.21';
@@ -1279,6 +1280,8 @@
   let compareWorkspaceRenderer = null;
   let archiveClientModulePromise = null;
   let archiveClient = null;
+  let archiveSearchRuntimeModulePromise = null;
+  let archiveSearchRuntime = null;
   let investigationWorkspaceModulePromise = null;
   let investigationWorkspaceRenderer = null;
   let sessionCodecModulePromise = null;
@@ -1600,6 +1603,48 @@
         });
     }
     return archiveClientModulePromise;
+  }
+
+  function loadArchiveSearchRuntimeModule() {
+    if (!archiveSearchRuntimeModulePromise) {
+      archiveSearchRuntimeModulePromise = import(ARCHIVE_SEARCH_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createArchiveSearchRuntime !== 'function') {
+            throw new Error('archive search runtime module unavailable');
+          }
+          archiveSearchRuntime = mod.createArchiveSearchRuntime({
+            getSlotElements: (slotId) => {
+              const key = String(slotId || 'A').toUpperCase();
+              const isA = key === 'A';
+              return {
+                searchInput: isA ? dom.repoSearch : key === 'B' ? dom.repoSearchB : key === 'C' ? dom.repoSearchC : dom.repoSearchD,
+                resultsEl: isA ? dom.repoResults : key === 'B' ? dom.repoResultsB : key === 'C' ? dom.repoResultsC : dom.repoResultsD,
+                statusEl: isA ? dom.repoStatus : key === 'B' ? dom.repoStatusB : key === 'C' ? dom.repoStatusC : dom.repoStatusD,
+                statusTarget: getStatusElBySlot(key)
+              };
+            },
+            normalizeCall,
+            escapeAttr,
+            escapeHtml,
+            trackEvent,
+            queryArchiveRowsByCallsign: async (callsign) => {
+              const client = await loadArchiveClientModule();
+              return client.queryRowsByCallsign(callsign);
+            },
+            fetchArchiveLogText,
+            applyLoadedLogToSlot
+          });
+          return archiveSearchRuntime;
+        });
+    }
+    return archiveSearchRuntimeModulePromise;
+  }
+
+  function getArchiveSearchRuntime() {
+    if (!archiveSearchRuntime) {
+      throw new Error('archive search runtime not loaded');
+    }
+    return archiveSearchRuntime;
   }
 
   function loadInvestigationWorkspaceModule() {
@@ -20557,455 +20602,7 @@
   }
 
   function setupRepoSearch(slotId) {
-    const slotKey = String(slotId || 'A').toUpperCase();
-    const isA = slotKey === 'A';
-    const searchInput = isA ? dom.repoSearch : slotKey === 'B' ? dom.repoSearchB : slotKey === 'C' ? dom.repoSearchC : dom.repoSearchD;
-    const resultsEl = isA ? dom.repoResults : slotKey === 'B' ? dom.repoResultsB : slotKey === 'C' ? dom.repoResultsC : dom.repoResultsD;
-    const statusEl = isA ? dom.repoStatus : slotKey === 'B' ? dom.repoStatusB : slotKey === 'C' ? dom.repoStatusC : dom.repoStatusD;
-    const statusTarget = isA ? dom.fileStatus : slotKey === 'B' ? dom.fileStatusB : slotKey === 'C' ? dom.fileStatusC : dom.fileStatusD;
-    if (!searchInput || !resultsEl || !statusEl) return;
-    let timer = null;
-    const shardCache = new Map();
-    let sqlLoader = null;
-    let archiveRows = [];
-    let searchSeq = 0;
-    let lastInputValue = '';
-    let lastInputStamp = 0;
-    let lastTrackedSearch = '';
-
-    const crc32Table = (() => {
-      const table = new Uint32Array(256);
-      for (let i = 0; i < 256; i += 1) {
-        let c = i;
-        for (let k = 0; k < 8; k += 1) {
-          c = ((c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1));
-        }
-        table[i] = c >>> 0;
-      }
-      return table;
-    })();
-
-    const crc32 = (str) => {
-      let c = 0xffffffff;
-      for (let i = 0; i < str.length; i += 1) {
-        c = crc32Table[(c ^ str.charCodeAt(i)) & 0xff] ^ (c >>> 8);
-      }
-      return (c ^ 0xffffffff) >>> 0;
-    };
-
-    const normalizeCallsign = (input) => (input || '').trim().toUpperCase().replace(/\s+/g, '');
-
-    const getShardUrls = (callsign) => {
-      const bucket = crc32(callsign) & 0xff;
-      const shard = bucket.toString(16).padStart(2, '0');
-      const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-      const suffix = `logs_${shard}.sqlite?v=${encodeURIComponent(APP_VERSION)}-${nonce}`;
-      return [
-        `${ARCHIVE_SHARD_BASE_RAW}/${suffix}`,
-        `${ARCHIVE_SHARD_BASE}/${suffix}`
-      ];
-    };
-
-    const loadScript = (url) => new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = url;
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error(`Failed to load ${url}`));
-      document.head.appendChild(script);
-    });
-
-    let sqlBaseUrl = null;
-
-    const loadSqlJs = async () => {
-      if (sqlLoader) return sqlLoader;
-      sqlLoader = (async () => {
-        if (typeof window.initSqlJs === 'function') {
-          sqlBaseUrl = sqlBaseUrl || SQLJS_BASE_URLS[0];
-          return window.initSqlJs({ locateFile: (file) => `${sqlBaseUrl}${file}` });
-        }
-        let lastErr = null;
-        for (const base of SQLJS_BASE_URLS) {
-          try {
-            await loadScript(`${base}sql-wasm.js`);
-            if (typeof window.initSqlJs === 'function') {
-              sqlBaseUrl = base;
-              return window.initSqlJs({ locateFile: (file) => `${base}${file}` });
-            }
-          } catch (err) {
-            lastErr = err;
-          }
-        }
-        throw lastErr || new Error('sql.js not loaded.');
-      })();
-      return sqlLoader;
-    };
-
-    const withTimeout = (promise, ms, label) => new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`${label || 'Operation'} timed out after ${ms}ms`));
-      }, ms);
-      promise.then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      }).catch((err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
-
-    const openSqliteShard = async (shardUrls) => {
-      const cacheKey = shardUrls.join('|');
-      if (shardCache.has(cacheKey)) return shardCache.get(cacheKey);
-      const SQL = await loadSqlJs();
-      let lastErr = null;
-      for (const url of shardUrls) {
-        try {
-          const res = await fetch(url, { cache: 'no-store' });
-          if (!res.ok) throw new Error(`Shard download failed: ${res.status}`);
-          const buf = await res.arrayBuffer();
-          const db = new SQL.Database(new Uint8Array(buf));
-          shardCache.set(cacheKey, db);
-          return db;
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-      throw lastErr || new Error('Shard download failed.');
-    };
-
-    const normalizeLabel = (value) => (value == null ? '' : String(value).trim());
-
-    const normalizeArchiveMode = (value) => {
-      const mode = normalizeLabel(value).toUpperCase();
-      return mode || 'UNSPECIFIED';
-    };
-
-    const UNSPECIFIED_ARCHIVE_SUBCONTEST = '(unspecified)';
-
-    const normalizeArchiveSubcontest = (row) => {
-      const contest = normalizeLabel(row.contest).toUpperCase();
-      if (contest !== 'ARRL') return '';
-      const explicit = normalizeLabel(row.subcontest);
-      if (explicit) return explicit;
-      const parts = normalizeLabel(row.path).split('/').filter(Boolean);
-      // Fallback to path segment #2 (1-based) for ARRL entries.
-      return parts[1] || UNSPECIFIED_ARCHIVE_SUBCONTEST;
-    };
-
-    const compareArchiveModes = (modeA, modeB) => {
-      const a = normalizeArchiveMode(modeA);
-      const b = normalizeArchiveMode(modeB);
-      const aUnspecified = a === 'UNSPECIFIED' ? 1 : 0;
-      const bUnspecified = b === 'UNSPECIFIED' ? 1 : 0;
-      if (aUnspecified !== bUnspecified) return aUnspecified - bUnspecified;
-      return a.localeCompare(b);
-    };
-
-    const getArchiveLeafName = (path) => {
-      const safePath = normalizeLabel(path);
-      const parts = safePath.split('/').filter(Boolean);
-      return parts[parts.length - 1] || '';
-    };
-
-    const sortResults = (rows) => rows.slice().sort((a, b) => {
-      const contestA = normalizeLabel(a.contest).toUpperCase();
-      const contestB = normalizeLabel(b.contest).toUpperCase();
-      if (contestA !== contestB) return contestA.localeCompare(contestB);
-      if (contestA === 'ARRL') {
-        const subA = normalizeArchiveSubcontest(a);
-        const subB = normalizeArchiveSubcontest(b);
-        if (subA !== subB) return subA.localeCompare(subB);
-      }
-      const yearA = Number.isFinite(a.year) ? a.year : -1;
-      const yearB = Number.isFinite(b.year) ? b.year : -1;
-      if (yearA !== yearB) return yearB - yearA;
-      if (contestA === 'ARRL') {
-        const modeCmp = compareArchiveModes(a.mode, b.mode);
-        if (modeCmp !== 0) return modeCmp;
-        return normalizeLabel(getArchiveLeafName(a.path)).localeCompare(normalizeLabel(getArchiveLeafName(b.path)));
-      }
-      const modeA = normalizeLabel(a.mode).toUpperCase();
-      const modeB = normalizeLabel(b.mode).toUpperCase();
-      if (modeA !== modeB) return modeA.localeCompare(modeB);
-      const seasonA = normalizeLabel(a.season).toUpperCase();
-      const seasonB = normalizeLabel(b.season).toUpperCase();
-      return seasonA.localeCompare(seasonB);
-    });
-
-    const parseIsoWeek = (dateStr) => {
-      const [y, m, d] = dateStr.split('-').map((v) => parseInt(v, 10));
-      if (!y || !m || !d) return null;
-      const date = new Date(Date.UTC(y, m - 1, d));
-      const day = (date.getUTCDay() + 6) % 7;
-      date.setUTCDate(date.getUTCDate() - day + 3);
-      const firstThu = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
-      const firstDay = (firstThu.getUTCDay() + 6) % 7;
-      firstThu.setUTCDate(firstThu.getUTCDate() - firstDay + 3);
-      const week = 1 + Math.round((date - firstThu) / 604800000);
-      return { year: date.getUTCFullYear(), week };
-    };
-
-    const formatArchiveSubKey = (row) => {
-      const contest = normalizeLabel(row.contest);
-      const path = normalizeLabel(row.path);
-      if (!contest || !path) return [normalizeLabel(row.mode), normalizeLabel(row.season)].filter(Boolean).join(' • ');
-      if (contest.startsWith('WednesdayMiniTest')) {
-        const match = path.match(/\d{4}-\d{2}-\d{2}/);
-        if (match) {
-          const iso = parseIsoWeek(match[0]);
-          if (iso) return `Week ${iso.year}-W${String(iso.week).padStart(2, '0')}`;
-        }
-        return 'Week';
-      }
-      if (contest === 'EU_VHF_CONTESTS') {
-        const parts = path.split('/').filter(Boolean);
-        const event = parts[1] ? parts[1].replace(/_/g, ' ') : '';
-        const band = parts[2] || '';
-        return [event, band].filter(Boolean).join(' \u2022 ');
-      }
-      return [normalizeLabel(row.mode), normalizeLabel(row.season)].filter(Boolean).join(' • ');
-    };
-
-    const renderResultsTree = () => {
-      if (!archiveRows.length) {
-        resultsEl.innerHTML = '';
-        statusEl.textContent = 'No matches found in the archive.';
-        return;
-      }
-      const tree = new Map();
-      const makeLeafButton = (row) => {
-        const path = row.path || '';
-        const label = path.split('/').pop();
-        const isReconstructed = path.startsWith('RECONSTRUCTED_LOGS/');
-        const suffix = isReconstructed ? ' (reconstructed log)' : '';
-        const pathAttr = escapeAttr(path);
-        const labelText = escapeHtml((label || '') + suffix);
-        return `<button type="button" class="repo-leaf" data-path="${pathAttr}">${labelText}</button>`;
-      };
-      archiveRows.forEach((row) => {
-        const contest = normalizeLabel(row.contest);
-        const year = Number.isFinite(row.year) ? String(row.year) : '';
-        const isArrl = String(contest || '').toUpperCase() === 'ARRL';
-        if (isArrl) {
-          const subcontest = normalizeArchiveSubcontest(row);
-          if (!tree.has(contest)) tree.set(contest, new Map());
-          const subMap = tree.get(contest);
-          if (!subMap.has(subcontest)) subMap.set(subcontest, new Map());
-          const yearMap = subMap.get(subcontest);
-          if (!yearMap.has(year)) yearMap.set(year, new Map());
-          const modeMap = yearMap.get(year);
-          const mode = normalizeArchiveMode(row.mode);
-          if (!modeMap.has(mode)) modeMap.set(mode, []);
-          modeMap.get(mode).push(row);
-          return;
-        }
-        const subKey = formatArchiveSubKey(row);
-        if (!tree.has(contest)) tree.set(contest, new Map());
-        const yearMap = tree.get(contest);
-        if (!yearMap.has(year)) yearMap.set(year, new Map());
-        const modeMap = yearMap.get(year);
-        if (!modeMap.has(subKey)) modeMap.set(subKey, []);
-        modeMap.get(subKey).push(row);
-      });
-      const chunks = ['<div class="repo-tree">'];
-      const contestCount = tree.size;
-      statusEl.textContent = `Select a log to load. Found ${archiveRows.length} logs in ${contestCount} hamradio events.`;
-      tree.forEach((yearMap, contest) => {
-        const hasContest = Boolean(contest);
-        const contestLabel = escapeHtml(contest);
-        if (hasContest) chunks.push(`<details class="repo-contest"><summary>${contestLabel}</summary>`);
-        const isArrl = String(contest || '').toUpperCase() === 'ARRL';
-        if (isArrl) {
-          yearMap.forEach((yearModeMap, subcontest) => {
-            const subcontestLabel = escapeHtml(subcontest);
-            chunks.push(`<details class="repo-subcat"><summary>${subcontestLabel}</summary>`);
-            const years = Array.from(yearModeMap.keys()).sort((a, b) => Number(b) - Number(a));
-            years.forEach((year) => {
-              const modeMap = yearModeMap.get(year) || new Map();
-              const hasYear = Boolean(year);
-              if (hasYear) chunks.push(`<details class="repo-year"><summary>${escapeHtml(year)}</summary>`);
-              const modes = Array.from(modeMap.keys()).sort(compareArchiveModes);
-              modes.forEach((mode) => {
-                const rows = modeMap.get(mode) || [];
-                const hasMode = Boolean(mode);
-                if (hasMode) chunks.push(`<details class="repo-subcat"><summary>${escapeHtml(mode)}</summary>`);
-                rows.forEach((row) => chunks.push(makeLeafButton(row)));
-                if (hasMode) chunks.push('</details>');
-              });
-              if (hasYear) chunks.push('</details>');
-            });
-            chunks.push('</details>');
-          });
-        } else {
-          yearMap.forEach((modeMap, year) => {
-            const hasYear = Boolean(year);
-            const yearLabel = escapeHtml(year);
-            if (hasYear) chunks.push(`<details class="repo-year"><summary>${yearLabel}</summary>`);
-            modeMap.forEach((rows, subKey) => {
-              const hasSub = Boolean(subKey);
-              const subLabel = escapeHtml(subKey);
-              if (hasSub) chunks.push(`<details class="repo-subcat"><summary>${subLabel}</summary>`);
-              rows.forEach((row) => chunks.push(makeLeafButton(row)));
-              if (hasSub) chunks.push(`</details>`);
-            });
-            if (hasYear) chunks.push(`</details>`);
-          });
-        }
-        if (hasContest) chunks.push(`</details>`);
-      });
-      chunks.push('</div>');
-      resultsEl.innerHTML = chunks.join('');
-    };
-
-    const renderResults = (rows) => {
-      archiveRows = sortResults(rows);
-      renderResultsTree();
-    };
-
-    const shouldQueryArchive = (callsign, issuedAt) => {
-      if (!callsign || callsign.length < 3) return false;
-      if (!/\d/.test(callsign)) return false;
-      if (issuedAt && Date.now() - issuedAt < 800) return false;
-      return true;
-    };
-
-    const searchArchive = async (input, issuedAt) => {
-      if (searchInput && searchInput.value !== input) return;
-      const callsign = normalizeCallsign(input);
-      if (callsign.length < 3) {
-        resultsEl.innerHTML = '';
-        statusEl.textContent = '';
-        archiveRows = [];
-        return;
-      }
-      if (!shouldQueryArchive(callsign, issuedAt)) {
-        resultsEl.innerHTML = '';
-        statusEl.textContent = 'Enter full callsign (letters + number) to search.';
-        archiveRows = [];
-        return;
-      }
-      if (shouldQueryArchive(callsign, issuedAt)) {
-        const trackKey = `${slotKey || 'A'}|${callsign}`;
-        if (trackKey !== lastTrackedSearch) {
-          trackEvent('archive_search', {
-            slot: slotKey || 'A',
-            callsign
-          });
-          lastTrackedSearch = trackKey;
-        }
-      }
-      const seq = ++searchSeq;
-      statusEl.textContent = `Searching archive for ${callsign}...`;
-      const shardUrls = getShardUrls(callsign);
-      try {
-        const shardLabel = shardUrls[0].split('/').pop().split('?')[0];
-        statusEl.textContent = `Downloading shard ${shardLabel}...`;
-        const db = await withTimeout(openSqliteShard(shardUrls), 20000, 'Shard open');
-        if (seq !== searchSeq) return;
-        statusEl.textContent = 'Querying archive...';
-        const where = `callsign = ?`;
-        let hasSubcontest = false;
-        try {
-          const info = db.exec("PRAGMA table_info(logs)");
-          hasSubcontest = Array.isArray(info) && info.length > 0 && info[0].columns.includes('name')
-            ? info[0].values.some((row) => row[1] === 'subcontest')
-            : false;
-        } catch (err) {
-          console.warn('Archive schema inspection failed, using legacy archive query shape.', err);
-        }
-        const sql = hasSubcontest
-          ? `SELECT path, contest, year, mode, season, subcontest FROM logs WHERE ${where}`
-          : `SELECT path, contest, year, mode, season FROM logs WHERE ${where}`;
-        const stmt = db.prepare(sql);
-        stmt.bind([callsign]);
-        const rows = [];
-        while (stmt.step()) rows.push(stmt.getAsObject());
-        stmt.free();
-        if (seq !== searchSeq) return;
-        renderResults(rows);
-        statusEl.textContent = rows.length ? `Select a log to load for ${callsign}.` : `No matches found for ${callsign}.`;
-      } catch (err) {
-        if (seq !== searchSeq) return;
-        console.error('Archive search failed:', err);
-        trackEvent('archive_shard_error', {
-          slot: slotKey || 'A',
-          callsign,
-          message: err && err.message ? err.message : 'unknown error'
-        });
-        resultsEl.innerHTML = '';
-        statusEl.textContent = `Archive search failed: ${err && err.message ? err.message : 'unknown error'}`;
-      }
-    };
-
-    const fetchFromArchive = async (path) => {
-      if (!path) return;
-      const name = path.split('/').pop();
-      trackEvent('archive_log_select', {
-        slot: slotKey || 'A',
-        path,
-        name: name || ''
-      });
-      statusEl.textContent = `Downloading ${name}...`;
-      resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = true);
-      let text = null;
-      let source = null;
-      const pageUrl = `${ARCHIVE_BASE_URL}/${path}`;
-      try {
-        const res = await fetch(pageUrl);
-        if (res.ok) {
-          text = await res.text();
-          source = pageUrl;
-        }
-      } catch (err) {
-        console.warn('Archive fetch failed:', pageUrl, err);
-      }
-      if (!text) {
-        for (const branch of ARCHIVE_BRANCHES) {
-          const rawUrl = `https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/${branch}/${path}`;
-          try {
-            const res = await fetch(rawUrl);
-            if (res.ok) {
-              text = await res.text();
-              source = rawUrl;
-              break;
-            }
-          } catch (err) {
-            console.warn('Archive fetch failed:', rawUrl, err);
-          }
-        }
-      }
-      if (!text) {
-        statusEl.textContent = 'Download failed.';
-        resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = false);
-        return;
-      }
-      try {
-        await applyLoadedLogToSlot(slotId, text, name, text.length, 'Archive', statusTarget, path);
-        statusEl.textContent = `Loaded ${name} from archive.`;
-        resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = false);
-        if (source) statusEl.title = source;
-      } catch (err) {
-        statusEl.textContent = 'Failed to parse archive log.';
-        resultsEl.querySelectorAll('button').forEach((btn) => btn.disabled = false);
-        console.error('Archive parse failed:', err);
-      }
-    };
-
-    searchInput.addEventListener('input', (evt) => {
-      if (timer) clearTimeout(timer);
-      lastInputValue = evt.target.value;
-      lastInputStamp = Date.now();
-      timer = setTimeout(() => searchArchive(lastInputValue, lastInputStamp), 900);
-    });
-
-    resultsEl.addEventListener('click', (evt) => {
-      const target = evt.target instanceof HTMLElement ? evt.target.closest('button') : null;
-      if (!target) return;
-      const path = target.dataset.path;
-      if (!path) return;
-      fetchFromArchive(path);
-    });
+    return getArchiveSearchRuntime().setupRepoSearch(slotId);
   }
 
   function setCompareCount(count, updateRadios = false) {
@@ -21262,6 +20859,7 @@
     const navigationRuntimeReady = loadNavigationRuntimeModule();
     const compareWorkspaceReady = loadCompareWorkspaceModule();
     const retainedRuntimeReady = loadRetainedRuntimeModule();
+    const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();
     const investigationWorkspaceReady = loadInvestigationWorkspaceModule();
     const sessionCodecReady = loadSessionCodecModule();
     const comparePerspectiveReady = loadComparePerspectiveModule();
@@ -21269,6 +20867,7 @@
     const storageRuntimeReady = loadStorageRuntimeModule();
     await navigationRuntimeReady;
     await retainedRuntimeReady;
+    await archiveSearchRuntimeReady;
     setupNavSearch();
     rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');

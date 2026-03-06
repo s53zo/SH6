@@ -1063,15 +1063,74 @@
     };
   }
 
-  function saveCurrentComparePerspective() {
-    const next = buildCurrentComparePerspective();
-    const existing = loadStoredComparePerspectives().filter((entry) => entry.id !== next.id);
-    const persisted = existing;
-    persisted.unshift(next);
-    const limited = persisted.slice(0, COMPARE_PERSPECTIVE_LIMIT);
+  function normalizeGeneratedComparePerspective(input, fallbackLabel = 'Generated perspective') {
+    if (!input || typeof input !== 'object') return null;
+    const savedAt = Number.isFinite(Number(input.savedAt)) ? Number(input.savedAt) : Date.now();
+    const reportId = String(input.reportId || '').trim() || 'summary';
+    const label = String(input.label || fallbackLabel || 'Generated perspective').trim() || 'Generated perspective';
+    const explicitRange = cloneTsRange(input.compareTimeRangeLock) || cloneTsRange(input.logTimeRange);
+    const explicitLogRange = cloneTsRange(input.logTimeRange) || cloneTsRange(input.compareTimeRangeLock);
+    return {
+      id: String(input.id || ''),
+      savedAt,
+      label,
+      reportId,
+      compareScoreMode: normalizeCompareScoreMode(input.compareScoreMode || state.compareScoreMode),
+      compareSyncEnabled: Object.prototype.hasOwnProperty.call(input, 'compareSyncEnabled')
+        ? input.compareSyncEnabled !== false
+        : Boolean(state.compareSyncEnabled),
+      compareStickyEnabled: Object.prototype.hasOwnProperty.call(input, 'compareStickyEnabled')
+        ? input.compareStickyEnabled !== false
+        : Boolean(state.compareStickyEnabled),
+      compareTimeRangeLock: explicitRange,
+      compareFocus: cloneCompareFocus(input.compareFocus || state.compareFocus || DEFAULT_COMPARE_FOCUS),
+      globalBandFilter: typeof input.globalBandFilter === 'string' ? input.globalBandFilter : (state.globalBandFilter || ''),
+      logTimeRange: explicitLogRange
+    };
+  }
+
+  function saveComparePerspectiveEntry(entry) {
+    const normalized = normalizeGeneratedComparePerspective(entry, entry?.label || 'Generated perspective');
+    if (!normalized) return null;
+    const next = { ...normalized };
+    if (!next.id) next.id = `perspective-${next.savedAt}-${Math.random().toString(36).slice(2, 8)}`;
+    const existing = loadStoredComparePerspectives().filter((item) => String(item?.id || '') !== next.id);
+    existing.unshift(next);
+    const limited = existing.slice(0, COMPARE_PERSPECTIVE_LIMIT);
     writeStoredComparePerspectives(limited);
     ensureDurableStorageReady().then((storage) => storage?.saveComparePerspectives?.(limited)).catch(() => {});
     return next;
+  }
+
+  function saveComparePerspectiveBundle(entries) {
+    const items = Array.isArray(entries) ? entries : [];
+    if (!items.length) return [];
+    const saved = [];
+    const existing = loadStoredComparePerspectives();
+    items.forEach((entry, index) => {
+      const normalized = normalizeGeneratedComparePerspective(entry, entry?.label || `Generated perspective ${index + 1}`);
+      if (!normalized) return;
+      const next = { ...normalized };
+      if (!next.id) next.id = `perspective-${next.savedAt}-${index}-${Math.random().toString(36).slice(2, 7)}`;
+      saved.push(next);
+    });
+    if (!saved.length) return [];
+    const seen = new Set(saved.map((entry) => entry.id));
+    const merged = saved.concat(existing.filter((entry) => !seen.has(String(entry?.id || ''))));
+    const limited = merged.slice(0, COMPARE_PERSPECTIVE_LIMIT);
+    writeStoredComparePerspectives(limited);
+    ensureDurableStorageReady().then((storage) => storage?.saveComparePerspectives?.(limited)).catch(() => {});
+    return saved;
+  }
+
+  function applyGeneratedComparePerspective(entry) {
+    const normalized = normalizeGeneratedComparePerspective(entry, entry?.label || 'Generated perspective');
+    if (!normalized) return false;
+    return applyStoredComparePerspective(normalized);
+  }
+
+  function saveCurrentComparePerspective() {
+    return saveComparePerspectiveEntry(buildCurrentComparePerspective());
   }
 
   function deleteStoredComparePerspective(id) {
@@ -1160,9 +1219,12 @@
           call: String(entry?.q?.call || '')
         }))
         : [],
+      timeRange: cloneTsRange(slot.derived.timeRange),
       breakSummary: slot.derived.breakSummary || { totalBreakMin: 0, breaks: [] },
       hourSeries: Array.isArray(slot.derived.hourSeries) ? slot.derived.hourSeries.map((entry) => ({ hour: entry.hour, qsos: entry.qsos })) : [],
+      hourPointSeries: Array.isArray(slot.derived.hourPointSeries) ? slot.derived.hourPointSeries.map((entry) => ({ hour: entry.hour, points: entry.points })) : [],
       minuteSeries: Array.isArray(slot.derived.minuteSeries) ? slot.derived.minuteSeries.map((entry) => ({ minute: entry.minute, qsos: entry.qsos })) : [],
+      minutePointSeries: Array.isArray(slot.derived.minutePointSeries) ? slot.derived.minutePointSeries.map((entry) => ({ minute: entry.minute, points: entry.points })) : [],
       tenMinuteSeries: Array.isArray(slot.derived.tenMinuteSeries) ? slot.derived.tenMinuteSeries.map((entry) => ({ bucket: entry.bucket, qsos: entry.qsos })) : [],
       frequencySummary: Array.isArray(slot.derived.frequencySummary) ? slot.derived.frequencySummary.map((entry) => ({ freq: entry.freq, count: entry.count })) : [],
       spots: buildAgentSpotSummary(slot.spotsState),
@@ -7810,6 +7872,59 @@
     });
   }
 
+  function getAgentBriefingActionById(actionId) {
+    const key = String(actionId || '').trim();
+    if (!key) return null;
+    const findings = Array.isArray(state.agentBriefing?.result?.findings) ? state.agentBriefing.result.findings : [];
+    const match = key.match(/^f(\d+)-a(\d+)$/);
+    if (!match) return null;
+    const findingIndex = Number(match[1]);
+    const actionIndex = Number(match[2]);
+    if (!Number.isFinite(findingIndex) || !Number.isFinite(actionIndex)) return null;
+    const finding = findings[findingIndex];
+    const actions = Array.isArray(finding?.actions) ? finding.actions : [];
+    return actions[actionIndex] || null;
+  }
+
+  function handleAgentBriefingAction(action) {
+    if (!action || typeof action !== 'object') return false;
+    const type = String(action.type || '').trim().toLowerCase();
+    if (type === 'report') {
+      const target = String(action.reportId || '').trim();
+      if (!target) return false;
+      setActiveReportById(target);
+      return true;
+    }
+    if (type === 'perspective_apply') {
+      const perspective = action.perspective || null;
+      if (!applyGeneratedComparePerspective(perspective)) return false;
+      showOverlayNotice(`Applied perspective: ${(perspective && perspective.label) ? perspective.label : (action.label || 'Generated perspective')}`, 2200);
+      return true;
+    }
+    if (type === 'perspective_save') {
+      const perspective = action.perspective || null;
+      const saved = saveComparePerspectiveEntry(perspective);
+      if (!saved) return false;
+      showOverlayNotice(`Saved perspective: ${saved.label}`, 2200);
+      if (reports[state.activeIndex]?.id === 'agent_briefing') {
+        state.agentBriefing = createAgentBriefingState();
+        setActiveReportById('agent_briefing', { silent: true });
+      }
+      return true;
+    }
+    if (type === 'perspective_bundle_save') {
+      const saved = saveComparePerspectiveBundle(action.perspectives);
+      if (!saved.length) return false;
+      showOverlayNotice(`Saved ${formatNumberSh6(saved.length)} perspectives from ${action.label || 'agent briefing'}.`, 2400);
+      if (reports[state.activeIndex]?.id === 'agent_briefing') {
+        state.agentBriefing = createAgentBriefingState();
+        setActiveReportById('agent_briefing', { silent: true });
+      }
+      return true;
+    }
+    return false;
+  }
+
   async function loadArchiveSqlJs() {
     if (archiveSqlLoader) return archiveSqlLoader;
     archiveSqlLoader = (async () => {
@@ -10794,12 +10909,17 @@
     const briefing = state.agentBriefing || createAgentBriefingState();
     const summary = briefing.result?.summary || {};
     const findings = Array.isArray(briefing.result?.findings) ? briefing.result.findings : [];
-    const renderActions = (actions) => {
+    const renderActions = (actions, findingIndex) => {
       const list = Array.isArray(actions) ? actions : [];
       if (!list.length) return '';
-      return list.map((action) => {
-        if (!action || action.type !== 'report' || !action.reportId) return '';
-        return `<button type="button" class="agent-action-btn" data-report="${escapeAttr(action.reportId)}">${escapeHtml(action.label || action.reportId)}</button>`;
+      return list.map((action, actionIndex) => {
+        if (!action || typeof action !== 'object') return '';
+        if (action.type === 'report' && action.reportId) {
+          return `<button type="button" class="agent-action-btn" data-report="${escapeAttr(action.reportId)}">${escapeHtml(action.label || action.reportId)}</button>`;
+        }
+        const actionId = `f${findingIndex}-a${actionIndex}`;
+        const label = String(action.label || action.perspective?.label || 'Run action').trim() || 'Run action';
+        return `<button type="button" class="agent-action-btn" data-agent-action-id="${escapeAttr(actionId)}">${escapeHtml(label)}</button>`;
       }).join('');
     };
     const summaryPills = [
@@ -10838,7 +10958,7 @@
         </div>
       `;
     }
-    const cards = findings.map((finding) => {
+    const cards = findings.map((finding, findingIndex) => {
       const evidence = Array.isArray(finding.evidence) ? finding.evidence : [];
       const provenance = finding.provenance || {};
       return `
@@ -10860,7 +10980,7 @@
             <span><b>Freshness</b> ${escapeHtml(provenance.freshness || 'session')}</span>
             <span><b>Official</b> ${provenance.official ? 'Yes' : 'No / mixed'}</span>
           </div>
-          <div class="agent-actions">${renderActions(finding.actions)}</div>
+          <div class="agent-actions">${renderActions(finding.actions, findingIndex)}</div>
         </article>
       `;
     }).join('');
@@ -20466,6 +20586,7 @@
     }
     if (reportId === 'agent_briefing') {
       const navButtons = document.querySelectorAll('.agent-action-btn[data-report]');
+      const actionButtons = document.querySelectorAll('.agent-action-btn[data-agent-action-id]');
       const refreshButtons = document.querySelectorAll('.agent-refresh-btn[data-agent-refresh]');
       navButtons.forEach((btn) => {
         btn.addEventListener('click', (evt) => {
@@ -20473,6 +20594,15 @@
           const target = String(btn.dataset.report || '').trim();
           if (!target) return;
           setActiveReportById(target);
+        });
+      });
+      actionButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const actionId = String(btn.dataset.agentActionId || '').trim();
+          if (!actionId) return;
+          const action = getAgentBriefingActionById(actionId);
+          handleAgentBriefingAction(action);
         });
       });
       refreshButtons.forEach((btn) => {

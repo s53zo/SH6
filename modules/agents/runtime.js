@@ -58,6 +58,145 @@ function buildAction(label, reportId) {
   };
 }
 
+function buildPerspectiveAction(label, perspective) {
+  return {
+    type: 'perspective_apply',
+    label,
+    perspective
+  };
+}
+
+function buildPerspectiveSaveAction(label, perspective) {
+  return {
+    type: 'perspective_save',
+    label,
+    perspective
+  };
+}
+
+function buildPerspectiveBundleSaveAction(label, perspectives) {
+  return {
+    type: 'perspective_bundle_save',
+    label,
+    perspectives: Array.isArray(perspectives) ? perspectives : []
+  };
+}
+
+function tsRangeFromHour(hourBucket) {
+  const hour = Number(hourBucket);
+  if (!Number.isFinite(hour)) return null;
+  return {
+    startTs: hour * 60 * 60 * 1000,
+    endTs: ((hour + 1) * 60 * 60 * 1000) - 1
+  };
+}
+
+function tsRangeFromMinute(minuteBucket, padMinutes = 4) {
+  const minute = Number(minuteBucket);
+  const pad = Math.max(0, Number(padMinutes) || 0);
+  if (!Number.isFinite(minute)) return null;
+  return {
+    startTs: (minute - pad) * 60 * 1000,
+    endTs: ((minute + pad + 1) * 60 * 1000) - 1
+  };
+}
+
+function tsRangeFromBreakEntry(entry, padMinutes = 2) {
+  const start = Number(entry?.start);
+  const end = Number(entry?.end);
+  const pad = Math.max(0, Number(padMinutes) || 0);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    startTs: Math.max(0, (start - pad) * 60 * 1000),
+    endTs: ((end + pad + 1) * 60 * 1000) - 1
+  };
+}
+
+function buildPerspective(label, reportId, range, extras = {}) {
+  const safeLabel = String(label || reportId || 'Generated perspective').trim() || 'Generated perspective';
+  const timeRange = range && typeof range === 'object' ? {
+    startTs: Number(range.startTs),
+    endTs: Number(range.endTs)
+  } : null;
+  const safeRange = timeRange && Number.isFinite(timeRange.startTs) && Number.isFinite(timeRange.endTs)
+    ? timeRange
+    : null;
+  return {
+    label: safeLabel,
+    reportId,
+    compareScoreMode: extras.compareScoreMode || '',
+    compareSyncEnabled: extras.compareSyncEnabled,
+    compareStickyEnabled: extras.compareStickyEnabled,
+    compareFocus: extras.compareFocus || null,
+    globalBandFilter: extras.globalBandFilter || '',
+    compareTimeRangeLock: safeRange,
+    logTimeRange: safeRange
+  };
+}
+
+function pickLargestDeltaMinuteWindow(snapshot) {
+  const primary = snapshot?.primary || null;
+  const rivals = Array.isArray(snapshot?.compareSlots) ? snapshot.compareSlots : [];
+  if (!primary || !rivals.length) return null;
+  const metric = snapshot?.compareScoreMode === 'claimed' ? 'qsos' : 'points';
+  const primarySeries = metric === 'points'
+    ? (Array.isArray(primary.minutePointSeries) && primary.minutePointSeries.length ? primary.minutePointSeries : [])
+    : [];
+  const fallbackPrimarySeries = Array.isArray(primary.minuteSeries) ? primary.minuteSeries : [];
+  const primaryMap = new Map();
+  const primaryList = primarySeries.length ? primarySeries : fallbackPrimarySeries;
+  primaryList.forEach((entry) => {
+    const key = Number(entry?.minute);
+    if (!Number.isFinite(key)) return;
+    const value = metric === 'points' && primarySeries.length ? Number(entry?.points) : Number(entry?.qsos);
+    primaryMap.set(key, Number.isFinite(value) ? value : 0);
+  });
+  if (!primaryMap.size) return null;
+
+  const scoredRivals = rivals
+    .map((slot) => ({ slot, score: scoreForSlot(slot) }))
+    .filter((entry) => entry.slot)
+    .sort((left, right) => (right.score || 0) - (left.score || 0));
+  const rival = scoredRivals[0]?.slot || rivals[0];
+  if (!rival) return null;
+  const rivalSeries = metric === 'points'
+    ? (Array.isArray(rival.minutePointSeries) && rival.minutePointSeries.length ? rival.minutePointSeries : [])
+    : [];
+  const fallbackRivalSeries = Array.isArray(rival.minuteSeries) ? rival.minuteSeries : [];
+  const rivalList = rivalSeries.length ? rivalSeries : fallbackRivalSeries;
+  const rivalMap = new Map();
+  rivalList.forEach((entry) => {
+    const key = Number(entry?.minute);
+    if (!Number.isFinite(key)) return;
+    const value = metric === 'points' && rivalSeries.length ? Number(entry?.points) : Number(entry?.qsos);
+    rivalMap.set(key, Number.isFinite(value) ? value : 0);
+  });
+  if (!rivalMap.size) return null;
+
+  const keys = new Set([...primaryMap.keys(), ...rivalMap.keys()]);
+  let best = null;
+  keys.forEach((key) => {
+    const primaryValue = primaryMap.get(key) || 0;
+    const rivalValue = rivalMap.get(key) || 0;
+    const absDelta = Math.abs(primaryValue - rivalValue);
+    if (!best || absDelta > best.absDelta) {
+      best = {
+        key,
+        absDelta,
+        primaryValue,
+        rivalValue
+      };
+    }
+  });
+  if (!best || !best.absDelta) return null;
+  return {
+    metric,
+    rivalLabel: rival.label || rival.call || 'Loaded rival',
+    delta: best.absDelta,
+    range: tsRangeFromMinute(best.key, 4)
+  };
+}
+
 function findWorstHour(series = []) {
   if (!Array.isArray(series) || !series.length) return null;
   return series.reduce((worst, entry) => {
@@ -216,6 +355,29 @@ function buildRateCoach(snapshot) {
   const bestHour = findBestHour(slot?.hourSeries);
   const worstHour = findWorstHour(slot?.hourSeries);
   const totalBreakMin = Number(breakSummary.totalBreakMin || 0);
+  const weakestHourPerspective = worstHour
+    ? buildPerspective(
+      'Weakest hour review',
+      'qs_by_hour_sheet',
+      tsRangeFromHour(worstHour.hour),
+      { compareScoreMode: snapshot.compareScoreMode }
+    )
+    : null;
+  const longestBreakPerspective = longestBreak
+    ? buildPerspective(
+      'Longest break review',
+      'qs_by_minute',
+      tsRangeFromBreakEntry(longestBreak, 2),
+      { compareScoreMode: snapshot.compareScoreMode }
+    )
+    : null;
+  const actions = [
+    buildAction('Open Rates', 'rates'),
+    buildAction('Open Qs by hour', 'graphs_qs_by_hour'),
+    buildAction('Open 1-minute rates', 'one_minute_rates')
+  ];
+  if (weakestHourPerspective) actions.push(buildPerspectiveAction('Apply weakest hour', weakestHourPerspective));
+  if (longestBreakPerspective) actions.push(buildPerspectiveSaveAction('Save break review', longestBreakPerspective));
   return {
     id: 'rate-coach',
     agent: 'Rate Coach',
@@ -232,7 +394,7 @@ function buildRateCoach(snapshot) {
       `Weakest hour: ${formatNumber(worstHour?.qsos || 0)} QSOs`,
       `Longest break: ${formatNumber(longestBreak?.minutes || 0)} minutes`
     ],
-    actions: [buildAction('Open Rates', 'rates'), buildAction('Open Qs by hour', 'graphs_qs_by_hour'), buildAction('Open 1-minute rates', 'one_minute_rates')],
+    actions,
     provenance: {
       freshness: 'session',
       official: true,
@@ -271,6 +433,22 @@ function buildRivalScout(snapshot) {
       }
     };
   }
+  const deltaWindow = pickLargestDeltaMinuteWindow(snapshot);
+  const largestDeltaPerspective = deltaWindow?.range
+    ? buildPerspective(
+      `Largest ${deltaWindow.metric === 'points' ? 'score' : 'QSO'} delta`,
+      deltaWindow.metric === 'points' ? 'points_by_minute' : 'qs_by_minute',
+      deltaWindow.range,
+      { compareScoreMode: snapshot.compareScoreMode }
+    )
+    : null;
+  const actions = [
+    buildAction('Open Competitor coach', 'competitor_coach'),
+    buildAction('Open Summary', 'summary'),
+    buildAction('Open Qs by hour', 'graphs_qs_by_hour')
+  ];
+  if (largestDeltaPerspective) actions.push(buildPerspectiveAction('Apply largest delta window', largestDeltaPerspective));
+  if (largestDeltaPerspective) actions.push(buildPerspectiveSaveAction('Save rival delta view', largestDeltaPerspective));
   const gap = bestRival && primaryScore != null ? bestRival.score - primaryScore : null;
   const primaryLeads = Number.isFinite(gap) && gap <= 0;
   const gapValue = Number.isFinite(gap) ? Math.abs(gap) : null;
@@ -293,6 +471,9 @@ function buildRivalScout(snapshot) {
   if (coachRival) {
     evidence.push(`Coach rival: ${coachRival.call || 'Unknown'} · score ${formatNumber(coachRival.scoreTotal)}`);
   }
+  if (deltaWindow) {
+    evidence.push(`Largest ${deltaWindow.metric === 'points' ? 'score' : 'QSO'} swing vs ${deltaWindow.rivalLabel}: ${formatNumber(deltaWindow.delta)}`);
+  }
   return {
     id: 'rival-scout',
     agent: 'Rival Scout',
@@ -301,7 +482,7 @@ function buildRivalScout(snapshot) {
     headline,
     summary,
     evidence,
-    actions: [buildAction('Open Competitor coach', 'competitor_coach'), buildAction('Open Summary', 'summary'), buildAction('Open Qs by hour', 'graphs_qs_by_hour')],
+    actions,
     provenance: {
       freshness: 'session',
       official: false,
@@ -427,6 +608,39 @@ function buildSessionCurator(snapshot) {
   if (hygieneCount > 0) recommendations.push('Start with hygiene cleanup before score diagnosis.');
   if ((snapshot.compareSlots || []).length > 0) recommendations.push('Then compare against the nearest loaded rival.');
   recommendations.push('Finish with a time-based review of the weakest hour or longest break.');
+  const weakestHour = findWorstHour(snapshot.primary?.hourSeries);
+  const longestBreak = Array.isArray(snapshot.primary?.breakSummary?.breaks)
+    ? snapshot.primary.breakSummary.breaks.slice().sort((left, right) => (right.minutes || 0) - (left.minutes || 0))[0] || null
+    : null;
+  const largestDeltaWindow = pickLargestDeltaMinuteWindow(snapshot);
+  const perspectives = [];
+  if (weakestHour) {
+    perspectives.push(buildPerspective('Review path 1 · weakest hour', 'qs_by_hour_sheet', tsRangeFromHour(weakestHour.hour), {
+      compareScoreMode: snapshot.compareScoreMode
+    }));
+  }
+  if (longestBreak) {
+    perspectives.push(buildPerspective('Review path 2 · longest break', 'qs_by_minute', tsRangeFromBreakEntry(longestBreak, 2), {
+      compareScoreMode: snapshot.compareScoreMode
+    }));
+  }
+  if (largestDeltaWindow?.range) {
+    perspectives.push(buildPerspective(
+      `Review path 3 · largest ${largestDeltaWindow.metric === 'points' ? 'score' : 'QSO'} delta`,
+      largestDeltaWindow.metric === 'points' ? 'points_by_minute' : 'qs_by_minute',
+      largestDeltaWindow.range,
+      { compareScoreMode: snapshot.compareScoreMode }
+    ));
+  }
+  const actions = [
+    buildAction('Open Save&Load session', 'session'),
+    buildAction('Open Summary', 'summary'),
+    buildAction('Open Qs by hour', 'graphs_qs_by_hour')
+  ];
+  if (perspectives.length) {
+    actions.push(buildPerspectiveBundleSaveAction('Save review path', perspectives));
+    actions.push(buildPerspectiveAction('Apply weakest path step', perspectives[0]));
+  }
   return {
     id: 'session-curator',
     agent: 'Session Curator',
@@ -438,7 +652,7 @@ function buildSessionCurator(snapshot) {
       `Saved perspectives: ${formatNumber(snapshot.perspectivesCount || 0)}`,
       snapshot.compareTimeRangeLock ? 'A compare time lock is already active.' : 'No compare time lock is active yet.'
     ]),
-    actions: [buildAction('Open Save&Load session', 'session'), buildAction('Open Summary', 'summary'), buildAction('Open Qs by hour', 'graphs_qs_by_hour')],
+    actions,
     provenance: {
       freshness: 'session',
       official: false,

@@ -156,6 +156,7 @@
     [COMPARE_SCORE_MODE_CLAIMED]: 'Claimed score',
     [COMPARE_SCORE_MODE_LOGGED]: 'Logged points'
   });
+  const RETAINED_REPORT_IDS = new Set(['log', 'all_callsigns', 'not_in_master', 'session']);
   const COMPARE_TIME_LOCK_REPORTS = new Set([
     'qs_by_hour_sheet',
     'points_by_hour_sheet',
@@ -450,12 +451,14 @@
     state.apiEnrichment = createApiEnrichmentState();
     state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
     clearAnalysisModeSuggestion();
+    scheduleAutosaveSession();
   }
 
   function resetCompareSlot(slotId) {
     const idx = COMPARE_SLOT_IDS.indexOf(String(slotId || '').toUpperCase());
     if (idx < 0) return;
     state.compareSlots[idx] = createEmptyCompareSlot();
+    scheduleAutosaveSession();
   }
 
   function serializeSpotSettings(spotState) {
@@ -1051,8 +1054,11 @@
   function saveCurrentComparePerspective() {
     const next = buildCurrentComparePerspective();
     const existing = loadStoredComparePerspectives().filter((entry) => entry.id !== next.id);
-    existing.unshift(next);
-    writeStoredComparePerspectives(existing.slice(0, COMPARE_PERSPECTIVE_LIMIT));
+    const persisted = existing;
+    persisted.unshift(next);
+    const limited = persisted.slice(0, COMPARE_PERSPECTIVE_LIMIT);
+    writeStoredComparePerspectives(limited);
+    ensureDurableStorageReady().then((storage) => storage?.saveComparePerspectives?.(limited)).catch(() => {});
     return next;
   }
 
@@ -1060,7 +1066,11 @@
     const key = String(id || '');
     if (!key) return false;
     const next = loadStoredComparePerspectives().filter((entry) => String(entry?.id || '') !== key);
-    return writeStoredComparePerspectives(next);
+    const ok = writeStoredComparePerspectives(next);
+    if (ok) {
+      ensureDurableStorageReady().then((storage) => storage?.saveComparePerspectives?.(next)).catch(() => {});
+    }
+    return ok;
   }
 
   function applyStoredComparePerspective(rawPerspective) {
@@ -1220,6 +1230,14 @@
         applySpotSettings(getSlotById(id), data);
         continue;
       }
+      if (data.sourceType === 'local') {
+        const cachedRaw = await loadDurableRawLog(id);
+        if (cachedRaw && cachedRaw.text) {
+          applyLoadedLogToSlot(id, cachedRaw.text, data.file?.name || `${id}.log`, data.file?.size || cachedRaw.text.length, 'Autosave', null, data.archivePath || '');
+          applySpotSettings(getSlotById(id), data);
+          continue;
+        }
+      }
       if (data.archivePath) {
         const result = await fetchArchiveLogText(data.archivePath);
         if (result && result.text) {
@@ -1240,6 +1258,7 @@
     rebuildReports();
     const logIndex = reports.findIndex((r) => r.id === 'log');
     if (logIndex >= 0) setActiveReport(logIndex);
+    scheduleAutosaveSession();
   }
 
   function buildPermalink() {
@@ -1486,6 +1505,8 @@
   let callsignLookupLastRequestTs = 0;
   const archiveShardDbCache = new Map();
   const archiveRowsByCallCache = new Map();
+  const virtualTableControllers = new Map();
+  const retainedReportModels = Object.create(null);
   let archiveSqlLoader = null;
   let archiveSqlBaseUrl = null;
   let rbnCompareSignalResizeObserver = null;
@@ -1493,6 +1514,13 @@
   let cqApiRetryTimer = null;
   let competitorCoachRetryTimer = null;
   let html2CanvasLoadPromise = null;
+  let virtualTableModulePromise = null;
+  let durableStorageModulePromise = null;
+  let durableStorageReadyPromise = null;
+  let autosaveSessionTimer = null;
+  let engineTaskWorker = null;
+  let engineTaskSeq = 0;
+  const engineTaskResolvers = new Map();
 
   const base64UrlEncode = (value) => {
     const text = String(value == null ? '' : value);
@@ -1610,6 +1638,210 @@
     dropReplaceCancel: document.getElementById('dropReplaceCancel'),
     dragOverlay: document.getElementById('dragOverlay')
   };
+
+  function loadVirtualTableModule() {
+    if (!virtualTableModulePromise) {
+      virtualTableModulePromise = import('./modules/ui/virtual-table.js');
+    }
+    return virtualTableModulePromise;
+  }
+
+  function loadDurableStorageModule() {
+    if (!durableStorageModulePromise) {
+      durableStorageModulePromise = import('./modules/storage/persistence.js')
+        .catch(() => null);
+    }
+    return durableStorageModulePromise;
+  }
+
+  async function ensureDurableStorageReady() {
+    if (!durableStorageReadyPromise) {
+      durableStorageReadyPromise = (async () => {
+        const mod = await loadDurableStorageModule();
+        if (!mod || typeof mod.createSh6Storage !== 'function') return null;
+        const storage = await mod.createSh6Storage({ appVersion: APP_VERSION });
+        const perspectives = await storage.loadComparePerspectives().catch(() => []);
+        if (Array.isArray(perspectives) && perspectives.length) {
+          localStorage.setItem(COMPARE_PERSPECTIVE_STORAGE_KEY, JSON.stringify(perspectives.slice(0, COMPARE_PERSPECTIVE_LIMIT)));
+        }
+        return storage;
+      })();
+    }
+    return durableStorageReadyPromise;
+  }
+
+  async function loadDurableRawLog(slotId) {
+    const storage = await ensureDurableStorageReady().catch(() => null);
+    if (!storage || typeof storage.loadRawLog !== 'function') return null;
+    const record = await storage.loadRawLog(String(slotId || '').toUpperCase()).catch(() => null);
+    return record && typeof record.text === 'string' ? record : null;
+  }
+
+  function persistDurableSlotLog(slotId, slot, text) {
+    const safeSlotId = String(slotId || '').toUpperCase();
+    const safeText = String(text == null ? '' : text);
+    if (!safeSlotId || !safeText) return;
+    const file = slot?.logFile || {};
+    const meta = {
+      slotId: safeSlotId,
+      name: file.name || `${safeSlotId}.log`,
+      size: Number.isFinite(file.size) ? file.size : safeText.length,
+      source: file.source || '',
+      path: file.path || ''
+    };
+    ensureDurableStorageReady().then((storage) => {
+      if (!storage) return;
+      storage.saveRawLog?.(safeSlotId, safeText, meta).catch(() => {});
+      if (meta.path) {
+        storage.saveArchiveLog?.(meta.path, safeText, meta).catch(() => {});
+      }
+    }).catch(() => {});
+  }
+
+  function scheduleAutosaveSession() {
+    if (autosaveSessionTimer) clearTimeout(autosaveSessionTimer);
+    autosaveSessionTimer = setTimeout(() => {
+      autosaveSessionTimer = null;
+      const payload = buildSessionPayload(false);
+      ensureDurableStorageReady().then((storage) => {
+        storage?.saveAutosaveSession?.(payload).catch(() => {});
+      }).catch(() => {});
+    }, 400);
+  }
+
+  function ensureEngineTaskWorker() {
+    if (engineTaskWorker) return engineTaskWorker;
+    if (typeof Worker === 'undefined') return null;
+    try {
+      engineTaskWorker = new Worker('./modules/engine/task-worker.js', { type: 'module' });
+      engineTaskWorker.onmessage = (event) => {
+        const payload = event.data || {};
+        const resolver = engineTaskResolvers.get(payload.key);
+        if (!resolver) return;
+        engineTaskResolvers.delete(payload.key);
+        if (payload.type === 'taskError') {
+          resolver.reject(new Error(payload.error || 'Worker task failed.'));
+          return;
+        }
+        resolver.resolve(payload.data);
+      };
+      engineTaskWorker.onerror = (event) => {
+        const pending = Array.from(engineTaskResolvers.values());
+        engineTaskResolvers.clear();
+        pending.forEach((entry) => entry.reject(event.error || new Error('Engine worker crashed.')));
+        engineTaskWorker = null;
+      };
+      return engineTaskWorker;
+    } catch (err) {
+      console.warn('Engine task worker failed to start:', err);
+      engineTaskWorker = null;
+      return null;
+    }
+  }
+
+  function runEngineTask(type, payload = {}) {
+    const worker = ensureEngineTaskWorker();
+    if (!worker) return Promise.reject(new Error('Engine worker unavailable.'));
+    const key = `task-${Date.now()}-${++engineTaskSeq}`;
+    return new Promise((resolve, reject) => {
+      engineTaskResolvers.set(key, { resolve, reject });
+      worker.postMessage({ type, key, ...payload });
+    });
+  }
+
+  function isRetainedReport(reportId) {
+    return RETAINED_REPORT_IDS.has(String(reportId || '').split('::')[0]);
+  }
+
+  function destroyVirtualTableControllers() {
+    virtualTableControllers.forEach((controller) => {
+      try {
+        controller.destroy();
+      } catch (err) {
+        /* ignore teardown failures */
+      }
+    });
+    virtualTableControllers.clear();
+  }
+
+  function setRetainedReportModel(reportId, model) {
+    retainedReportModels[String(reportId || '')] = model || null;
+  }
+
+  function renderRetainedReportShell(reportId, html) {
+    const key = String(reportId || '').split('::')[0];
+    return `<div class="retained-report-root" data-retained-root="${escapeAttr(key)}">${html}</div>`;
+  }
+
+  function renderRetainedReportContent(reportId) {
+    const key = String(reportId || '').split('::')[0];
+    switch (key) {
+      case 'log':
+        return state.compareEnabled ? renderLogCompareContent() : renderLogContent();
+      case 'all_callsigns':
+        return renderAllCallsignsContent();
+      case 'not_in_master':
+        return renderNotInMasterContent();
+      case 'session':
+        return renderSessionPageContent();
+      default:
+        return '';
+    }
+  }
+
+  function refreshCurrentReportView(reportId = reports[state.activeIndex]?.id || '') {
+    const key = String(reportId || '').split('::')[0];
+    if (!isRetainedReport(key) || reports[state.activeIndex]?.id !== key || !(dom.viewContainer instanceof HTMLElement)) {
+      renderReportWithLoading(reports[state.activeIndex]);
+      return;
+    }
+    const root = dom.viewContainer.querySelector(`[data-retained-root="${escapeAttr(key)}"]`);
+    if (!(root instanceof HTMLElement)) {
+      renderReportWithLoading(reports[state.activeIndex]);
+      return;
+    }
+    destroyVirtualTableControllers();
+    root.innerHTML = renderRetainedReportContent(key);
+    bindReportInteractions(key);
+  }
+
+  function bindVirtualTable(reportId) {
+    const key = String(reportId || '').split('::')[0];
+    const shell = dom.viewContainer instanceof HTMLElement
+      ? dom.viewContainer.querySelector(`[data-virtual-table="${key}"]`)
+      : null;
+    const tbody = dom.viewContainer instanceof HTMLElement
+      ? dom.viewContainer.querySelector(`[data-virtual-body="${key}"]`)
+      : null;
+    const model = retainedReportModels[key];
+    if (!(shell instanceof HTMLElement) || !(tbody instanceof HTMLElement) || !model || !Array.isArray(model.rows)) {
+      return;
+    }
+    loadVirtualTableModule()
+      .then((mod) => {
+        if (!mod || typeof mod.createVirtualTableController !== 'function') return;
+        const existing = virtualTableControllers.get(key);
+        if (existing) {
+          existing.destroy();
+          virtualTableControllers.delete(key);
+        }
+        const controller = mod.createVirtualTableController({
+          scrollEl: shell,
+          tbody,
+          rows: model.rows,
+          rowHeight: model.rowHeight,
+          overscan: model.overscan,
+          colspan: model.colspan,
+          emptyHtml: model.emptyHtml
+        });
+        virtualTableControllers.set(key, controller);
+      })
+      .catch(() => {
+        if (tbody instanceof HTMLElement) {
+          tbody.innerHTML = model.rows.length ? model.rows.join('') : model.emptyHtml;
+        }
+      });
+  }
 
   function buildSlotSnapshot(source) {
     if (!source) return createEmptyCompareSlot();
@@ -2203,7 +2435,16 @@
           : (Date.now() - startedAt);
         trackRenderPerf(report?.id, elapsedMs, html?.length || 0);
         if (seq !== renderSeq) return;
-        dom.viewContainer.innerHTML = html;
+        destroyVirtualTableControllers();
+        const retainedKey = String(report?.id || '').split('::')[0];
+        const retainedRoot = isRetainedReport(retainedKey) && dom.viewContainer instanceof HTMLElement
+          ? dom.viewContainer.querySelector(`[data-retained-root="${escapeAttr(retainedKey)}"]`)
+          : null;
+        if (retainedRoot instanceof HTMLElement) {
+          retainedRoot.innerHTML = renderRetainedReportContent(retainedKey);
+        } else {
+          dom.viewContainer.innerHTML = html;
+        }
         bindReportInteractions(report.id);
         if (dom.loadPanel) {
           if (report.id === 'load_logs') {
@@ -2232,6 +2473,7 @@
           landingPage.classList.toggle('is-hidden', isLoadReport && state.showLoadPanel);
         }
         clearLoadingState();
+        scheduleAutosaveSession();
       }, 0);
     });
   }
@@ -2315,6 +2557,7 @@
   function renderActiveReport() {
     if (state.mapViewActive) {
       dom.viewTitle.textContent = 'Map';
+      destroyVirtualTableControllers();
       dom.viewContainer.innerHTML = renderMapView();
       bindReportInteractions('map_view');
       return;
@@ -6986,6 +7229,8 @@
       const tag = `slot ${String(slotId || '').toUpperCase()}`;
       state.sessionNotice = state.sessionNotice.filter((msg) => !String(msg).toLowerCase().includes(tag.toLowerCase()));
     }
+    persistDurableSlotLog(slotKey, target, text);
+    scheduleAutosaveSession();
     triggerCqApiEnrichmentForSlot(target, slotKey);
     return target.qsoData;
   }
@@ -7604,6 +7849,14 @@
 
   async function fetchArchiveLogText(path) {
     if (!path) return null;
+    const storage = await ensureDurableStorageReady().catch(() => null);
+    const cached = await storage?.loadArchiveLog?.(path).catch(() => null);
+    if (cached && typeof cached.text === 'string') {
+      return {
+        text: cached.text,
+        source: cached.meta?.source || 'Browser cache'
+      };
+    }
     const urls = [];
     const primary = `${ARCHIVE_BASE_URL}/${path}`;
     urls.push(primary);
@@ -7611,11 +7864,25 @@
       const rawUrl = `https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/${branch}/${path}`;
       if (!urls.includes(rawUrl)) urls.push(rawUrl);
     });
+    try {
+      const workerResult = await runEngineTask('archiveText', { urls });
+      if (workerResult && typeof workerResult.text === 'string') {
+        const source = workerResult.url || primary;
+        storage?.saveArchiveLog?.(path, workerResult.text, { path, source }).catch(() => {});
+        return {
+          text: workerResult.text,
+          source
+        };
+      }
+    } catch (err) {
+      /* fall back to main-thread fetch */
+    }
     for (const url of urls) {
       try {
         const res = await fetch(url);
         if (res.ok) {
           const text = await res.text();
+          storage?.saveArchiveLog?.(path, text, { path, source: url }).catch(() => {});
           return { text, source: url };
         }
       } catch (err) {
@@ -11405,6 +11672,9 @@
   }
 
   function applyLogFilters(qsos, filters) {
+    if (globalThis.SH6CompareCore && typeof globalThis.SH6CompareCore.applyLogFilters === 'function') {
+      return globalThis.SH6CompareCore.applyLogFilters(qsos, filters);
+    }
     let filtered = qsos || [];
     if (filters.search) {
       filtered = filtered.filter((q) => q.call && q.call.includes(filters.search));
@@ -11629,7 +11899,7 @@
     `;
   }
 
-  function renderSessionPage() {
+  function renderSessionPageContent() {
     return `
       <div class="mtc export-panel utility-panel">
         <div class="gradient">&nbsp;Save&Load session</div>
@@ -11654,6 +11924,10 @@
     `;
   }
 
+  function renderSessionPage() {
+    return renderRetainedReportShell('session', renderSessionPageContent());
+  }
+
   const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   function formatTimeOfDay(minutes) {
@@ -11663,6 +11937,11 @@
   }
 
   function buildTenMinuteBuckets(qsos) {
+    if (globalThis.SH6CompareCore && typeof globalThis.SH6CompareCore.buildTenMinuteBuckets === 'function') {
+      return globalThis.SH6CompareCore.buildTenMinuteBuckets(qsos, {
+        indexGetter: (q) => (Number.isFinite(q?.id) ? q.id : (Number.isFinite(q?.qsoNumber) ? q.qsoNumber - 1 : null))
+      });
+    }
     const buckets = new Map();
     (qsos || []).forEach((q) => {
       let key = 'unknown';
@@ -11680,6 +11959,9 @@
   }
 
   function buildCompareBucketOrder(bucketMaps, qsoLists) {
+    if (globalThis.SH6CompareCore && typeof globalThis.SH6CompareCore.buildCompareBucketOrder === 'function') {
+      return globalThis.SH6CompareCore.buildCompareBucketOrder(bucketMaps, qsoLists);
+    }
     const allKeys = new Set();
     bucketMaps.forEach((map) => {
       map.forEach((_, key) => allKeys.add(key));
@@ -11745,7 +12027,7 @@
     if (state.compareWorker) return true;
     if (typeof Worker === 'undefined') return false;
     try {
-      const worker = new Worker('worker.js');
+      const worker = new Worker('worker.js', { type: 'module' });
       worker.onmessage = (evt) => {
         const payload = evt.data || {};
         if (payload.type === 'compareBuckets') {
@@ -11898,10 +12180,11 @@
     return rows;
   }
 
-  function renderLogCompare() {
+  function renderLogCompareContent() {
     const slotEntries = getActiveCompareSlots();
     const anyLoaded = slotEntries.some((entry) => entry.slot?.qsoData);
     if (!anyLoaded) {
+      setRetainedReportModel('log', null);
       return '<p>No logs loaded for comparison yet.</p>';
     }
     const filters = getLogFilters();
@@ -11981,6 +12264,7 @@
       </div>
       `
       : '';
+    setRetainedReportModel('log', null);
     return `
       ${renderSessionControls()}
       ${note}
@@ -12019,9 +12303,9 @@
     `;
   }
 
-  function renderLog() {
+  function renderLogContent() {
     if (state.compareEnabled) {
-      return renderLogCompare();
+      return renderLogCompareContent();
     }
     if (!state.qsoData) {
       return renderPlaceholder({ id: 'log', title: 'Log' });
@@ -12046,7 +12330,7 @@
     if (page !== state.logPage) state.logPage = page;
     const start = page * state.logPageSize;
     const end = start + state.logPageSize;
-    const rows = filtered.slice(start, end).map((q, idx) => {
+    const rowList = filtered.slice(start, end).map((q, idx) => {
       const call = escapeCall(q.call || '');
       const op = escapeHtml(q.op || '');
       const country = escapeCountry(q.country || '');
@@ -12080,7 +12364,14 @@
         <td class="tl">${flags}</td>
       </tr>
     `;
-    }).join('');
+    });
+    setRetainedReportModel('log', {
+      rows: rowList,
+      rowHeight: 28,
+      overscan: 10,
+      colspan: 17,
+      emptyHtml: '<tr class="td1"><td colspan="17">No QSOs match current filter.</td></tr>'
+    });
     const note = `<p>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(Math.min(end, filtered.length))} of ${formatNumberSh6(filtered.length)} QSOs (page ${page + 1} / ${totalPages}).</p>`;
     const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const emptyNote = filtered.length ? '' : '<p>No QSOs match current filter.</p>';
@@ -12118,10 +12409,12 @@
         </form>
         <div class="log-pages">Pages: ${pageLinks}</div>
       </div>
-      <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
-        ${rows}
-      </table>
+      <div class="virtual-table-shell" data-virtual-table="log">
+        <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
+          <tbody data-virtual-body="log"></tbody>
+        </table>
+      </div>
       <div class="log-controls log-controls-bottom">
         <div class="log-pages">Pages: ${pageLinks}</div>
       </div>
@@ -12194,6 +12487,14 @@
         ${rows}
       </table>
     `;
+  }
+
+  function renderLogCompare() {
+    return renderRetainedReportShell('log', renderLogCompareContent());
+  }
+
+  function renderLog() {
+    return renderRetainedReportShell('log', renderLogContent());
   }
 
   function buildExportFilename(ext) {
@@ -12850,6 +13151,37 @@
     return map;
   }
 
+  function materializeQsoTimeIndex(entries) {
+    return new Map((entries || []).map(([band, list]) => [band, Array.isArray(list) ? list.slice() : []]));
+  }
+
+  function materializeQsoCallIndex(entries) {
+    return new Map((entries || []).map(([band, bandEntries]) => [
+      band,
+      new Map((bandEntries || []).map(([call, list]) => [call, Array.isArray(list) ? list.slice() : []]))
+    ]));
+  }
+
+  async function buildSpotIndexesAsync(qsos) {
+    const lite = (qsos || []).map((q) => ({
+      ts: q?.ts,
+      band: q?.band || '',
+      call: q?.call || ''
+    }));
+    try {
+      const data = await runEngineTask('spotIndexes', { qsos: lite });
+      return {
+        qsoIndex: materializeQsoTimeIndex(data?.timeIndexEntries),
+        qsoCallIndex: materializeQsoCallIndex(data?.callIndexEntries)
+      };
+    } catch (err) {
+      return {
+        qsoIndex: buildQsoTimeIndex(qsos),
+        qsoCallIndex: buildQsoCallIndex(qsos)
+      };
+    }
+  }
+
   function hasQsoWithin(band, ts, index, windowMs) {
     if (!band || !index.has(band)) return false;
     const list = index.get(band);
@@ -13104,8 +13436,7 @@
         `${SPOTS_BASE_URL}/${d.year}/${d.doy}.dat.gz`
       ]
     }));
-    const qsoIndex = buildQsoTimeIndex(slot.qsoData.qsos);
-    const qsoCallIndex = buildQsoCallIndex(slot.qsoData.qsos);
+    const { qsoIndex, qsoCallIndex } = await buildSpotIndexesAsync(slot.qsoData.qsos);
     try {
       if (spotsState.retryTimer) {
         window.clearTimeout(spotsState.retryTimer);
@@ -13233,8 +13564,7 @@
     rbnState.inflightKey = attemptKey;
     updateDataStatus();
     renderActiveReport();
-    const qsoIndex = buildQsoTimeIndex(slot.qsoData.qsos);
-    const qsoCallIndex = buildQsoCallIndex(slot.qsoData.qsos);
+    const { qsoIndex, qsoCallIndex } = await buildSpotIndexesAsync(slot.qsoData.qsos);
     try {
       if (rbnState.retryTimer) {
         window.clearTimeout(rbnState.retryTimer);
@@ -17949,7 +18279,7 @@
     `;
   }
 
-  function renderAllCallsigns() {
+  function renderAllCallsignsContent() {
     if (!state.derived) return renderPlaceholder({ id: 'all_callsigns', title: 'All callsigns' });
     const countryFilter = (state.allCallsignsCountryFilter || '').trim().toUpperCase();
     const bandCols = getDisplayBandList();
@@ -17972,7 +18302,7 @@
       });
       list = Array.from(byCall.values()).sort((a, b) => a.call.localeCompare(b.call));
     }
-    const rows = list.slice(0, 2000).map((c, idx) => {
+    const rowList = list.map((c, idx) => {
       const call = escapeHtml(c.call || '');
       const callAttr = escapeAttr(c.call || '');
       const renderBandCell = (band) => {
@@ -17989,23 +18319,32 @@
         <td><a href="#" class="log-call" data-call="${callAttr}">${formatNumberSh6(c.qsos)}</a></td>
       </tr>
     `;
-    }).join('');
+    });
+    setRetainedReportModel('all_callsigns', {
+      rows: rowList,
+      rowHeight: 28,
+      overscan: 12,
+      colspan: bandCols.length + 3,
+      emptyHtml: `<tr class="td1"><td colspan="${bandCols.length + 3}">No callsigns available.</td></tr>`
+    });
     const filterNote = countryFilter
       ? `<p>Country filter: <b>${escapeHtml(countryFilter)}</b> (<a href="#" class="all-calls-clear-country">clear</a>)</p>`
       : '';
-    const note = list.length > 2000 ? `<p>Showing first 2000 of ${list.length} calls.</p>` : '';
+    const note = list.length ? `<p>Virtualized list: ${formatNumberSh6(list.length)} calls.</p>` : '';
     const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       ${filterNote}
       ${note}
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Callsign</th>${bandHeaders}<th>All</th></tr>
-        ${rows}
-      </table>
+      <div class="virtual-table-shell" data-virtual-table="all_callsigns">
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>#</th><th>Callsign</th>${bandHeaders}<th>All</th></tr>
+          <tbody data-virtual-body="all_callsigns"></tbody>
+        </table>
+      </div>
     `;
   }
 
-  function renderNotInMaster() {
+  function renderNotInMasterContent() {
     if (!state.derived) return renderPlaceholder({ id: 'not_in_master', title: 'Not in master' });
     if (!state.masterSet || state.masterSet.size === 0) return '<p>Master file not loaded.</p>';
     const count = state.derived.notInMasterList.length;
@@ -18017,7 +18356,7 @@
     if (page !== state.notInMasterPage) state.notInMasterPage = page;
     const start = page * pageSize;
     const end = Math.min(start + pageSize, list.length);
-    const rows = list.slice(start, end).map((c, idx) => {
+    const rowList = list.slice(start, end).map((c, idx) => {
       const call = escapeHtml(c.call || '');
       const callAttr = escapeAttr(c.call || '');
       const qsos = formatNumberSh6(c.qsos || 0);
@@ -18032,7 +18371,14 @@
         <td>${last}</td>
       </tr>
     `;
-    }).join('');
+    });
+    setRetainedReportModel('not_in_master', {
+      rows: rowList,
+      rowHeight: 28,
+      overscan: 10,
+      colspan: 5,
+      emptyHtml: '<tr class="td1"><td colspan="5">All calls found in master.</td></tr>'
+    });
     const nav = list.length > pageSize ? `
       <div class="not-master-controls">
         <button type="button" class="not-master-btn" data-dir="prev" ${page <= 0 ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(pageSize)}</button>
@@ -18044,12 +18390,22 @@
       <p>Calls not found in MASTER.DTA: ${formatNumberSh6(count)}</p>
       ${note}
       ${nav}
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Callsign</th><th>QSOs</th><th>First</th><th>Last</th></tr>
-        ${rows}
-      </table>
+      <div class="virtual-table-shell" data-virtual-table="not_in_master">
+        <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>#</th><th>Callsign</th><th>QSOs</th><th>First</th><th>Last</th></tr>
+          <tbody data-virtual-body="not_in_master"></tbody>
+        </table>
+      </div>
       ${nav}
     `;
+  }
+
+  function renderAllCallsigns() {
+    return renderRetainedReportShell('all_callsigns', renderAllCallsignsContent());
+  }
+
+  function renderNotInMaster() {
+    return renderRetainedReportShell('not_in_master', renderNotInMasterContent());
   }
 
   function renderCountriesByTimeRowsFromList(list, map, countryInfo, bandFilter) {
@@ -20506,6 +20862,7 @@
     bindCompareScrollSync(reportId);
     bindCompareCrossHighlights(reportId);
     attachLongReportJumpBar(dom.viewContainer, reportId);
+    bindVirtualTable(reportId);
     const compareToggleButtons = dom.viewContainer.querySelectorAll('.compare-ui-toggle');
     compareToggleButtons.forEach((btn) => {
       btn.addEventListener('click', (evt) => {
@@ -23110,7 +23467,14 @@
     if (permalinkState) {
       await applySessionPayload(permalinkState, { fromPermalink: true });
     } else {
-      setActiveReport(0);
+      const storage = await ensureDurableStorageReady().catch(() => null);
+      const autosave = await storage?.loadAutosaveSession?.().catch(() => null);
+      const hasAutosave = autosave && Array.isArray(autosave.slots) && autosave.slots.some((slot) => slot && !slot.empty);
+      if (hasAutosave) {
+        await applySessionPayload(autosave, { fromPermalink: false });
+      } else {
+        setActiveReport(0);
+      }
     }
     if (mapParams && mapParams.full) {
       document.body.classList.add('map-full');

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Export Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>Export Runtime Smoke</h1>
+  <p>Checks the extracted export runtime module, delegated `main.js` hooks, dialog rendering, and download wiring.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      const escape = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+      try {
+        const [mainSource, exportModuleSource, exportModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/export/runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/export/runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/export/runtime.js')
+        ]);
+
+        add('Main.js imports the export runtime module', mainSource.includes("const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.1.21';"));
+        add('Main.js preloads export runtime during init', mainSource.includes('const exportRuntimeReady = loadExportRuntimeModule();') && mainSource.includes('await exportRuntimeReady;'));
+        add('Main.js delegates renderLogExport to export runtime', mainSource.includes('return getExportRuntime().renderLogExport();'));
+        add('Main.js delegates export dialog to export runtime', mainSource.includes('return getExportRuntime().openExportDialog(type);'));
+        add('Export runtime module exports the factory', exportModuleSource.includes('export function createExportRuntime'));
+
+        const notices = [];
+        const events = [];
+        const downloads = [];
+        const alerts = [];
+        const objectUrls = [];
+
+        const nativeFetch = window.fetch.bind(window);
+        const nativeAlert = window.alert.bind(window);
+        const nativeCreateObjectURL = URL.createObjectURL.bind(URL);
+        const nativeRevokeObjectURL = URL.revokeObjectURL.bind(URL);
+        const nativeAnchorClick = HTMLAnchorElement.prototype.click;
+
+        window.fetch = async (input, init) => {
+          const url = typeof input === 'string' ? input : String(input?.url || '');
+          if (url.endsWith('style.css')) {
+            return new Response('.export-doc { color: #111827; }', {
+              status: 200,
+              headers: { 'Content-Type': 'text/css' }
+            });
+          }
+          return nativeFetch(input, init);
+        };
+        window.alert = (message) => {
+          alerts.push(String(message || ''));
+        };
+        URL.createObjectURL = (blob) => {
+          const url = `blob:sh6-export-${objectUrls.length + 1}`;
+          objectUrls.push({
+            url,
+            type: String(blob?.type || ''),
+            size: Number(blob?.size || 0)
+          });
+          return url;
+        };
+        URL.revokeObjectURL = () => {};
+        HTMLAnchorElement.prototype.click = function clickPatched() {
+          downloads.push({
+            download: this.download || '',
+            href: this.href || ''
+          });
+        };
+
+        const state = {
+          qsoData: {
+            qsos: [{
+              qsoNumber: 1,
+              ts: Date.UTC(2025, 10, 16, 10, 5, 0),
+              time: '2025-11-16 10:05',
+              band: '20M',
+              mode: 'CW',
+              freq: 14032.5,
+              call: 'S55OO',
+              rstSent: '599',
+              rstRcvd: '599',
+              stx: '001',
+              srx: '123',
+              op: 'S53ZO',
+              country: 'Slovenia',
+              continent: 'EU',
+              cqZone: '15',
+              ituZone: '28',
+              grid: 'JN76',
+              isQtc: false,
+              inMaster: true,
+              isDupe: false
+            }]
+          },
+          compareEnabled: true,
+          compareCount: 2,
+          activeIndex: 1,
+          derived: {
+            contestMeta: {
+              stationCallsign: 'S55OO',
+              contestId: 'CQWW'
+            },
+            timeRange: {
+              minTs: Date.UTC(2025, 10, 16, 0, 0, 0)
+            }
+          },
+          rawLogText: 'RAW-A'
+        };
+
+        const slotMap = new Map([
+          ['A', state],
+          ['B', {
+            rawLogText: 'RAW-B',
+            derived: {
+              contestMeta: {
+                stationCallsign: 'S53M',
+                contestId: 'CQWW'
+              },
+              timeRange: {
+                minTs: Date.UTC(2025, 10, 16, 0, 0, 0)
+              }
+            }
+          }],
+          ['C', {
+            rawLogText: '',
+            derived: {
+              contestMeta: {
+                stationCallsign: 'S57K',
+                contestId: 'CQWW'
+              },
+              timeRange: {
+                minTs: Date.UTC(2025, 10, 16, 0, 0, 0)
+              }
+            }
+          }]
+        ]);
+
+        const reports = [
+          { id: 'load_logs', title: 'Load logs' },
+          { id: 'summary', title: 'Summary' },
+          { id: 'log', title: 'Log' },
+          { id: 'map_view', title: 'Map' },
+          { id: 'export', title: 'Export' }
+        ];
+
+        const runtime = exportModule.createExportRuntime({
+          getState: () => state,
+          getReports: () => reports,
+          getSlotById: (id) => slotMap.get(String(id || '').toUpperCase()),
+          getActiveCompareSlots: () => [
+            { id: 'A', slot: slotMap.get('A') },
+            { id: 'B', slot: slotMap.get('B') }
+          ],
+          withBandContext: (_reportId, fn) => fn(),
+          withStaticVirtualTableRender: (fn) => fn(),
+          renderReport: (report) => `<section><a href="#${report.id}" title="nav">${escape(report.title)}</a></section>`,
+          renderPlaceholder: ({ title }) => `<p>${escape(title)}</p>`,
+          showOverlayNotice: (message) => notices.push(String(message || '')),
+          trackEvent: (name, payload) => events.push({ name, payload }),
+          formatNumberSh6: (value) => String(value ?? ''),
+          formatDateSh6: (value) => String(value ?? ''),
+          formatBandLabel: (value) => String(value ?? ''),
+          formatFrequency: (value) => String(value ?? ''),
+          bandClass: () => 'band',
+          modeClass: () => 'mode',
+          continentClass: () => 'continent',
+          escapeCall: escape,
+          escapeCountry: escape,
+          escapeHtml: escape,
+          escapeAttr: escape
+        });
+
+        const reportHtml = runtime.renderReportExport({ id: 'summary', title: 'Summary' });
+        add('renderReportExport strips links from exported report HTML', reportHtml.includes('<span') && !reportHtml.includes('<a '), reportHtml);
+
+        const logHtml = runtime.renderLogExport();
+        add('renderLogExport builds the log export table', logHtml.includes('<table') && logHtml.includes('S55OO'), logHtml.slice(0, 120));
+
+        runtime.openExportDialog('html');
+        const overlay = document.getElementById('exportDialog');
+        add('openExportDialog creates the export overlay', Boolean(overlay));
+
+        const optionIds = Array.from(overlay?.querySelectorAll('input[data-report-id]') || []).map((node) => node.dataset.reportId);
+        add(
+          'Export dialog excludes load/export pseudo-reports',
+          optionIds.includes('summary') && optionIds.includes('log') && !optionIds.includes('load_logs') && !optionIds.includes('export'),
+          optionIds.join(', ')
+        );
+
+        overlay?.querySelector('#exportCurrent')?.click();
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        add('Current-report HTML export tracks analytics', events.some((entry) => entry.name === 'download_html'), JSON.stringify(events));
+        add('Current-report HTML export triggers a download', downloads.some((entry) => entry.download.endsWith('.html')), JSON.stringify(downloads));
+
+        runtime.exportCbrForSlot('B');
+        add('CBR export tracks analytics with slot context', events.some((entry) => entry.name === 'download_cbr' && entry.payload?.slot === 'B'), JSON.stringify(events));
+        add('CBR export triggers a .cbr download', downloads.some((entry) => entry.download.endsWith('_B.cbr')), JSON.stringify(downloads));
+        add('CBR export shows a success notice', notices.some((entry) => entry.includes('Exported')), notices.join(' | '));
+
+        runtime.exportCbrForSlot('C');
+        add('Missing raw log export surfaces a notice', notices.some((entry) => entry.includes('No raw log available in Log C.')), notices.join(' | '));
+
+        HTMLAnchorElement.prototype.click = nativeAnchorClick;
+        URL.createObjectURL = nativeCreateObjectURL;
+        URL.revokeObjectURL = nativeRevokeObjectURL;
+        window.fetch = nativeFetch;
+        window.alert = nativeAlert;
+
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, {
+          checksTotal: checks.length,
+          checksFailed: failed.length,
+          failed,
+          events,
+          downloads,
+          notices,
+          alerts,
+          objectUrls
+        });
+      } catch (err) {
+        setResult(false, {
+          error: err && err.message ? err.message : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

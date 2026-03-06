@@ -174,7 +174,9 @@
     'callsign_length',
     'callsign_structure',
     'distance',
-    'beam_heading'
+    'beam_heading',
+    'passed_qsos',
+    'possible_errors'
   ]);
   const COMPARE_TIME_LOCK_REPORTS = new Set([
     'qs_by_hour_sheet',
@@ -2119,6 +2121,10 @@
         return renderDistanceReportContent();
       case 'beam_heading':
         return renderBeamHeadingReportContent();
+      case 'passed_qsos':
+        return renderPassedQsosReportContent();
+      case 'possible_errors':
+        return renderPossibleErrorsReportContent();
       default:
         return '';
     }
@@ -18486,18 +18492,50 @@
           <td class="wrap-cell">${sugg}</td>
         </tr>
       `;
-    }).join('');
+    });
     return `
       ${note}
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Callsign in log</th><th>QSOs</th><th>Callsign(s) in master database</th></tr>
-        ${rows}
-      </table>
+      ${renderRetainedVirtualTable('possible_errors', {
+        rows,
+        rowHeight: 30,
+        overscan: 10,
+        columnCount: 4,
+        emptyHtml: '<tr class="td1"><td colspan="4">No possible errors detected.</td></tr>',
+        headerHtml: '<tr class="thc"><th>#</th><th>Callsign in log</th><th>QSOs</th><th>Callsign(s) in master database</th></tr>'
+      })}
     `;
   }
 
-  function renderPossibleErrors() {
+  function renderPossibleErrorsContent() {
     return renderPossibleErrorsFrom(state.derived, null, '');
+  }
+
+  function renderPossibleErrorsCompareContent() {
+    const slots = getActiveCompareSnapshots();
+    const callSets = slots.map((entry) => (entry.ready ? buildCallSet(entry.snapshot.qsoData?.qsos || []) : new Set()));
+    const note = 'Compare mode: callsigns appearing in other logs are omitted from Possible errors for each log.';
+    const htmlBlocks = slots.map((entry, idx) => {
+      if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
+      const exclude = new Set();
+      callSets.forEach((set, setIdx) => {
+        if (setIdx === idx) return;
+        set.forEach((call) => exclude.add(call));
+      });
+      return withSlotState(
+        entry.snapshot,
+        () => withStaticVirtualTableRender(() => renderPossibleErrorsFrom(entry.snapshot.derived, exclude, note)),
+        { slotId: entry.id }
+      );
+    });
+    return renderComparePanels(slots, htmlBlocks, 'possible_errors');
+  }
+
+  function renderPossibleErrorsReportContent() {
+    return state.compareEnabled ? renderPossibleErrorsCompareContent() : renderPossibleErrorsContent();
+  }
+
+  function renderPossibleErrors() {
+    return renderRetainedReportShell('possible_errors', renderPossibleErrorsReportContent());
   }
 
   function renderComments() {
@@ -18930,18 +18968,53 @@
         <td class="${modeClass(q.mode)}">${mode}</td>
       </tr>
     `;
-    }).join('');
+    });
     return `
       ${slider}
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Time</th><th>Call</th><th>Band</th><th>Mode</th></tr>
-        ${rows}
-      </table>
+      ${renderRetainedVirtualTable('passed_qsos', {
+        rows,
+        rowHeight: 28,
+        overscan: 10,
+        columnCount: 5,
+        emptyHtml: '<tr class="td1"><td colspan="5">No passed QSOs detected.</td></tr>',
+        headerHtml: '<tr class="thc"><th>#</th><th>Time</th><th>Call</th><th>Band</th><th>Mode</th></tr>'
+      })}
     `;
   }
 
-  function renderPassedQsos() {
+  function renderPassedQsosContent() {
     return renderPassedQsosForList(state.qsoData?.qsos || [], { showControls: true });
+  }
+
+  function renderPassedQsosCompareContent() {
+    const slots = getActiveCompareSnapshots();
+    const htmlBlocks = slots.map((entry) => (
+      entry.ready
+        ? withSlotState(
+          entry.snapshot,
+          () => withStaticVirtualTableRender(() => renderPassedQsosForList(entry.snapshot.qsoData?.qsos || [], { showControls: false })),
+          { slotId: entry.id }
+        )
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    const windowMinutes = Math.max(1, Number(state.passedQsoWindow) || 10);
+    const slider = `
+      <div class="break-controls passed-controls">
+        Passed window (minutes):
+        <input type="range" class="passed-window" min="1" max="60" step="1" value="${windowMinutes}">
+        <span class="passed-window-value">${windowMinutes}</span>
+      </div>
+      <p>A passed QSO is a callsign worked on another band within ${windowMinutes} minutes.</p>
+    `;
+    return `${slider}${renderComparePanels(slots, htmlBlocks, 'passed_qsos')}`;
+  }
+
+  function renderPassedQsosReportContent() {
+    return state.compareEnabled ? renderPassedQsosCompareContent() : renderPassedQsosContent();
+  }
+
+  function renderPassedQsos() {
+    return renderRetainedReportShell('passed_qsos', renderPassedQsosReportContent());
   }
 
   function renderAppInfo() {
@@ -20706,20 +20779,7 @@
       return renderNotInMaster();
     }
     if (report.id === 'passed_qsos') {
-      const slots = getActiveCompareSnapshots();
-      const htmlBlocks = slots.map((entry) => (
-        entry.ready ? renderPassedQsosForList(entry.snapshot.qsoData?.qsos || [], { showControls: false }) : `<p>No ${entry.label} loaded.</p>`
-      ));
-      const windowMinutes = Math.max(1, Number(state.passedQsoWindow) || 10);
-      const slider = `
-        <div class="break-controls passed-controls">
-          Passed window (minutes):
-          <input type="range" class="passed-window" min="1" max="60" step="1" value="${windowMinutes}">
-          <span class="passed-window-value">${windowMinutes}</span>
-        </div>
-        <p>A passed QSO is a callsign worked on another band within ${windowMinutes} minutes.</p>
-      `;
-      return `${slider}${renderComparePanels(slots, htmlBlocks, 'passed_qsos')}`;
+      return renderPassedQsos();
     }
     if (report.id === 'graphs_qs_by_hour') {
       return renderGraphsQsByHourCompare(null);
@@ -20731,19 +20791,7 @@
       return renderCountriesByTimeCompareAligned(null);
     }
     if (report.id === 'possible_errors') {
-      const slots = getActiveCompareSnapshots();
-      const callSets = slots.map((entry) => (entry.ready ? buildCallSet(entry.snapshot.qsoData?.qsos || []) : new Set()));
-      const note = 'Compare mode: callsigns appearing in other logs are omitted from Possible errors for each log.';
-      const htmlBlocks = slots.map((entry, idx) => {
-        if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
-        const exclude = new Set();
-        callSets.forEach((set, setIdx) => {
-          if (setIdx === idx) return;
-          set.forEach((call) => exclude.add(call));
-        });
-        return renderPossibleErrorsFrom(entry.snapshot.derived, exclude, note);
-      });
-      return renderComparePanels(slots, htmlBlocks, 'possible_errors');
+      return renderPossibleErrors();
     }
     if (report.id === 'countries') return renderCountries();
     if (report.id === 'continents') return renderContinents();

@@ -188,6 +188,7 @@
   const COMPARE_PERSPECTIVE_LIMIT = 12;
   const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.1.21';
   const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.1.21';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.1.21';
   const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.1.21';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.1.21';
   const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.1.21';
@@ -1265,6 +1266,8 @@
   let competitorCoachRetryTimer = null;
   let html2CanvasLoadPromise = null;
   let agentRuntimeModulePromise = null;
+  let navigationRuntimeModulePromise = null;
+  let navigationRuntime = null;
   let retainedRuntimeModulePromise = null;
   let retainedRuntime = null;
   let virtualTableModulePromise = null;
@@ -1411,6 +1414,46 @@
         .catch(() => null);
     }
     return agentRuntimeModulePromise;
+  }
+
+  function loadNavigationRuntimeModule() {
+    if (!navigationRuntimeModulePromise) {
+      navigationRuntimeModulePromise = import(NAVIGATION_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createNavigationRuntime !== 'function') {
+            throw new Error('navigation runtime module unavailable');
+          }
+          navigationRuntime = mod.createNavigationRuntime({
+            getDom: () => dom,
+            getState: () => state,
+            getReports: () => reports,
+            navSections: NAV_SECTIONS,
+            navSectionByReport: NAV_SECTION_BY_REPORT,
+            trackEvent,
+            renderReport,
+            bindReportInteractions,
+            destroyVirtualTableControllers: () => getRetainedRuntime().destroyVirtualTableControllers(),
+            renderRetainedReportContent,
+            isRetainedReport,
+            escapeAttr,
+            trackRenderPerf,
+            renderMapView,
+            scheduleAutosaveSession,
+            shouldPeriodFilterReport,
+            updatePeriodRibbon,
+            analysisModeDxer: ANALYSIS_MODE_DXER
+          });
+          return navigationRuntime;
+        });
+    }
+    return navigationRuntimeModulePromise;
+  }
+
+  function getNavigationRuntime() {
+    if (!navigationRuntime) {
+      throw new Error('navigation runtime not loaded');
+    }
+    return navigationRuntime;
   }
 
   function loadVirtualTableModule() {
@@ -2148,280 +2191,33 @@
   const renderers = {};
   let overlayNoticeTimer = null;
   let pendingDropFile = null;
-  let navStickyBottomBound = false;
 
   function initNavigation() {
-    if (!dom.navList) return;
-    dom.navList.innerHTML = '';
-    const groups = new Map();
-    reports.forEach((r, idx) => {
-      if (!r.parentId) return;
-      if (!groups.has(r.parentId)) groups.set(r.parentId, []);
-      groups.get(r.parentId).push({ report: r, index: idx });
-    });
-    const groupParentIds = new Set(groups.keys());
-    const sectionMap = new Map(NAV_SECTIONS.map((section) => [section.id, { ...section, items: [] }]));
-    const fallbackSectionId = NAV_SECTIONS[0]?.id || 'load_core';
-    const bindKeyboardActivation = (el, onActivate) => {
-      if (!el || typeof onActivate !== 'function') return;
-      el.tabIndex = 0;
-      el.setAttribute('role', 'button');
-      el.addEventListener('keydown', (evt) => {
-        if (evt.key !== 'Enter' && evt.key !== ' ') return;
-        evt.preventDefault();
-        onActivate();
-      });
-    };
-    const getSectionIdForReport = (report) => {
-      const direct = NAV_SECTION_BY_REPORT[report?.id];
-      if (direct) return direct;
-      if (report?.parentId && NAV_SECTION_BY_REPORT[report.parentId]) return NAV_SECTION_BY_REPORT[report.parentId];
-      return fallbackSectionId;
-    };
-
-    const makeNavItem = (idx, title, baseClass) => {
-      const li = document.createElement('li');
-      li.textContent = title;
-      li.dataset.index = idx;
-      li.dataset.baseClass = baseClass;
-      li.dataset.searchText = String(title || '').trim().toLowerCase();
-      li.classList.add(baseClass);
-      const activate = () => {
-        const report = reports[idx];
-        if (report?.id === 'load_logs') {
-          state.showLoadPanel = false;
-        }
-        trackEvent('menu_click', {
-          report_id: report?.id || '',
-          report_title: report?.title || title || ''
-        });
-        setActiveReport(idx);
-      };
-      li.addEventListener('click', activate);
-      bindKeyboardActivation(li, activate);
-      return li;
-    };
-
-    const makeSummary = (idx, title, baseClass) => {
-      const summary = document.createElement('summary');
-      summary.textContent = title;
-      summary.dataset.index = idx;
-      summary.dataset.baseClass = baseClass;
-      summary.dataset.searchText = String(title || '').trim().toLowerCase();
-      summary.classList.add(baseClass, 'nav-summary');
-      summary.addEventListener('click', () => {
-        const report = reports[idx];
-        trackEvent('menu_click', {
-          report_id: report?.id || '',
-          report_title: report?.title || title || '',
-          group: 'summary'
-        });
-        setActiveReport(idx);
-      });
-      return summary;
-    };
-
-    reports.forEach((r, idx) => {
-      if (r.parentId) return;
-      const sectionId = getSectionIdForReport(r);
-      if (!sectionMap.has(sectionId)) {
-        sectionMap.set(sectionId, { id: sectionId, title: sectionId, openByDefault: false, items: [] });
-      }
-      sectionMap.get(sectionId).items.push({ report: r, index: idx });
-    });
-
-    NAV_SECTIONS.forEach((section, sectionIdx) => {
-      const bucket = sectionMap.get(section.id);
-      if (!bucket || !bucket.items || !bucket.items.length) return;
-      const wrapper = document.createElement('li');
-      wrapper.classList.add('nav-section-item');
-      const details = document.createElement('details');
-      details.classList.add('nav-section');
-      if (section.openByDefault || sectionIdx === 0) details.open = true;
-
-      const summary = document.createElement('summary');
-      summary.classList.add('nav-section-summary');
-      summary.textContent = section.title;
-      details.appendChild(summary);
-
-      const sectionList = document.createElement('ol');
-      sectionList.classList.add('nav-section-list');
-      bucket.items.forEach(({ report, index }) => {
-        if (!report || index == null) return;
-        if (groupParentIds.has(report.id)) {
-          const group = groups.get(report.id) || [];
-          const groupDetails = document.createElement('details');
-          groupDetails.classList.add('nav-group');
-          groupDetails.appendChild(makeSummary(index, report.title, 'mli'));
-          const sublist = document.createElement('ol');
-          sublist.classList.add('nav-sublist');
-          group.forEach((child) => {
-            if (!child || child.index == null) return;
-            sublist.appendChild(makeNavItem(child.index, child.report.title, 'cli'));
-          });
-          groupDetails.appendChild(sublist);
-          const groupWrap = document.createElement('li');
-          groupWrap.classList.add('nav-group-item');
-          groupWrap.appendChild(groupDetails);
-          sectionList.appendChild(groupWrap);
-          return;
-        }
-        sectionList.appendChild(makeNavItem(index, report.title, 'mli'));
-      });
-      details.appendChild(sectionList);
-      wrapper.appendChild(details);
-      dom.navList.appendChild(wrapper);
-    });
-
-    updateNavHighlight();
-    applyNavSearchFilter(state.navSearch || dom.navSearchInput?.value || '');
-    updatePrevNextButtons();
-    bindNavStickyBottom();
-  }
-
-  function bindNavStickyBottom() {
-    if (navStickyBottomBound || !dom.navList) return;
-    navStickyBottomBound = true;
-    const scrollEl = dom.navList;
-    const bottomThresholdPx = 10;
-    let shouldStick = false;
-
-    const isNearBottom = () => {
-      // If content grows while the user is "pinned" to bottom, keep them pinned.
-      const remaining = scrollEl.scrollHeight - (scrollEl.scrollTop + scrollEl.clientHeight);
-      return remaining <= bottomThresholdPx;
-    };
-
-    // Capture (not bubble) so we observe summary clicks even when toggle doesn't bubble.
-    scrollEl.addEventListener('click', (evt) => {
-      const target = evt.target instanceof Element ? evt.target : null;
-      if (!target) return;
-      const summary = target.closest('summary');
-      if (!summary || !scrollEl.contains(summary)) return;
-      shouldStick = isNearBottom();
-    }, true);
-
-    scrollEl.addEventListener('toggle', (evt) => {
-      const details = evt.target;
-      if (!(details instanceof HTMLDetailsElement)) return;
-      if (!scrollEl.contains(details)) return;
-      if (!details.open) return;
-      if (!shouldStick) return;
-
-      // Run after layout updates so the new scrollHeight is reflected.
-      requestAnimationFrame(() => {
-        scrollEl.scrollTop = scrollEl.scrollHeight;
-        shouldStick = false;
-      });
-    }, true);
+    return getNavigationRuntime().initNavigation();
   }
 
   function applyNavSearchFilter(rawTerm = '') {
-    if (!dom.navList) return;
-    const rawValue = String(rawTerm || '').trim();
-    const term = rawValue.toLowerCase();
-    state.navSearch = term;
-    const navNodes = Array.from(dom.navList.querySelectorAll('[data-index]'));
-    let visibleCount = 0;
-    navNodes.forEach((el) => {
-      const text = String(el.dataset.searchText || el.textContent || '').trim().toLowerCase();
-      const visible = !term || text.includes(term);
-      el.classList.toggle('nav-hidden', !visible);
-      if (visible) visibleCount += 1;
-    });
-
-    const groups = Array.from(dom.navList.querySelectorAll('.nav-group'));
-    groups.forEach((details) => {
-      const visibleChildren = details.querySelectorAll('[data-index]:not(.nav-hidden)');
-      const visible = visibleChildren.length > 0;
-      details.classList.toggle('nav-hidden', !visible);
-      if (term && visible) details.open = true;
-    });
-
-    const sectionItems = Array.from(dom.navList.querySelectorAll('.nav-section-item'));
-    sectionItems.forEach((item) => {
-      const visibleNodes = item.querySelectorAll('[data-index]:not(.nav-hidden)');
-      const visible = visibleNodes.length > 0;
-      item.classList.toggle('nav-hidden', !visible);
-      const sectionDetails = item.querySelector('.nav-section');
-      if (sectionDetails && term && visible) sectionDetails.open = true;
-    });
-
-    if (dom.navSearchEmpty) {
-      const finalVisibleCount = navNodes.filter((el) => !el.classList.contains('nav-hidden') && !el.closest('.nav-hidden')).length;
-      const showEmpty = Boolean(term) && finalVisibleCount === 0;
-      dom.navSearchEmpty.hidden = !showEmpty;
-      dom.navSearchEmpty.setAttribute('aria-hidden', showEmpty ? 'false' : 'true');
-      dom.navSearchEmpty.textContent = showEmpty
-        ? `No reports match "${rawValue}". Try a shorter term or press Esc to clear.`
-        : '';
-    }
+    return getNavigationRuntime().applyNavSearchFilter(rawTerm);
   }
 
   function setupNavSearch() {
-    if (!dom.navSearchInput) return;
-    dom.navSearchInput.value = state.navSearch || '';
-    dom.navSearchInput.addEventListener('input', () => {
-      applyNavSearchFilter(dom.navSearchInput.value);
-    });
-    dom.navSearchInput.addEventListener('keydown', (evt) => {
-      if (evt.key !== 'Escape') return;
-      evt.preventDefault();
-      dom.navSearchInput.value = '';
-      applyNavSearchFilter('');
-    });
-    document.addEventListener('keydown', (evt) => {
-      if (evt.defaultPrevented) return;
-      const target = evt.target instanceof HTMLElement ? evt.target : null;
-      const inInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-      if (inInput) return;
-      if (evt.key === '/' || ((evt.ctrlKey || evt.metaKey) && evt.key.toLowerCase() === 'k')) {
-        evt.preventDefault();
-        dom.navSearchInput.focus();
-        dom.navSearchInput.select();
-      }
-    });
+    return getNavigationRuntime().setupNavSearch();
   }
 
   function updateNavHighlight() {
-    const items = dom.navList.querySelectorAll('[data-index]');
-    const mapActive = !!state.mapViewActive;
-    items.forEach((el) => {
-      const isActive = !mapActive && Number(el.dataset.index) === state.activeIndex;
-      el.classList.toggle('active', isActive);
-      const base = el.dataset.baseClass;
-      if (base) el.classList.add(base);
-      el.classList.toggle('sli', isActive);
-      if (isActive) el.setAttribute('aria-current', 'page');
-      else el.removeAttribute('aria-current');
-      if (isActive) {
-        const details = el.closest('details');
-        if (details && !el.classList.contains('nav-summary')) details.open = true;
-      }
-    });
+    return getNavigationRuntime().updateNavHighlight();
   }
 
   function updatePrevNextButtons() {
-    dom.prevBtn.disabled = state.activeIndex === 0;
-    dom.nextBtn.disabled = state.activeIndex === reports.length - 1;
+    return getNavigationRuntime().updatePrevNextButtons();
   }
 
-  let renderSeq = 0;
   function showLoadingState(message) {
-    if (!dom.viewContainer) return;
-    document.body.classList.add('is-loading');
-    dom.viewContainer.setAttribute('aria-busy', 'true');
-    dom.viewContainer.innerHTML = `
-      <div class="loading-state" role="status" aria-live="polite">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">${message}</div>
-      </div>
-    `;
+    return getNavigationRuntime().showLoadingState(message);
   }
 
   function clearLoadingState() {
-    document.body.classList.remove('is-loading');
-    if (dom.viewContainer) dom.viewContainer.setAttribute('aria-busy', 'false');
+    return getNavigationRuntime().clearLoadingState();
   }
 
   function showOverlayNotice(message, duration = 4500) {
@@ -2489,62 +2285,7 @@
   }
 
   function renderReportWithLoading(report) {
-    const seq = ++renderSeq;
-    const title = report?.title || 'report';
-    showLoadingState(`Preparing ${title}...`);
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        if (seq !== renderSeq) return;
-        const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-          ? performance.now()
-          : Date.now();
-        const html = renderReport(report);
-        const elapsedMs = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-          ? (performance.now() - startedAt)
-          : (Date.now() - startedAt);
-        trackRenderPerf(report?.id, elapsedMs, html?.length || 0);
-        if (seq !== renderSeq) return;
-        destroyVirtualTableControllers();
-        const retainedKey = String(report?.id || '').split('::')[0];
-        const retainedRoot = isRetainedReport(retainedKey) && dom.viewContainer instanceof HTMLElement
-          ? dom.viewContainer.querySelector(`[data-retained-root="${escapeAttr(retainedKey)}"]`)
-          : null;
-        if (retainedRoot instanceof HTMLElement) {
-          retainedRoot.innerHTML = renderRetainedReportContent(retainedKey);
-        } else {
-          dom.viewContainer.innerHTML = html;
-        }
-        bindReportInteractions(report.id);
-        if (dom.loadPanel) {
-          if (report.id === 'load_logs') {
-            dom.loadPanel.style.display = state.showLoadPanel ? 'block' : 'none';
-          } else {
-            dom.loadPanel.style.display = 'none';
-            state.showLoadPanel = false;
-          }
-        }
-        if (dom.bandRibbon) {
-          dom.bandRibbon.style.display = report.id === 'load_logs' ? 'none' : '';
-        }
-    if (dom.periodFilterRibbon) {
-      const isPeriodReport = report && shouldPeriodFilterReport(report.id);
-      const shouldShow = report.id !== 'load_logs' && isPeriodReport && state.analysisMode === ANALYSIS_MODE_DXER;
-      dom.periodFilterRibbon.style.display = shouldShow ? '' : 'none';
-      if (shouldShow) {
-        updatePeriodRibbon();
-      }
-    }
-        const isLoadReport = report.id === 'load_logs';
-        document.body.classList.toggle('landing-only', isLoadReport && !state.showLoadPanel);
-        document.body.classList.toggle('load-active', isLoadReport && state.showLoadPanel);
-        const landingPage = document.querySelector('.landing-page');
-        if (landingPage) {
-          landingPage.classList.toggle('is-hidden', isLoadReport && state.showLoadPanel);
-        }
-        clearLoadingState();
-        scheduleAutosaveSession();
-      }, 0);
-    });
+    return getNavigationRuntime().renderReportWithLoading(report);
   }
 
   function invalidateCompareLogData() {
@@ -2624,27 +2365,11 @@
   }
 
   function renderActiveReport() {
-    if (state.mapViewActive) {
-      dom.viewTitle.textContent = 'Map';
-      destroyVirtualTableControllers();
-      dom.viewContainer.innerHTML = renderMapView();
-      bindReportInteractions('map_view');
-      return;
-    }
-    const report = reports[state.activeIndex];
-    if (!report) return;
-    renderReportWithLoading(report);
+    return getNavigationRuntime().renderActiveReport();
   }
 
   function setActiveReport(idx) {
-    state.mapViewActive = false;
-    document.body.classList.remove('map-view', 'map-full');
-    state.activeIndex = idx;
-    const report = reports[idx];
-    dom.viewTitle.textContent = report.title;
-    updateNavHighlight();
-    updatePrevNextButtons();
-    renderReportWithLoading(report);
+    return getNavigationRuntime().setActiveReport(idx);
   }
 
   function renderReportIntroCard(title, subtitle = '', tags = []) {
@@ -21541,14 +21266,17 @@
     // Keep NT theme always (Classic theme removed).
     state.uiTheme = UI_THEME_NT;
     document.body.classList.add('ui-theme-nt');
-    setupNavSearch();
-    rebuildReports();
+    const navigationRuntimeReady = loadNavigationRuntimeModule();
     const compareWorkspaceReady = loadCompareWorkspaceModule();
     const retainedRuntimeReady = loadRetainedRuntimeModule();
     const investigationWorkspaceReady = loadInvestigationWorkspaceModule();
     const sessionCodecReady = loadSessionCodecModule();
     const comparePerspectiveReady = loadComparePerspectiveModule();
     const exportRuntimeReady = loadExportRuntimeModule();
+    await navigationRuntimeReady;
+    await retainedRuntimeReady;
+    setupNavSearch();
+    rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
     setupFileInput(dom.fileInputC, dom.fileStatusC, 'C');
@@ -21626,7 +21354,6 @@
     }
     // Export actions are handled in the Export report page.
     await compareWorkspaceReady;
-    await retainedRuntimeReady;
     await investigationWorkspaceReady;
     await sessionCodecReady;
     await comparePerspectiveReady;

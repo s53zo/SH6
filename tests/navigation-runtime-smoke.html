@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Navigation Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+    .nav-hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Navigation Runtime Smoke</h1>
+  <p>Checks the extracted navigation/view-loading runtime, including grouped nav rendering, command search, report activation, and map mode rendering.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      try {
+        const [mainSource, moduleSource, navModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/ui/navigation-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/ui/navigation-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/ui/navigation-runtime.js')
+        ]);
+
+        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.1.21';"));
+        add('Main.js loads navigation runtime before nav setup', mainSource.includes('const navigationRuntimeReady = loadNavigationRuntimeModule();') && mainSource.includes('await navigationRuntimeReady;'));
+        add('Main.js delegates initNavigation to the navigation runtime', mainSource.includes('return getNavigationRuntime().initNavigation();'));
+        add('Main.js delegates setActiveReport to the navigation runtime', mainSource.includes('return getNavigationRuntime().setActiveReport(idx);'));
+        add('Main.js delegates renderReportWithLoading to the navigation runtime', mainSource.includes('return getNavigationRuntime().renderReportWithLoading(report);'));
+        add('Navigation runtime module exports the factory', moduleSource.includes('export function createNavigationRuntime'));
+
+        const appRoot = document.createElement('div');
+        appRoot.innerHTML = `
+          <input id="navSearchInput" aria-label="Command / report search">
+          <div id="navSearchEmpty" hidden aria-hidden="true"></div>
+          <ol id="navList"></ol>
+          <button id="prevBtn"></button>
+          <button id="nextBtn"></button>
+          <div id="viewTitle"></div>
+          <div id="viewContainer"></div>
+          <div id="loadPanel"></div>
+          <div id="bandRibbon"></div>
+          <div id="periodFilterRibbon"></div>
+          <div class="landing-page"></div>
+        `;
+        document.body.appendChild(appRoot);
+
+        const dom = {
+          navList: appRoot.querySelector('#navList'),
+          navSearchInput: appRoot.querySelector('#navSearchInput'),
+          navSearchEmpty: appRoot.querySelector('#navSearchEmpty'),
+          prevBtn: appRoot.querySelector('#prevBtn'),
+          nextBtn: appRoot.querySelector('#nextBtn'),
+          viewTitle: appRoot.querySelector('#viewTitle'),
+          viewContainer: appRoot.querySelector('#viewContainer'),
+          loadPanel: appRoot.querySelector('#loadPanel'),
+          bandRibbon: appRoot.querySelector('#bandRibbon'),
+          periodFilterRibbon: appRoot.querySelector('#periodFilterRibbon')
+        };
+
+        const reports = [
+          { id: 'load_logs', title: 'Start' },
+          { id: 'main', title: 'Main' },
+          { id: 'charts', title: 'Charts' },
+          { id: 'qs_by_hour', title: 'Qs by hour', parentId: 'charts' },
+          { id: 'points_by_hour', title: 'Points by hour', parentId: 'charts' },
+          { id: 'export', title: 'EXPORT PDF, HTML, CBR' }
+        ];
+        const state = {
+          activeIndex: 0,
+          mapViewActive: false,
+          navSearch: '',
+          showLoadPanel: true,
+          analysisMode: 'contester'
+        };
+        const trackEvents = [];
+        const bindCalls = [];
+        const perfCalls = [];
+        let destroyCount = 0;
+        let autosaveCount = 0;
+        let periodRibbonCount = 0;
+
+        const runtime = navModule.createNavigationRuntime({
+          getDom: () => dom,
+          getState: () => state,
+          getReports: () => reports,
+          navSections: [
+            { id: 'load_core', title: 'Load', openByDefault: true },
+            { id: 'analysis', title: 'Analysis', openByDefault: true }
+          ],
+          navSectionByReport: {
+            load_logs: 'load_core',
+            main: 'analysis',
+            charts: 'analysis',
+            export: 'analysis'
+          },
+          trackEvent: (name, payload) => trackEvents.push({ name, payload }),
+          renderReport: (report) => `<div class="report-body" data-report-id="${report.id}">${report.title}</div>`,
+          bindReportInteractions: (reportId) => bindCalls.push(String(reportId || '')),
+          destroyVirtualTableControllers: () => { destroyCount += 1; },
+          renderRetainedReportContent: (reportId) => `<div class="retained-body">${reportId}</div>`,
+          isRetainedReport: () => false,
+          escapeAttr: (value) => String(value == null ? '' : value).replace(/"/g, '&quot;'),
+          trackRenderPerf: (reportId, elapsedMs, htmlLength) => perfCalls.push({ reportId, elapsedMs, htmlLength }),
+          renderMapView: () => '<div class="map-mode">Map content</div>',
+          scheduleAutosaveSession: () => { autosaveCount += 1; },
+          shouldPeriodFilterReport: (reportId) => reportId === 'main',
+          updatePeriodRibbon: () => { periodRibbonCount += 1; },
+          analysisModeDxer: 'dxer'
+        });
+
+        runtime.setupNavSearch();
+        runtime.initNavigation();
+
+        add(
+          'initNavigation builds grouped navigation sections',
+          dom.navList.querySelectorAll('.nav-section-item').length === 2
+            && dom.navList.querySelector('.nav-group summary')?.textContent === 'Charts'
+            && dom.navList.textContent.includes('EXPORT PDF, HTML, CBR'),
+          dom.navList.textContent.replace(/\s+/g, ' ').trim()
+        );
+
+        runtime.applyNavSearchFilter('export');
+        const visibleExport = Array.from(dom.navList.querySelectorAll('[data-index]')).filter((el) => !el.classList.contains('nav-hidden') && !el.closest('.nav-hidden'));
+        add(
+          'applyNavSearchFilter narrows the visible report list',
+          visibleExport.length === 1 && visibleExport[0].textContent.includes('EXPORT PDF, HTML, CBR'),
+          visibleExport.map((el) => el.textContent).join(', ')
+        );
+
+        runtime.applyNavSearchFilter('missing-report');
+        add(
+          'applyNavSearchFilter shows the empty-state message for misses',
+          dom.navSearchEmpty.hidden === false && dom.navSearchEmpty.textContent.includes('No reports match'),
+          dom.navSearchEmpty.textContent
+        );
+
+        dom.navSearchInput.value = 'main';
+        dom.navSearchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        add('setupNavSearch updates state on input events', state.navSearch === 'main', state.navSearch);
+
+        dom.navSearchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        add('setupNavSearch clears the query on Escape', dom.navSearchInput.value === '' && state.navSearch === '', `value=${dom.navSearchInput.value} state=${state.navSearch}`);
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }));
+        add('setupNavSearch focuses the searchbox on "/"', document.activeElement === dom.navSearchInput, document.activeElement?.id || '');
+
+        runtime.setActiveReport(1);
+        await wait(50);
+        add(
+          'setActiveReport renders the selected report and updates navigation state',
+          state.activeIndex === 1
+            && dom.viewTitle.textContent === 'Main'
+            && dom.viewContainer.innerHTML.includes('data-report-id="main"')
+            && bindCalls.includes('main')
+            && destroyCount >= 1
+            && autosaveCount >= 1
+            && perfCalls.some((entry) => entry.reportId === 'main'),
+          JSON.stringify({ activeIndex: state.activeIndex, title: dom.viewTitle.textContent, bindCalls, destroyCount, autosaveCount, perfCalls })
+        );
+
+        add(
+          'updatePrevNextButtons reflects the current report index',
+          dom.prevBtn.disabled === false && dom.nextBtn.disabled === false,
+          `prev=${dom.prevBtn.disabled} next=${dom.nextBtn.disabled}`
+        );
+
+        state.mapViewActive = true;
+        runtime.renderActiveReport();
+        add(
+          'renderActiveReport renders the map view in map mode',
+          dom.viewTitle.textContent === 'Map' && dom.viewContainer.innerHTML.includes('Map content') && bindCalls.includes('map_view'),
+          JSON.stringify({ title: dom.viewTitle.textContent, bindCalls })
+        );
+
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, {
+          checksTotal: checks.length,
+          checksFailed: failed.length,
+          failed,
+          trackEvents,
+          bindCalls,
+          perfCalls,
+          destroyCount,
+          autosaveCount,
+          periodRibbonCount
+        });
+      } catch (err) {
+        setResult(false, {
+          error: err && err.message ? err.message : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

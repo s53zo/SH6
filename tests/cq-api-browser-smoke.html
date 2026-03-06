@@ -85,9 +85,41 @@
           const mainSource = await mainRes.text();
           if (!mainSource.includes('function renderCompetitorCoach')) checks.push('Competitor coach renderer missing in main.js');
           if (!mainSource.includes('function renderSpots(')) checks.push('Spots renderer missing in main.js');
-          if (!mainSource.includes('function renderCompareWorkspaceToolbar')) checks.push('Compare workspace toolbar renderer missing in main.js');
           if (!mainSource.includes('chart-mode-btn')) checks.push('Chart metric mode controls missing in main.js');
           if (!mainSource.includes("{ id: 'export', title: 'EXPORT PDF, HTML, CBR' }")) checks.push('Export menu label mismatch');
+          if (!mainSource.includes("const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.1.21';")) {
+            checks.push('Compare workspace module import missing in main.js');
+          }
+          if (!mainSource.includes("const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.1.21';")) {
+            checks.push('Archive client module import missing in main.js');
+          }
+          if (!mainSource.includes('function loadArchiveClientModule()')) {
+            checks.push('Archive client loader missing in main.js');
+          }
+        }
+        const compareModuleRes = await fetch('../modules/compare/workspace-ui.js', { cache: 'no-store' });
+        if (!compareModuleRes.ok) {
+          checks.push(`Unable to read compare workspace module (${compareModuleRes.status})`);
+        } else {
+          const compareModuleSource = await compareModuleRes.text();
+          if (!compareModuleSource.includes('function renderCompareWorkspaceToolbar')) {
+            checks.push('Compare workspace toolbar renderer missing in workspace-ui module');
+          }
+        }
+        const archiveModuleRes = await fetch('../modules/archive/client.js', { cache: 'no-store' });
+        if (!archiveModuleRes.ok) {
+          checks.push(`Unable to read archive client module (${archiveModuleRes.status})`);
+        } else {
+          const archiveModuleSource = await archiveModuleRes.text();
+          if (!archiveModuleSource.includes('export function createArchiveClient')) {
+            checks.push('Archive client factory missing in archive module');
+          }
+          if (!archiveModuleSource.includes('async function queryRowsByCallsign')) {
+            checks.push('Archive query helper missing in archive module');
+          }
+          if (!archiveModuleSource.includes('async function fetchArchiveLogText')) {
+            checks.push('Archive log fetch helper missing in archive module');
+          }
         }
         const styleRes = await fetch('../style.css', { cache: 'no-store' });
         if (!styleRes.ok) {
@@ -132,7 +164,10 @@
           uiChecks: [
             'renderCompetitorCoach present',
             'renderSpots present',
-            'renderCompareWorkspaceToolbar present',
+            'compare workspace module import present',
+            'renderCompareWorkspaceToolbar present in workspace-ui module',
+            'archive client module import present',
+            'archive client helpers present',
             'chart-mode-btn controls present',
             'compare-workspace styles present',
             'coach-severity-badge styles present',

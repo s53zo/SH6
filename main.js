@@ -187,6 +187,7 @@
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
   const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.1.21';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.1.21';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1756,12 +1757,8 @@
   let callsignGridTimer = null;
   let callsignGridInFlight = false;
   let callsignLookupLastRequestTs = 0;
-  const archiveShardDbCache = new Map();
-  const archiveRowsByCallCache = new Map();
   const virtualTableControllers = new Map();
   const retainedReportModels = Object.create(null);
-  let archiveSqlLoader = null;
-  let archiveSqlBaseUrl = null;
   let rbnCompareSignalResizeObserver = null;
   let rbnCompareSignalResizeRaf = 0;
   let cqApiRetryTimer = null;
@@ -1773,6 +1770,8 @@
   let durableStorageReadyPromise = null;
   let compareWorkspaceModulePromise = null;
   let compareWorkspaceRenderer = null;
+  let archiveClientModulePromise = null;
+  let archiveClient = null;
   let autosaveSessionTimer = null;
   let engineTaskWorker = null;
   let engineTaskSeq = 0;
@@ -1962,6 +1961,31 @@
       throw new Error('compare workspace renderer not loaded');
     }
     return compareWorkspaceRenderer;
+  }
+
+  function loadArchiveClientModule() {
+    if (!archiveClientModulePromise) {
+      archiveClientModulePromise = import(ARCHIVE_CLIENT_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createArchiveClient !== 'function') {
+            throw new Error('archive client module unavailable');
+          }
+          archiveClient = mod.createArchiveClient({
+            sqlJsBaseUrls: SQLJS_BASE_URLS,
+            archiveBaseUrl: ARCHIVE_BASE_URL,
+            archiveBranches: ARCHIVE_BRANCHES,
+            normalizeCall,
+            normalizeArchiveContestToken,
+            normalizeArchiveModeToken,
+            getArchiveShardUrlsForCallsign,
+            withTimeoutPromise,
+            ensureDurableStorageReady,
+            runEngineTask
+          });
+          return archiveClient;
+        });
+    }
+    return archiveClientModulePromise;
   }
 
   async function ensureDurableStorageReady() {
@@ -8074,124 +8098,9 @@
     return false;
   }
 
-  async function loadArchiveSqlJs() {
-    if (archiveSqlLoader) return archiveSqlLoader;
-    archiveSqlLoader = (async () => {
-      if (typeof window.initSqlJs === 'function') {
-        archiveSqlBaseUrl = archiveSqlBaseUrl || SQLJS_BASE_URLS[0];
-        return window.initSqlJs({ locateFile: (file) => `${archiveSqlBaseUrl}${file}` });
-      }
-      let lastErr = null;
-      for (const base of SQLJS_BASE_URLS) {
-        try {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = `${base}sql-wasm.js`;
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error(`Failed to load ${base}sql-wasm.js`));
-            document.head.appendChild(script);
-          });
-          if (typeof window.initSqlJs === 'function') {
-            archiveSqlBaseUrl = base;
-            return window.initSqlJs({ locateFile: (file) => `${base}${file}` });
-          }
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-      throw lastErr || new Error('sql.js not loaded.');
-    })();
-    return archiveSqlLoader;
-  }
-
-  async function openArchiveShardDbForCallsign(callsign) {
-    const shardUrls = getArchiveShardUrlsForCallsign(callsign);
-    if (!shardUrls.length) throw new Error('Invalid callsign');
-    const cacheKey = shardUrls.join('|');
-    if (archiveShardDbCache.has(cacheKey)) return archiveShardDbCache.get(cacheKey);
-    const SQL = await loadArchiveSqlJs();
-    let lastErr = null;
-    for (const url of shardUrls) {
-      try {
-        const response = await withTimeoutPromise(fetch(url, { cache: 'no-store' }), 20000, 'Archive shard download');
-        if (!response.ok) throw new Error(`Shard download failed: HTTP ${response.status}`);
-        const buffer = await withTimeoutPromise(response.arrayBuffer(), 20000, 'Archive shard read');
-        const db = new SQL.Database(new Uint8Array(buffer));
-        archiveShardDbCache.set(cacheKey, db);
-        return db;
-      } catch (err) {
-        lastErr = err;
-      }
-    }
-    throw lastErr || new Error('Archive shard download failed');
-  }
-
-  async function queryArchiveRowsByCallsign(callsign) {
-    const normalized = normalizeCall(callsign);
-    if (!normalized) return [];
-    if (archiveRowsByCallCache.has(normalized)) return archiveRowsByCallCache.get(normalized);
-    const db = await openArchiveShardDbForCallsign(normalized);
-    const stmt = db.prepare('SELECT path, contest, year, mode, season FROM logs WHERE callsign = ?');
-    stmt.bind([normalized]);
-    const rows = [];
-    while (stmt.step()) {
-      rows.push(stmt.getAsObject());
-    }
-    stmt.free();
-    archiveRowsByCallCache.set(normalized, rows);
-    return rows;
-  }
-
-  function pickArchiveHistoryMatch(rows, request) {
-    const contestKey = normalizeArchiveContestToken(request?.contestId);
-    const modeKey = normalizeArchiveModeToken(request?.mode);
-    const year = Number(request?.year);
-    const call = normalizeCall(request?.callsign || '');
-    if (!contestKey || !Number.isFinite(year) || !call) return null;
-
-    const scored = (rows || [])
-      .map((row) => {
-        const path = String(row?.path || '');
-        const rowContest = normalizeArchiveContestToken(row?.contest);
-        const rowYear = Number(row?.year);
-        const rowMode = normalizeArchiveModeToken(row?.mode);
-        const isReconstructed = /^RECONSTRUCTED_LOGS\//i.test(path);
-        const baseName = path.split('/').pop() || '';
-        const fileCall = normalizeCall(baseName.replace(/\.[^.]+$/, ''));
-        const fileCallMatch = fileCall && fileCall === call;
-        let score = 0;
-        if (rowContest === contestKey) score += 100;
-        if (rowYear === year) score += 80;
-        if (modeKey) {
-          if (rowMode === modeKey) score += 20;
-          else if (!rowMode) score += 8;
-          else score -= 30;
-        }
-        if (!isReconstructed) score += 12;
-        if (fileCallMatch) score += 6;
-        return {
-          row,
-          score,
-          path,
-          rowMode,
-          isReconstructed,
-          fileCallMatch
-        };
-      })
-      .filter((entry) => Number(entry?.score) > 0)
-      .filter((entry) => normalizeArchiveContestToken(entry.row?.contest) === contestKey)
-      .filter((entry) => Number(entry.row?.year) === year);
-
-    if (!scored.length) return null;
-    scored.sort((a, b) => (
-      b.score - a.score
-      || Number(a.isReconstructed) - Number(b.isReconstructed)
-      || Number(b.fileCallMatch) - Number(a.fileCallMatch)
-      || a.path.length - b.path.length
-      || a.path.localeCompare(b.path)
-    ));
-    return scored[0].row || null;
+  async function fetchArchiveLogText(path) {
+    const client = await loadArchiveClientModule();
+    return client.fetchArchiveLogText(path);
   }
 
   function ensureCompareCountForSlot(slotId) {
@@ -8203,6 +8112,7 @@
   }
 
   async function loadCqApiHistoryArchiveToSlot(request) {
+    const client = await loadArchiveClientModule();
     const slotId = String(request?.slotId || '').toUpperCase();
     if (!COMPARE_SLOT_IDS.includes(slotId)) throw new Error('Invalid target compare slot');
     const callsign = normalizeCall(request?.callsign || '');
@@ -8213,13 +8123,13 @@
       throw new Error('Missing callsign, contest, mode, or year');
     }
 
-    const rows = await queryArchiveRowsByCallsign(callsign);
-    const match = pickArchiveHistoryMatch(rows, { callsign, contestId, mode, year });
+    const rows = await client.queryRowsByCallsign(callsign);
+    const match = client.pickHistoryMatch(rows, { callsign, contestId, mode, year });
     if (!match?.path) {
       throw new Error(`No archive log found for ${callsign} ${contestId} ${year}`);
     }
 
-    const downloaded = await fetchArchiveLogText(match.path);
+    const downloaded = await client.fetchArchiveLogText(match.path);
     if (!downloaded?.text) throw new Error(`Failed to download archive log ${match.path}`);
 
     ensureCompareCountForSlot(slotId);
@@ -8239,51 +8149,6 @@
       path: match.path,
       source: downloaded.source || ''
     };
-  }
-
-  async function fetchArchiveLogText(path) {
-    if (!path) return null;
-    const storage = await ensureDurableStorageReady().catch(() => null);
-    const cached = await storage?.loadArchiveLog?.(path).catch(() => null);
-    if (cached && typeof cached.text === 'string') {
-      return {
-        text: cached.text,
-        source: cached.meta?.source || 'Browser cache'
-      };
-    }
-    const urls = [];
-    const primary = `${ARCHIVE_BASE_URL}/${path}`;
-    urls.push(primary);
-    ARCHIVE_BRANCHES.forEach((branch) => {
-      const rawUrl = `https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/${branch}/${path}`;
-      if (!urls.includes(rawUrl)) urls.push(rawUrl);
-    });
-    try {
-      const workerResult = await runEngineTask('archiveText', { urls });
-      if (workerResult && typeof workerResult.text === 'string') {
-        const source = workerResult.url || primary;
-        storage?.saveArchiveLog?.(path, workerResult.text, { path, source }).catch(() => {});
-        return {
-          text: workerResult.text,
-          source
-        };
-      }
-    } catch (err) {
-      /* fall back to main-thread fetch */
-    }
-    for (const url of urls) {
-      try {
-        const res = await fetch(url);
-        if (res.ok) {
-          const text = await res.text();
-          storage?.saveArchiveLog?.(path, text, { path, source: url }).catch(() => {});
-          return { text, source: url };
-        }
-      } catch (err) {
-        /* ignore and try next */
-      }
-    }
-    return null;
   }
 
   function getCallsignGridCache() {

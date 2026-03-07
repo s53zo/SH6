@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Canvas Zoom Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+    .chart-shell {
+      position: relative;
+      width: 320px;
+      height: 180px;
+    }
+    .chart-zoom-box,
+    .rbn-signal-zoom-box {
+      position: absolute;
+      background: rgba(59, 130, 246, 0.16);
+      border: 1px solid rgba(37, 99, 235, 0.55);
+    }
+  </style>
+</head>
+<body>
+  <h1>Canvas Zoom Runtime Smoke</h1>
+  <p>Checks the extracted shared canvas zoom runtime for zoom state, key generation, range handling, zoom box rendering, and drag interactions.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function createPointerEvent(type, init = {}) {
+        const full = { bubbles: true, clientX: 0, clientY: 0, button: 0, pointerId: 1, ...init };
+        if (typeof PointerEvent === 'function') return new PointerEvent(type, full);
+        const evt = new MouseEvent(type, full);
+        Object.defineProperty(evt, 'pointerId', { configurable: true, value: full.pointerId });
+        return evt;
+      }
+
+      try {
+        const [mainSource, moduleSource, runtimeModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/ui/canvas-zoom-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/ui/canvas-zoom-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/ui/canvas-zoom-runtime.js')
+        ]);
+
+        add('Main.js imports the shared canvas zoom runtime module', mainSource.includes("const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.1.21';"));
+        add('Main.js preloads the canvas zoom runtime during init', mainSource.includes('const canvasZoomRuntimeReady = loadCanvasZoomRuntimeModule();') && mainSource.includes('await canvasZoomRuntimeReady;'));
+        add(
+          'Main.js delegates zoom helpers to the shared runtime',
+          mainSource.includes('return getCanvasZoomRuntime().getCanvasZoomKey(canvas, chartType, bandKey);')
+            && mainSource.includes('return getCanvasZoomRuntime().bindDragZoomOnCanvas(canvas, options);')
+            && mainSource.includes('return getCanvasZoomRuntime().resolveCanvasZoomWindow(chartType, key, fallbackMinTs, fallbackMaxTs);')
+        );
+        add('Canvas zoom runtime exports the factory', moduleSource.includes('export function createCanvasZoomRuntime'));
+
+        const state = {};
+        const runtime = runtimeModule.createCanvasZoomRuntime({
+          getState: () => state,
+          normalizeSpotterBase: (value) => String(value || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, ''),
+          normalizeBandToken: (value) => String(value || '').trim().toUpperCase(),
+          minDragPx: 6,
+          minSpanMs: 100
+        });
+
+        const rbnStore = runtime.ensureCanvasZoomStore('rbn');
+        const spotsStore = runtime.ensureCanvasZoomStore('spots');
+        add(
+          'ensureCanvasZoomStore initializes independent RBN and spots stores',
+          state.rbnCompareSignal?.zoomByKey === rbnStore
+            && state.spotsCanvasZoomByKey === spotsStore
+            && state.rbnCompareSignal?.selectedByContinent
+            && rbnStore !== spotsStore,
+          JSON.stringify({
+            rbnKeys: Object.keys(rbnStore),
+            spotsKeys: Object.keys(spotsStore),
+            hasSelectedByContinent: Boolean(state.rbnCompareSignal?.selectedByContinent)
+          })
+        );
+
+        const shell = document.createElement('div');
+        shell.className = 'chart-shell';
+        const rbnCanvas = document.createElement('canvas');
+        rbnCanvas.dataset.continent = 'na';
+        rbnCanvas.dataset.spotter = 'w3lpl-1';
+        rbnCanvas.dataset.plotLeft = '10';
+        rbnCanvas.dataset.plotRight = '210';
+        rbnCanvas.dataset.plotTop = '12';
+        rbnCanvas.dataset.plotBottom = '112';
+        rbnCanvas.dataset.viewMinTs = '1000';
+        rbnCanvas.dataset.viewMaxTs = '2000';
+        rbnCanvas.dataset.fullMinTs = '900';
+        rbnCanvas.dataset.fullMaxTs = '2100';
+        rbnCanvas.dataset.rbnDrawKey = 'stale';
+        rbnCanvas.getBoundingClientRect = () => ({ left: 0, top: 0, right: 220, bottom: 120, width: 220, height: 120 });
+        rbnCanvas.setPointerCapture = () => {};
+        rbnCanvas.releasePointerCapture = () => {};
+        rbnCanvas.hasPointerCapture = () => true;
+        shell.appendChild(rbnCanvas);
+        document.body.appendChild(shell);
+
+        const spotsCanvas = document.createElement('canvas');
+        spotsCanvas.dataset.slot = 'b';
+        spotsCanvas.dataset.source = 'rbn';
+        const rbnKey = runtime.getCanvasZoomKey(rbnCanvas, 'rbn', '20M');
+        const spotsKey = runtime.getCanvasZoomKey(spotsCanvas, 'spots', '15M');
+        add(
+          'getCanvasZoomKey normalizes RBN and spots identities',
+          rbnKey === 'NA|W3LPL|20M' && spotsKey === 'B|rbn|15M',
+          JSON.stringify({ rbnKey, spotsKey })
+        );
+
+        rbnStore[rbnKey] = { minTs: 1020, maxTs: 1030 };
+        const resolved = runtime.resolveCanvasZoomWindow('rbn', rbnKey, 1000, 2000);
+        add(
+          'resolveCanvasZoomWindow clamps and expands stored windows to the minimum span',
+          resolved.zoomed === true
+            && resolved.minTs >= 1000
+            && resolved.maxTs <= 2000
+            && (resolved.maxTs - resolved.minTs) >= 100,
+          JSON.stringify(resolved)
+        );
+
+        runtime.updateCanvasZoomBox(rbnCanvas, 40, 120);
+        const zoomBox = shell.querySelector('.chart-zoom-box');
+        add(
+          'updateCanvasZoomBox renders the drag selection within plot bounds',
+          zoomBox instanceof HTMLElement
+            && zoomBox.hidden === false
+            && zoomBox.style.left === '40px'
+            && zoomBox.style.width === '80px',
+          JSON.stringify({
+            hidden: zoomBox?.hidden,
+            left: zoomBox?.style.left,
+            width: zoomBox?.style.width
+          })
+        );
+
+        runtime.hideCanvasZoomBox(rbnCanvas);
+        add(
+          'hideCanvasZoomBox hides the selection box cleanly',
+          zoomBox.hidden === true && zoomBox.style.width === '0px',
+          JSON.stringify({ hidden: zoomBox.hidden, width: zoomBox.style.width })
+        );
+
+        let applyCalls = 0;
+        runtime.applyCanvasZoomFromPixels(rbnCanvas, 'rbn', rbnKey, 30, 130, () => {
+          applyCalls += 1;
+        });
+        add(
+          'applyCanvasZoomFromPixels stores the zoomed window and invokes the callback',
+          applyCalls === 1
+            && rbnStore[rbnKey]
+            && rbnStore[rbnKey].minTs >= 900
+            && rbnStore[rbnKey].maxTs <= 2100
+            && rbnStore[rbnKey].maxTs > rbnStore[rbnKey].minTs,
+          JSON.stringify({ applyCalls, stored: rbnStore[rbnKey] })
+        );
+
+        let dragCallbacks = 0;
+        runtime.bindDragZoomOnCanvas(rbnCanvas, {
+          chartType: 'rbn',
+          getBandKey: () => '20m',
+          onZoomChanged: () => {
+            dragCallbacks += 1;
+          }
+        });
+        rbnStore[rbnKey] = undefined;
+        delete rbnStore[rbnKey];
+        rbnCanvas.dispatchEvent(createPointerEvent('pointerdown', { clientX: 50, clientY: 40, pointerId: 7 }));
+        rbnCanvas.dispatchEvent(createPointerEvent('pointermove', { clientX: 150, clientY: 50, pointerId: 7 }));
+        rbnCanvas.dispatchEvent(createPointerEvent('pointerup', { clientX: 150, clientY: 50, pointerId: 7 }));
+        add(
+          'bindDragZoomOnCanvas converts drag gestures into stored zoom windows',
+          dragCallbacks === 1
+            && rbnCanvas.dataset.zoomBound === 'rbn'
+            && rbnCanvas.dataset.rbnDrawKey === ''
+            && rbnStore[rbnKey]
+            && shell.querySelector('.chart-zoom-box')?.hidden === true,
+          JSON.stringify({
+            dragCallbacks,
+            zoomBound: rbnCanvas.dataset.zoomBound,
+            rbnDrawKey: rbnCanvas.dataset.rbnDrawKey,
+            stored: rbnStore[rbnKey]
+          })
+        );
+
+        runtime.bindDragZoomOnCanvas(rbnCanvas, {
+          chartType: 'rbn',
+          getBandKey: () => '20m',
+          onZoomChanged: () => {
+            dragCallbacks += 100;
+          }
+        });
+        rbnCanvas.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        add(
+          'Double-click clears the stored zoom window without rebinding duplicate handlers',
+          dragCallbacks === 2 && !Object.prototype.hasOwnProperty.call(rbnStore, rbnKey),
+          JSON.stringify({ dragCallbacks, hasZoom: Object.prototype.hasOwnProperty.call(rbnStore, rbnKey) })
+        );
+
+        runtime.clearCanvasZoom('spots', spotsKey, () => {
+          throw new Error('clearCanvasZoom should not call back for missing keys');
+        });
+        add('clearCanvasZoom ignores missing keys safely', true);
+
+        const ok = checks.every((entry) => entry.ok);
+        setResult(ok, {
+          checks,
+          resolved,
+          finalRbnStore: rbnStore,
+          spotsStore,
+          dragCallbacks
+        });
+      } catch (err) {
+        add('Smoke test execution completed', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          error: err && err.stack ? err.stack : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

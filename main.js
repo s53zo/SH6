@@ -197,6 +197,7 @@
   const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.1.21';
   const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.1.21';
   const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.1.21';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.1.21';
   const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.1.21';
   const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.1.21';
   const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.1.21';
@@ -1274,7 +1275,6 @@
   let callsignGridTimer = null;
   let callsignGridInFlight = false;
   let callsignLookupLastRequestTs = 0;
-  let html2CanvasLoadPromise = null;
   let agentRuntimeModulePromise = null;
   let navigationRuntimeModulePromise = null;
   let navigationRuntime = null;
@@ -1300,6 +1300,8 @@
   let coachRuntime = null;
   let canvasZoomRuntimeModulePromise = null;
   let canvasZoomRuntime = null;
+  let rbnSignalExportRuntimeModulePromise = null;
+  let rbnSignalExportRuntime = null;
   let spotsDataRuntimeModulePromise = null;
   let spotsDataRuntime = null;
   let spotsActionsRuntimeModulePromise = null;
@@ -1878,6 +1880,34 @@
       throw new Error('canvas zoom runtime not loaded');
     }
     return canvasZoomRuntime;
+  }
+
+  function loadRbnSignalExportRuntimeModule() {
+    if (!rbnSignalExportRuntimeModulePromise) {
+      rbnSignalExportRuntimeModulePromise = import(RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createRbnSignalExportRuntime !== 'function') {
+            throw new Error('rbn signal export runtime module unavailable');
+          }
+          rbnSignalExportRuntime = mod.createRbnSignalExportRuntime({
+            canvasToBlobAsync,
+            normalizeSpotterBase,
+            sanitizeFilenameToken,
+            showOverlayNotice,
+            trackEvent,
+            downloadBlobFile
+          });
+          return rbnSignalExportRuntime;
+        });
+    }
+    return rbnSignalExportRuntimeModulePromise;
+  }
+
+  function getRbnSignalExportRuntime() {
+    if (!rbnSignalExportRuntime) {
+      throw new Error('rbn signal export runtime not loaded');
+    }
+    return rbnSignalExportRuntime;
   }
 
   function loadSpotsDataRuntimeModule() {
@@ -4357,272 +4387,8 @@
     });
   }
 
-  function loadImageFromUrl(url) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.decoding = 'async';
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Unable to load rendered SVG image'));
-      img.src = url;
-    });
-  }
-
-  function loadHtml2CanvasLibrary() {
-    if (typeof window.html2canvas === 'function') {
-      return Promise.resolve(window.html2canvas);
-    }
-    if (html2CanvasLoadPromise) return html2CanvasLoadPromise;
-    html2CanvasLoadPromise = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-      script.async = true;
-      script.onload = () => {
-        if (typeof window.html2canvas === 'function') {
-          resolve(window.html2canvas);
-        } else {
-          reject(new Error('html2canvas loaded but API is unavailable'));
-        }
-      };
-      script.onerror = () => reject(new Error('Failed to load html2canvas'));
-      document.head.appendChild(script);
-    }).catch((err) => {
-      html2CanvasLoadPromise = null;
-      throw err;
-    });
-    return html2CanvasLoadPromise;
-  }
-
-  function copyComputedStyleToNode(sourceNode, targetNode) {
-    if (!(sourceNode instanceof Element) || !(targetNode instanceof Element)) return;
-    const computed = window.getComputedStyle(sourceNode);
-    for (let i = 0; i < computed.length; i += 1) {
-      const prop = computed[i];
-      targetNode.style.setProperty(prop, computed.getPropertyValue(prop), computed.getPropertyPriority(prop));
-    }
-  }
-
-  function inlineComputedStylesDeep(sourceRoot, cloneRoot) {
-    if (!(sourceRoot instanceof Element) || !(cloneRoot instanceof Element)) return;
-    copyComputedStyleToNode(sourceRoot, cloneRoot);
-    const sourceChildren = Array.from(sourceRoot.children);
-    const cloneChildren = Array.from(cloneRoot.children);
-    const count = Math.min(sourceChildren.length, cloneChildren.length);
-    for (let i = 0; i < count; i += 1) {
-      inlineComputedStylesDeep(sourceChildren[i], cloneChildren[i]);
-    }
-  }
-
-  function replaceCanvasWithImageSnapshots(sourceRoot, cloneRoot) {
-    if (!(sourceRoot instanceof Element) || !(cloneRoot instanceof Element)) return;
-    const sourceCanvases = Array.from(sourceRoot.querySelectorAll('canvas'));
-    const cloneCanvases = Array.from(cloneRoot.querySelectorAll('canvas'));
-    const count = Math.min(sourceCanvases.length, cloneCanvases.length);
-    for (let i = 0; i < count; i += 1) {
-      const sourceCanvas = sourceCanvases[i];
-      const cloneCanvas = cloneCanvases[i];
-      if (!(sourceCanvas instanceof HTMLCanvasElement) || !(cloneCanvas instanceof HTMLCanvasElement)) continue;
-      let dataUrl = '';
-      try {
-        dataUrl = sourceCanvas.toDataURL('image/png');
-      } catch (err) {
-        dataUrl = '';
-      }
-      if (!dataUrl) continue;
-      const image = document.createElement('img');
-      image.src = dataUrl;
-      image.alt = sourceCanvas.getAttribute('aria-label') || 'Graph image';
-      copyComputedStyleToNode(sourceCanvas, image);
-      const width = sourceCanvas.clientWidth || sourceCanvas.width || 1;
-      const height = sourceCanvas.clientHeight || sourceCanvas.height || 1;
-      image.style.width = `${Math.max(1, Math.round(width))}px`;
-      image.style.height = `${Math.max(1, Math.round(height))}px`;
-      image.width = Math.max(1, Math.round(width));
-      image.height = Math.max(1, Math.round(height));
-      image.style.display = 'block';
-      cloneCanvas.replaceWith(image);
-    }
-  }
-
-  function applyRbnSignalExportLayout(root) {
-    if (!(root instanceof Element)) return;
-    root.querySelectorAll('.rbn-signal-legend').forEach((legend) => {
-      legend.style.overflowX = 'visible';
-      legend.style.overflowY = 'visible';
-      legend.style.flexWrap = 'wrap';
-      legend.style.alignItems = 'flex-start';
-    });
-    root.querySelectorAll('.rbn-signal-legend-bands').forEach((bands) => {
-      bands.style.flexWrap = 'wrap';
-    });
-    root.querySelectorAll('.rbn-legend-shape').forEach((shape) => {
-      shape.style.marginLeft = '0';
-      shape.style.flexWrap = 'wrap';
-    });
-  }
-
-  async function renderElementToPngBlob(element, options = {}) {
-    if (!(element instanceof HTMLElement)) {
-      throw new Error('Element not found');
-    }
-    const rect = element.getBoundingClientRect();
-    const baseWidth = Math.max(1, Math.ceil(rect.width || element.offsetWidth || 1));
-    const clone = element.cloneNode(true);
-    if (!(clone instanceof HTMLElement)) {
-      throw new Error('Unable to clone element');
-    }
-    inlineComputedStylesDeep(element, clone);
-    replaceCanvasWithImageSnapshots(element, clone);
-    if (typeof options.prepareClone === 'function') {
-      options.prepareClone(clone);
-    }
-
-    const host = document.createElement('div');
-    host.style.position = 'fixed';
-    host.style.left = '-100000px';
-    host.style.top = '0';
-    host.style.opacity = '0';
-    host.style.pointerEvents = 'none';
-    host.style.zIndex = '-1';
-    host.style.width = `${baseWidth}px`;
-    clone.style.width = `${baseWidth}px`;
-    clone.style.maxWidth = `${baseWidth}px`;
-    host.appendChild(clone);
-    document.body.appendChild(host);
-    let width = baseWidth;
-    let height = Math.max(1, Math.ceil(element.getBoundingClientRect().height || element.offsetHeight || 1));
-    let serialized = '';
-    try {
-      if (document.fonts && document.fonts.ready) {
-        try {
-          await document.fonts.ready;
-        } catch (err) {
-          // Continue even when fonts cannot be awaited.
-        }
-      }
-
-      const measureRect = clone.getBoundingClientRect();
-      width = Math.max(1, Math.ceil(measureRect.width || baseWidth));
-      height = Math.max(1, Math.ceil(measureRect.height || clone.scrollHeight || element.scrollHeight || 1));
-
-      const wrapper = document.createElement('div');
-      wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-      wrapper.style.width = `${width}px`;
-      wrapper.style.height = `${height}px`;
-      wrapper.style.boxSizing = 'border-box';
-      wrapper.appendChild(clone);
-      serialized = new XMLSerializer().serializeToString(wrapper);
-    } finally {
-      if (host.parentNode) host.parentNode.removeChild(host);
-    }
-    if (!serialized) throw new Error('Failed to serialize graph content');
-
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><foreignObject x="0" y="0" width="100%" height="100%">${serialized}</foreignObject></svg>`;
-    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
-    try {
-      const img = await loadImageFromUrl(svgUrl);
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(width * dpr));
-      canvas.height = Math.max(1, Math.round(height * dpr));
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context unavailable');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-      return await canvasToBlobAsync(canvas, 'image/png');
-    } finally {
-      URL.revokeObjectURL(svgUrl);
-    }
-  }
-
-  async function renderElementToPngBlobWithHtml2Canvas(element) {
-    if (!(element instanceof HTMLElement)) {
-      throw new Error('Element not found');
-    }
-    const html2canvas = await loadHtml2CanvasLibrary();
-    const token = `rbn-export-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    element.dataset.exportToken = token;
-    try {
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      const canvas = await html2canvas(element, {
-        backgroundColor: '#ffffff',
-        scale: dpr,
-        useCORS: true,
-        logging: false,
-        onclone: (doc) => {
-          const clone = doc.querySelector(`[data-export-token="${token}"]`);
-          if (clone) applyRbnSignalExportLayout(clone);
-        }
-      });
-      return await canvasToBlobAsync(canvas, 'image/png');
-    } finally {
-      delete element.dataset.exportToken;
-    }
-  }
-
-  async function copyImageBlobToClipboard(blob) {
-    if (!(blob instanceof Blob)) return false;
-    if (!(navigator.clipboard && navigator.clipboard.write) || typeof ClipboardItem === 'undefined') {
-      return false;
-    }
-    try {
-      const item = new ClipboardItem({ [blob.type || 'image/png']: blob });
-      await navigator.clipboard.write([item]);
-      return true;
-    } catch (err) {
-      return false;
-    }
-  }
-
   async function copyRbnSignalCardImage(button) {
-    if (!(button instanceof HTMLButtonElement)) return;
-    const card = button.closest('.rbn-signal-card');
-    const body = card ? card.querySelector('.rbn-signal-body') : null;
-    if (!(body instanceof HTMLElement)) {
-      showOverlayNotice('Unable to find graph to copy.', 2600);
-      return;
-    }
-    const labelEl = button.querySelector('.rbn-signal-copy-label');
-    const prevLabel = labelEl ? labelEl.textContent : '';
-    const continent = String(button.dataset.continent || '').trim().toUpperCase() || 'N/A';
-    const select = card ? card.querySelector('.rbn-signal-select') : null;
-    const spotter = normalizeSpotterBase(String(select?.value || '').trim()) || 'spotter';
-    const filename = `rbn_compare_signal_${sanitizeFilenameToken(continent)}_${sanitizeFilenameToken(spotter)}.png`;
-
-    button.disabled = true;
-    button.classList.add('is-working');
-    if (labelEl) labelEl.textContent = 'Copying...';
-    try {
-      let blob = null;
-      try {
-        blob = await renderElementToPngBlob(body, {
-          prepareClone: applyRbnSignalExportLayout
-        });
-      } catch (primaryErr) {
-        console.warn('Primary graph export failed, trying html2canvas fallback:', primaryErr);
-        blob = await renderElementToPngBlobWithHtml2Canvas(body);
-      }
-      const copied = await copyImageBlobToClipboard(blob);
-      trackEvent('rbn_compare_signal_copy_image', {
-        continent,
-        method: copied ? 'clipboard' : 'download'
-      });
-      if (copied) {
-        showOverlayNotice('Graph copied as image.', 2200);
-      } else {
-        downloadBlobFile(blob, filename);
-        showOverlayNotice('Clipboard image copy is not available, PNG downloaded instead.', 3200);
-      }
-    } catch (err) {
-      console.error('Copy graph as image failed:', err);
-      showOverlayNotice('Unable to copy graph as an image.', 3200);
-    } finally {
-      button.disabled = false;
-      button.classList.remove('is-working');
-      if (labelEl) labelEl.textContent = prevLabel || 'Copy as image';
-    }
+    return getRbnSignalExportRuntime().copyRbnSignalCardImage(button);
   }
 
   function dateKeyFromTs(ts) {
@@ -17809,6 +17575,7 @@
     const analysisControlsRuntimeReady = loadAnalysisControlsRuntimeModule();
     const coachRuntimeReady = loadCoachRuntimeModule();
     const canvasZoomRuntimeReady = loadCanvasZoomRuntimeModule();
+    const rbnSignalExportRuntimeReady = loadRbnSignalExportRuntimeModule();
     const spotsDataRuntimeReady = loadSpotsDataRuntimeModule();
     const spotsActionsRuntimeReady = loadSpotsActionsRuntimeModule();
     const rbnCompareChartRuntimeReady = loadRbnCompareChartRuntimeModule();
@@ -17829,6 +17596,7 @@
     await analysisControlsRuntimeReady;
     await coachRuntimeReady;
     await canvasZoomRuntimeReady;
+    await rbnSignalExportRuntimeReady;
     await spotsDataRuntimeReady;
     await spotsActionsRuntimeReady;
     await rbnCompareChartRuntimeReady;

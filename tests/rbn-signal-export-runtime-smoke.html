@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RBN Signal Export Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>RBN Signal Export Runtime Smoke</h1>
+  <p>Checks the extracted RBN graph export runtime for layout prep, clipboard/download flows, and error handling.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function createCardMarkup(continent = 'EU', spotter = 's50c') {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `
+          <article class="rbn-signal-card">
+            <select class="rbn-signal-select">
+              <option value="${spotter}" selected>${spotter}</option>
+            </select>
+            <button class="rbn-signal-copy-btn" data-continent="${continent}">
+              <span class="rbn-signal-copy-label">Copy as image</span>
+            </button>
+            <div class="rbn-signal-body">
+              <div class="rbn-signal-legend">
+                <div class="rbn-signal-legend-bands"></div>
+                <div class="rbn-legend-shape"></div>
+              </div>
+            </div>
+          </article>
+        `;
+        document.body.appendChild(wrapper);
+        return wrapper;
+      }
+
+      try {
+        const [mainSource, moduleSource, exportModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/spots/signal-export-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/spots/signal-export-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/spots/signal-export-runtime.js')
+        ]);
+
+        add('Main.js imports the RBN signal export runtime module', mainSource.includes("const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.1.21';"));
+        add('Main.js preloads the RBN signal export runtime during init', mainSource.includes('const rbnSignalExportRuntimeReady = loadRbnSignalExportRuntimeModule();') && mainSource.includes('await rbnSignalExportRuntimeReady;'));
+        add('Main.js delegates graph copy to the export runtime', mainSource.includes('return getRbnSignalExportRuntime().copyRbnSignalCardImage(button);'));
+        add('RBN signal export runtime exports the factory', moduleSource.includes('export function createRbnSignalExportRuntime'));
+
+        const notices = [];
+        const events = [];
+        const downloads = [];
+        const primaryCalls = [];
+        const fallbackCalls = [];
+        const clipboardCalls = [];
+        const layoutRuntime = exportModule.createRbnSignalExportRuntime({});
+        const layoutRoot = createCardMarkup();
+        const layoutBody = layoutRoot.querySelector('.rbn-signal-body');
+        layoutRuntime.applyRbnSignalExportLayout(layoutBody);
+        add(
+          'applyRbnSignalExportLayout expands legend overflow and wrapping for export',
+          layoutBody.querySelector('.rbn-signal-legend').style.overflowX === 'visible'
+            && layoutBody.querySelector('.rbn-signal-legend-bands').style.flexWrap === 'wrap'
+            && layoutBody.querySelector('.rbn-legend-shape').style.marginLeft === '0px',
+          JSON.stringify({
+            legendOverflow: layoutBody.querySelector('.rbn-signal-legend').style.overflowX,
+            bandsWrap: layoutBody.querySelector('.rbn-signal-legend-bands').style.flexWrap,
+            shapeMarginLeft: layoutBody.querySelector('.rbn-legend-shape').style.marginLeft
+          })
+        );
+        layoutRoot.remove();
+
+        const primaryBlob = new Blob(['primary'], { type: 'image/png' });
+        const fallbackBlob = new Blob(['fallback'], { type: 'image/png' });
+        const runtime = exportModule.createRbnSignalExportRuntime({
+          normalizeSpotterBase: (value) => String(value || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, ''),
+          sanitizeFilenameToken: (value) => String(value || '').trim().toLowerCase(),
+          showOverlayNotice: (message, duration) => notices.push({ message, duration }),
+          trackEvent: (name, params) => events.push({ name, params }),
+          downloadBlobFile: (blob, filename) => downloads.push({ blob, filename }),
+          renderElementToPngBlob: async (element, options) => {
+            primaryCalls.push({ className: element.className, hasPrepareClone: typeof options?.prepareClone === 'function' });
+            return primaryBlob;
+          },
+          renderElementToPngBlobWithHtml2Canvas: async (element) => {
+            fallbackCalls.push({ className: element.className });
+            return fallbackBlob;
+          },
+          copyImageBlobToClipboard: async (blob) => {
+            clipboardCalls.push(blob);
+            return true;
+          }
+        });
+
+        const successRoot = createCardMarkup('EU', 's50c');
+        const successButton = successRoot.querySelector('.rbn-signal-copy-btn');
+        const successLabel = successRoot.querySelector('.rbn-signal-copy-label');
+        await runtime.copyRbnSignalCardImage(successButton);
+        add(
+          'copyRbnSignalCardImage uses the primary renderer and clipboard path when available',
+          primaryCalls.length === 1
+            && fallbackCalls.length === 0
+            && clipboardCalls.length === 1
+            && events.length === 1
+            && events[0].params?.method === 'clipboard'
+            && notices.at(-1)?.message === 'Graph copied as image.'
+            && successButton.disabled === false
+            && successLabel.textContent === 'Copy as image',
+          JSON.stringify({
+            primaryCalls,
+            fallbackCalls,
+            clipboardCalls: clipboardCalls.length,
+            event: events[0],
+            notice: notices.at(-1),
+            label: successLabel.textContent
+          })
+        );
+        successRoot.remove();
+
+        const fallbackRuntime = exportModule.createRbnSignalExportRuntime({
+          normalizeSpotterBase: (value) => String(value || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, ''),
+          sanitizeFilenameToken: (value) => String(value || '').trim().toLowerCase(),
+          showOverlayNotice: (message, duration) => notices.push({ message, duration }),
+          trackEvent: (name, params) => events.push({ name, params }),
+          downloadBlobFile: (blob, filename) => downloads.push({ blob, filename }),
+          renderElementToPngBlob: async () => {
+            throw new Error('Primary renderer failed');
+          },
+          renderElementToPngBlobWithHtml2Canvas: async (element) => {
+            fallbackCalls.push({ className: element.className, mode: 'html2canvas' });
+            return fallbackBlob;
+          },
+          copyImageBlobToClipboard: async (blob) => {
+            clipboardCalls.push(blob);
+            return false;
+          }
+        });
+
+        const fallbackRoot = createCardMarkup('NA', 'w3lpl-1');
+        const fallbackButton = fallbackRoot.querySelector('.rbn-signal-copy-btn');
+        await fallbackRuntime.copyRbnSignalCardImage(fallbackButton);
+        add(
+          'copyRbnSignalCardImage falls back to html2canvas and download when clipboard copy is unavailable',
+          fallbackCalls.some((entry) => entry.mode === 'html2canvas')
+            && downloads.length === 1
+            && downloads[0].filename === 'rbn_compare_signal_na_w3lpl.png'
+            && events.at(-1)?.params?.method === 'download'
+            && notices.at(-1)?.message === 'Clipboard image copy is not available, PNG downloaded instead.'
+            && fallbackButton.disabled === false,
+          JSON.stringify({
+            fallbackCalls,
+            downloads,
+            event: events.at(-1),
+            notice: notices.at(-1)
+          })
+        );
+        fallbackRoot.remove();
+
+        const missingRoot = document.createElement('div');
+        missingRoot.innerHTML = '<button class="rbn-signal-copy-btn" data-continent="AS"><span class="rbn-signal-copy-label">Copy as image</span></button>';
+        document.body.appendChild(missingRoot);
+        await runtime.copyRbnSignalCardImage(missingRoot.querySelector('.rbn-signal-copy-btn'));
+        add(
+          'copyRbnSignalCardImage reports missing graph containers cleanly',
+          notices.at(-1)?.message === 'Unable to find graph to copy.',
+          JSON.stringify({ notice: notices.at(-1) })
+        );
+        missingRoot.remove();
+
+        const ok = checks.every((entry) => entry.ok);
+        setResult(ok, {
+          checks,
+          notices,
+          events,
+          downloads,
+          primaryCalls,
+          fallbackCalls,
+          clipboardCalls: clipboardCalls.length
+        });
+      } catch (err) {
+        add('Smoke test execution completed', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          error: err && err.stack ? err.stack : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

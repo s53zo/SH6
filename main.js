@@ -1485,7 +1485,7 @@
             trackEvent,
             renderReport,
             bindReportInteractions,
-            destroyVirtualTableControllers: () => getRetainedRuntime().destroyVirtualTableControllers(),
+            destroyVirtualTableControllers,
             renderRetainedReportContent,
             isRetainedReport,
             escapeAttr,
@@ -2633,11 +2633,11 @@
   }
 
   function destroyVirtualTableControllers() {
-    return getRetainedRuntime().destroyVirtualTableControllers();
+    return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().destroyVirtualTableControllers());
   }
 
   function renderRetainedReportShell(reportId, html) {
-    return getRetainedRuntime().renderRetainedReportShell(reportId, html);
+    return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().renderRetainedReportShell(reportId, html), html);
   }
 
   function renderRetainedReportContent(reportId) {
@@ -2685,19 +2685,19 @@
   }
 
   function refreshCurrentReportView(reportId = reports[state.activeIndex]?.id || '') {
-    return getRetainedRuntime().refreshCurrentReportView(reportId);
+    return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().refreshCurrentReportView(reportId));
   }
 
   function bindVirtualTable(reportId) {
-    return getRetainedRuntime().bindVirtualTable(reportId);
+    return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().bindVirtualTable(reportId));
   }
 
   function withStaticVirtualTableRender(fn) {
-    return getRetainedRuntime().withStaticVirtualTableRender(fn);
+    return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().withStaticVirtualTableRender(fn), (typeof fn === 'function' ? fn() : undefined));
   }
 
   function renderRetainedVirtualTable(reportId, options = {}) {
-    return getRetainedRuntime().renderRetainedVirtualTable(reportId, options);
+    return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().renderRetainedVirtualTable(reportId, options), '');
   }
 
   function buildSlotSnapshot(source) {
@@ -2854,6 +2854,23 @@
   const renderers = {};
   let overlayNoticeTimer = null;
   let pendingDropFile = null;
+  const runtimeFailureKeys = new Set();
+
+  function logRuntimeFailureOnce(key, err) {
+    const safeKey = String(key || 'unknown runtime');
+    if (runtimeFailureKeys.has(safeKey)) return;
+    runtimeFailureKeys.add(safeKey);
+    console.error(`SH6 runtime unavailable: ${safeKey}`, err);
+  }
+
+  function invokeOptionalRuntime(key, fn, fallback = undefined) {
+    try {
+      return typeof fn === 'function' ? fn() : fallback;
+    } catch (err) {
+      logRuntimeFailureOnce(key, err);
+      return fallback;
+    }
+  }
 
   function initNavigation() {
     return getNavigationRuntime().initNavigation();
@@ -15501,10 +15518,10 @@
   }
 
   function bindReportInteractions(reportId) {
-    getRbnCompareRuntime().teardownIfInactive(reportId);
+    invokeOptionalRuntime('rbn compare runtime', () => getRbnCompareRuntime().teardownIfInactive(reportId));
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
-    getCompareControllerRuntime().bindWorkspaceInteractions(reportId);
+    invokeOptionalRuntime('compare controller runtime', () => getCompareControllerRuntime().bindWorkspaceInteractions(reportId));
     attachLongReportJumpBar(dom.viewContainer, reportId);
     bindVirtualTable(reportId);
     const chartModeButtons = dom.viewContainer.querySelectorAll('.chart-mode-btn');
@@ -15537,7 +15554,7 @@
           });
         });
     }
-    getInvestigationActionsRuntime().bindInvestigationActions(reportId);
+    invokeOptionalRuntime('investigation actions runtime', () => getInvestigationActionsRuntime().bindInvestigationActions(reportId));
     if (reportId === 'not_in_master') {
       const buttons = document.querySelectorAll('.not-master-btn');
       buttons.forEach((btn) => {
@@ -15586,8 +15603,8 @@
         });
       }
     }
-    getSpotsActionsRuntime().bindSpotReport(reportId);
-    getRbnCompareRuntime().bindRbnCompareSignalReport(reportId);
+    invokeOptionalRuntime('spots actions runtime', () => getSpotsActionsRuntime().bindSpotReport(reportId));
+    invokeOptionalRuntime('rbn compare runtime', () => getRbnCompareRuntime().bindRbnCompareSignalReport(reportId));
     if (reportId === 'load_logs') {
       const revealLoadPanel = () => {
         state.showLoadPanel = true;
@@ -16763,12 +16780,30 @@
     state.uiTheme = UI_THEME_NT;
     document.body.classList.add('ui-theme-nt');
     const navigationRuntimeReady = loadNavigationRuntimeModule();
-    const compareWorkspaceReady = loadCompareWorkspaceModule();
-    const compareControllerReady = loadCompareControllerRuntimeModule();
+    await navigationRuntimeReady;
+    setupNavSearch();
+    rebuildReports();
+
+    const initRuntimeWarnings = [];
+    const awaitInitRuntime = async (label, promise, options = {}) => {
+      const critical = options.critical === true;
+      try {
+        await promise;
+        return true;
+      } catch (err) {
+        logRuntimeFailureOnce(`init:${label}`, err);
+        if (critical) throw err;
+        initRuntimeWarnings.push(label);
+        return false;
+      }
+    };
+
     const retainedRuntimeReady = loadRetainedRuntimeModule();
+    const compareControllerReady = loadCompareControllerRuntimeModule();
     const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();
     const loadPanelRuntimeReady = loadLoadPanelRuntimeModule();
     const analysisControlsRuntimeReady = loadAnalysisControlsRuntimeModule();
+    const compareWorkspaceReady = loadCompareWorkspaceModule();
     const coachRuntimeReady = loadCoachRuntimeModule();
     const canvasZoomRuntimeReady = loadCanvasZoomRuntimeModule();
     const rbnSignalExportRuntimeReady = loadRbnSignalExportRuntimeModule();
@@ -16789,43 +16824,48 @@
     const comparePerspectiveReady = loadComparePerspectiveModule();
     const exportRuntimeReady = loadExportRuntimeModule();
     const storageRuntimeReady = loadStorageRuntimeModule();
-    await navigationRuntimeReady;
-    await retainedRuntimeReady;
-    await compareControllerReady;
-    await archiveSearchRuntimeReady;
-    await loadPanelRuntimeReady;
-    await analysisControlsRuntimeReady;
-    await coachRuntimeReady;
-    await canvasZoomRuntimeReady;
-    await rbnSignalExportRuntimeReady;
-    await spotsCompareRuntimeReady;
-    await spotsDrilldownRuntimeReady;
-    await spotsCoachSummaryRuntimeReady;
-    await spotsDiagnosticsRuntimeReady;
-    await spotsChartsRuntimeReady;
-    await spotsDataRuntimeReady;
-    await spotsActionsRuntimeReady;
-    await rbnCompareChartRuntimeReady;
-    await rbnCompareViewRuntimeReady;
-    await rbnCompareModelRuntimeReady;
-    await rbnCompareRuntimeReady;
-    await investigationActionsRuntimeReady;
-    setupNavSearch();
-    rebuildReports();
+
+    await awaitInitRuntime('retained runtime', retainedRuntimeReady, { critical: true });
+    const archiveSearchLoaded = await awaitInitRuntime('archive search runtime', archiveSearchRuntimeReady);
+    const loadPanelLoaded = await awaitInitRuntime('load panel runtime', loadPanelRuntimeReady);
+    const analysisControlsLoaded = await awaitInitRuntime('analysis controls runtime', analysisControlsRuntimeReady);
+    await awaitInitRuntime('compare controller runtime', compareControllerReady);
+    await awaitInitRuntime('coach runtime', coachRuntimeReady);
+    await awaitInitRuntime('canvas zoom runtime', canvasZoomRuntimeReady);
+    await awaitInitRuntime('rbn signal export runtime', rbnSignalExportRuntimeReady);
+    await awaitInitRuntime('spots compare runtime', spotsCompareRuntimeReady);
+    await awaitInitRuntime('spots drilldown runtime', spotsDrilldownRuntimeReady);
+    await awaitInitRuntime('spots coach summary runtime', spotsCoachSummaryRuntimeReady);
+    await awaitInitRuntime('spots diagnostics runtime', spotsDiagnosticsRuntimeReady);
+    await awaitInitRuntime('spots charts runtime', spotsChartsRuntimeReady);
+    await awaitInitRuntime('spots data runtime', spotsDataRuntimeReady);
+    await awaitInitRuntime('spots actions runtime', spotsActionsRuntimeReady);
+    await awaitInitRuntime('rbn compare chart runtime', rbnCompareChartRuntimeReady);
+    await awaitInitRuntime('rbn compare view runtime', rbnCompareViewRuntimeReady);
+    await awaitInitRuntime('rbn compare model runtime', rbnCompareModelRuntimeReady);
+    await awaitInitRuntime('rbn compare runtime', rbnCompareRuntimeReady);
+    await awaitInitRuntime('investigation actions runtime', investigationActionsRuntimeReady);
+
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
     setupFileInput(dom.fileInputC, dom.fileStatusC, 'C');
     setupFileInput(dom.fileInputD, dom.fileStatusD, 'D');
     setupGlobalDragOverlay();
     setupDropReplacePrompt();
-    setupRepoSearch('A');
-    setupRepoSearch('B');
-    setupRepoSearch('C');
-    setupRepoSearch('D');
-    setupCompareToggle();
-    setupAnalysisModeToggle();
-    setupSlotActions();
-    setupLoadSummaryActions();
+    if (archiveSearchLoaded) {
+      setupRepoSearch('A');
+      setupRepoSearch('B');
+      setupRepoSearch('C');
+      setupRepoSearch('D');
+    }
+    if (analysisControlsLoaded) {
+      setupCompareToggle();
+      setupAnalysisModeToggle();
+    }
+    if (loadPanelLoaded) {
+      setupSlotActions();
+      setupLoadSummaryActions();
+    }
     setupResetSelectionsAction();
     setupDataFileInputs();
     setupPrevNext();
@@ -16888,19 +16928,26 @@
       });
     }
     // Export actions are handled in the Export report page.
-    await compareWorkspaceReady;
-    await investigationWorkspaceReady;
-    await sessionCodecReady;
-    await comparePerspectiveReady;
-    await exportRuntimeReady;
-    await storageRuntimeReady;
+    const compareWorkspaceLoaded = await awaitInitRuntime('compare workspace module', compareWorkspaceReady);
+    const investigationWorkspaceLoaded = await awaitInitRuntime('investigation workspace module', investigationWorkspaceReady);
+    const sessionCodecLoaded = await awaitInitRuntime('session codec module', sessionCodecReady);
+    const comparePerspectiveLoaded = await awaitInitRuntime('compare perspective module', comparePerspectiveReady);
+    const exportRuntimeLoaded = await awaitInitRuntime('export runtime module', exportRuntimeReady);
+    const storageRuntimeLoaded = await awaitInitRuntime('storage runtime', storageRuntimeReady);
+    void compareWorkspaceLoaded;
+    void investigationWorkspaceLoaded;
+    void comparePerspectiveLoaded;
+    void exportRuntimeLoaded;
     updateBandRibbon();
     const mapParams = parseMapViewParams();
-    const permalinkState = parsePermalinkState();
+    const canRestoreSession = sessionCodecLoaded && loadPanelLoaded && analysisControlsLoaded;
+    const permalinkState = canRestoreSession ? parsePermalinkState() : null;
     if (permalinkState) {
       await applySessionPayload(permalinkState, { fromPermalink: true });
     } else {
-      const autosave = await getStorageRuntime().loadAutosaveSession().catch(() => null);
+      const autosave = (storageRuntimeLoaded && canRestoreSession)
+        ? await getStorageRuntime().loadAutosaveSession().catch(() => null)
+        : null;
       const hasAutosave = autosave && Array.isArray(autosave.slots) && autosave.slots.some((slot) => slot && !slot.empty);
       if (hasAutosave) {
         await applySessionPayload(autosave, { fromPermalink: false });
@@ -16913,6 +16960,9 @@
     }
     if (mapParams) {
       showMapView(mapParams.scope, mapParams.key);
+    }
+    if (initRuntimeWarnings.length) {
+      console.warn('SH6 loaded with limited features due to runtime preload failures:', initRuntimeWarnings);
     }
   }
 
@@ -16940,5 +16990,17 @@
     }
   });
 
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => {
+    init().catch((err) => {
+      console.error('SH6 init failed:', err);
+      if (dom.viewTitle) dom.viewTitle.textContent = 'Startup error';
+      if (dom.viewContainer) {
+        dom.viewContainer.innerHTML = renderStateCard({
+          type: 'error',
+          title: 'Startup partially failed',
+          message: 'SH6 could not finish startup. Refresh the page or check the browser console for details.'
+        });
+      }
+    });
+  });
 })();

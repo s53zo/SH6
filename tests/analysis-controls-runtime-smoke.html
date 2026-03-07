@@ -82,7 +82,20 @@
         ]);
 
         add('Main.js imports the analysis controls runtime module', mainSource.includes("const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.1.21';"));
-        add('Main.js loads analysis controls runtime before toggle setup', mainSource.includes('const analysisControlsRuntimeReady = loadAnalysisControlsRuntimeModule();') && mainSource.includes('await analysisControlsRuntimeReady;'));
+        const initStartIdx = mainSource.indexOf('async function init() {');
+        const startupHookIdx = mainSource.indexOf("document.addEventListener('DOMContentLoaded'", initStartIdx);
+        const initSource = initStartIdx >= 0 && startupHookIdx > initStartIdx
+          ? mainSource.slice(initStartIdx, startupHookIdx)
+          : '';
+
+        add(
+          'Main.js preloads the analysis controls runtime before toggle setup runs',
+          initSource.includes('const analysisControlsRuntimeReady = loadAnalysisControlsRuntimeModule();')
+            && initSource.includes("const analysisControlsLoaded = await awaitInitRuntime('analysis controls runtime', analysisControlsRuntimeReady);")
+            && initSource.includes('if (analysisControlsLoaded) {')
+            && initSource.includes('setupCompareToggle();')
+            && initSource.includes('setupAnalysisModeToggle();')
+        );
         add('Main.js delegates compare and analysis helpers to the runtime', mainSource.includes('return getAnalysisControlsRuntime().setCompareCount(count, updateRadios);') && mainSource.includes('return getAnalysisControlsRuntime().setupAnalysisModeToggle();'));
         add('Analysis controls runtime exports the factory', moduleSource.includes('export function createAnalysisControlsRuntime'));
 

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Init Navigation Resilience Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>Init Navigation Resilience Smoke</h1>
+  <p>Checks that startup initializes navigation before the long runtime preload chain and that missing feature runtimes no longer hard-fail report binding.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        const source = await fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+          if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+          return res.text();
+        });
+
+        const initStartIdx = source.indexOf('async function init() {');
+        const startupHookIdx = source.indexOf("document.addEventListener('DOMContentLoaded'", initStartIdx);
+        const initSource = initStartIdx >= 0 && startupHookIdx > initStartIdx
+          ? source.slice(initStartIdx, startupHookIdx)
+          : '';
+        const navAwaitIdx = initSource.indexOf('await navigationRuntimeReady;');
+        const setupNavIdx = initSource.indexOf('setupNavSearch();');
+        const rebuildIdx = initSource.indexOf('rebuildReports();');
+        const retainedPromiseIdx = initSource.indexOf('const retainedRuntimeReady = loadRetainedRuntimeModule();');
+        add(
+          'Navigation setup happens immediately after navigation runtime load and before later runtime preloads',
+          navAwaitIdx >= 0 && setupNavIdx > navAwaitIdx && rebuildIdx > setupNavIdx && retainedPromiseIdx > rebuildIdx,
+          JSON.stringify({ initStartIdx, startupHookIdx, navAwaitIdx, setupNavIdx, rebuildIdx, retainedPromiseIdx })
+        );
+
+        add(
+          'Runtime resilience helpers exist',
+          source.includes('function logRuntimeFailureOnce(') && source.includes('function invokeOptionalRuntime(')
+        );
+
+        add(
+          'bindReportInteractions uses optional runtime wrappers for feature modules',
+          source.includes("invokeOptionalRuntime('rbn compare runtime', () => getRbnCompareRuntime().teardownIfInactive(reportId));")
+            && source.includes("invokeOptionalRuntime('compare controller runtime', () => getCompareControllerRuntime().bindWorkspaceInteractions(reportId));")
+            && source.includes("invokeOptionalRuntime('investigation actions runtime', () => getInvestigationActionsRuntime().bindInvestigationActions(reportId));")
+            && source.includes("invokeOptionalRuntime('spots actions runtime', () => getSpotsActionsRuntime().bindSpotReport(reportId));")
+            && source.includes("invokeOptionalRuntime('rbn compare runtime', () => getRbnCompareRuntime().bindRbnCompareSignalReport(reportId));")
+        );
+
+        add(
+          'Retained runtime wrappers now degrade instead of throwing directly',
+          source.includes("return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().destroyVirtualTableControllers());")
+            && source.includes("return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().renderRetainedReportShell(reportId, html), html);")
+            && source.includes("return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().bindVirtualTable(reportId));")
+        );
+
+        add(
+          'DOMContentLoaded startup now catches init failures and renders an error state',
+          source.includes("document.addEventListener('DOMContentLoaded', () => {")
+            && source.includes('init().catch((err) => {')
+            && source.includes("title: 'Startup partially failed'")
+        );
+
+        const ok = checks.every((entry) => entry.ok);
+        setResult(ok, { checks });
+      } catch (err) {
+        add('Smoke test execution completed', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          error: err && err.stack ? err.stack : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

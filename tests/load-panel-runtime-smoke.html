@@ -85,7 +85,20 @@
         ]);
 
         add('Main.js imports the load panel runtime module', mainSource.includes("const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.1.21';"));
-        add('Main.js loads load panel runtime before setupCompareToggle runs', mainSource.includes('const loadPanelRuntimeReady = loadLoadPanelRuntimeModule();') && mainSource.includes('await loadPanelRuntimeReady;'));
+        const initStartIdx = mainSource.indexOf('async function init() {');
+        const startupHookIdx = mainSource.indexOf("document.addEventListener('DOMContentLoaded'", initStartIdx);
+        const initSource = initStartIdx >= 0 && startupHookIdx > initStartIdx
+          ? mainSource.slice(initStartIdx, startupHookIdx)
+          : '';
+
+        add(
+          'Main.js preloads the load panel runtime before slot-summary setup runs',
+          initSource.includes('const loadPanelRuntimeReady = loadLoadPanelRuntimeModule();')
+            && initSource.includes("const loadPanelLoaded = await awaitInitRuntime('load panel runtime', loadPanelRuntimeReady);")
+            && initSource.includes('if (loadPanelLoaded) {')
+            && initSource.includes('setupSlotActions();')
+            && initSource.includes('setupLoadSummaryActions();')
+        );
         add('Main.js delegates slot action and summary helpers to the load panel runtime', mainSource.includes("return getLoadPanelRuntime().setArchiveCompact(slotId, show, pathLabel);") && mainSource.includes("return getLoadPanelRuntime().updateLoadSummary();") && mainSource.includes("return getLoadPanelRuntime().setupSlotActions();"));
         add('Load panel runtime exports the factory', moduleSource.includes('export function createLoadPanelRuntime'));
 

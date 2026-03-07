@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RBN Compare Model Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>RBN Compare Model Runtime Smoke</h1>
+  <p>Checks the extracted RBN compare model runtime for index caching, ranking, select population, and main-thread delegation.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function normalizeCall(value) {
+        return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+      }
+
+      function normalizeSpotterBase(value) {
+        return normalizeCall(value).replace(/-\d+$/, '');
+      }
+
+      function normalizeBandToken(value) {
+        return String(value || '').trim().toUpperCase();
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function escapeAttr(value) {
+        return escapeHtml(value).replace(/"/g, '&quot;');
+      }
+
+      try {
+        const [mainSource, moduleSource, modelModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/spots/rbn-compare-model-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/spots/rbn-compare-model-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/spots/rbn-compare-model-runtime.js')
+        ]);
+
+        add('Main.js imports the RBN compare model runtime module', mainSource.includes("const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.1.21';"));
+        add('Main.js preloads the RBN compare model runtime during init', mainSource.includes('const rbnCompareModelRuntimeReady = loadRbnCompareModelRuntimeModule();') && mainSource.includes('await rbnCompareModelRuntimeReady;'));
+        add(
+          'Main.js delegates the extracted RBN compare model helpers to the runtime',
+          mainSource.includes('return getRbnCompareModelRuntime().sampleFlatStrideSeeded(data, capPoints, seed);')
+            && mainSource.includes('return getRbnCompareModelRuntime().scheduleRbnCompareIndexBuild(slotId, slot);')
+            && mainSource.includes('return getRbnCompareModelRuntime().populateRbnCompareSignalSpotterSelects();')
+        );
+        add('RBN compare model runtime exports the factory', moduleSource.includes('export function createRbnCompareModelRuntime'));
+
+        const originalRequestIdleCallback = window.requestIdleCallback;
+        const idleCalls = [];
+        window.requestIdleCallback = (callback, options) => {
+          idleCalls.push(options || null);
+          callback({
+            didTimeout: false,
+            timeRemaining: () => 50
+          });
+          return idleCalls.length;
+        };
+
+        const drawCalls = [];
+        const dom = {
+          viewContainer: document.createElement('div')
+        };
+        document.body.appendChild(dom.viewContainer);
+        dom.viewContainer.innerHTML = `
+          <div class="rbn-signal-grid">
+            <article class="rbn-signal-card" data-card="eu">
+              <select class="rbn-signal-select" data-continent="EU"></select>
+              <button type="button" class="rbn-signal-copy-btn">Copy</button>
+              <span class="rbn-signal-status"></span>
+              <canvas class="rbn-signal-canvas" data-continent="EU"></canvas>
+            </article>
+            <article class="rbn-signal-card" data-card="af">
+              <select class="rbn-signal-select" data-continent="AF"></select>
+              <button type="button" class="rbn-signal-copy-btn">Copy</button>
+              <span class="rbn-signal-status"></span>
+              <canvas class="rbn-signal-canvas" data-continent="AF"></canvas>
+            </article>
+            <article class="rbn-signal-card" data-card="na">
+              <select class="rbn-signal-select" data-continent="NA"></select>
+              <button type="button" class="rbn-signal-copy-btn">Copy</button>
+              <span class="rbn-signal-status"></span>
+              <canvas class="rbn-signal-canvas" data-continent="NA"></canvas>
+            </article>
+          </div>
+        `;
+
+        const prefixByCall = new Map([
+          ['W3LPL', { continent: 'NA' }],
+          ['K1TTT', { continent: 'NA' }],
+          ['EI0A', { continent: 'EU' }],
+          ['DL0XYZ', { continent: 'EU' }]
+        ]);
+        const state = {
+          globalBandFilter: '20m',
+          rbnCompareSignal: {
+            selectedByContinent: {
+              NA: 'W3LPL'
+            }
+          }
+        };
+        const baseSlot = {
+          rbnState: {
+            status: 'ready',
+            raw: {
+              ofUsSpots: [
+                { spotter: 'W3LPL-1', band: '20M', ts: Date.UTC(2025, 10, 16, 10, 0, 0), snr: 12 },
+                { spotter: 'W3LPL', band: '20M', ts: Date.UTC(2025, 10, 16, 10, 5, 0), snr: 18 },
+                { spotter: 'K1TTT', band: '20M', ts: Date.UTC(2025, 10, 16, 10, 10, 0), snr: 10 },
+                { spotter: 'EI0A', band: '20M', ts: Date.UTC(2025, 10, 16, 10, 15, 0), snr: 21 },
+                { spotter: 'EI0A', band: '20M', ts: Date.UTC(2025, 10, 16, 10, 20, 0), snr: 23 },
+                { spotter: 'DL0XYZ', band: '40M', ts: Date.UTC(2025, 10, 16, 10, 25, 0), snr: 16 }
+              ]
+            },
+            selectedDays: ['20251116'],
+            totalOfUs: 6,
+            lastCall: 'S55OO',
+            lastWindowKey: 'window-1'
+          }
+        };
+
+        const runtime = modelModule.createRbnCompareModelRuntime({
+          getDom: () => dom,
+          getState: () => state,
+          getActiveCompareSlots: () => [{ id: 'A', slot: baseSlot }],
+          getActiveReportId: () => 'rbn_compare_signal',
+          lookupPrefix: (call) => prefixByCall.get(normalizeSpotterBase(call)) || null,
+          baseCall: (call) => normalizeCall(call).split('/')[0],
+          normalizeContinent: (value) => String(value || '').trim().toUpperCase(),
+          normalizeSpotterBase,
+          normalizeBandToken,
+          escapeAttr,
+          escapeHtml,
+          formatNumberSh6: (value) => String(Number(value || 0)),
+          continentLabel: (continent) => ({
+            NA: 'North America',
+            EU: 'Europe',
+            AF: 'Africa'
+          }[String(continent || '').trim().toUpperCase()] || String(continent || '').trim().toUpperCase()),
+          scheduleRbnCompareSignalDraw: () => drawCalls.push('draw')
+        });
+
+        const seededA = runtime.sampleFlatStrideSeeded([1, 11, 2, 22, 3, 33, 4, 44, 5, 55], 2, 'seed-a');
+        const seededB = runtime.sampleFlatStrideSeeded([1, 11, 2, 22, 3, 33, 4, 44, 5, 55], 2, 'seed-a');
+        add(
+          'sampleFlatStrideSeeded is deterministic for the same seed',
+          seededA.length <= 6 && JSON.stringify(seededA) === JSON.stringify(seededB),
+          JSON.stringify({ seededA, seededB })
+        );
+
+        const caps = runtime.computeProportionalCaps([['20M', 500], ['40M', 100], ['15M', 50]], 650, 300, 40);
+        const cappedTotal = caps.reduce((sum, [, count]) => sum + count, 0);
+        add(
+          'computeProportionalCaps keeps allocations within the requested cap',
+          cappedTotal <= 300 && caps.length === 3,
+          JSON.stringify({ caps, cappedTotal })
+        );
+
+        runtime.scheduleRbnCompareIndexBuild('A', baseSlot);
+        const index = runtime.getRbnCompareIndexCached('A', baseSlot);
+        add(
+          'scheduleRbnCompareIndexBuild creates a cached index grouped by normalized spotter',
+          index && index.bySpotter instanceof Map && index.bySpotter.get('W3LPL')?.totalCount === 2 && index.bySpotter.get('EI0A')?.continent === 'EU',
+          JSON.stringify({
+            idleCalls: idleCalls.length,
+            spotters: index ? Array.from(index.bySpotter.entries()).map(([spotter, entry]) => ({ spotter, totalCount: entry.totalCount, continent: entry.continent })) : null
+          })
+        );
+
+        const ranking = runtime.buildRbnCompareRankingFromIndex('A', baseSlot, '20M', index);
+        const rankingCached = runtime.getRbnCompareRankingCached('A', baseSlot, '20M');
+        add(
+          'buildRbnCompareRankingFromIndex caches per-band ranking by continent',
+          ranking && rankingCached === ranking && ranking.byContinent.get('NA')?.[0]?.spotter === 'W3LPL' && ranking.byContinent.get('EU')?.[0]?.count === 2,
+          JSON.stringify({
+            na: ranking ? ranking.byContinent.get('NA') : null,
+            eu: ranking ? ranking.byContinent.get('EU') : null
+          })
+        );
+
+        runtime.populateRbnCompareSignalSpotterSelects();
+        const cardOrder = Array.from(dom.viewContainer.querySelectorAll('.rbn-signal-card')).map((card) => card.querySelector('.rbn-signal-select')?.dataset?.continent || '');
+        const naSelect = dom.viewContainer.querySelector('.rbn-signal-select[data-continent="NA"]');
+        const euSelect = dom.viewContainer.querySelector('.rbn-signal-select[data-continent="EU"]');
+        const afSelect = dom.viewContainer.querySelector('.rbn-signal-select[data-continent="AF"]');
+        const naCanvas = dom.viewContainer.querySelector('.rbn-signal-canvas[data-continent="NA"]');
+        const afCanvas = dom.viewContainer.querySelector('.rbn-signal-canvas[data-continent="AF"]');
+        const afStatus = dom.viewContainer.querySelector('.rbn-signal-card[data-card="af"] .rbn-signal-status');
+        const afCopy = dom.viewContainer.querySelector('.rbn-signal-card[data-card="af"] .rbn-signal-copy-btn');
+        add(
+          'populateRbnCompareSignalSpotterSelects updates DOM selections, card order, and empty states',
+          cardOrder.join('|') === 'NA|EU|AF'
+            && naSelect.disabled === false
+            && euSelect.disabled === false
+            && naCanvas.dataset.spotter === 'W3LPL'
+            && afSelect.disabled === true
+            && afCanvas.dataset.spotter === ''
+            && afStatus.textContent === 'No RBN spots found for Africa.'
+            && afStatus.hidden === false
+            && afCopy.disabled === true
+            && drawCalls.length >= 2,
+          JSON.stringify({
+            cardOrder,
+            naOptions: naSelect ? naSelect.innerHTML : '',
+            euOptions: euSelect ? euSelect.innerHTML : '',
+            afStatus: afStatus ? { text: afStatus.textContent, hidden: afStatus.hidden } : null,
+            drawCalls: drawCalls.length
+          })
+        );
+
+        window.requestIdleCallback = originalRequestIdleCallback;
+
+        const ok = checks.every((entry) => entry.ok);
+        setResult(ok, {
+          checks,
+          idleCalls,
+          drawCalls: drawCalls.length,
+          cardOrder
+        });
+      } catch (err) {
+        add('Smoke test execution completed', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          error: err && err.stack ? err.stack : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

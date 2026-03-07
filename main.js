@@ -198,6 +198,7 @@
   const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.1.21';
   const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.1.21';
   const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.1.21';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.1.21';
   const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.1.21';
   const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.1.21';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.1.21';
@@ -1298,6 +1299,8 @@
   let spotsDataRuntime = null;
   let spotsActionsRuntimeModulePromise = null;
   let spotsActionsRuntime = null;
+  let rbnCompareModelRuntimeModulePromise = null;
+  let rbnCompareModelRuntime = null;
   let rbnCompareRuntimeModulePromise = null;
   let rbnCompareRuntime = null;
   let investigationActionsRuntimeModulePromise = null;
@@ -1914,9 +1917,46 @@
     return spotsActionsRuntime;
   }
 
+  function loadRbnCompareModelRuntimeModule() {
+    if (!rbnCompareModelRuntimeModulePromise) {
+      rbnCompareModelRuntimeModulePromise = import(RBN_COMPARE_MODEL_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createRbnCompareModelRuntime !== 'function') {
+            throw new Error('rbn compare model runtime module unavailable');
+          }
+          rbnCompareModelRuntime = mod.createRbnCompareModelRuntime({
+            getDom: () => dom,
+            getState: () => state,
+            getActiveCompareSlots,
+            getActiveReportId: () => reports[state.activeIndex]?.id || '',
+            lookupPrefix,
+            baseCall,
+            normalizeContinent,
+            normalizeSpotterBase,
+            normalizeBandToken,
+            escapeAttr,
+            escapeHtml,
+            formatNumberSh6,
+            continentLabel,
+            scheduleRbnCompareSignalDraw
+          });
+          return rbnCompareModelRuntime;
+        });
+    }
+    return rbnCompareModelRuntimeModulePromise;
+  }
+
+  function getRbnCompareModelRuntime() {
+    if (!rbnCompareModelRuntime) {
+      throw new Error('rbn compare model runtime not loaded');
+    }
+    return rbnCompareModelRuntime;
+  }
+
   function loadRbnCompareRuntimeModule() {
     if (!rbnCompareRuntimeModulePromise) {
-      rbnCompareRuntimeModulePromise = import(RBN_COMPARE_RUNTIME_MODULE_URL)
+      const rbnCompareModelRuntimeReady = loadRbnCompareModelRuntimeModule();
+      rbnCompareRuntimeModulePromise = rbnCompareModelRuntimeReady.then(() => import(RBN_COMPARE_RUNTIME_MODULE_URL))
         .then((mod) => {
           if (!mod || typeof mod.createRbnCompareRuntime !== 'function') {
             throw new Error('rbn compare runtime module unavailable');
@@ -11902,259 +11942,38 @@
   }
 
   function resolveSpotterContinent(spotterCall) {
-    const key = normalizeSpotterBase(spotterCall || '');
-    const prefix = key ? (lookupPrefix(key) || lookupPrefix(baseCall(key))) : null;
-    return normalizeContinent(prefix?.continent || '') || 'N/A';
+    return getRbnCompareModelRuntime().resolveSpotterContinent(spotterCall);
   }
 
-  const rbnCompareSignalIndexCache = new Map(); // slotId -> { dataKey, bySpotter: Map(spotter -> entry) }
-  const rbnCompareSignalIndexJobs = new Map(); // slotId -> { dataKey, slotRef, spots, i, bySpotter }
-  const rbnCompareSignalRankingCache = new Map(); // `${slotId}|${bandKey||'ALL'}` -> { dataKey, byContinent }
   const rbnCompareSignalCanvasJobs = new WeakMap(); // canvas -> { token, raf }
   let rbnCompareSignalDrawRaf = 0;
 
   function rbnCompareSlotDataKey(slot) {
-    const r = slot?.rbnState;
-    if (!r || r.status !== 'ready' || !r.raw || !Array.isArray(r.raw.ofUsSpots)) return '';
-    const days = Array.isArray(r.selectedDays) ? r.selectedDays.join(',') : '';
-    const count = Number.isFinite(r.totalOfUs) ? r.totalOfUs : r.raw.ofUsSpots.length;
-    return `${String(r.lastCall || '')}|${String(r.lastWindowKey || '')}|${days}|${count}`;
-  }
-
-  function sampleFlatStride(data, capPoints) {
-    const arr = Array.isArray(data) ? data : [];
-    const total = Math.floor(arr.length / 2);
-    const cap = Math.max(0, Math.floor(Number(capPoints) || 0));
-    if (!cap || total <= cap) return arr;
-    const stride = Math.max(1, Math.ceil(total / cap));
-    const out = [];
-    for (let i = 0; i < total; i += stride) {
-      const idx = i * 2;
-      out.push(arr[idx], arr[idx + 1]);
-    }
-    return out;
-  }
-
-  function hashString32(value) {
-    const str = String(value || '');
-    let h = 2166136261;
-    for (let i = 0; i < str.length; i += 1) {
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
+    return getRbnCompareModelRuntime().rbnCompareSlotDataKey(slot);
   }
 
   function sampleFlatStrideSeeded(data, capPoints, seed) {
-    const arr = Array.isArray(data) ? data : [];
-    const total = Math.floor(arr.length / 2);
-    const cap = Math.max(0, Math.floor(Number(capPoints) || 0));
-    if (!cap || total <= cap) return arr;
-    const stride = Math.max(1, Math.ceil(total / cap));
-    const offset = stride > 1 ? (hashString32(seed) % stride) : 0;
-    const out = [];
-    for (let i = offset; i < total; i += stride) {
-      const idx = i * 2;
-      out.push(arr[idx], arr[idx + 1]);
-    }
-    return out;
+    return getRbnCompareModelRuntime().sampleFlatStrideSeeded(data, capPoints, seed);
   }
 
   function computeProportionalCaps(entries, total, capTotal, minEach = 200) {
-    const safeTotal = Math.max(0, Math.floor(total || 0));
-    const cap = Math.max(0, Math.floor(capTotal || 0));
-    if (!cap || safeTotal <= cap) {
-      return entries.map(([band, count]) => [band, count]);
-    }
-    const out = entries.map(([band, count]) => {
-      const c = Math.max(0, Math.floor(count || 0));
-      const raw = Math.floor((cap * c) / Math.max(1, safeTotal));
-      return [band, Math.min(c, Math.max(minEach, raw))];
-    });
-    let sum = out.reduce((acc, [, c]) => acc + c, 0);
-    if (sum > cap) {
-      // Trim from largest allocations first.
-      const order = out.map(([, c], idx) => ({ idx, c })).sort((a, b) => b.c - a.c);
-      for (const it of order) {
-        if (sum <= cap) break;
-        const current = out[it.idx][1];
-        const next = Math.max(minEach, current - (sum - cap));
-        out[it.idx][1] = next;
-        sum -= (current - next);
-      }
-    } else if (sum < cap) {
-      // Distribute remainder to largest bands where available.
-      const need = cap - sum;
-      const byAvail = out.map(([band, c], idx) => {
-        const original = Math.max(0, Math.floor(entries[idx]?.[1] || 0));
-        return { idx, band, avail: Math.max(0, original - c) };
-      }).sort((a, b) => b.avail - a.avail);
-      let left = need;
-      for (const it of byAvail) {
-        if (!left) break;
-        if (it.avail <= 0) continue;
-        const add = Math.min(it.avail, left);
-        out[it.idx][1] += add;
-        left -= add;
-      }
-    }
-    return out;
+    return getRbnCompareModelRuntime().computeProportionalCaps(entries, total, capTotal, minEach);
   }
 
   function getRbnCompareIndexCached(slotId, slot) {
-    const key = rbnCompareSlotDataKey(slot);
-    if (!key) return null;
-    const cached = rbnCompareSignalIndexCache.get(slotId);
-    if (cached && cached.dataKey === key) return cached;
-    return null;
-  }
-
-  function buildRbnCompareIndexSync(slotId, slot) {
-    const dataKey = rbnCompareSlotDataKey(slot);
-    if (!dataKey) return null;
-    const cached = rbnCompareSignalIndexCache.get(slotId);
-    if (cached && cached.dataKey === dataKey) return cached;
-    const list = slot?.rbnState?.raw?.ofUsSpots || [];
-    const bySpotter = new Map();
-    (list || []).forEach((s) => {
-      if (!s || !s.spotter) return;
-      if (!Number.isFinite(s.ts) || !Number.isFinite(s.snr)) return;
-      const spotter = normalizeSpotterBase(s.spotter);
-      if (!spotter) return;
-      const band = normalizeBandToken(s.band || '') || '';
-      let entry = bySpotter.get(spotter);
-      if (!entry) {
-        entry = {
-          spotter,
-          continent: resolveSpotterContinent(spotter),
-          totalCount: 0,
-          bandCounts: new Map(),
-          byBand: new Map(), // band -> flat [ts,snr,...]
-          minSnr: null,
-          maxSnr: null
-        };
-        bySpotter.set(spotter, entry);
-      }
-      entry.totalCount += 1;
-      entry.bandCounts.set(band, (entry.bandCounts.get(band) || 0) + 1);
-      if (!entry.byBand.has(band)) entry.byBand.set(band, []);
-      entry.byBand.get(band).push(s.ts, s.snr);
-      entry.minSnr = entry.minSnr == null ? s.snr : Math.min(entry.minSnr, s.snr);
-      entry.maxSnr = entry.maxSnr == null ? s.snr : Math.max(entry.maxSnr, s.snr);
-    });
-    const built = { dataKey, bySpotter };
-    rbnCompareSignalIndexCache.set(slotId, built);
-    // Rankings depend on this index; clear any stale entries for this slot.
-    Array.from(rbnCompareSignalRankingCache.keys()).forEach((k) => {
-      if (k.startsWith(`${slotId}|`)) rbnCompareSignalRankingCache.delete(k);
-    });
-    return built;
+    return getRbnCompareModelRuntime().getRbnCompareIndexCached(slotId, slot);
   }
 
   function scheduleRbnCompareIndexBuild(slotId, slot) {
-    const dataKey = rbnCompareSlotDataKey(slot);
-    if (!dataKey) return;
-    const cached = rbnCompareSignalIndexCache.get(slotId);
-    if (cached && cached.dataKey === dataKey) return;
-    const existing = rbnCompareSignalIndexJobs.get(slotId);
-    if (existing && existing.dataKey === dataKey) return;
-    const spots = slot?.rbnState?.raw?.ofUsSpots || [];
-    const job = {
-      slotId,
-      slotRef: slot,
-      dataKey,
-      spots,
-      i: 0,
-      bySpotter: new Map()
-    };
-    rbnCompareSignalIndexJobs.set(slotId, job);
-    const step = () => {
-      const liveKey = rbnCompareSlotDataKey(job.slotRef);
-      if (liveKey !== job.dataKey) {
-        rbnCompareSignalIndexJobs.delete(slotId);
-        return;
-      }
-      const chunk = 6000;
-      const end = Math.min(job.spots.length, job.i + chunk);
-      for (; job.i < end; job.i += 1) {
-        const s = job.spots[job.i];
-        if (!s || !s.spotter) continue;
-        if (!Number.isFinite(s.ts) || !Number.isFinite(s.snr)) continue;
-        const spotter = normalizeSpotterBase(s.spotter);
-        if (!spotter) continue;
-        const band = normalizeBandToken(s.band || '') || '';
-        let entry = job.bySpotter.get(spotter);
-        if (!entry) {
-          entry = {
-            spotter,
-            continent: resolveSpotterContinent(spotter),
-            totalCount: 0,
-            bandCounts: new Map(),
-            byBand: new Map(),
-            minSnr: null,
-            maxSnr: null
-          };
-          job.bySpotter.set(spotter, entry);
-        }
-        entry.totalCount += 1;
-        entry.bandCounts.set(band, (entry.bandCounts.get(band) || 0) + 1);
-        if (!entry.byBand.has(band)) entry.byBand.set(band, []);
-        entry.byBand.get(band).push(s.ts, s.snr);
-        entry.minSnr = entry.minSnr == null ? s.snr : Math.min(entry.minSnr, s.snr);
-        entry.maxSnr = entry.maxSnr == null ? s.snr : Math.max(entry.maxSnr, s.snr);
-      }
-      if (job.i >= job.spots.length) {
-        rbnCompareSignalIndexJobs.delete(slotId);
-        rbnCompareSignalIndexCache.set(slotId, { dataKey: job.dataKey, bySpotter: job.bySpotter });
-        Array.from(rbnCompareSignalRankingCache.keys()).forEach((k) => {
-          if (k.startsWith(`${slotId}|`)) rbnCompareSignalRankingCache.delete(k);
-        });
-        scheduleRbnCompareSignalDraw();
-        populateRbnCompareSignalSpotterSelects();
-        return;
-      }
-      if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(step, { timeout: 200 });
-      } else {
-        setTimeout(step, 0);
-      }
-    };
-    if (typeof requestIdleCallback === 'function') {
-      requestIdleCallback(step, { timeout: 200 });
-    } else {
-      setTimeout(step, 0);
-    }
+    return getRbnCompareModelRuntime().scheduleRbnCompareIndexBuild(slotId, slot);
   }
 
   function getRbnCompareRankingCached(slotId, slot, bandKey) {
-    const dataKey = rbnCompareSlotDataKey(slot);
-    if (!dataKey) return null;
-    const key = `${slotId}|${bandKey || 'ALL'}`;
-    const cached = rbnCompareSignalRankingCache.get(key);
-    if (cached && cached.dataKey === dataKey) return cached;
-    return null;
+    return getRbnCompareModelRuntime().getRbnCompareRankingCached(slotId, slot, bandKey);
   }
 
   function buildRbnCompareRankingFromIndex(slotId, slot, bandKey, index) {
-    const dataKey = rbnCompareSlotDataKey(slot);
-    if (!dataKey || !index || index.dataKey !== dataKey) return null;
-    const byContinent = new Map();
-    const normBand = normalizeBandToken(bandKey || '');
-    index.bySpotter.forEach((entry) => {
-      const count = normBand ? (entry.bandCounts.get(normBand) || 0) : (entry.totalCount || 0);
-      if (!count) return;
-      const cont = entry.continent || 'N/A';
-      if (!byContinent.has(cont)) byContinent.set(cont, []);
-      byContinent.get(cont).push({ spotter: entry.spotter, count });
-    });
-    byContinent.forEach((list, cont) => {
-      list.sort((a, b) => b.count - a.count || a.spotter.localeCompare(b.spotter));
-      byContinent.set(cont, list);
-    });
-    const key = `${slotId}|${normBand || 'ALL'}`;
-    const built = { dataKey, byContinent };
-    rbnCompareSignalRankingCache.set(key, built);
-    return built;
+    return getRbnCompareModelRuntime().buildRbnCompareRankingFromIndex(slotId, slot, bandKey, index);
   }
 
   function scheduleRbnCompareSignalDraw() {
@@ -12930,88 +12749,7 @@
   }
 
   function populateRbnCompareSignalSpotterSelects() {
-    if (reports[state.activeIndex]?.id !== 'rbn_compare_signal') return;
-    const root = dom.viewContainer;
-    if (!root) return;
-    const slots = getActiveCompareSlots();
-    const base = slots.find((e) => e.id === 'A') || slots[0] || null;
-    if (!base) return;
-    const baseReady = base?.slot?.rbnState?.status === 'ready';
-    const bandKey = normalizeBandToken(state.globalBandFilter || '');
-    const cached = getRbnCompareRankingCached(base.id, base.slot, bandKey);
-    const index = cached ? null : getRbnCompareIndexCached(base.id, base.slot);
-    const ranking = cached || (index ? buildRbnCompareRankingFromIndex(base.id, base.slot, bandKey, index) : null);
-    if (!ranking) {
-      if (base.slot?.rbnState?.status === 'ready') scheduleRbnCompareIndexBuild(base.id, base.slot);
-      return;
-    }
-    const selections = (state.rbnCompareSignal && typeof state.rbnCompareSignal === 'object')
-      ? state.rbnCompareSignal
-      : { selectedByContinent: {} };
-    if (!state.rbnCompareSignal) state.rbnCompareSignal = selections;
-    if (!selections.selectedByContinent) selections.selectedByContinent = {};
-    const selects = Array.from(root.querySelectorAll('.rbn-signal-select'));
-
-    // Reorder cards by spot volume (top skimmer count), descending.
-    const grid = root.querySelector('.rbn-signal-grid');
-    if (grid) {
-      const contOrder = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC'];
-      const orderIdx = new Map(contOrder.map((c, i) => [c, i]));
-      const cards = Array.from(grid.querySelectorAll('.rbn-signal-card'));
-      const getCardCont = (card) => {
-        const sel = card.querySelector('.rbn-signal-select');
-        const canvas = card.querySelector('.rbn-signal-canvas');
-        return String(sel?.dataset?.continent || canvas?.dataset?.continent || '').trim().toUpperCase() || 'N/A';
-      };
-      cards.sort((a, b) => {
-        const ca = getCardCont(a);
-        const cb = getCardCont(b);
-        const ta = (ranking.byContinent.get(ca)?.[0]?.count) || 0;
-        const tb = (ranking.byContinent.get(cb)?.[0]?.count) || 0;
-        if (tb !== ta) return tb - ta;
-        return (orderIdx.get(ca) ?? 999) - (orderIdx.get(cb) ?? 999);
-      });
-      cards.forEach((c) => grid.appendChild(c));
-    }
-
-    selects.forEach((select) => {
-      const cont = String(select.dataset.continent || '').trim().toUpperCase() || 'N/A';
-      const list = ranking.byContinent.get(cont) || [];
-      const card = select.closest('.rbn-signal-card');
-      const statusEl = card ? card.querySelector('.rbn-signal-status') : null;
-      const copyBtn = card ? card.querySelector('.rbn-signal-copy-btn') : null;
-      const contLabel = continentLabel(cont) || cont;
-      if (!list.length) {
-        select.innerHTML = '<option value="">No skimmers</option>';
-        select.disabled = true;
-        if (copyBtn instanceof HTMLButtonElement) copyBtn.disabled = true;
-        const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
-        if (canvas) canvas.dataset.spotter = '';
-        if (statusEl) {
-          statusEl.textContent = baseReady
-            ? `No RBN spots found for ${contLabel}.`
-            : 'Load RBN spots to populate charts.';
-          statusEl.hidden = false;
-        }
-        return;
-      }
-      const saved = normalizeSpotterBase(String(selections.selectedByContinent[cont] || '').trim());
-      const defaultSpotter = saved && list.some((e) => e.spotter === saved) ? saved : list[0].spotter;
-      selections.selectedByContinent[cont] = defaultSpotter;
-      select.disabled = false;
-      if (copyBtn instanceof HTMLButtonElement) copyBtn.disabled = false;
-      select.innerHTML = list.slice(0, 80).map((e) => {
-        const label = `${e.spotter} (${formatNumberSh6(e.count)})`;
-        return `<option value="${escapeAttr(e.spotter)}" ${e.spotter === defaultSpotter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-      }).join('');
-      const canvas = select.closest('.rbn-signal-card')?.querySelector('.rbn-signal-canvas');
-      if (canvas) canvas.dataset.spotter = defaultSpotter;
-      if (statusEl) {
-        statusEl.textContent = '';
-        statusEl.hidden = true;
-      }
-    });
-    scheduleRbnCompareSignalDraw();
+    return getRbnCompareModelRuntime().populateRbnCompareSignalSpotterSelects();
   }
 
   function renderRbnCompareSignal() {
@@ -18799,6 +18537,7 @@
     const coachRuntimeReady = loadCoachRuntimeModule();
     const spotsDataRuntimeReady = loadSpotsDataRuntimeModule();
     const spotsActionsRuntimeReady = loadSpotsActionsRuntimeModule();
+    const rbnCompareModelRuntimeReady = loadRbnCompareModelRuntimeModule();
     const rbnCompareRuntimeReady = loadRbnCompareRuntimeModule();
     const investigationActionsRuntimeReady = loadInvestigationActionsRuntimeModule();
     const investigationWorkspaceReady = loadInvestigationWorkspaceModule();
@@ -18815,6 +18554,7 @@
     await coachRuntimeReady;
     await spotsDataRuntimeReady;
     await spotsActionsRuntimeReady;
+    await rbnCompareModelRuntimeReady;
     await rbnCompareRuntimeReady;
     await investigationActionsRuntimeReady;
     setupNavSearch();

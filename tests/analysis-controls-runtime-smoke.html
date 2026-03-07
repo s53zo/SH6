@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analysis Controls Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>Analysis Controls Runtime Smoke</h1>
+  <p>Checks the extracted compare-count and analysis-mode controller runtime, including DXer flow, compare restoration, suggestion actions, and diff tooltip behavior.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        const [mainSource, moduleSource, analysisModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/ui/analysis-controls-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/ui/analysis-controls-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/ui/analysis-controls-runtime.js')
+        ]);
+
+        add('Main.js imports the analysis controls runtime module', mainSource.includes("const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.1.21';"));
+        add('Main.js loads analysis controls runtime before toggle setup', mainSource.includes('const analysisControlsRuntimeReady = loadAnalysisControlsRuntimeModule();') && mainSource.includes('await analysisControlsRuntimeReady;'));
+        add('Main.js delegates compare and analysis helpers to the runtime', mainSource.includes('return getAnalysisControlsRuntime().setCompareCount(count, updateRadios);') && mainSource.includes('return getAnalysisControlsRuntime().setupAnalysisModeToggle();'));
+        add('Analysis controls runtime exports the factory', moduleSource.includes('export function createAnalysisControlsRuntime'));
+
+        const appRoot = document.createElement('div');
+        appRoot.innerHTML = `
+          <div id="compareHelper"></div>
+          <div id="loadTipBadge"></div>
+          <div id="compareModeLoadStep"></div>
+          <div id="loadStepAnalysisTitle"></div>
+          <div id="loadStepCompareTitle"></div>
+          <div id="loadStepLoadTitle"></div>
+          <div id="loadStepReportsTitle"></div>
+          <div id="loadPanelSubtitle"></div>
+          <div id="analysisModeSuggestion"><button type="button" data-mode-suggestion="dxer">Try DXer</button></div>
+          <button type="button" id="analysisModeDiffHint" class="analysis-mode-diff-hint" data-analysis-mode-diff-hint="Contester compares logs. DXer focuses on one log.">What's the difference?</button>
+          <div id="analysisModeDiffTooltip"></div>
+          <input type="radio" name="compareCount" value="1">
+          <input type="radio" name="compareCount" value="2" checked>
+          <input type="radio" name="analysisMode" class="analysis-mode-option" value="contester" checked>
+          <input type="radio" name="analysisMode" class="analysis-mode-option" value="dxer">
+        `;
+        document.body.appendChild(appRoot);
+
+        const state = {
+          compareCount: 1,
+          compareEnabled: false,
+          compareCountBeforeDxer: 1,
+          analysisMode: 'contester',
+          qsoData: null,
+          compareSlots: []
+        };
+        const dom = {
+          compareHelper: appRoot.querySelector('#compareHelper'),
+          loadTipBadge: appRoot.querySelector('#loadTipBadge'),
+          compareModeLoadStep: appRoot.querySelector('#compareModeLoadStep'),
+          loadStepAnalysisTitle: appRoot.querySelector('#loadStepAnalysisTitle'),
+          loadStepCompareTitle: appRoot.querySelector('#loadStepCompareTitle'),
+          loadStepLoadTitle: appRoot.querySelector('#loadStepLoadTitle'),
+          loadStepReportsTitle: appRoot.querySelector('#loadStepReportsTitle'),
+          loadPanelSubtitle: appRoot.querySelector('#loadPanelSubtitle'),
+          analysisModeSuggestion: appRoot.querySelector('#analysisModeSuggestion'),
+          analysisModeDiffHint: appRoot.querySelector('#analysisModeDiffHint'),
+          analysisModeDiffTooltip: appRoot.querySelector('#analysisModeDiffTooltip'),
+          compareModeRadios: appRoot.querySelectorAll('input[name="compareCount"]'),
+          analysisModeRadios: appRoot.querySelectorAll('.analysis-mode-option')
+        };
+        const trackEvents = [];
+        const notices = [];
+        const calls = {
+          invalidateCompareLogData: 0,
+          updateBandRibbon: 0,
+          rebuildReports: 0,
+          renderActiveReport: 0,
+          updateLoadSummary: 0,
+          syncPeriodFiltersWithAvailableData: 0,
+          recomputeDerived: []
+        };
+
+        const runtime = analysisModule.createAnalysisControlsRuntime({
+          getDom: () => dom,
+          getState: () => state,
+          normalizeAnalysisMode: (value) => {
+            const key = String(value || '').trim().toLowerCase();
+            return key === 'dxer' ? 'dxer' : 'contester';
+          },
+          clearAnalysisModeSuggestion: () => {
+            notices.push('clear-suggestion');
+          },
+          invalidateCompareLogData: () => { calls.invalidateCompareLogData += 1; },
+          updateBandRibbon: () => { calls.updateBandRibbon += 1; },
+          rebuildReports: () => { calls.rebuildReports += 1; },
+          renderActiveReport: () => { calls.renderActiveReport += 1; },
+          updateLoadSummary: () => { calls.updateLoadSummary += 1; },
+          syncPeriodFiltersWithAvailableData: () => { calls.syncPeriodFiltersWithAvailableData += 1; },
+          recomputeDerived: async (reason) => { calls.recomputeDerived.push(reason); },
+          trackEvent: (name, payload) => trackEvents.push({ name, payload }),
+          showOverlayNotice: (message) => notices.push(message),
+          resolveAnalysisModeLabel: (value) => String(value || '').trim().toLowerCase() === 'dxer' ? 'DXer' : 'Contester',
+          analysisModeDefault: 'contester',
+          analysisModeDxer: 'dxer',
+          analysisModeDifferenceText: 'Contester compares logs. DXer focuses on one log.'
+        });
+
+        runtime.setupCompareToggle();
+        add(
+          'setupCompareToggle applies the checked compare radio and refresh hooks',
+          state.compareCount === 2
+            && state.compareEnabled === true
+            && dom.compareHelper.textContent === 'Comparing 2 logs'
+            && document.body.classList.contains('compare-count-2')
+            && calls.invalidateCompareLogData === 1
+            && calls.updateBandRibbon === 1
+            && calls.rebuildReports === 1
+            && calls.renderActiveReport === 1
+            && calls.updateLoadSummary === 1,
+          JSON.stringify({ state, calls, bodyClass: document.body.className, compareHelper: dom.compareHelper.textContent })
+        );
+
+        runtime.setupAnalysisModeToggle();
+        add(
+          'setupAnalysisModeToggle initializes the selected analysis mode and load-step text',
+          state.analysisMode === 'contester'
+            && dom.loadStepCompareTitle.textContent === 'Step 2 · Choose how many logs to compare'
+            && dom.loadStepLoadTitle.textContent === 'Step 3 · Load logs'
+            && dom.loadPanelSubtitle.textContent.includes('choose compare mode'),
+          JSON.stringify({
+            analysisMode: state.analysisMode,
+            compareTitle: dom.loadStepCompareTitle.textContent,
+            loadTitle: dom.loadStepLoadTitle.textContent,
+            subtitle: dom.loadPanelSubtitle.textContent
+          })
+        );
+
+        runtime.setAnalysisMode('dxer', true);
+        add(
+          'setAnalysisMode forces DXer into single-log mode and updates the load-step flow',
+          state.analysisMode === 'dxer'
+            && state.compareCount === 1
+            && state.compareCountBeforeDxer === 2
+            && dom.compareModeLoadStep.hidden === true
+            && dom.loadStepCompareTitle.textContent.includes('disabled in DXer mode')
+            && dom.loadStepLoadTitle.textContent === 'Step 2 · Load logs'
+            && dom.loadTipBadge.hidden === true,
+          JSON.stringify({
+            state,
+            compareStepHidden: dom.compareModeLoadStep.hidden,
+            compareTitle: dom.loadStepCompareTitle.textContent,
+            loadTitle: dom.loadStepLoadTitle.textContent,
+            tipHidden: dom.loadTipBadge.hidden
+          })
+        );
+
+        state.qsoData = { qsos: [1] };
+        runtime.setAnalysisMode('contester', true);
+        add(
+          'Leaving DXer restores compare count and rederives when logs are loaded',
+          state.analysisMode === 'contester'
+            && state.compareCount === 2
+            && calls.recomputeDerived.includes('analysisMode'),
+          JSON.stringify({ state, recomputeDerived: calls.recomputeDerived })
+        );
+
+        dom.analysisModeSuggestion.querySelector('[data-mode-suggestion="dxer"]').click();
+        add(
+          'Analysis mode suggestions switch mode and raise an overlay notice',
+          state.analysisMode === 'dxer'
+            && notices.some((entry) => String(entry).includes('Analysis mode set to DXer.')),
+          JSON.stringify({ state, notices })
+        );
+
+        dom.analysisModeDiffHint.click();
+        add(
+          'Diff hint toggles the explanation tooltip',
+          dom.analysisModeDiffTooltip.hidden === false
+            && dom.analysisModeDiffTooltip.textContent.includes('DXer focuses on one log'),
+          JSON.stringify({
+            hidden: dom.analysisModeDiffTooltip.hidden,
+            text: dom.analysisModeDiffTooltip.textContent
+          })
+        );
+
+        dom.analysisModeRadios[0].checked = false;
+        dom.analysisModeRadios[1].checked = true;
+        dom.analysisModeRadios[1].dispatchEvent(new Event('change', { bubbles: true }));
+        add(
+          'Analysis mode radio changes are tracked and applied through the runtime',
+          trackEvents.some((entry) => entry.name === 'analysis_mode_change' && entry.payload.mode === 'dxer')
+            && state.analysisMode === 'dxer',
+          JSON.stringify({ trackEvents, state })
+        );
+
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, {
+          checksTotal: checks.length,
+          checksFailed: failed.length,
+          state,
+          calls,
+          trackEvents,
+          notices
+        });
+      } catch (err) {
+        add('Analysis controls smoke completed without runtime errors', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          checksTotal: checks.length,
+          checksFailed: checks.filter((entry) => !entry.ok).length,
+          error: err && err.stack ? err.stack : String(err)
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

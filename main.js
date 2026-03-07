@@ -193,6 +193,7 @@
   const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.1.21';
   const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.1.21';
   const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.1.21';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.1.21';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.1.21';
   const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.1.21';
   const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.1.21';
@@ -1285,6 +1286,8 @@
   let archiveSearchRuntime = null;
   let loadPanelRuntimeModulePromise = null;
   let loadPanelRuntime = null;
+  let analysisControlsRuntimeModulePromise = null;
+  let analysisControlsRuntime = null;
   let investigationWorkspaceModulePromise = null;
   let investigationWorkspaceRenderer = null;
   let sessionCodecModulePromise = null;
@@ -1697,6 +1700,45 @@
       throw new Error('load panel runtime not loaded');
     }
     return loadPanelRuntime;
+  }
+
+  function loadAnalysisControlsRuntimeModule() {
+    if (!analysisControlsRuntimeModulePromise) {
+      analysisControlsRuntimeModulePromise = import(ANALYSIS_CONTROLS_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createAnalysisControlsRuntime !== 'function') {
+            throw new Error('analysis controls runtime module unavailable');
+          }
+          analysisControlsRuntime = mod.createAnalysisControlsRuntime({
+            getDom: () => dom,
+            getState: () => state,
+            normalizeAnalysisMode,
+            clearAnalysisModeSuggestion,
+            invalidateCompareLogData,
+            updateBandRibbon,
+            rebuildReports,
+            renderActiveReport,
+            updateLoadSummary,
+            syncPeriodFiltersWithAvailableData,
+            recomputeDerived,
+            trackEvent,
+            showOverlayNotice,
+            resolveAnalysisModeLabel,
+            analysisModeDefault: ANALYSIS_MODE_DEFAULT,
+            analysisModeDxer: ANALYSIS_MODE_DXER,
+            analysisModeDifferenceText: ANALYSIS_MODE_DIFFERENCE_TEXT
+          });
+          return analysisControlsRuntime;
+        });
+    }
+    return analysisControlsRuntimeModulePromise;
+  }
+
+  function getAnalysisControlsRuntime() {
+    if (!analysisControlsRuntime) {
+      throw new Error('analysis controls runtime not loaded');
+    }
+    return analysisControlsRuntime;
   }
 
   function loadInvestigationWorkspaceModule() {
@@ -20567,97 +20609,15 @@
   }
 
   function setCompareCount(count, updateRadios = false) {
-    const safeCount = Math.min(4, Math.max(1, Number(count) || 1));
-    state.compareCount = safeCount;
-    state.compareEnabled = safeCount > 1;
-    document.body.classList.toggle('compare-mode', state.compareEnabled);
-    document.body.classList.remove('compare-count-1', 'compare-count-2', 'compare-count-3', 'compare-count-4');
-    document.body.classList.add(`compare-count-${safeCount}`);
-    if (dom.compareHelper) {
-      dom.compareHelper.textContent = safeCount > 1
-        ? `Comparing ${safeCount} logs`
-        : 'Single log mode';
-    }
-    if (updateRadios && dom.compareModeRadios && dom.compareModeRadios.length) {
-      dom.compareModeRadios.forEach((radio) => {
-        radio.checked = Number(radio.value) === safeCount;
-      });
-    }
-    invalidateCompareLogData();
-    updateBandRibbon();
-    rebuildReports();
-    renderActiveReport();
-    updateLoadSummary();
+    return getAnalysisControlsRuntime().setCompareCount(count, updateRadios);
   }
 
   function syncLoadPanelFlowForAnalysisMode() {
-    const isDxer = state.analysisMode === ANALYSIS_MODE_DXER;
-    document.body.classList.toggle('analysis-mode-dxer', isDxer);
-    if (dom.loadTipBadge) {
-      dom.loadTipBadge.hidden = isDxer;
-      dom.loadTipBadge.style.display = isDxer ? 'none' : '';
-    }
-    if (dom.compareModeLoadStep) {
-      dom.compareModeLoadStep.hidden = isDxer;
-    }
-    if (dom.loadStepAnalysisTitle) {
-      dom.loadStepAnalysisTitle.textContent = 'Step 1 · Choose analysis mode';
-    }
-    if (dom.loadStepCompareTitle) {
-      dom.loadStepCompareTitle.textContent = isDxer ? 'Step 2 · Log compare is disabled in DXer mode' : 'Step 2 · Choose how many logs to compare';
-    }
-    if (dom.loadStepLoadTitle) {
-      dom.loadStepLoadTitle.textContent = isDxer ? 'Step 2 · Load logs' : 'Step 3 · Load logs';
-    }
-    if (dom.loadStepReportsTitle) {
-      dom.loadStepReportsTitle.textContent = isDxer ? 'Step 3 · View reports' : 'Step 4 · View reports';
-    }
-    if (dom.loadPanelSubtitle) {
-      dom.loadPanelSubtitle.textContent = isDxer
-        ? 'Choose analysis mode first, then load one log to continue.'
-        : 'Choose analysis mode first, then choose compare mode and load logs.';
-    }
-  }
-
-  function enforceCompareCountForAnalysisMode(mode, previousMode = '') {
-    if (mode === ANALYSIS_MODE_DXER) {
-      if (state.compareCount > 1) {
-        state.compareCountBeforeDxer = Math.min(4, Math.max(1, Number(state.compareCount) || 1));
-      }
-      if (state.compareCount !== 1) {
-        setCompareCount(1, previousMode !== ANALYSIS_MODE_DXER);
-      }
-      return;
-    }
-    const restoreCount = Math.min(4, Math.max(1, Number(state.compareCountBeforeDxer) || 1));
-    if (state.compareCount !== restoreCount) {
-      setCompareCount(restoreCount, previousMode === ANALYSIS_MODE_DXER);
-    }
+    return getAnalysisControlsRuntime().syncLoadPanelFlowForAnalysisMode();
   }
 
   function setAnalysisMode(mode, updateRadios = false) {
-    const safeMode = normalizeAnalysisMode(mode) || ANALYSIS_MODE_DEFAULT;
-    const previousMode = state.analysisMode;
-    state.analysisMode = safeMode;
-    clearAnalysisModeSuggestion();
-    if (previousMode !== safeMode) {
-      enforceCompareCountForAnalysisMode(safeMode, previousMode);
-    }
-    if (updateRadios && dom.analysisModeRadios && dom.analysisModeRadios.length) {
-      dom.analysisModeRadios.forEach((radio) => {
-        radio.checked = String(radio.value) === safeMode;
-      });
-    }
-    syncLoadPanelFlowForAnalysisMode();
-    syncPeriodFiltersWithAvailableData();
-    rebuildReports();
-    if (state.qsoData || state.compareSlots.some((slot) => slot && slot.qsoData)) {
-      recomputeDerived('analysisMode').catch((err) => {
-        console.warn('Analysis-mode rederive failed:', err);
-      });
-      return;
-    }
-    renderActiveReport();
+    return getAnalysisControlsRuntime().setAnalysisMode(mode, updateRadios);
   }
 
   function setupSlotActions() {
@@ -20683,81 +20643,11 @@
   }
 
   function setupCompareToggle() {
-    if (!dom.compareModeRadios || !dom.compareModeRadios.length) return;
-    dom.compareModeRadios.forEach((radio) => {
-      radio.addEventListener('change', () => {
-        if (radio.checked) {
-          trackEvent('compare_mode_change', {
-            count: Number(radio.value) || 1
-          });
-          setCompareCount(radio.value, false);
-        }
-      });
-    });
-    const selected = Array.from(dom.compareModeRadios).find((r) => r.checked);
-    setCompareCount(selected ? selected.value : 1, true);
+    return getAnalysisControlsRuntime().setupCompareToggle();
   }
 
   function setupAnalysisModeToggle() {
-    if (!dom.analysisModeRadios || !dom.analysisModeRadios.length) return;
-    dom.analysisModeRadios.forEach((radio) => {
-      radio.addEventListener('change', () => {
-        if (!radio.checked) return;
-        trackEvent('analysis_mode_change', {
-          mode: String(radio.value || '').trim().toLowerCase()
-        });
-        setAnalysisMode(radio.value, true);
-      });
-    });
-    if (dom.analysisModeSuggestion) {
-      dom.analysisModeSuggestion.addEventListener('click', (evt) => {
-        const btn = evt.target && evt.target.closest ? evt.target.closest('[data-mode-suggestion]') : null;
-        if (!btn) return;
-        const targetMode = btn.dataset.modeSuggestion;
-        setAnalysisMode(targetMode, true);
-        showOverlayNotice(`Analysis mode set to ${resolveAnalysisModeLabel(targetMode)}.`);
-      });
-    }
-    if (dom.analysisModeDiffHint && dom.analysisModeDiffTooltip) {
-      const diffHint = dom.analysisModeDiffHint;
-      const tooltip = dom.analysisModeDiffTooltip;
-      const text = diffHint.getAttribute('data-analysis-mode-diff-hint') || ANALYSIS_MODE_DIFFERENCE_TEXT;
-      tooltip.textContent = text;
-      const showDiffHint = () => {
-        tooltip.textContent = text;
-        tooltip.hidden = false;
-        tooltip.setAttribute('aria-hidden', 'false');
-        tooltip.classList.add('analysis-mode-diff-tooltip-visible');
-      };
-      const hideDiffHint = () => {
-        tooltip.hidden = true;
-        tooltip.setAttribute('aria-hidden', 'true');
-        tooltip.classList.remove('analysis-mode-diff-tooltip-visible');
-      };
-      diffHint.addEventListener('mouseenter', showDiffHint);
-      diffHint.addEventListener('mouseleave', hideDiffHint);
-      diffHint.addEventListener('focus', showDiffHint);
-      diffHint.addEventListener('blur', hideDiffHint);
-      diffHint.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        if (tooltip.hidden) {
-          showDiffHint();
-        } else {
-          hideDiffHint();
-        }
-      });
-      document.addEventListener('click', (evt) => {
-        if (evt.target === diffHint || tooltip.contains(evt.target)) return;
-        hideDiffHint();
-      });
-      diffHint.addEventListener('keydown', (evt) => {
-        if (evt.key !== 'Escape') return;
-        hideDiffHint();
-      });
-      hideDiffHint();
-    }
-    const selected = Array.from(dom.analysisModeRadios).find((r) => r.checked);
-    setAnalysisMode(selected ? selected.value : ANALYSIS_MODE_DEFAULT, true);
+    return getAnalysisControlsRuntime().setupAnalysisModeToggle();
   }
 
   async function init() {
@@ -20774,6 +20664,7 @@
     const retainedRuntimeReady = loadRetainedRuntimeModule();
     const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();
     const loadPanelRuntimeReady = loadLoadPanelRuntimeModule();
+    const analysisControlsRuntimeReady = loadAnalysisControlsRuntimeModule();
     const investigationWorkspaceReady = loadInvestigationWorkspaceModule();
     const sessionCodecReady = loadSessionCodecModule();
     const comparePerspectiveReady = loadComparePerspectiveModule();
@@ -20783,6 +20674,7 @@
     await retainedRuntimeReady;
     await archiveSearchRuntimeReady;
     await loadPanelRuntimeReady;
+    await analysisControlsRuntimeReady;
     setupNavSearch();
     rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');

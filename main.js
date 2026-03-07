@@ -192,6 +192,7 @@
   const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.1.21';
   const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.1.21';
   const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.1.21';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.1.21';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.1.21';
   const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.1.21';
   const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.1.21';
@@ -1282,6 +1283,8 @@
   let archiveClient = null;
   let archiveSearchRuntimeModulePromise = null;
   let archiveSearchRuntime = null;
+  let loadPanelRuntimeModulePromise = null;
+  let loadPanelRuntime = null;
   let investigationWorkspaceModulePromise = null;
   let investigationWorkspaceRenderer = null;
   let sessionCodecModulePromise = null;
@@ -1645,6 +1648,55 @@
       throw new Error('archive search runtime not loaded');
     }
     return archiveSearchRuntime;
+  }
+
+  function loadLoadPanelRuntimeModule() {
+    if (!loadPanelRuntimeModulePromise) {
+      loadPanelRuntimeModulePromise = import(LOAD_PANEL_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createLoadPanelRuntime !== 'function') {
+            throw new Error('load panel runtime module unavailable');
+          }
+          loadPanelRuntime = mod.createLoadPanelRuntime({
+            getSlotPanel,
+            getStatusElBySlot,
+            getSlotStatusElBySlot,
+            getRepoCompactBySlot,
+            getSlotById,
+            getActiveCompareSlots,
+            clearSlotData: (slotId) => {
+              if (String(slotId || 'A').toUpperCase() === 'A') resetMainSlot();
+              else resetCompareSlot(slotId);
+            },
+            escapeHtml,
+            focusArchiveSearchInput: (slotId) => {
+              const key = String(slotId || 'A').toUpperCase();
+              const input = key === 'B'
+                ? dom.repoSearchB
+                : key === 'C'
+                  ? dom.repoSearchC
+                  : key === 'D'
+                    ? dom.repoSearchD
+                    : dom.repoSearch;
+              if (input) input.focus();
+            },
+            loadDemoLog,
+            getReports: () => reports,
+            setActiveReport,
+            getViewContainer: () => dom.viewContainer || document.getElementById('viewContainer'),
+            slotIds: ['A', 'B', 'C', 'D']
+          });
+          return loadPanelRuntime;
+        });
+    }
+    return loadPanelRuntimeModulePromise;
+  }
+
+  function getLoadPanelRuntime() {
+    if (!loadPanelRuntime) {
+      throw new Error('load panel runtime not loaded');
+    }
+    return loadPanelRuntime;
   }
 
   function loadInvestigationWorkspaceModule() {
@@ -2121,101 +2173,19 @@
   }
 
   function setArchiveCompact(slotId, show, pathLabel = '') {
-    const { compact, text, controls } = getRepoCompactBySlot(slotId);
-    if (!compact || !controls) return;
-    compact.hidden = !show;
-    controls.hidden = show;
-    if (text) {
-      text.textContent = pathLabel ? `Loaded from archive: ${pathLabel}` : 'Loaded from archive.';
-    }
+    return getLoadPanelRuntime().setArchiveCompact(slotId, show, pathLabel);
   }
 
   function updateSlotStatus(slotId) {
-    const slot = getSlotById(slotId);
-    const panel = getSlotPanel(slotId);
-    const statusEl = getSlotStatusElBySlot(slotId);
-    const isSkipped = !!slot?.skipped;
-    const isLoaded = !!slot?.qsoData;
-    const isEmpty = !isSkipped && !isLoaded;
-    if (panel) {
-      panel.classList.toggle('is-skipped', isSkipped);
-      panel.classList.toggle('is-loaded', isLoaded);
-      panel.classList.toggle('is-empty', isEmpty);
-    }
-    if (statusEl) {
-      statusEl.textContent = isSkipped ? 'Skipped' : isLoaded ? 'Loaded' : 'Empty';
-      statusEl.className = ['slot-status', isSkipped ? 'status-skipped' : '', isLoaded ? 'status-loaded' : '', isEmpty ? 'status-empty' : ''].filter(Boolean).join(' ');
-    }
-    if (isSkipped) {
-      const summaryEl = getStatusElBySlot(slotId);
-      if (summaryEl) summaryEl.textContent = 'Slot skipped.';
-    } else if (isEmpty) {
-      const summaryEl = getStatusElBySlot(slotId);
-      if (summaryEl) summaryEl.textContent = 'No log loaded';
-    }
+    return getLoadPanelRuntime().updateSlotStatus(slotId);
   }
 
   function setSlotAction(slotId, action) {
-    const panel = getSlotPanel(slotId);
-    if (!panel) return;
-    panel.querySelectorAll('.slot-choice').forEach((btn) => {
-      const isActive = btn.dataset.action === action;
-      btn.classList.toggle('is-active', isActive);
-      btn.setAttribute('role', 'tab');
-      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-      btn.tabIndex = isActive ? 0 : -1;
-    });
-    panel.querySelectorAll('.slot-panel').forEach((block) => {
-      const isActive = block.dataset.panel === action;
-      block.classList.toggle('is-active', isActive);
-      block.hidden = !isActive;
-      block.setAttribute('role', 'tabpanel');
-    });
-    if (action !== 'skip') {
-      const slot = getSlotById(slotId);
-      if (slot?.skipped) {
-        slot.skipped = false;
-        updateSlotStatus(slotId);
-        updateLoadSummary();
-      }
-    }
-  }
-
-  function clearSlot(slotId) {
-    if (String(slotId || 'A').toUpperCase() === 'A') resetMainSlot();
-    else resetCompareSlot(slotId);
-    updateSlotStatus(slotId);
-    setArchiveCompact(slotId, false);
-  }
-
-  function skipSlot(slotId) {
-    clearSlot(slotId);
-    const slot = getSlotById(slotId);
-    if (slot) slot.skipped = true;
-    setSlotAction(slotId, 'skip');
-    updateSlotStatus(slotId);
-    updateLoadSummary();
+    return getLoadPanelRuntime().setSlotAction(slotId, action);
   }
 
   function updateLoadSummary() {
-    if (!dom.loadSummaryItems || !dom.viewReportsBtn) return;
-    const active = getActiveCompareSlots();
-    const chips = active.map((entry) => {
-      const slot = entry.slot;
-      const status = slot?.skipped ? 'skipped' : slot?.qsoData ? 'loaded' : 'empty';
-      const label = `${entry.label}: ${status === 'loaded' ? 'Loaded' : status === 'skipped' ? 'Skipped' : 'Empty'}`;
-      return `<span class="summary-chip ${status}">${escapeHtml(label)}</span>`;
-    });
-    dom.loadSummaryItems.innerHTML = chips.join('');
-    const allResolved = active.every((entry) => entry.slot?.skipped || entry.slot?.qsoData);
-    const anyLoaded = active.some((entry) => entry.slot?.qsoData);
-    const ready = allResolved && anyLoaded;
-    dom.viewReportsBtn.disabled = !ready;
-    if (dom.loadSummaryHint) {
-      if (!anyLoaded) dom.loadSummaryHint.textContent = 'Load at least one log to continue.';
-      else if (!allResolved) dom.loadSummaryHint.textContent = 'Finish loading all visible slots.';
-      else dom.loadSummaryHint.textContent = 'Ready to explore reports.';
-    }
+    return getLoadPanelRuntime().updateLoadSummary();
   }
 
   function getActiveCompareSnapshots() {
@@ -20535,15 +20505,6 @@
         });
       });
     }
-    const demoButtons = document.querySelectorAll('.demo-log-btn');
-    demoButtons.forEach((btn) => {
-      btn.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        const slotId = btn.dataset.slot || 'A';
-        setSlotAction(slotId, 'demo');
-        loadDemoLog(slotId);
-      });
-    });
   }
 
   function renderBreaksForDerived(derived, slotLabel, options = {}) {
@@ -20700,59 +20661,11 @@
   }
 
   function setupSlotActions() {
-    document.querySelectorAll('.slot-choice').forEach((btn) => {
-      btn.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        const slotId = btn.dataset.slot || 'A';
-        const action = btn.dataset.action || 'upload';
-        if (action === 'skip') {
-          skipSlot(slotId);
-          return;
-        }
-        setSlotAction(slotId, action);
-      });
-    });
-    document.querySelectorAll('.repo-change').forEach((btn) => {
-      btn.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        const slotId = btn.dataset.slot || 'A';
-        setArchiveCompact(slotId, false);
-        setSlotAction(slotId, 'archive');
-        const input = slotId === 'B'
-          ? dom.repoSearchB
-          : slotId === 'C'
-            ? dom.repoSearchC
-            : slotId === 'D'
-              ? dom.repoSearchD
-              : dom.repoSearch;
-        if (input) input.focus();
-      });
-    });
-    ['A', 'B', 'C', 'D'].forEach((slotId) => {
-      const panel = getSlotPanel(slotId);
-      const activeBtn = panel ? panel.querySelector('.slot-choice.is-active') : null;
-      const action = activeBtn ? (activeBtn.dataset.action || 'upload') : 'upload';
-      setSlotAction(slotId, action);
-    });
-    updateSlotStatus('A');
-    updateSlotStatus('B');
-    updateSlotStatus('C');
-    updateSlotStatus('D');
-    updateLoadSummary();
+    return getLoadPanelRuntime().setupSlotActions();
   }
 
   function setupLoadSummaryActions() {
-    if (!dom.viewReportsBtn) return;
-    dom.viewReportsBtn.addEventListener('click', (evt) => {
-      evt.preventDefault();
-      const mainIndex = reports.findIndex((r) => r.id === 'main');
-      if (mainIndex >= 0) {
-        setActiveReport(mainIndex);
-        return;
-      }
-      const container = dom.viewContainer || document.getElementById('viewContainer');
-      if (container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    return getLoadPanelRuntime().setupLoadSummaryActions();
   }
 
   function setupResetSelectionsAction() {
@@ -20860,6 +20773,7 @@
     const compareWorkspaceReady = loadCompareWorkspaceModule();
     const retainedRuntimeReady = loadRetainedRuntimeModule();
     const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();
+    const loadPanelRuntimeReady = loadLoadPanelRuntimeModule();
     const investigationWorkspaceReady = loadInvestigationWorkspaceModule();
     const sessionCodecReady = loadSessionCodecModule();
     const comparePerspectiveReady = loadComparePerspectiveModule();
@@ -20868,6 +20782,7 @@
     await navigationRuntimeReady;
     await retainedRuntimeReady;
     await archiveSearchRuntimeReady;
+    await loadPanelRuntimeReady;
     setupNavSearch();
     rebuildReports();
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');

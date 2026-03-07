@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Load Panel Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+    .slot-choice.is-active {
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <h1>Load Panel Runtime Smoke</h1>
+  <p>Checks the extracted load-panel runtime, including slot state sync, archive compact mode, skip flow, summary readiness, and “View reports” activation.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        const [mainSource, moduleSource, loadPanelModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/ui/load-panel-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/ui/load-panel-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/ui/load-panel-runtime.js')
+        ]);
+
+        add('Main.js imports the load panel runtime module', mainSource.includes("const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.1.21';"));
+        add('Main.js loads load panel runtime before setupCompareToggle runs', mainSource.includes('const loadPanelRuntimeReady = loadLoadPanelRuntimeModule();') && mainSource.includes('await loadPanelRuntimeReady;'));
+        add('Main.js delegates slot action and summary helpers to the load panel runtime', mainSource.includes("return getLoadPanelRuntime().setArchiveCompact(slotId, show, pathLabel);") && mainSource.includes("return getLoadPanelRuntime().updateLoadSummary();") && mainSource.includes("return getLoadPanelRuntime().setupSlotActions();"));
+        add('Load panel runtime exports the factory', moduleSource.includes('export function createLoadPanelRuntime'));
+
+        const appRoot = document.createElement('div');
+        appRoot.innerHTML = `
+          <div id="loadSummaryItems"></div>
+          <div id="loadSummaryHint"></div>
+          <button id="viewReportsBtn" disabled>View reports</button>
+          <div id="viewContainer"></div>
+
+          <div class="log-panel" data-slot="A">
+            <button class="slot-choice is-active" data-slot="A" data-action="upload">Upload</button>
+            <button class="slot-choice" data-slot="A" data-action="archive">Archive</button>
+            <button class="slot-choice" data-slot="A" data-action="demo">Demo</button>
+            <button class="slot-choice" data-slot="A" data-action="skip">Skip</button>
+            <div class="slot-panel" data-panel="upload"></div>
+            <div class="slot-panel" data-panel="archive" hidden></div>
+            <div class="slot-panel" data-panel="demo" hidden></div>
+            <div class="slot-panel" data-panel="skip" hidden></div>
+          </div>
+          <div class="log-panel" data-slot="B">
+            <button class="slot-choice is-active" data-slot="B" data-action="upload">Upload</button>
+            <button class="slot-choice" data-slot="B" data-action="archive">Archive</button>
+            <button class="slot-choice" data-slot="B" data-action="demo">Demo</button>
+            <button class="slot-choice" data-slot="B" data-action="skip">Skip</button>
+            <div class="slot-panel" data-panel="upload"></div>
+            <div class="slot-panel" data-panel="archive" hidden></div>
+            <div class="slot-panel" data-panel="demo" hidden></div>
+            <div class="slot-panel" data-panel="skip" hidden></div>
+          </div>
+
+          <div id="repoCompactA" hidden></div>
+          <div id="repoCompactTextA"></div>
+          <div id="repoControlsA"></div>
+          <button class="repo-change" data-slot="A">Change</button>
+          <input id="repoSearchA">
+
+          <div id="repoCompactB" hidden></div>
+          <div id="repoCompactTextB"></div>
+          <div id="repoControlsB"></div>
+          <button class="repo-change" data-slot="B">Change</button>
+          <input id="repoSearchB">
+          <button class="demo-log-btn" data-slot="A">Load demo log</button>
+          <button class="demo-log-btn" data-slot="B">Load demo log</button>
+
+          <div id="fileStatusA"></div>
+          <div id="fileStatusB"></div>
+          <div id="slotStatusA"></div>
+          <div id="slotStatusB"></div>
+        `;
+        document.body.appendChild(appRoot);
+
+        const slots = {
+          A: { skipped: false, qsoData: null },
+          B: { skipped: false, qsoData: { qsos: [1] } }
+        };
+        const reports = [
+          { id: 'load_logs', title: 'Start' },
+          { id: 'main', title: 'Main' }
+        ];
+        const cleared = [];
+        const focused = [];
+        const activeReportIndices = [];
+        const loadDemoCalls = [];
+
+        const getSlotPanel = (slotId) => appRoot.querySelector(`.log-panel[data-slot="${String(slotId || '').toUpperCase()}"]`);
+        const getStatusElBySlot = (slotId) => appRoot.querySelector(`#fileStatus${String(slotId || '').toUpperCase()}`);
+        const getSlotStatusElBySlot = (slotId) => appRoot.querySelector(`#slotStatus${String(slotId || '').toUpperCase()}`);
+        const getRepoCompactBySlot = (slotId) => {
+          const key = String(slotId || '').toUpperCase();
+          return {
+            compact: appRoot.querySelector(`#repoCompact${key}`),
+            text: appRoot.querySelector(`#repoCompactText${key}`),
+            controls: appRoot.querySelector(`#repoControls${key}`)
+          };
+        };
+
+        const runtime = loadPanelModule.createLoadPanelRuntime({
+          getSlotPanel,
+          getStatusElBySlot,
+          getSlotStatusElBySlot,
+          getRepoCompactBySlot,
+          getSlotById: (slotId) => slots[String(slotId || '').toUpperCase()] || null,
+          getActiveCompareSlots: () => [
+            { id: 'A', label: 'Log A', slot: slots.A },
+            { id: 'B', label: 'Log B', slot: slots.B }
+          ],
+          clearSlotData: (slotId) => {
+            const key = String(slotId || '').toUpperCase();
+            cleared.push(key);
+            slots[key] = { skipped: false, qsoData: null };
+          },
+          escapeHtml: (value) => String(value == null ? '' : value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;'),
+          focusArchiveSearchInput: (slotId) => {
+            const key = String(slotId || '').toUpperCase();
+            focused.push(key);
+            const input = appRoot.querySelector(`#repoSearch${key}`);
+            if (input) input.focus();
+          },
+          loadDemoLog: (slotId) => loadDemoCalls.push(String(slotId || '').toUpperCase()),
+          getReports: () => reports,
+          setActiveReport: (index) => activeReportIndices.push(index),
+          getViewContainer: () => appRoot.querySelector('#viewContainer'),
+          slotIds: ['A', 'B']
+        });
+
+        runtime.setupSlotActions();
+        runtime.setupSlotActions();
+        runtime.setupLoadSummaryActions();
+
+        add(
+          'setupSlotActions initializes slot status and load summary',
+          appRoot.querySelector('#slotStatusA').textContent === 'Empty'
+            && appRoot.querySelector('#slotStatusB').textContent === 'Loaded'
+            && appRoot.querySelector('#loadSummaryItems').textContent.includes('Log A: Empty')
+            && appRoot.querySelector('#loadSummaryItems').textContent.includes('Log B: Loaded')
+            && appRoot.querySelector('#loadSummaryHint').textContent === 'Finish loading all visible slots.'
+            && appRoot.querySelector('#viewReportsBtn').disabled === true,
+          JSON.stringify({
+            slotA: appRoot.querySelector('#slotStatusA').textContent,
+            slotB: appRoot.querySelector('#slotStatusB').textContent,
+            summary: appRoot.querySelector('#loadSummaryItems').textContent,
+            hint: appRoot.querySelector('#loadSummaryHint').textContent,
+            disabled: appRoot.querySelector('#viewReportsBtn').disabled
+          })
+        );
+
+        runtime.setArchiveCompact('A', true, 'ARRL / example / 2025 / S53M.log');
+        add(
+          'setArchiveCompact swaps compact/archive controls and writes breadcrumb text',
+          appRoot.querySelector('#repoCompactA').hidden === false
+            && appRoot.querySelector('#repoControlsA').hidden === true
+            && appRoot.querySelector('#repoCompactTextA').textContent.includes('ARRL / example / 2025 / S53M.log'),
+          JSON.stringify({
+            compactHidden: appRoot.querySelector('#repoCompactA').hidden,
+            controlsHidden: appRoot.querySelector('#repoControlsA').hidden,
+            text: appRoot.querySelector('#repoCompactTextA').textContent
+          })
+        );
+
+        runtime.setSlotAction('A', 'archive');
+        add(
+          'setSlotAction activates the requested slot tab and panel',
+          getSlotPanel('A').querySelector('.slot-choice[data-action="archive"]').classList.contains('is-active')
+            && getSlotPanel('A').querySelector('.slot-panel[data-panel="archive"]').hidden === false
+            && getSlotPanel('A').querySelector('.slot-panel[data-panel="upload"]').hidden === true,
+          getSlotPanel('A').innerHTML
+        );
+
+        getSlotPanel('A').querySelector('.slot-choice[data-action="skip"]').click();
+        add(
+          'Skip action clears the slot, marks it skipped, and unlocks report viewing when another slot is loaded',
+          cleared.includes('A')
+            && slots.A.skipped === true
+            && appRoot.querySelector('#slotStatusA').textContent === 'Skipped'
+            && appRoot.querySelector('#fileStatusA').textContent === 'Slot skipped.'
+            && appRoot.querySelector('#viewReportsBtn').disabled === false
+            && appRoot.querySelector('#loadSummaryHint').textContent === 'Ready to explore reports.',
+          JSON.stringify({
+            cleared,
+            slotA: slots.A,
+            slotStatusA: appRoot.querySelector('#slotStatusA').textContent,
+            fileStatusA: appRoot.querySelector('#fileStatusA').textContent,
+            hint: appRoot.querySelector('#loadSummaryHint').textContent,
+            disabled: appRoot.querySelector('#viewReportsBtn').disabled
+          })
+        );
+
+        appRoot.querySelector('#viewReportsBtn').click();
+        add(
+          'View reports click activates the main report when available',
+          activeReportIndices.length === 1 && activeReportIndices[0] === 1,
+          JSON.stringify(activeReportIndices)
+        );
+
+        runtime.setArchiveCompact('A', true, 'ARRL / reset / 2024 / S53M.log');
+        appRoot.querySelector('.repo-change[data-slot="A"]').click();
+        add(
+          'Repo change returns the slot to archive mode and focuses the search input',
+          appRoot.querySelector('#repoCompactA').hidden === true
+            && getSlotPanel('A').querySelector('.slot-choice[data-action="archive"]').classList.contains('is-active')
+            && focused.includes('A')
+            && document.activeElement === appRoot.querySelector('#repoSearchA'),
+          JSON.stringify({
+            compactHidden: appRoot.querySelector('#repoCompactA').hidden,
+            focused,
+            activeElement: document.activeElement?.id || ''
+          })
+        );
+
+        appRoot.querySelector('.demo-log-btn[data-slot="B"]').click();
+        add(
+          'Demo buttons are bound through the load panel runtime without duplicate handlers',
+          loadDemoCalls.length === 1
+            && loadDemoCalls[0] === 'B'
+            && getSlotPanel('B').querySelector('.slot-choice[data-action="demo"]').classList.contains('is-active'),
+          JSON.stringify({ loadDemoCalls, slotBPanel: getSlotPanel('B').innerHTML })
+        );
+
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, {
+          checksTotal: checks.length,
+          checksFailed: failed.length,
+          cleared,
+          focused,
+          activeReportIndices,
+          loadDemoCalls,
+          slots
+        });
+      } catch (err) {
+        add('Load panel smoke completed without runtime errors', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          checksTotal: checks.length,
+          checksFailed: checks.filter((entry) => !entry.ok).length,
+          error: err && err.stack ? err.stack : String(err)
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

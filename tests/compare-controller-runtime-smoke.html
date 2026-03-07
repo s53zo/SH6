@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compare Controller Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+    .compare-highlight-cell {
+      outline: 2px solid #0f766e;
+    }
+    .compare-highlight-row {
+      background: rgba(15, 118, 110, 0.12);
+    }
+  </style>
+</head>
+<body>
+  <h1>Compare Controller Runtime Smoke</h1>
+  <p>Checks the extracted compare controller runtime, including focus-pair resolution, workspace toolbar actions, jump/highlight interactions, and compare scroll sync.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        const [mainSource, moduleSource, compareModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/compare/controller-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/compare/controller-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/compare/controller-runtime.js')
+        ]);
+
+        add('Main.js imports the compare controller runtime module', mainSource.includes("const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.1.21';"));
+        add('Main.js loads compare controller runtime before compare rendering', mainSource.includes('const compareControllerReady = loadCompareControllerRuntimeModule();') && mainSource.includes('await compareControllerReady;'));
+        add('Main.js delegates compare focus helpers and workspace interactions to the runtime', mainSource.includes('return getCompareControllerRuntime().getCompareFocusPair(reportId, slotEntries);') && mainSource.includes('getCompareControllerRuntime().bindWorkspaceInteractions(reportId);'));
+        add('Compare controller runtime exports the factory', moduleSource.includes('export function createCompareControllerRuntime'));
+
+        const appRoot = document.createElement('div');
+        appRoot.innerHTML = `
+          <div id="viewContainer">
+            <button class="compare-ui-toggle" data-compare-score-mode="claimed">Claimed</button>
+            <button class="compare-ui-toggle" data-compare-range-action="lock-current">Lock</button>
+            <button class="compare-ui-toggle" data-compare-range-action="clear-lock">Clear</button>
+            <button class="compare-ui-toggle" data-compare-perspective-action="save">Save</button>
+            <button class="compare-ui-toggle" data-compare-toggle="sync">Sync</button>
+            <button class="compare-ui-toggle" data-compare-toggle="sticky">Sticky</button>
+            <button class="compare-workspace-jump" data-compare-jump="summary">Jump</button>
+            <button class="compare-insight-chip" data-compare-focus-cell-key="minute-15">Largest delta</button>
+            <select class="compare-focus-select" data-focus-report="qs_by_minute" data-focus-role="a">
+              <option value="A" selected>A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
+            <select class="compare-focus-select" data-focus-report="qs_by_minute" data-focus-role="b">
+              <option value="A">A</option>
+              <option value="B" selected>B</option>
+              <option value="C">C</option>
+            </select>
+            <div class="compare-grid" data-compare-report="qs_by_minute">
+              <div class="compare-scroll compare-scroll-sync" data-sync-group="sync-1" data-sync-slot="A" style="width:80px; overflow:auto;">
+                <div style="width:240px; height:12px;"></div>
+              </div>
+              <div class="compare-scroll compare-scroll-sync" data-sync-group="sync-1" data-sync-slot="B" style="width:80px; overflow:auto;">
+                <div style="width:240px; height:12px;"></div>
+              </div>
+              <div data-compare-row-key="row-15">
+                <button id="cellA" data-compare-cell-key="minute-15">A15</button>
+              </div>
+              <div data-compare-row-key="row-15">
+                <button id="cellB" data-compare-cell-key="minute-15">B15</button>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(appRoot);
+
+        const state = {
+          activeIndex: 0,
+          compareEnabled: true,
+          compareScoreMode: 'computed',
+          compareSyncEnabled: true,
+          compareStickyEnabled: true,
+          compareTimeRangeLock: null,
+          compareFocus: { qs_by_minute: ['B', 'C'] },
+          logTimeRange: null
+        };
+        const reports = [
+          { id: 'main', title: 'Main' },
+          { id: 'summary', title: 'Summary' }
+        ];
+        const savedPerspectives = [];
+        const notices = [];
+        const jumps = [];
+        let renderCount = 0;
+        const dom = {
+          viewContainer: appRoot.querySelector('#viewContainer')
+        };
+        const slots = [
+          { id: 'A', label: 'Log A' },
+          { id: 'B', label: 'Log B' },
+          { id: 'C', label: 'Log C' }
+        ];
+
+        const runtime = compareModule.createCompareControllerRuntime({
+          getDom: () => dom,
+          getState: () => state,
+          getReports: () => reports,
+          getActiveCompareSnapshots: () => slots,
+          getBaseReportId: (reportId) => String(reportId || '').split('::')[0],
+          compareScrollSyncReports: new Set(['qs_by_minute']),
+          compareCrossHighlightReports: new Set(['qs_by_minute']),
+          normalizeCompareScoreMode: (value) => String(value || '').trim().toLowerCase(),
+          cloneTsRange: (range) => range ? { startTs: range.startTs, endTs: range.endTs } : null,
+          saveCurrentComparePerspective: () => {
+            const saved = { label: 'Saved compare perspective' };
+            savedPerspectives.push(saved);
+            return saved;
+          },
+          showOverlayNotice: (message) => notices.push(String(message)),
+          renderCurrentReportWithLoading: () => { renderCount += 1; },
+          setActiveReportById: (id, options) => jumps.push({ id, options }),
+          escapeHtml: (value) => String(value == null ? '' : value).replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
+          escapeAttr: (value) => String(value == null ? '' : value).replaceAll('"', '&quot;')
+        });
+
+        const pair = runtime.getCompareFocusPair('qs_by_minute', slots);
+        add(
+          'getCompareFocusPair restores stored focus pair when both slots are valid',
+          pair[0] === 'B' && pair[1] === 'C',
+          JSON.stringify(pair)
+        );
+
+        const focusHtml = runtime.renderCompareFocusControls('qs_by_minute', slots, pair);
+        add(
+          'renderCompareFocusControls renders selected focus dropdowns for 3-slot compare',
+          focusHtml.includes('data-focus-report="qs_by_minute"')
+            && focusHtml.includes('<option value="B" selected>')
+            && focusHtml.includes('<option value="C" selected>'),
+          focusHtml
+        );
+
+        runtime.bindWorkspaceInteractions('qs_by_minute');
+
+        const [scrollerA, scrollerB] = dom.viewContainer.querySelectorAll('.compare-scroll-sync');
+        scrollerA.scrollLeft = 48;
+        scrollerA.dispatchEvent(new Event('scroll'));
+        await wait(20);
+        add(
+          'bindWorkspaceInteractions syncs compare panel scrolling',
+          scrollerB.scrollLeft === 48,
+          JSON.stringify({ leftA: scrollerA.scrollLeft, leftB: scrollerB.scrollLeft })
+        );
+
+        dom.viewContainer.querySelector('[data-compare-score-mode="claimed"]').click();
+        add(
+          'Score-mode toggle updates compare score mode and rerenders',
+          state.compareScoreMode === 'claimed' && renderCount >= 1,
+          JSON.stringify({ compareScoreMode: state.compareScoreMode, renderCount })
+        );
+
+        dom.viewContainer.querySelector('[data-compare-range-action="lock-current"]').click();
+        add(
+          'Lock-current without a Log time filter shows an overlay notice',
+          notices.some((entry) => entry.includes('Apply a time filter in Log first')),
+          JSON.stringify(notices)
+        );
+
+        state.logTimeRange = { startTs: 10, endTs: 20 };
+        dom.viewContainer.querySelector('[data-compare-range-action="lock-current"]').click();
+        add(
+          'Lock-current stores the current Log range and rerenders',
+          state.compareTimeRangeLock && state.compareTimeRangeLock.startTs === 10 && state.compareTimeRangeLock.endTs === 20,
+          JSON.stringify({ compareTimeRangeLock: state.compareTimeRangeLock, renderCount })
+        );
+
+        dom.viewContainer.querySelector('[data-compare-range-action="clear-lock"]').click();
+        add(
+          'Clear-lock removes the compare time lock',
+          state.compareTimeRangeLock === null,
+          JSON.stringify({ compareTimeRangeLock: state.compareTimeRangeLock, renderCount })
+        );
+
+        dom.viewContainer.querySelector('[data-compare-perspective-action="save"]').click();
+        add(
+          'Save perspective uses the compare runtime callback and raises a notice',
+          savedPerspectives.length === 1 && notices.some((entry) => entry.includes('Saved perspective: Saved compare perspective')),
+          JSON.stringify({ savedPerspectives, notices })
+        );
+
+        dom.viewContainer.querySelector('[data-compare-toggle="sync"]').click();
+        dom.viewContainer.querySelector('[data-compare-toggle="sticky"]').click();
+        add(
+          'Sync and sticky toggles flip compare workspace flags',
+          state.compareSyncEnabled === false && state.compareStickyEnabled === false,
+          JSON.stringify({ compareSyncEnabled: state.compareSyncEnabled, compareStickyEnabled: state.compareStickyEnabled, renderCount })
+        );
+
+        dom.viewContainer.querySelector('[data-compare-jump="summary"]').click();
+        add(
+          'Compare jump buttons route to the requested report',
+          jumps.length === 1 && jumps[0].id === 'summary' && jumps[0].options && jumps[0].options.silent === true,
+          JSON.stringify(jumps)
+        );
+
+        dom.viewContainer.querySelector('[data-compare-focus-cell-key="minute-15"]').click();
+        add(
+          'Compare insight jumps highlight matching cells and rows in the compare grid',
+          dom.viewContainer.querySelectorAll('.compare-highlight-cell').length === 2
+            && dom.viewContainer.querySelectorAll('.compare-highlight-row').length === 2,
+          JSON.stringify({
+            cells: dom.viewContainer.querySelectorAll('.compare-highlight-cell').length,
+            rows: dom.viewContainer.querySelectorAll('.compare-highlight-row').length
+          })
+        );
+
+        const selectA = dom.viewContainer.querySelector('.compare-focus-select[data-focus-role="a"]');
+        selectA.value = 'C';
+        selectA.dispatchEvent(new Event('change', { bubbles: true }));
+        await wait(10);
+        add(
+          'Focus selectors update stored compare focus and rerender',
+          Array.isArray(state.compareFocus.qs_by_minute)
+            && state.compareFocus.qs_by_minute[0] === 'C'
+            && state.compareFocus.qs_by_minute[1] !== 'C',
+          JSON.stringify({ compareFocus: state.compareFocus.qs_by_minute, renderCount })
+        );
+
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, {
+          checksTotal: checks.length,
+          checksFailed: failed.length,
+          state,
+          renderCount,
+          notices,
+          jumps,
+          savedPerspectives
+        });
+      } catch (err) {
+        add('Compare controller smoke completed without runtime errors', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          checksTotal: checks.length,
+          checksFailed: checks.filter((entry) => !entry.ok).length,
+          error: err && err.stack ? err.stack : String(err)
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

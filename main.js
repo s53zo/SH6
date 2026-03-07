@@ -187,6 +187,7 @@
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
   const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.1.21';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.1.21';
   const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.1.21';
   const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.1.21';
   const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.1.21';
@@ -1280,6 +1281,8 @@
   let durableStorageModulePromise = null;
   let compareWorkspaceModulePromise = null;
   let compareWorkspaceRenderer = null;
+  let compareControllerRuntimeModulePromise = null;
+  let compareControllerRuntime = null;
   let archiveClientModulePromise = null;
   let archiveClient = null;
   let archiveSearchRuntimeModulePromise = null;
@@ -1547,6 +1550,43 @@
         });
     }
     return compareWorkspaceModulePromise;
+  }
+
+  function loadCompareControllerRuntimeModule() {
+    if (!compareControllerRuntimeModulePromise) {
+      compareControllerRuntimeModulePromise = import(COMPARE_CONTROLLER_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createCompareControllerRuntime !== 'function') {
+            throw new Error('compare controller runtime module unavailable');
+          }
+          compareControllerRuntime = mod.createCompareControllerRuntime({
+            getDom: () => dom,
+            getState: () => state,
+            getReports: () => reports,
+            getActiveCompareSnapshots,
+            getBaseReportId,
+            compareScrollSyncReports: COMPARE_SCROLL_SYNC_REPORTS,
+            compareCrossHighlightReports: COMPARE_CROSS_HIGHLIGHT_REPORTS,
+            normalizeCompareScoreMode,
+            cloneTsRange,
+            saveCurrentComparePerspective,
+            showOverlayNotice,
+            renderCurrentReportWithLoading: () => renderReportWithLoading(reports[state.activeIndex]),
+            setActiveReportById,
+            escapeHtml,
+            escapeAttr
+          });
+          return compareControllerRuntime;
+        });
+    }
+    return compareControllerRuntimeModulePromise;
+  }
+
+  function getCompareControllerRuntime() {
+    if (!compareControllerRuntime) {
+      throw new Error('compare controller runtime not loaded');
+    }
+    return compareControllerRuntime;
   }
 
   function getCompareWorkspaceRenderer() {
@@ -17955,90 +17995,15 @@
   }
 
   function bindCompareScrollSync(reportId) {
-    const baseId = getFocusReportId(reportId);
-    if (!state.compareEnabled) return;
-    if (!COMPARE_SCROLL_SYNC_REPORTS.has(baseId)) return;
-    const scrollers = Array.from(document.querySelectorAll('.compare-scroll-sync[data-sync-group]'));
-    if (scrollers.length < 2) return;
-
-    const groups = new Map();
-    scrollers.forEach((el) => {
-      const key = String(el.dataset.syncGroup || '').trim();
-      if (!key) return;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(el);
-    });
-
-    groups.forEach((items) => {
-      if (!Array.isArray(items) || items.length < 2) return;
-      let syncing = false;
-      const muted = new WeakSet();
-      const syncTo = (source) => {
-        const left = source.scrollLeft;
-        items.forEach((el) => {
-          if (el === source) return;
-          if (Math.abs((el.scrollLeft || 0) - left) < 1) return;
-          muted.add(el);
-          el.scrollLeft = left;
-          requestAnimationFrame(() => muted.delete(el));
-        });
-      };
-      items.forEach((el) => {
-        if (el.dataset.syncBound === '1') return;
-        el.dataset.syncBound = '1';
-        el.addEventListener('scroll', () => {
-          if (muted.has(el)) return;
-          if (syncing) return;
-          syncing = true;
-          syncTo(el);
-          syncing = false;
-        }, { passive: true });
-      });
-      syncTo(items[0]);
-    });
+    return getCompareControllerRuntime().bindCompareScrollSync(reportId);
   }
 
   function clearCompareCrossHighlights(root) {
-    if (!(root instanceof HTMLElement)) return;
-    root.querySelectorAll('.compare-highlight-cell, .compare-highlight-row, .compare-focus-target').forEach((el) => {
-      el.classList.remove('compare-highlight-cell', 'compare-highlight-row', 'compare-focus-target');
-    });
+    return getCompareControllerRuntime().clearCompareCrossHighlights(root);
   }
 
   function bindCompareCrossHighlights(reportId) {
-    const baseId = getFocusReportId(reportId);
-    if (!state.compareEnabled || !COMPARE_CROSS_HIGHLIGHT_REPORTS.has(baseId)) return;
-    const root = dom.viewContainer instanceof HTMLElement
-      ? dom.viewContainer.querySelector(`.compare-grid[data-compare-report="${baseId}"]`)
-      : null;
-    if (!(root instanceof HTMLElement) || root.dataset.crossHighlightBound === '1') return;
-    root.dataset.crossHighlightBound = '1';
-    const activate = (target) => {
-      const cell = target instanceof Element ? target.closest('[data-compare-cell-key]') : null;
-      const row = target instanceof Element ? target.closest('[data-compare-row-key]') : null;
-      if (!cell && !row) return;
-      clearCompareCrossHighlights(root);
-      if (row) {
-        const rowKey = String(row.getAttribute('data-compare-row-key') || '');
-        if (rowKey) {
-          root.querySelectorAll(`[data-compare-row-key="${rowKey}"]`).forEach((el) => el.classList.add('compare-highlight-row'));
-        }
-      }
-      if (cell) {
-        const cellKey = String(cell.getAttribute('data-compare-cell-key') || '');
-        if (cellKey) {
-          root.querySelectorAll(`[data-compare-cell-key="${cellKey}"]`).forEach((el) => el.classList.add('compare-highlight-cell'));
-        }
-      }
-    };
-    root.addEventListener('mouseover', (evt) => activate(evt.target));
-    root.addEventListener('focusin', (evt) => activate(evt.target));
-    root.addEventListener('mouseleave', () => clearCompareCrossHighlights(root));
-    root.addEventListener('focusout', () => {
-      requestAnimationFrame(() => {
-        if (!root.contains(document.activeElement)) clearCompareCrossHighlights(root);
-      });
-    });
+    return getCompareControllerRuntime().bindCompareCrossHighlights(reportId);
   }
 
   function getFocusReportId(reportId) {
@@ -18046,43 +18011,15 @@
   }
 
   function getCompareFocusPair(reportId, slotEntries) {
-    const baseId = getFocusReportId(reportId);
-    const ids = slotEntries.map((entry) => entry.id);
-    const stored = state.compareFocus?.[baseId] || [];
-    let left = ids.includes(stored[0]) ? stored[0] : ids[0];
-    let right = ids.includes(stored[1]) ? stored[1] : ids.find((id) => id !== left);
-    if (!right) right = ids.find((id) => id !== left) || left;
-    if (right === left) right = ids.find((id) => id !== left) || left;
-    return [left, right];
+    return getCompareControllerRuntime().getCompareFocusPair(reportId, slotEntries);
   }
 
   function renderCompareFocusControls(reportId, slotEntries, pair) {
-    if (slotEntries.length <= 2) return '';
-    const baseId = getFocusReportId(reportId);
-    const renderOptions = (selectedId) => slotEntries.map((entry) => {
-      const selected = entry.id === selectedId ? ' selected' : '';
-      return `<option value="${entry.id}"${selected}>${entry.label}</option>`;
-    }).join('');
-    return `
-      <div class="compare-focus">
-        <span>Focus compare:</span>
-        <select class="compare-focus-select" data-focus-report="${baseId}" data-focus-role="a">
-          ${renderOptions(pair[0])}
-        </select>
-        <span>vs</span>
-        <select class="compare-focus-select" data-focus-report="${baseId}" data-focus-role="b">
-          ${renderOptions(pair[1])}
-        </select>
-      </div>
-    `;
+    return getCompareControllerRuntime().renderCompareFocusControls(reportId, slotEntries, pair);
   }
 
   function resolveFocusEntries(reportId, slotEntries) {
-    const pair = getCompareFocusPair(reportId, slotEntries);
-    const left = slotEntries.find((entry) => entry.id === pair[0]) || slotEntries[0];
-    const right = slotEntries.find((entry) => entry.id === pair[1]) || slotEntries.find((entry) => entry.id !== (left && left.id));
-    const entries = [left, right].filter(Boolean);
-    return { pair, entries };
+    return getCompareControllerRuntime().resolveFocusEntries(reportId, slotEntries);
   }
 
   function renderFocusComparePanels(reportId, slotEntries, renderSlot, reportKey, options = {}) {
@@ -18748,7 +18685,6 @@
     return renderReportSingle(report);
   }
 
-  let focusRenderTimer = null;
   function bindReportInteractions(reportId) {
     if (reportId !== 'rbn_compare_signal' && rbnCompareSignalResizeObserver) {
       rbnCompareSignalResizeObserver.disconnect();
@@ -18761,106 +18697,9 @@
     }
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
-    bindCompareScrollSync(reportId);
-    bindCompareCrossHighlights(reportId);
+    getCompareControllerRuntime().bindWorkspaceInteractions(reportId);
     attachLongReportJumpBar(dom.viewContainer, reportId);
     bindVirtualTable(reportId);
-    const compareToggleButtons = dom.viewContainer.querySelectorAll('.compare-ui-toggle');
-    compareToggleButtons.forEach((btn) => {
-      btn.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        const nextScoreMode = btn.dataset.compareScoreMode;
-        if (nextScoreMode) {
-          const normalized = normalizeCompareScoreMode(nextScoreMode);
-          if (normalized === state.compareScoreMode) return;
-          state.compareScoreMode = normalized;
-          renderReportWithLoading(reports[state.activeIndex]);
-          return;
-        }
-        const rangeAction = String(btn.dataset.compareRangeAction || '').trim().toLowerCase();
-        if (rangeAction === 'lock-current') {
-          const currentRange = cloneTsRange(state.logTimeRange);
-          if (!currentRange) {
-            showOverlayNotice('Apply a time filter in Log first, then lock it for compare.', 2600);
-            return;
-          }
-          state.compareTimeRangeLock = currentRange;
-          renderReportWithLoading(reports[state.activeIndex]);
-          return;
-        }
-        if (rangeAction === 'clear-lock') {
-          if (!state.compareTimeRangeLock) return;
-          state.compareTimeRangeLock = null;
-          renderReportWithLoading(reports[state.activeIndex]);
-          return;
-        }
-        const perspectiveAction = String(btn.dataset.comparePerspectiveAction || '').trim().toLowerCase();
-        if (perspectiveAction === 'save') {
-          const saved = saveCurrentComparePerspective();
-          showOverlayNotice(`Saved perspective: ${saved.label}`, 2200);
-          return;
-        }
-        const toggle = String(btn.dataset.compareToggle || '').trim().toLowerCase();
-        if (toggle === 'sync') {
-          state.compareSyncEnabled = !state.compareSyncEnabled;
-        } else if (toggle === 'sticky') {
-          state.compareStickyEnabled = !state.compareStickyEnabled;
-        } else {
-          return;
-        }
-        renderReportWithLoading(reports[state.activeIndex]);
-      });
-    });
-    const compareJumpButtons = dom.viewContainer.querySelectorAll('[data-compare-jump]');
-    compareJumpButtons.forEach((btn) => {
-      btn.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        const targetId = String(btn.dataset.compareJump || '').trim();
-        if (!targetId) return;
-        if (reports[state.activeIndex]?.id === targetId) {
-          renderReportWithLoading(reports[state.activeIndex]);
-          return;
-        }
-        setActiveReportById(targetId, { silent: true });
-      });
-    });
-    const compareFocusButtons = dom.viewContainer.querySelectorAll('[data-compare-focus-cell-key]');
-    compareFocusButtons.forEach((btn) => {
-      btn.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        const cellKey = String(btn.dataset.compareFocusCellKey || '').trim();
-        if (!cellKey) return;
-        const baseId = getFocusReportId(reportId);
-        const grid = dom.viewContainer instanceof HTMLElement
-          ? dom.viewContainer.querySelector(`.compare-grid[data-compare-report="${baseId}"]`)
-          : null;
-        if (!(grid instanceof HTMLElement)) return;
-        const escapeSelector = (value) => (
-          window.CSS && typeof window.CSS.escape === 'function'
-            ? window.CSS.escape(value)
-            : value.replace(/["\\]/g, '\\$&')
-        );
-        const selector = `[data-compare-cell-key="${escapeSelector(cellKey)}"]`;
-        const cells = Array.from(grid.querySelectorAll(selector));
-        if (!cells.length) {
-          showOverlayNotice('No matching compare cell is visible for that jump.', 2200);
-          return;
-        }
-        clearCompareCrossHighlights(grid);
-        cells.forEach((cell) => cell.classList.add('compare-highlight-cell', 'compare-focus-target'));
-        const rowKey = String(cells[0].closest('[data-compare-row-key]')?.getAttribute('data-compare-row-key') || '');
-        if (rowKey) {
-          const rowSelector = `[data-compare-row-key="${escapeSelector(rowKey)}"]`;
-          grid.querySelectorAll(rowSelector).forEach((row) => row.classList.add('compare-highlight-row'));
-        }
-        const reduceMotion = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-        cells[0].scrollIntoView({
-          block: 'center',
-          inline: 'center',
-          behavior: reduceMotion ? 'auto' : 'smooth'
-        });
-      });
-    });
     const chartModeButtons = dom.viewContainer.querySelectorAll('.chart-mode-btn');
     chartModeButtons.forEach((btn) => {
       btn.addEventListener('click', (evt) => {
@@ -18871,42 +18710,6 @@
         renderReportWithLoading(reports[state.activeIndex]);
       });
     });
-    const focusSelects = dom.viewContainer.querySelectorAll('.compare-focus-select');
-    if (focusSelects.length) {
-      focusSelects.forEach((select) => {
-        select.addEventListener('change', () => {
-          const baseId = select.dataset.focusReport || '';
-          if (!baseId) return;
-          const role = select.dataset.focusRole || 'a';
-          const slots = getActiveCompareSnapshots();
-          if (slots.length <= 2) return;
-          const [currentLeft, currentRight] = getCompareFocusPair(baseId, slots);
-          let left = currentLeft;
-          let right = currentRight;
-          if (role === 'a') {
-            left = select.value;
-          } else {
-            right = select.value;
-          }
-          if (left === right) {
-            const alt = slots.map((s) => s.id).find((id) => id !== left);
-            if (role === 'a') right = alt || right;
-            else left = alt || left;
-          }
-          state.compareFocus = state.compareFocus || {};
-          state.compareFocus[baseId] = [left, right];
-          if (focusRenderTimer) clearTimeout(focusRenderTimer);
-          focusRenderTimer = setTimeout(() => {
-            try {
-              renderReportWithLoading(reports[state.activeIndex]);
-            } catch (err) {
-              console.error('Focus render failed:', err);
-              showOverlayNotice('Unable to update focus view. Please try again.', 3000);
-            }
-          }, 0);
-        });
-      });
-    }
     if (reportId === 'operators') {
       loadOperatorPhotos(dom.viewContainer);
     }
@@ -20661,6 +20464,7 @@
     document.body.classList.add('ui-theme-nt');
     const navigationRuntimeReady = loadNavigationRuntimeModule();
     const compareWorkspaceReady = loadCompareWorkspaceModule();
+    const compareControllerReady = loadCompareControllerRuntimeModule();
     const retainedRuntimeReady = loadRetainedRuntimeModule();
     const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();
     const loadPanelRuntimeReady = loadLoadPanelRuntimeModule();
@@ -20672,6 +20476,7 @@
     const storageRuntimeReady = loadStorageRuntimeModule();
     await navigationRuntimeReady;
     await retainedRuntimeReady;
+    await compareControllerReady;
     await archiveSearchRuntimeReady;
     await loadPanelRuntimeReady;
     await analysisControlsRuntimeReady;

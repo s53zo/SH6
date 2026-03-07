@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RBN Compare Chart Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>RBN Compare Chart Runtime Smoke</h1>
+  <p>Checks the extracted RBN compare chart runtime for color/tick helpers, canvas dataset updates, compare chart assembly, and main-thread delegation.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function normalizeSpotterBase(value) {
+        return String(value || '').trim().toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, '');
+      }
+
+      function normalizeBandToken(value) {
+        return String(value || '').trim().toUpperCase();
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      try {
+        const [mainSource, moduleSource, chartModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/spots/rbn-compare-chart-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/spots/rbn-compare-chart-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/spots/rbn-compare-chart-runtime.js')
+        ]);
+
+        add('Main.js imports the RBN compare chart runtime module', mainSource.includes("const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.1.21';"));
+        add('Main.js preloads the RBN compare chart runtime during init', mainSource.includes('const rbnCompareChartRuntimeReady = loadRbnCompareChartRuntimeModule();') && mainSource.includes('await rbnCompareChartRuntimeReady;'));
+        add(
+          'Main.js delegates chart helpers and draw paths to the chart runtime',
+          mainSource.includes('return getRbnCompareChartRuntime().bandColorForChart(band);')
+            && mainSource.includes('return getRbnCompareChartRuntime().formatUtcTick(ts);')
+            && mainSource.includes('return getRbnCompareChartRuntime().drawRbnSignalCanvas(canvas, model);')
+            && mainSource.includes('return getRbnCompareChartRuntime().drawRbnCompareSignalCharts();')
+        );
+        add('RBN compare chart runtime exports the factory', moduleSource.includes('export function createRbnCompareChartRuntime'));
+
+        const originalRaf = window.requestAnimationFrame;
+        const originalCancel = window.cancelAnimationFrame;
+        const rafCalls = [];
+        const canceled = [];
+        window.requestAnimationFrame = (callback) => {
+          const id = rafCalls.length + 1;
+          rafCalls.push(id);
+          callback();
+          return id;
+        };
+        window.cancelAnimationFrame = (id) => {
+          canceled.push(id);
+        };
+
+        const ctx = {
+          setTransform() {},
+          clearRect() {},
+          beginPath() {},
+          moveTo() {},
+          lineTo() {},
+          stroke() {},
+          fillText() {},
+          measureText(text) { return { width: String(text || '').length * 6 }; },
+          save() {},
+          restore() {},
+          setLineDash() {},
+          fill() {},
+          arc() {},
+          rect() {},
+          closePath() {},
+          fillStyle: '',
+          strokeStyle: '',
+          lineWidth: 1,
+          globalAlpha: 1,
+          lineJoin: '',
+          lineCap: '',
+          font: '',
+          textBaseline: ''
+        };
+
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <article class="rbn-signal-card">
+            <span class="rbn-signal-hint cqapi-muted"></span>
+            <div class="rbn-signal-meta cqapi-muted"></div>
+            <div class="rbn-signal-legend-bands"></div>
+            <canvas class="rbn-signal-canvas" data-continent="NA" data-spotter="W3LPL" data-height="260" data-rbn-visible="1"></canvas>
+          </article>
+        `;
+        const canvas = root.querySelector('.rbn-signal-canvas');
+        const hintNode = root.querySelector('.rbn-signal-hint');
+        const metaNode = root.querySelector('.rbn-signal-meta');
+        const legendBandsNode = root.querySelector('.rbn-signal-legend-bands');
+        Object.defineProperty(canvas, 'clientWidth', { configurable: true, get: () => 640 });
+        canvas.getContext = () => ctx;
+        document.body.appendChild(root);
+
+        const slotA = {
+          qsoData: { qsos: [{}] },
+          derived: { timeRange: { minTs: 1000, maxTs: 5000 } }
+        };
+        const slotB = {
+          qsoData: { qsos: [{}] },
+          derived: { timeRange: { minTs: 1200, maxTs: 5200 } }
+        };
+        const indexA = {
+          dataKey: 'A',
+          bySpotter: new Map([
+            ['W3LPL', {
+              totalCount: 3,
+              bandCounts: new Map([['20M', 2], ['40M', 1]]),
+              byBand: new Map([
+                ['20M', [1000, 10, 2000, 12]],
+                ['40M', [3000, 5]]
+              ])
+            }]
+          ])
+        };
+        const indexB = {
+          dataKey: 'B',
+          bySpotter: new Map([
+            ['W3LPL', {
+              totalCount: 1,
+              bandCounts: new Map([['20M', 1]]),
+              byBand: new Map([
+                ['20M', [1500, 18]]
+              ])
+            }]
+          ])
+        };
+
+        const buildCalls = [];
+        const state = { globalBandFilter: '' };
+        const runtime = chartModule.createRbnCompareChartRuntime({
+          getDom: () => ({ viewContainer: root }),
+          getState: () => state,
+          getActiveCompareSlots: () => [
+            { id: 'A', slot: slotA },
+            { id: 'B', slot: slotB }
+          ],
+          getRbnCompareIndexCached: (slotId) => (slotId === 'A' ? indexA : indexB),
+          scheduleRbnCompareIndexBuild: (slotId) => buildCalls.push(slotId),
+          sampleFlatStrideSeeded: (data) => data,
+          computeProportionalCaps: (entries) => entries,
+          slotMarkerShape: (slotId) => (slotId === 'B' ? 'triangle' : 'circle'),
+          slotLineDash: (slotId) => (slotId === 'B' ? [8, 6] : []),
+          normalizeSpotterBase,
+          normalizeBandToken,
+          formatBandLabel: (band) => String(band || '').trim().toUpperCase(),
+          sortBands: (values) => Array.isArray(values) ? values.slice().sort() : [],
+          escapeHtml,
+          formatNumberSh6: (value) => String(Number(value || 0)),
+          getCanvasZoomKey: (target, chartType, bandKey) => `${chartType}:${target.dataset.continent}:${target.dataset.spotter}:${bandKey || 'ALL'}`,
+          resolveCanvasZoomWindow: (chartType, key, minTs, maxTs) => ({ minTs, maxTs, zoomed: false })
+        });
+
+        add(
+          'bandColorForChart and formatUtcTick preserve the expected chart helpers',
+          runtime.bandColorForChart('20m') === '#f59e0b'
+            && runtime.bandColorForChart('40m') === '#16a34a'
+            && runtime.formatUtcTick(Date.UTC(2025, 10, 16, 10, 5, 0)) === '16.11 10:05Z',
+          JSON.stringify({
+            color20m: runtime.bandColorForChart('20m'),
+            color40m: runtime.bandColorForChart('40m'),
+            tick: runtime.formatUtcTick(Date.UTC(2025, 10, 16, 10, 5, 0))
+          })
+        );
+
+        runtime.drawRbnSignalCanvas(canvas, {
+          title: 'Demo',
+          minTs: 1000,
+          maxTs: 2000,
+          fullMinTs: 1000,
+          fullMaxTs: 2000,
+          minY: 0,
+          maxY: 20,
+          series: [{ band: '20M', slotId: 'A', shape: 'circle', color: '#f59e0b', data: [1000, 10, 2000, 12] }],
+          trendlines: []
+        });
+        add(
+          'drawRbnSignalCanvas populates canvas plot metadata and schedules painting',
+          canvas.dataset.plotLeft === '52'
+            && canvas.dataset.viewMinTs === '1000'
+            && canvas.dataset.fullMaxTs === '2000'
+            && rafCalls.length >= 1,
+          JSON.stringify({
+            plotLeft: canvas.dataset.plotLeft,
+            viewMinTs: canvas.dataset.viewMinTs,
+            fullMaxTs: canvas.dataset.fullMaxTs,
+            rafCalls
+          })
+        );
+
+        canvas.dataset.rbnDrawKey = '';
+        runtime.drawRbnCompareSignalCharts();
+        add(
+          'drawRbnCompareSignalCharts renders combined band legends, meta text, and aria labels without scheduling rebuilds',
+          buildCalls.length === 0
+            && legendBandsNode.innerHTML.includes('20M')
+            && legendBandsNode.innerHTML.includes('40M')
+            && metaNode.textContent.includes('4 points plotted')
+            && hintNode.textContent === 'Drag to zoom time, double-click to reset.'
+            && canvas.getAttribute('aria-label').includes('NA · W3LPL · All bands')
+            && canvas.dataset.rbnDrawKey,
+          JSON.stringify({
+            buildCalls,
+            legendBands: legendBandsNode.innerHTML,
+            metaText: metaNode.textContent,
+            hintText: hintNode.textContent,
+            ariaLabel: canvas.getAttribute('aria-label'),
+            drawKey: canvas.dataset.rbnDrawKey
+          })
+        );
+
+        const buildCallsMissing = [];
+        const runtimeMissing = chartModule.createRbnCompareChartRuntime({
+          getDom: () => ({ viewContainer: root }),
+          getState: () => state,
+          getActiveCompareSlots: () => [
+            { id: 'A', slot: slotA },
+            { id: 'B', slot: slotB }
+          ],
+          getRbnCompareIndexCached: (slotId) => (slotId === 'A' ? indexA : null),
+          scheduleRbnCompareIndexBuild: (slotId) => buildCallsMissing.push(slotId),
+          sampleFlatStrideSeeded: (data) => data,
+          computeProportionalCaps: (entries) => entries,
+          slotMarkerShape: (slotId) => (slotId === 'B' ? 'triangle' : 'circle'),
+          slotLineDash: (slotId) => (slotId === 'B' ? [8, 6] : []),
+          normalizeSpotterBase,
+          normalizeBandToken,
+          formatBandLabel: (band) => String(band || '').trim().toUpperCase(),
+          sortBands: (values) => Array.isArray(values) ? values.slice().sort() : [],
+          escapeHtml,
+          formatNumberSh6: (value) => String(Number(value || 0)),
+          getCanvasZoomKey: (target, chartType, bandKey) => `${chartType}:${target.dataset.continent}:${target.dataset.spotter}:${bandKey || 'ALL'}`,
+          resolveCanvasZoomWindow: (chartType, key, minTs, maxTs) => ({ minTs, maxTs, zoomed: false })
+        });
+        canvas.dataset.rbnDrawKey = '';
+        runtimeMissing.drawRbnCompareSignalCharts();
+        add(
+          'drawRbnCompareSignalCharts schedules missing slot indexes in the background',
+          buildCallsMissing.includes('B'),
+          JSON.stringify(buildCallsMissing)
+        );
+
+        window.requestAnimationFrame = originalRaf;
+        window.cancelAnimationFrame = originalCancel;
+
+        const ok = checks.every((entry) => entry.ok);
+        setResult(ok, {
+          checks,
+          rafCalls,
+          canceled
+        });
+      } catch (err) {
+        add('Smoke test execution completed', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          error: err && err.stack ? err.stack : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

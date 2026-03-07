@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spots Drilldown Runtime Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status {
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .check-list {
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+    }
+    .check-list li {
+      margin: 0.35rem 0;
+    }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>Spots Drilldown Runtime Smoke</h1>
+  <p>Checks the extracted spots drilldown runtime for bucket filtering, geo enrichment, filter rows, and truncation.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        const [mainSource, moduleSource, drilldownModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/spots/drilldown-runtime.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/spots/drilldown-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          import('../modules/spots/drilldown-runtime.js')
+        ]);
+
+        add('Main.js imports the spots drilldown runtime module', mainSource.includes("const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.1.21';"));
+        add('Main.js preloads the spots drilldown runtime during init', mainSource.includes('const spotsDrilldownRuntimeReady = loadSpotsDrilldownRuntimeModule();') && mainSource.includes('await spotsDrilldownRuntimeReady;'));
+        add('Main.js delegates bucket detail rendering to the drilldown runtime', mainSource.includes('const renderSpotBucketDetail = (spots) => getSpotsDrilldownRuntime().renderSpotBucketDetail({'));
+        add('Spots drilldown runtime exports the factory', moduleSource.includes('export function createSpotsDrilldownRuntime'));
+
+        const prefixMap = new Map([
+          ['W3LPL', { continent: 'NA', cqZone: 5, ituZone: 8 }],
+          ['S50C', { continent: 'EU', cqZone: 15, ituZone: 28 }]
+        ]);
+        const runtime = drilldownModule.createSpotsDrilldownRuntime({
+          normalizeCall: (value) => String(value || '').trim().toUpperCase().replace(/\s+/g, ''),
+          lookupPrefix: (call) => prefixMap.get(String(call || '').trim().toUpperCase()) || null,
+          baseCall: (call) => String(call || '').trim().toUpperCase().replace(/-\d+$/, ''),
+          normalizeContinent: (value) => String(value || '').trim().toUpperCase(),
+          escapeAttr: (value) => String(value == null ? '' : value),
+          escapeHtml: (value) => String(value == null ? '' : value),
+          formatBandLabel: (value) => String(value || '').toUpperCase(),
+          formatDateSh6: (value) => `TS:${value}`,
+          formatNumberSh6: (value) => String(value),
+          bandClass: (value) => `band-${String(value || '').toLowerCase()}`,
+          spotTableLimit: 2
+        });
+
+        add('Empty bucket lists return no drilldown block', runtime.renderSpotBucketDetail({ spots: [] }) === '');
+
+        const promptHtml = runtime.renderSpotBucketDetail({
+          spots: [{ ts: 1, band: '20M' }],
+          drillBand: '',
+          drillHour: null,
+          slotAttr: 'A',
+          sourceAttr: 'spots'
+        });
+        add(
+          'Missing band/hour selection returns the drilldown prompt',
+          promptHtml.includes('Click a value in the band/hour table'),
+          promptHtml
+        );
+
+        const noMatchHtml = runtime.renderSpotBucketDetail({
+          spots: [{ ts: Date.UTC(2025, 10, 16, 9, 0, 0), band: '20M', spotter: 'W3LPL-1' }],
+          drillBand: '40M',
+          drillHour: 9,
+          slotAttr: 'A',
+          sourceAttr: 'spots'
+        });
+        add(
+          'Band/hour combinations with no rows report the empty bucket state',
+          noMatchHtml.includes('No spots found for 40M at 09:00Z.'),
+          noMatchHtml
+        );
+
+        const filterMissHtml = runtime.renderSpotBucketDetail({
+          spots: [
+            { ts: Date.UTC(2025, 10, 16, 9, 0, 0), band: '20M', spotter: 'W3LPL-1', matched: true, delta: 1.2, freqKHz: 14020, comment: 'cq' },
+            { ts: Date.UTC(2025, 10, 16, 9, 5, 0), band: '20M', spotter: 'S50C', matched: false, delta: null, freqKHz: 14025, comment: 'test' }
+          ],
+          drillBand: '20M',
+          drillHour: 9,
+          drillContinent: 'AS',
+          slotAttr: 'B',
+          sourceAttr: 'rbn'
+        });
+        add(
+          'Filter rows render and unmatched continent filters show the empty filtered state',
+          filterMissHtml.includes('No spots match the selected continent/zone filters in this bucket.')
+            && filterMissHtml.includes('All continents')
+            && filterMissHtml.includes('W3LPL-1') === false,
+          filterMissHtml
+        );
+
+        const detailHtml = runtime.renderSpotBucketDetail({
+          spots: [
+            { ts: Date.UTC(2025, 10, 16, 9, 0, 0), band: '20M', spotter: 'W3LPL-1', matched: true, delta: 1.2, freqKHz: 14020, comment: 'cq' },
+            { ts: Date.UTC(2025, 10, 16, 9, 5, 0), band: '20M', spotter: 'S50C', matched: false, delta: null, freqKHz: 14025, comment: 'test' },
+            { ts: Date.UTC(2025, 10, 16, 9, 10, 0), band: '20M', spotter: 'W3LPL-1', matched: true, delta: 0.8, freqKHz: 14030, comment: 'more' }
+          ],
+          drillBand: '20M',
+          drillHour: 9,
+          slotAttr: 'C',
+          sourceAttr: 'spots'
+        });
+        add(
+          'Drilldown detail renders geo-enriched rows, counts, and truncation notice',
+          detailHtml.includes('Total spots</b>: 3')
+            && detailHtml.includes('After filters</b>: 3')
+            && detailHtml.includes('Matched</b>: 2')
+            && detailHtml.includes('Showing first 2 of 3 rows.')
+            && detailHtml.includes('NA')
+            && detailHtml.includes('EU')
+            && detailHtml.includes('TS:')
+            && detailHtml.includes('band-20m'),
+          detailHtml
+        );
+
+        const ok = checks.every((entry) => entry.ok);
+        setResult(ok, { checks });
+      } catch (err) {
+        add('Smoke test execution completed', false, err && err.message ? err.message : String(err));
+        setResult(false, {
+          error: err && err.stack ? err.stack : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

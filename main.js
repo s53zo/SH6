@@ -199,6 +199,7 @@
   const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.1.21';
   const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.1.21';
   const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.1.21';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.1.21';
   const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.1.21';
   const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.1.21';
   const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.1.21';
@@ -1305,6 +1306,8 @@
   let rbnSignalExportRuntime = null;
   let spotsCompareRuntimeModulePromise = null;
   let spotsCompareRuntime = null;
+  let spotsDrilldownRuntimeModulePromise = null;
+  let spotsDrilldownRuntime = null;
   let spotsDataRuntimeModulePromise = null;
   let spotsDataRuntime = null;
   let spotsActionsRuntimeModulePromise = null;
@@ -1948,6 +1951,39 @@
       throw new Error('spots compare runtime not loaded');
     }
     return spotsCompareRuntime;
+  }
+
+  function loadSpotsDrilldownRuntimeModule() {
+    if (!spotsDrilldownRuntimeModulePromise) {
+      spotsDrilldownRuntimeModulePromise = import(SPOTS_DRILLDOWN_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createSpotsDrilldownRuntime !== 'function') {
+            throw new Error('spots drilldown runtime module unavailable');
+          }
+          spotsDrilldownRuntime = mod.createSpotsDrilldownRuntime({
+            normalizeCall,
+            lookupPrefix,
+            baseCall,
+            normalizeContinent,
+            escapeAttr,
+            escapeHtml,
+            formatBandLabel,
+            formatDateSh6,
+            formatNumberSh6,
+            bandClass,
+            spotTableLimit: SPOT_TABLE_LIMIT
+          });
+          return spotsDrilldownRuntime;
+        });
+    }
+    return spotsDrilldownRuntimeModulePromise;
+  }
+
+  function getSpotsDrilldownRuntime() {
+    if (!spotsDrilldownRuntime) {
+      throw new Error('spots drilldown runtime not loaded');
+    }
+    return spotsDrilldownRuntime;
   }
 
   function loadSpotsDataRuntimeModule() {
@@ -11511,147 +11547,16 @@
       `;
     };
 
-    const resolveSpotterGeo = (spotterCall) => {
-      const key = normalizeCall(spotterCall || '');
-      const prefix = key ? (lookupPrefix(key) || lookupPrefix(baseCall(key))) : null;
-      const continent = normalizeContinent(prefix?.continent || '') || 'N/A';
-      const cqZone = Number.isFinite(prefix?.cqZone) ? String(prefix.cqZone) : 'N/A';
-      const ituZone = Number.isFinite(prefix?.ituZone) ? String(prefix.ituZone) : 'N/A';
-      return { continent, cqZone, ituZone };
-    };
-
-    const renderDrillFilterRow = (label, type, counts, selectedValue) => {
-      const entries = Array.from(counts.entries()).sort((a, b) => {
-        if (b[1] !== a[1]) return b[1] - a[1];
-        if (type === 'continent') {
-          const order = ['NA', 'SA', 'EU', 'AF', 'AS', 'OC', 'N/A'];
-          const aIdx = order.includes(a[0]) ? order.indexOf(a[0]) : 999;
-          const bIdx = order.includes(b[0]) ? order.indexOf(b[0]) : 999;
-          return aIdx - bIdx;
-        }
-        const aNum = Number(a[0]);
-        const bNum = Number(b[0]);
-        if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
-        return String(a[0]).localeCompare(String(b[0]));
-      });
-      const filterTypeClass = `type-${type}`;
-      const allLabel = type === 'continent' ? 'All continents' : (type === 'cq' ? 'All CQ zones' : 'All ITU zones');
-      const buttons = entries.map(([value, count]) => {
-        const active = selectedValue === value;
-        const valueAttr = escapeAttr(String(value));
-        const valueLabel = value === 'N/A' ? 'N/A' : escapeHtml(String(value));
-        return `<button type="button" class="spots-drill-filter-btn ${filterTypeClass}${active ? ' active' : ''}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="${valueAttr}" aria-pressed="${active ? 'true' : 'false'}">${valueLabel} (${formatNumberSh6(count)})</button>`;
-      }).join('');
-      return `
-        <div class="spots-drill-filter-row">
-          <span class="spots-drill-filter-label">${escapeHtml(label)}</span>
-          <button type="button" class="spots-drill-filter-btn spots-drill-filter-all ${filterTypeClass}${selectedValue ? '' : ' active'}" data-slot="${slotAttr}" data-source="${sourceAttr}" data-type="${type}" data-value="" aria-pressed="${selectedValue ? 'false' : 'true'}">${allLabel}</button>
-          ${buttons}
-        </div>
-      `;
-    };
-
-    const renderSpotBucketDetail = (spots) => {
-      if (!spots || !spots.length) return '';
-      if (!drillBand || !Number.isFinite(drillHour)) {
-        return '<div class="spots-drill-panel"><p class="cqapi-muted">Click a value in the band/hour table to inspect actual spots for that bucket.</p></div>';
-      }
-      const targetHour = Math.max(0, Math.min(23, Math.round(drillHour)));
-      const rows = (spots || [])
-        .filter((s) => (s.band || 'unknown') === drillBand)
-        .filter((s) => Number.isFinite(s.ts) && new Date(s.ts).getUTCHours() === targetHour)
-        .map((s) => {
-          const geo = resolveSpotterGeo(s.spotter || '');
-          return {
-            ...s,
-            continent: geo.continent,
-            cqZone: geo.cqZone,
-            ituZone: geo.ituZone
-          };
-        });
-      if (!rows.length) {
-        return `
-          <div class="spots-drill-panel">
-            <div class="spots-drill-head">
-              <b>Bucket detail</b>
-              <button type="button" class="button spots-drill-clear" data-slot="${slotAttr}" data-source="${sourceAttr}">Clear selection</button>
-            </div>
-            <p class="cqapi-muted">No spots found for ${escapeHtml(formatBandLabel(drillBand))} at ${String(targetHour).padStart(2, '0')}:00Z.</p>
-          </div>
-        `;
-      }
-      const continentCounts = new Map();
-      const cqCounts = new Map();
-      const ituCounts = new Map();
-      rows.forEach((row) => {
-        continentCounts.set(row.continent, (continentCounts.get(row.continent) || 0) + 1);
-        cqCounts.set(row.cqZone, (cqCounts.get(row.cqZone) || 0) + 1);
-        ituCounts.set(row.ituZone, (ituCounts.get(row.ituZone) || 0) + 1);
-      });
-      const filtered = rows.filter((row) => {
-        if (drillContinent && row.continent !== drillContinent) return false;
-        if (drillCqZone && row.cqZone !== drillCqZone) return false;
-        if (drillItuZone && row.ituZone !== drillItuZone) return false;
-        return true;
-      });
-      if (!filtered.length) {
-        return `
-          <div class="spots-drill-panel">
-            <div class="spots-drill-head">
-              <b>Bucket detail: ${escapeHtml(formatBandLabel(drillBand))} ${String(targetHour).padStart(2, '0')}:00Z</b>
-              <button type="button" class="button spots-drill-clear" data-slot="${slotAttr}" data-source="${sourceAttr}">Clear selection</button>
-            </div>
-            ${renderDrillFilterRow('Continent', 'continent', continentCounts, drillContinent)}
-            ${renderDrillFilterRow('CQ zone', 'cq', cqCounts, drillCqZone)}
-            ${renderDrillFilterRow('ITU zone', 'itu', ituCounts, drillItuZone)}
-            <p class="cqapi-muted">No spots match the selected continent/zone filters in this bucket.</p>
-          </div>
-        `;
-      }
-      const matchedCount = filtered.filter((row) => row.matched).length;
-      const sorted = filtered.slice().sort((a, b) => a.ts - b.ts);
-      const clipped = sorted.slice(0, SPOT_TABLE_LIMIT);
-      const truncatedList = sorted.length > SPOT_TABLE_LIMIT;
-      const tableRows = clipped.map((row, idx) => {
-        const cls = idx % 2 === 0 ? 'td1' : 'td0';
-        const delta = Number.isFinite(row.delta) ? row.delta.toFixed(1) : 'N/A';
-        return `
-          <tr class="${cls}">
-            <td>${escapeHtml(formatDateSh6(row.ts))}</td>
-            <td class="${bandClass(row.band || '')}">${escapeHtml(formatBandLabel(row.band || ''))}</td>
-            <td>${escapeHtml(String(row.freqKHz || ''))}</td>
-            <td>${escapeHtml(row.spotter || '')}</td>
-            <td>${escapeHtml(row.continent)}</td>
-            <td>${escapeHtml(row.cqZone)}</td>
-            <td>${escapeHtml(row.ituZone)}</td>
-            <td>${row.matched ? 'Yes' : 'No'}</td>
-            <td>${delta}</td>
-            <td class="tl">${escapeHtml(row.comment || '')}</td>
-          </tr>
-        `;
-      }).join('');
-      return `
-        <div class="spots-drill-panel">
-          <div class="spots-drill-head">
-            <b>Bucket detail: ${escapeHtml(formatBandLabel(drillBand))} ${String(targetHour).padStart(2, '0')}:00Z</b>
-            <button type="button" class="button spots-drill-clear" data-slot="${slotAttr}" data-source="${sourceAttr}">Clear selection</button>
-          </div>
-          <div class="spots-drill-stats">
-            <span><b>Total spots</b>: ${formatNumberSh6(rows.length)}</span>
-            <span><b>After filters</b>: ${formatNumberSh6(filtered.length)}</span>
-            <span><b>Matched</b>: ${formatNumberSh6(matchedCount)}</span>
-          </div>
-          ${renderDrillFilterRow('Continent', 'continent', continentCounts, drillContinent)}
-          ${renderDrillFilterRow('CQ zone', 'cq', cqCounts, drillCqZone)}
-          ${renderDrillFilterRow('ITU zone', 'itu', ituCounts, drillItuZone)}
-          ${truncatedList ? `<div class="export-actions export-note">Showing first ${formatNumberSh6(SPOT_TABLE_LIMIT)} of ${formatNumberSh6(sorted.length)} rows.</div>` : ''}
-          <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-            <tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>Spotter</th><th>Cont</th><th>CQ</th><th>ITU</th><th>QSO</th><th>Delta m</th><th>Comment</th></tr>
-            ${tableRows}
-          </table>
-        </div>
-      `;
-    };
+    const renderSpotBucketDetail = (spots) => getSpotsDrilldownRuntime().renderSpotBucketDetail({
+      spots,
+      drillBand,
+      drillHour,
+      drillContinent,
+      drillCqZone,
+      drillItuZone,
+      slotAttr,
+      sourceAttr
+    });
     const analysisContext = stats ? buildAnalysisContext() : null;
     const spotsCoachCards = stats && analysisContext ? renderSpotsCoachCards(stats, analysisContext) : '';
     const spotsIntro = renderReportIntroCard(
@@ -17513,6 +17418,7 @@
     const canvasZoomRuntimeReady = loadCanvasZoomRuntimeModule();
     const rbnSignalExportRuntimeReady = loadRbnSignalExportRuntimeModule();
     const spotsCompareRuntimeReady = loadSpotsCompareRuntimeModule();
+    const spotsDrilldownRuntimeReady = loadSpotsDrilldownRuntimeModule();
     const spotsDataRuntimeReady = loadSpotsDataRuntimeModule();
     const spotsActionsRuntimeReady = loadSpotsActionsRuntimeModule();
     const rbnCompareChartRuntimeReady = loadRbnCompareChartRuntimeModule();
@@ -17535,6 +17441,7 @@
     await canvasZoomRuntimeReady;
     await rbnSignalExportRuntimeReady;
     await spotsCompareRuntimeReady;
+    await spotsDrilldownRuntimeReady;
     await spotsDataRuntimeReady;
     await spotsActionsRuntimeReady;
     await rbnCompareChartRuntimeReady;

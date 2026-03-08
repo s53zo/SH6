@@ -3092,6 +3092,40 @@
     `;
   }
 
+  function renderLocalServerRequiredState() {
+    document.body.classList.remove('landing-only', 'load-active', 'is-loading');
+    if (dom.viewContainer) dom.viewContainer.setAttribute('aria-busy', 'false');
+    if (dom.loadPanel) dom.loadPanel.style.display = 'none';
+    if (dom.bandRibbon) dom.bandRibbon.style.display = 'none';
+    if (dom.periodFilterRibbon) dom.periodFilterRibbon.style.display = 'none';
+    if (dom.navSearchInput) {
+      dom.navSearchInput.disabled = true;
+      dom.navSearchInput.placeholder = 'Run SH6 over http://127.0.0.1:8000/';
+      dom.navSearchInput.setAttribute('aria-disabled', 'true');
+    }
+    if (dom.navSearchEmpty) {
+      dom.navSearchEmpty.hidden = true;
+      dom.navSearchEmpty.textContent = '';
+    }
+    if (dom.navList) {
+      dom.navList.innerHTML = `
+        <li class="active"><span data-index="-1" class="active sli" aria-current="page">Local server required</span></li>
+        <li><span data-index="-2">Run ./scripts/run-local-web.sh</span></li>
+        <li><span data-index="-3">Then open http://127.0.0.1:8000/</span></li>
+      `;
+    }
+    if (dom.viewTitle) dom.viewTitle.textContent = 'Local server required';
+    if (dom.viewContainer) {
+      dom.viewContainer.innerHTML = `
+        <section class="state-card state-warn">
+          <h3>Open SH6 through a local web server</h3>
+          <p>Browsers block module imports, workers, and local data fetches when SH6 is opened from <code>file://</code>. That leaves the menu empty and the load controls non-functional.</p>
+          <p>From the SH6 folder run <code>./scripts/run-local-web.sh</code> or <code>python3 -m http.server 8000</code>, then open <a href="http://127.0.0.1:8000/">http://127.0.0.1:8000/</a>.</p>
+        </section>
+      `;
+    }
+  }
+
   function normalizeCoachSeverity(level) {
     const key = String(level || '').trim().toLowerCase();
     if (key === 'critical') return 'critical';
@@ -16991,6 +17025,10 @@
   });
 
   document.addEventListener('DOMContentLoaded', () => {
+    if (window.location?.protocol === 'file:') {
+      renderLocalServerRequiredState();
+      return;
+    }
     init().catch((err) => {
       console.error('SH6 init failed:', err);
       if (dom.viewTitle) dom.viewTitle.textContent = 'Startup error';

@@ -136,7 +136,7 @@
           import('../modules/spots/data-runtime.js')
         ]);
 
-        add('Main.js imports the spots data runtime module', mainSource.includes("const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.1.21';"));
+        add('Main.js imports the spots data runtime module', mainSource.includes("const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.14';"));
         add('Main.js preloads the spots data runtime during init', mainSource.includes('const spotsDataRuntimeReady = loadSpotsDataRuntimeModule();') && mainSource.includes('await spotsDataRuntimeReady;'));
         add(
           'Main.js delegates the extracted spots helpers to the runtime',

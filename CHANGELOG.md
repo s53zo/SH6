@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.14 (2026-03-08)
+- NTv5.4 consolidation: move analysis, navigation, retained report handling, compare controls, storage/session, archive search, export, coach actions, and spots/RBN subsystems out of the old `main.js` monolith into dedicated runtime modules.
+- Engine/runtime: add worker-backed analysis core, durable browser storage, retained/virtualized long reports, investigation workspaces, and broader browser-smoke coverage for extracted modules.
+- Startup/runtime fixes: make navigation initialize before optional runtimes, show a clear `file://` warning state with a local-server helper script, and fix the retained Log report wiring so `Preparing Log...` no longer sticks in DXer/Contester.
+- Version bump to `v6.2.14` and refresh cache-busting references in `index.html`, `main.js`, and the browser smoke expectations.
+
 ## v6.1.21 (2026-03-04)
 - Frequencies chart sampling: replace global stride downsampling with deterministic stratified sampling to preserve both run-frequency lanes and S&P spread.
 - Frequencies chart sampling: allocate dot budget across bands and 10-minute buckets, with per-band anchors to keep activity boundaries visible.

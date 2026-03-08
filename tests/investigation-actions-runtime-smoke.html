@@ -82,7 +82,7 @@
           import('../modules/ui/investigation-actions-runtime.js')
         ]);
 
-        add('Main.js imports the investigation actions runtime module', mainSource.includes("const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.1.21';"));
+        add('Main.js imports the investigation actions runtime module', mainSource.includes("const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.14';"));
         add('Main.js preloads the investigation actions runtime during init', mainSource.includes('const investigationActionsRuntimeReady = loadInvestigationActionsRuntimeModule();') && mainSource.includes('await investigationActionsRuntimeReady;'));
         add('Main.js delegates investigation action binding to the runtime', mainSource.includes("getInvestigationActionsRuntime().bindInvestigationActions(reportId);"));
         add('Investigation actions runtime exports the factory', moduleSource.includes('export function createInvestigationActionsRuntime'));

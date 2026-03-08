@@ -81,7 +81,7 @@
           import('../modules/spots/diagnostics-runtime.js')
         ]);
 
-        add('Main.js imports the spots diagnostics runtime module', mainSource.includes("const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.1.21';"));
+        add('Main.js imports the spots diagnostics runtime module', mainSource.includes("const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.14';"));
         add('Main.js preloads the spots diagnostics runtime during init', mainSource.includes('const spotsDiagnosticsRuntimeReady = loadSpotsDiagnosticsRuntimeModule();') && mainSource.includes('await spotsDiagnosticsRuntimeReady;'));
         add(
           'Main.js delegates diagnostics helpers to the extracted runtime',

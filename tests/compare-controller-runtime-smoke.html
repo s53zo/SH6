@@ -88,7 +88,7 @@
           import('../modules/compare/controller-runtime.js')
         ]);
 
-        add('Main.js imports the compare controller runtime module', mainSource.includes("const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.1.21';"));
+        add('Main.js imports the compare controller runtime module', mainSource.includes("const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.14';"));
         add('Main.js loads compare controller runtime before compare rendering', mainSource.includes('const compareControllerReady = loadCompareControllerRuntimeModule();') && mainSource.includes('await compareControllerReady;'));
         add('Main.js delegates compare focus helpers and workspace interactions to the runtime', mainSource.includes('return getCompareControllerRuntime().getCompareFocusPair(reportId, slotEntries);') && mainSource.includes('getCompareControllerRuntime().bindWorkspaceInteractions(reportId);'));
         add('Compare controller runtime exports the factory', moduleSource.includes('export function createCompareControllerRuntime'));

@@ -81,7 +81,7 @@
           import('../modules/spots/coach-summary-runtime.js')
         ]);
 
-        add('Main.js imports the spots coach summary runtime module', mainSource.includes("const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.1.21';"));
+        add('Main.js imports the spots coach summary runtime module', mainSource.includes("const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.14';"));
         add('Main.js preloads the spots coach summary runtime during init', mainSource.includes('const spotsCoachSummaryRuntimeReady = loadSpotsCoachSummaryRuntimeModule();') && mainSource.includes('await spotsCoachSummaryRuntimeReady;'));
         add(
           'Main.js delegates the coach summary helpers to the extracted runtime',

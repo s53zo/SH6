@@ -81,7 +81,7 @@
           import('../modules/spots/charts-runtime.js')
         ]);
 
-        add('Main.js imports the spots charts runtime module', mainSource.includes("const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.1.21';"));
+        add('Main.js imports the spots charts runtime module', mainSource.includes("const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.14';"));
         add('Main.js preloads the spots charts runtime during init', mainSource.includes('const spotsChartsRuntimeReady = loadSpotsChartsRuntimeModule();') && mainSource.includes('await spotsChartsRuntimeReady;'));
         add(
           'Main.js delegates chart helpers to the extracted runtime',

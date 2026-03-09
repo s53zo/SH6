@@ -81,8 +81,12 @@
           import('../modules/spots/compare-runtime.js')
         ]);
 
-        add('Main.js imports the spots compare runtime module', mainSource.includes("const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.14';"));
-        add('Main.js preloads the spots compare runtime during init', mainSource.includes('const spotsCompareRuntimeReady = loadSpotsCompareRuntimeModule();') && mainSource.includes('await spotsCompareRuntimeReady;'));
+        add('Main.js imports the spots compare runtime module', mainSource.includes("const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.15';"));
+        add(
+          'Main.js preloads the spots compare runtime during init',
+          mainSource.includes('const spotsCompareRuntimeReady = loadSpotsCompareRuntimeModule();')
+            && mainSource.includes("await awaitInitRuntime('spots compare runtime', spotsCompareRuntimeReady);")
+        );
         add(
           'Main.js delegates spots compare helpers to the spots compare runtime',
           mainSource.includes('return getSpotsCompareRuntime().renderSpotsSharedControls(source);')

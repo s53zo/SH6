@@ -98,7 +98,7 @@
           import('../modules/spots/actions-runtime.js')
         ]);
 
-        add('Main.js imports the spots actions runtime module', mainSource.includes("const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.14';"));
+        add('Main.js imports the spots actions runtime module', mainSource.includes("const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.15';"));
         add('Main.js preloads the spots actions runtime during init', mainSource.includes('const spotsActionsRuntimeReady = loadSpotsActionsRuntimeModule();') && mainSource.includes('await spotsActionsRuntimeReady;'));
         add(
           'Main.js delegates the standard spots reports to the spots actions runtime',

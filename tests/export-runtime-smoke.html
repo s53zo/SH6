@@ -87,7 +87,7 @@
           import('../modules/export/runtime.js')
         ]);
 
-        add('Main.js imports the export runtime module', mainSource.includes("const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.14';"));
+        add('Main.js imports the export runtime module', mainSource.includes("const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.15';"));
         add('Main.js preloads export runtime during init', mainSource.includes('const exportRuntimeReady = loadExportRuntimeModule();') && mainSource.includes('await exportRuntimeReady;'));
         add('Main.js delegates renderLogExport to export runtime', mainSource.includes('return getExportRuntime().renderLogExport();'));
         add('Main.js delegates export dialog to export runtime', mainSource.includes('return getExportRuntime().openExportDialog(type);'));

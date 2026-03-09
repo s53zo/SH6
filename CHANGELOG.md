@@ -2,11 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
-## v6.2.14 (2026-03-08)
-- NTv5.4 consolidation: move analysis, navigation, retained report handling, compare controls, storage/session, archive search, export, coach actions, and spots/RBN subsystems out of the old `main.js` monolith into dedicated runtime modules.
-- Engine/runtime: add worker-backed analysis core, durable browser storage, retained/virtualized long reports, investigation workspaces, and broader browser-smoke coverage for extracted modules.
-- Startup/runtime fixes: make navigation initialize before optional runtimes, show a clear `file://` warning state with a local-server helper script, and fix the retained Log report wiring so `Preparing Log...` no longer sticks in DXer/Contester.
-- Version bump to `v6.2.14` and refresh cache-busting references in `index.html`, `main.js`, and the browser smoke expectations.
+## v6.2.15 (2026-03-09)
+- Summary scoring: use effective/computed QSO points in `Summary`, so demo/archive logs without logged `POINTS` fields no longer show `Qs Pts = 0` when SH6 can derive points.
+- Beam heading: add a compass-style polar histogram for directional activity, keep the detailed per-band table for drill-down, and carry the same visual into compare panels.
+- Beam heading by hour: replace the plain count matrix with a true heatmap, including shared-scale compare rendering and a visible low→high legend.
+- RBN UX: move the dedicated `https://s53m.com/RBN` recommendation out of the left menu and into the top of `RBN spots` and `RBN compare signal`, keeping the menu compact while preserving the shortcut.
+- Session/briefing layout: keep `Agent briefing` in a single vertical column, and stack the `Permalink`, `Save session`, and `Load session` explanations/buttons to prevent horizontal overspill.
+- Version bump to `v6.2.15` and refresh cache-busting references in `index.html`, `main.js`, and the browser smoke expectations.
 
 ## v6.1.21 (2026-03-04)
 - Frequencies chart sampling: replace global stride downsampling with deterministic stratified sampling to preserve both run-frequency lanes and S&P spread.

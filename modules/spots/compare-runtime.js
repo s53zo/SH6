@@ -10,7 +10,8 @@ export function createSpotsCompareRuntime(deps = {}) {
     escapeAttr,
     escapeHtml,
     renderSpotsCompareSlot,
-    renderComparePanels
+    renderComparePanels,
+    renderRbnRecommendationCallout
   } = deps;
 
   function getStateSafe() {
@@ -64,6 +65,19 @@ export function createSpotsCompareRuntime(deps = {}) {
     return htmlBlocks.join('');
   }
 
+  function renderRbnRecommendationCalloutSafe() {
+    if (typeof renderRbnRecommendationCallout === 'function') return renderRbnRecommendationCallout();
+    return `
+      <section class="report-recommendation-card">
+        <span class="report-recommendation-kicker">Author recommendation</span>
+        <div class="report-recommendation-body">
+          <a href="https://s53m.com/RBN" target="_blank" rel="noopener noreferrer">Open the dedicated RBN analysis site</a>
+          <p>Use the standalone RBN workspace for deeper beacon-focused investigation, then return to SH6 for log-integrated analysis.</p>
+        </div>
+      </section>
+    `;
+  }
+
   function normalizeHeadingLabel(text) {
     return String(text || '')
       .trim()
@@ -112,7 +126,8 @@ export function createSpotsCompareRuntime(deps = {}) {
         : `<p>No ${escapeHtmlSafe(entry.label)} loaded.</p>`
     ));
     const controls = renderSpotsSharedControls(source);
-    return `${controls}${renderComparePanelsSafe(slots, htmlBlocks, source === 'rbn' ? 'rbn_spots' : 'spots')}`;
+    const topNotice = source === 'rbn' ? renderRbnRecommendationCalloutSafe() : '';
+    return `${topNotice}${controls}${renderComparePanelsSafe(slots, htmlBlocks, source === 'rbn' ? 'rbn_spots' : 'spots')}`;
   }
 
   function buildSpotsAlignBlocks(panelEl, stopHeading = 'all spots of you') {

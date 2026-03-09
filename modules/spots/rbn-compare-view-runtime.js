@@ -18,6 +18,7 @@ export function createRbnCompareViewRuntime(deps = {}) {
     normalizeSpotterBase,
     formatNumberSh6,
     renderReportIntroCard,
+    renderRbnRecommendationCallout,
     renderStateCard,
     analysisModeDxer = 'dxer'
   } = deps;
@@ -109,6 +110,19 @@ export function createRbnCompareViewRuntime(deps = {}) {
   function renderReportIntroCardSafe(title, intro, items) {
     if (typeof renderReportIntroCard === 'function') return renderReportIntroCard(title, intro, items);
     return `<section class="report-intro"><h3>${escapeHtmlSafe(title)}</h3><p>${escapeHtmlSafe(intro)}</p></section>`;
+  }
+
+  function renderRbnRecommendationCalloutSafe() {
+    if (typeof renderRbnRecommendationCallout === 'function') return renderRbnRecommendationCallout();
+    return `
+      <section class="report-recommendation-card">
+        <span class="report-recommendation-kicker">Author recommendation</span>
+        <div class="report-recommendation-body">
+          <a href="https://s53m.com/RBN" target="_blank" rel="noopener noreferrer">Open the dedicated RBN analysis site</a>
+          <p>Use the standalone RBN workspace for deeper beacon-focused investigation, then return to SH6 for log-integrated analysis.</p>
+        </div>
+      </section>
+    `;
   }
 
   function renderStateCardSafe(config = {}) {
@@ -337,6 +351,7 @@ export function createRbnCompareViewRuntime(deps = {}) {
 
     return `
       ${intro}
+      ${renderRbnRecommendationCalloutSafe()}
       ${warning}
       <div class="export-actions">${rbnControls || '<span class="cqapi-muted">Load at least one log to enable RBN charts.</span>'}</div>
       ${compareOffer}

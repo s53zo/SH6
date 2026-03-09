@@ -82,7 +82,7 @@
           import('../modules/spots/rbn-compare-runtime.js')
         ]);
 
-        add('Main.js imports the RBN compare runtime module', mainSource.includes("const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.14';"));
+        add('Main.js imports the RBN compare runtime module', mainSource.includes("const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.15';"));
         add('Main.js preloads the RBN compare runtime during init', mainSource.includes('const rbnCompareRuntimeReady = loadRbnCompareRuntimeModule();') && mainSource.includes('await rbnCompareRuntimeReady;'));
         add(
           'Main.js delegates cleanup and report binding to the runtime',

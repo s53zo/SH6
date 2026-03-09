@@ -49,22 +49,8 @@
     { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' },
     { id: 'comments', title: 'Comments' },
     { id: 'spots', title: 'Spots' },
-    {
-      id: 'rbn_spots',
-      title: 'RBN spots',
-      menuRecommendation: {
-        label: 'Try dedicated RBN site',
-        href: 'https://s53m.com/RBN'
-      }
-    },
-    {
-      id: 'rbn_compare_signal',
-      title: 'RBN compare signal',
-      menuRecommendation: {
-        label: 'Try dedicated RBN site',
-        href: 'https://s53m.com/RBN'
-      }
-    },
+    { id: 'rbn_spots', title: 'RBN spots' },
+    { id: 'rbn_compare_signal', title: 'RBN compare signal' },
     { id: 'export', title: 'EXPORT PDF, HTML, CBR' },
     { id: 'session', title: 'Save&Load session' },
     { id: 'qsl_labels', title: 'QSL labels' },
@@ -160,7 +146,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.14';
+  const APP_VERSION = 'v6.2.15';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -200,34 +186,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.14';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.14';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.14';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.14';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.14';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.14';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.14';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.14';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.14';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.14';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.14';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.14';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.14';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.14';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.14';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.14';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.14';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.14';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.14';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.14';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.14';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.14';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.14';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.14';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.14';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.14';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.14';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.14';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.15';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.15';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.15';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.15';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.15';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.15';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.15';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.15';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.15';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.15';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.15';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.15';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.15';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.15';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.15';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.15';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.15';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.15';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.15';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.15';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.15';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.15';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.15';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.15';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.15';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.15';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.15';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.15';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -236,6 +222,7 @@
   const ARCHIVE_SHARD_BASE = 'https://cdn.jsdelivr.net/gh/s53zo/Hamradio-Contest-logs-Archives@main/SH6';
   const ARCHIVE_SHARD_BASE_RAW = 'https://raw.githubusercontent.com/s53zo/Hamradio-Contest-logs-Archives/main/SH6';
   const PERMALINK_BASE_URL = 'https://s53m.com/SH6/';
+  const RBN_RECOMMENDATION_URL = 'https://s53m.com/RBN';
   const ARCHIVE_SH6_BASE = `${ARCHIVE_BASE_URL}/SH6`;
   const ARCHIVE_BRANCHES = ['main', 'master'];
   const SCORING_SPEC_URLS = [
@@ -1961,7 +1948,8 @@
               () => renderSpots({ source, spotsState: getSpotStateBySource(entry.snapshot, source), hideControls: true }),
               { slotId: entry.id }
             ),
-            renderComparePanels
+            renderComparePanels,
+            renderRbnRecommendationCallout
           });
           return spotsCompareRuntime;
         });
@@ -2240,6 +2228,7 @@
             normalizeSpotterBase,
             formatNumberSh6,
             renderReportIntroCard,
+            renderRbnRecommendationCallout,
             renderStateCard,
             analysisModeDxer: ANALYSIS_MODE_DXER
           });
@@ -3081,6 +3070,18 @@
         <h3>${safeTitle}</h3>
         ${safeSubtitle ? `<p>${safeSubtitle}</p>` : ''}
         ${tagHtml}
+      </section>
+    `;
+  }
+
+  function renderRbnRecommendationCallout() {
+    return `
+      <section class="report-recommendation-card">
+        <span class="report-recommendation-kicker">Author recommendation</span>
+        <div class="report-recommendation-body">
+          <a href="${escapeAttr(RBN_RECOMMENDATION_URL)}" target="_blank" rel="noopener noreferrer">Open the dedicated RBN analysis site</a>
+          <p>Use the standalone RBN workspace for deeper beacon-focused investigation, then come back to SH6 for log-integrated analysis.</p>
+        </div>
       </section>
     `;
   }
@@ -10653,6 +10654,7 @@
     const fileListLabel = options.fileListLabel || 'Spot files';
     const errorLabel = options.errorLabel || 'Day errors';
     const extraNote = options.note || '';
+    const topNoticeHtml = options.topNoticeHtml || '';
     const dayPickerHtml = options.dayPickerHtml || '';
     const hideRbnExtras = source === 'rbn';
     const hideControls = Boolean(options.hideControls);
@@ -10997,6 +10999,7 @@
       <div class="mtc export-panel spots-panel" data-slot="${slotAttr}">
         <div class="gradient">&nbsp;${escapeHtml(title)}</div>
         <div class="sh6-advanced-analysis">
+          ${topNoticeHtml}
           ${spotsIntro}
           <div class="export-actions">
             <span><b>Callsign</b>: ${call} (exact match)</span>
@@ -11189,6 +11192,7 @@
       errorLabel: 'RBN day errors',
       dayList,
       note: 'RBN spotters can include a “-#” suffix (skimmer ID). These are grouped by the base callsign.',
+      topNoticeHtml: renderRbnRecommendationCallout(),
       dayPickerHtml
     });
   }
@@ -13236,6 +13240,239 @@
     return map;
   }
 
+  function formatHeadingSectorLabel(start, span = 10) {
+    const safeStart = Math.max(0, Math.min(359, Number(start) || 0));
+    const safeSpan = Math.max(1, Number(span) || 10);
+    const safeEnd = Math.max(safeStart, Math.min(359, safeStart + safeSpan - 1));
+    return `${String(safeStart).padStart(3, '0')} - ${String(safeEnd).padStart(3, '0')}`;
+  }
+
+  function buildHeadingMetricEntries(summary, mode = CHART_MODE_ABSOLUTE) {
+    const normalizedMode = normalizeChartMetricMode(mode);
+    const list = Array.isArray(summary) ? summary : [];
+    const total = list.reduce((sum, entry) => sum + (Number(entry?.count) || 0), 0);
+    return list.map((entry) => {
+      const count = Number(entry?.count) || 0;
+      const start = Number(entry?.start) || 0;
+      const pct = total > 0 ? (count / total) * 100 : 0;
+      return {
+        start,
+        sector: String(entry?.sector || formatHeadingSectorLabel(start, 10)),
+        count,
+        pct,
+        metricValue: normalizedMode === CHART_MODE_NORMALIZED ? pct : count,
+        metricText: normalizedMode === CHART_MODE_NORMALIZED ? `${pct.toFixed(1)}%` : formatNumberSh6(count),
+        detailText: `${formatNumberSh6(count)} QSOs · ${pct.toFixed(1)}%`
+      };
+    }).sort((left, right) => left.start - right.start);
+  }
+
+  function getHeadingMetricMax(derivedList, mode = CHART_MODE_ABSOLUTE) {
+    const source = Array.isArray(derivedList) ? derivedList : [derivedList];
+    let max = 0;
+    source.forEach((derived) => {
+      buildHeadingMetricEntries(derived?.headingSummary || [], mode).forEach((entry) => {
+        if (entry.metricValue > max) max = entry.metricValue;
+      });
+    });
+    return Math.max(1, max);
+  }
+
+  function polarToCartesian(cx, cy, radius, angleDeg) {
+    const radians = ((angleDeg - 90) * Math.PI) / 180;
+    return {
+      x: cx + radius * Math.cos(radians),
+      y: cy + radius * Math.sin(radians)
+    };
+  }
+
+  function describeDonutSector(cx, cy, innerRadius, outerRadius, startDeg, endDeg) {
+    const outerStart = polarToCartesian(cx, cy, outerRadius, startDeg);
+    const outerEnd = polarToCartesian(cx, cy, outerRadius, endDeg);
+    const innerEnd = polarToCartesian(cx, cy, innerRadius, endDeg);
+    const innerStart = polarToCartesian(cx, cy, innerRadius, startDeg);
+    const largeArc = endDeg - startDeg > 180 ? 1 : 0;
+    return [
+      `M ${outerStart.x.toFixed(3)} ${outerStart.y.toFixed(3)}`,
+      `A ${outerRadius.toFixed(3)} ${outerRadius.toFixed(3)} 0 ${largeArc} 1 ${outerEnd.x.toFixed(3)} ${outerEnd.y.toFixed(3)}`,
+      `L ${innerEnd.x.toFixed(3)} ${innerEnd.y.toFixed(3)}`,
+      `A ${innerRadius.toFixed(3)} ${innerRadius.toFixed(3)} 0 ${largeArc} 0 ${innerStart.x.toFixed(3)} ${innerStart.y.toFixed(3)}`,
+      'Z'
+    ].join(' ');
+  }
+
+  function headingCompassTextAnchor(angleDeg) {
+    const normalized = ((Number(angleDeg) % 360) + 360) % 360;
+    if (normalized === 0 || normalized === 180) return 'middle';
+    return normalized < 180 ? 'start' : 'end';
+  }
+
+  function renderHeadingCompassCard(summary, options = {}) {
+    const title = options.title || 'Beam heading compass';
+    const mode = options.mode || CHART_MODE_ABSOLUTE;
+    const entries = buildHeadingMetricEntries(summary, mode);
+    if (!entries.length) return '<p>No heading data.</p>';
+    const maxMetric = Number.isFinite(options.maxValue) && options.maxValue > 0
+      ? Number(options.maxValue)
+      : Math.max(1, ...entries.map((entry) => entry.metricValue));
+    const totalQsos = entries.reduce((sum, entry) => sum + entry.count, 0);
+    const strongest = entries.slice().sort((left, right) => right.count - left.count || left.start - right.start).slice(0, 6);
+    const normalizedMode = normalizeChartMetricMode(mode);
+    const cx = 180;
+    const cy = 180;
+    const innerRadius = 44;
+    const outerRadius = 154;
+    const sectorPaths = entries.map((entry) => {
+      const ratio = maxMetric > 0 ? entry.metricValue / maxMetric : 0;
+      const currentOuter = innerRadius + Math.max(0.08, ratio) * (outerRadius - innerRadius);
+      const startDeg = entry.start + 0.6;
+      const endDeg = entry.start + 9.4;
+      const lightness = 86 - ratio * 36;
+      const fill = `hsl(212 72% ${lightness.toFixed(1)}%)`;
+      const path = describeDonutSector(cx, cy, innerRadius, currentOuter, startDeg, endDeg);
+      return `
+        <a href="#" class="log-heading heading-sector-link" data-heading="${escapeAttr(entry.start)}">
+          <title>${escapeHtml(`${entry.sector}: ${entry.detailText}`)}</title>
+          <path d="${path}" fill="${fill}" stroke="#1c4f95" stroke-width="1"></path>
+        </a>
+      `;
+    }).join('');
+    const ringGuides = [0.25, 0.5, 0.75, 1].map((ratio) => {
+      const radius = innerRadius + ratio * (outerRadius - innerRadius);
+      return `<circle cx="${cx}" cy="${cy}" r="${radius.toFixed(1)}" class="heading-compass-ring"></circle>`;
+    }).join('');
+    const axisLines = [0, 90, 180, 270].map((angle) => {
+      const from = polarToCartesian(cx, cy, innerRadius - 8, angle);
+      const to = polarToCartesian(cx, cy, outerRadius + 4, angle);
+      return `<line x1="${from.x.toFixed(2)}" y1="${from.y.toFixed(2)}" x2="${to.x.toFixed(2)}" y2="${to.y.toFixed(2)}" class="heading-compass-axis"></line>`;
+    }).join('');
+    const compassLabels = [
+      ['N', 0],
+      ['NE', 45],
+      ['E', 90],
+      ['SE', 135],
+      ['S', 180],
+      ['SW', 225],
+      ['W', 270],
+      ['NW', 315]
+    ].map(([label, angle]) => {
+      const point = polarToCartesian(cx, cy, outerRadius + 18, angle);
+      return `
+        <text x="${point.x.toFixed(2)}" y="${point.y.toFixed(2)}" text-anchor="${headingCompassTextAnchor(angle)}" class="heading-compass-label">
+          ${escapeHtml(label)}
+        </text>
+      `;
+    }).join('');
+    const topChips = strongest.map((entry) => `
+      <a href="#" class="heading-visual-chip log-heading" data-heading="${escapeAttr(entry.start)}">
+        <span>${escapeHtml(entry.sector)}</span>
+        <b>${escapeHtml(entry.detailText)}</b>
+      </a>
+    `).join('');
+    const scaleText = normalizedMode === CHART_MODE_NORMALIZED
+      ? `Scaled to the strongest sector share (${maxMetric.toFixed(1)}%).`
+      : `Scaled to the strongest sector (${formatNumberSh6(Math.round(maxMetric))} QSOs).`;
+    return `
+      <section class="heading-visual-card chart-card">
+        <div class="gradient">&nbsp;${escapeHtml(title)}</div>
+        <div class="heading-visual-layout">
+          <div class="heading-visual-figure">
+            <svg class="heading-compass-svg" viewBox="0 0 360 360" role="img" aria-label="Compass histogram of worked beam headings">
+              ${ringGuides}
+              ${axisLines}
+              ${sectorPaths}
+              <circle cx="${cx}" cy="${cy}" r="${(innerRadius - 10).toFixed(1)}" class="heading-compass-core"></circle>
+              <text x="${cx}" y="${cy - 4}" text-anchor="middle" class="heading-compass-total">${escapeHtml(formatNumberSh6(totalQsos))}</text>
+              <text x="${cx}" y="${cy + 14}" text-anchor="middle" class="heading-compass-caption">QSOs</text>
+              ${compassLabels}
+            </svg>
+          </div>
+          <div class="heading-visual-side">
+            <p class="heading-visual-copy">Compass-style histogram of worked headings. Longer wedges indicate stronger activity in that direction.</p>
+            <div class="heading-visual-stat-grid">
+              <div class="heading-visual-stat">
+                <span>Direction buckets</span>
+                <b>${escapeHtml(formatNumberSh6(entries.length))}</b>
+              </div>
+              <div class="heading-visual-stat">
+                <span>Strongest sector</span>
+                <b>${escapeHtml(strongest[0]?.sector || 'N/A')}</b>
+              </div>
+            </div>
+            <p class="heading-visual-scale">${escapeHtml(scaleText)}</p>
+            <div class="heading-visual-chip-row">${topChips}</div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function getHeadingByHourMax(derivedList) {
+    const source = Array.isArray(derivedList) ? derivedList : [derivedList];
+    let max = 0;
+    source.forEach((derived) => {
+      (derived?.headingByHourSeries || []).forEach((hourEntry) => {
+        (hourEntry?.sectors || []).forEach((sectorEntry) => {
+          const count = Number(sectorEntry?.count) || 0;
+          if (count > max) max = count;
+        });
+      });
+    });
+    return Math.max(1, max);
+  }
+
+  function renderHeadingByHourHeatmapCard(derived, options = {}) {
+    if (!derived || !derived.headingByHourSeries) {
+      return renderPlaceholder({ id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' });
+    }
+    const title = options.title || 'Beam heading by hour';
+    const map = buildHeadingByHourMap(derived);
+    const hours = Array.isArray(options.hours) && options.hours.length ? options.hours : buildHeadingByHourOrderFromMaps([map]);
+    const sectors = Array.isArray(options.sectors) && options.sectors.length ? options.sectors : buildHeadingByHourSectorsFromMaps([map]);
+    if (!hours.length || !sectors.length) return '<p>No heading-by-hour data.</p>';
+    const maxValue = Number.isFinite(options.maxValue) && options.maxValue > 0
+      ? Number(options.maxValue)
+      : getHeadingByHourMax(derived);
+    const rows = hours.map((hour, idx) => {
+      const sectorMap = map.get(hour) || new Map();
+      const rowTotal = sectors.reduce((sum, sector) => sum + (sectorMap.get(sector) || 0), 0);
+      const cells = sectors.map((sector) => {
+        const count = Number(sectorMap.get(sector) || 0);
+        const ratio = maxValue > 0 ? count / maxValue : 0;
+        const background = count
+          ? `hsla(214, 78%, 42%, ${(0.12 + ratio * 0.78).toFixed(3)})`
+          : 'rgba(30, 91, 214, 0.035)';
+        const color = ratio > 0.58 ? '#ffffff' : '#173b68';
+        const label = `${formatDateSh6(hour * 3600000)} · ${formatHeadingSectorLabel(sector, 30)} · ${formatNumberSh6(count)} QSOs`;
+        return `<td class="heading-heatmap-cell${count ? ' is-active' : ''}" style="background:${background};color:${color};" title="${escapeAttr(label)}">${count ? formatNumberSh6(count) : ''}</td>`;
+      }).join('');
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      return `<tr class="${cls}"><td class="heading-heatmap-time">${escapeHtml(formatDateSh6(hour * 3600000))}</td>${cells}<td class="heading-heatmap-total">${formatNumberSh6(rowTotal)}</td></tr>`;
+    }).join('');
+    const header = sectors.map((sector) => `<th class="heading-heatmap-header">${escapeHtml(formatHeadingSectorLabel(sector, 30))}</th>`).join('');
+    return `
+      <section class="heading-heatmap-card chart-card">
+        <div class="gradient">&nbsp;${escapeHtml(title)}</div>
+        <div class="heading-heatmap-meta">
+          <span>${escapeHtml(formatNumberSh6(hours.length))} hourly slices</span>
+          <span>${escapeHtml(formatNumberSh6(sectors.length))} sectors</span>
+          <span>Shared heat scale max ${escapeHtml(formatNumberSh6(Math.round(maxValue)))} QSOs</span>
+        </div>
+        <div class="heading-heatmap-legend">
+          <span class="heading-heatmap-legend-label">Low</span>
+          <span class="heading-heatmap-legend-bar"></span>
+          <span class="heading-heatmap-legend-label">High</span>
+        </div>
+        <div class="heading-heatmap-scroll">
+          <table class="mtc heading-heatmap-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+            <tr class="thc"><th>Hour (UTC)</th>${header}<th>Total</th></tr>
+            ${rows}
+          </table>
+        </div>
+      </section>
+    `;
+  }
+
   function renderHeadingRowsFromList(list, derived) {
     const bands = getDisplayBandList();
     const map = buildHeadingMap(derived);
@@ -13295,7 +13532,16 @@
     const bands = getDisplayBandList();
     const qsoCols = bands.length + 1;
     const bandHeaders = bands.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
-    return renderRetainedVirtualTable('beam_heading', {
+    const total = state.derived.headingSummary.reduce((sum, entry) => sum + (Number(entry?.count) || 0), 0);
+    const intro = renderReportIntroCard(
+      'Beam heading',
+      'Compass histogram of worked bearings, followed by the detailed per-band table for drill-down and map jumps.',
+      [
+        `${formatNumberSh6(total)} QSOs with bearings`,
+        '10° sectors'
+      ]
+    );
+    const table = renderRetainedVirtualTable('beam_heading', {
       rows,
       rowHeight: 28,
       overscan: 10,
@@ -13308,6 +13554,7 @@
       `,
       footerHtml: mapAllFooter(bands.length + 5)
     });
+    return `${intro}${renderHeadingCompassCard(state.derived.headingSummary, { title: 'Compass histogram' })}${table}`;
   }
 
   function renderBeamHeadingCompareContent() {
@@ -14524,33 +14771,12 @@
   function renderChartBeamHeading() {
     if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     const mode = normalizeChartMetricMode(state.chartMetricMode);
-    const rawData = state.derived.headingSummary.map((h) => ({ label: h.sector, value: h.count }));
-    const metricRows = resolveChartRowsWithMetric(rawData, 'value', mode);
-    const maxForMode = mode === CHART_MODE_NORMALIZED ? 100 : null;
-    return `${renderChartModeControls('charts_beam_heading', mode)}<div class="mtc chart-card"><div class="gradient">&nbsp;Beam heading</div>${renderBars(metricRows, 'label', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
+    return `${renderChartModeControls('charts_beam_heading', mode)}${renderHeadingCompassCard(state.derived.headingSummary, { title: 'Beam heading', mode })}`;
   }
 
   function renderChartBeamHeadingByHour() {
     if (!state.derived || !state.derived.headingByHourSeries) return renderPlaceholder({ id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' });
-    const allSectors = new Set();
-    state.derived.headingByHourSeries.forEach((h) => h.sectors.forEach((s) => allSectors.add(s.sector)));
-    const sectors = Array.from(allSectors).sort((a, b) => a - b);
-    const header = sectors.map((s) => `<th>${s}-${s + 29}</th>`).join('');
-    const rows = state.derived.headingByHourSeries.map((h, idx) => {
-      const date = formatDateSh6(h.hour * 3600000);
-      const cells = sectors.map((s) => {
-        const found = h.sectors.find((x) => x.sector === s);
-        return `<td>${found ? found.count : 0}</td>`;
-      }).join('');
-      const cls = idx % 2 === 0 ? 'td1' : 'td0';
-      return `<tr class="${cls}"><td>${date}</td>${cells}</tr>`;
-    }).join('');
-    return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Hour (UTC)</th>${header}</tr>
-        ${rows}
-      </table>
-    `;
+    return renderHeadingByHourHeatmapCard(state.derived, { title: 'Beam heading by hour' });
   }
 
   function renderGraphsQsByHour(bandFilter) {
@@ -15127,10 +15353,16 @@
     const slots = getActiveCompareSnapshots();
     const lists = slots.map((entry) => buildHeadingList(entry.snapshot.derived));
     const list = mergeListsMany(mergeHeadingLists, lists);
+    const chartMax = getHeadingMetricMax(slots.map((entry) => entry.snapshot.derived), CHART_MODE_ABSOLUTE);
     const htmlBlocks = slots.map((entry) => {
       if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
       const rows = list.length ? renderHeadingRowsFromList(list, entry.snapshot.derived) : '';
-      return rows ? renderHeadingTable(rows) : '<p>No heading data.</p>';
+      if (!rows) return '<p>No heading data.</p>';
+      return `${renderHeadingCompassCard(entry.snapshot.derived?.headingSummary || [], {
+        title: `${entry.label} compass`,
+        mode: CHART_MODE_ABSOLUTE,
+        maxValue: chartMax
+      })}${renderHeadingTable(rows)}`;
     });
     return renderComparePanels(slots, htmlBlocks, 'beam_heading');
   }
@@ -15342,17 +15574,15 @@
     if (!slot.derived || !slot.derived.headingSummary) {
       return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     }
-    const map = buildHeadingChartMap(slot.derived);
-    const rawData = order.map((start) => {
-      const entry = map.get(start);
-      return {
-        label: entry ? entry.label : `${start}-${start + 29}`,
-        value: entry ? entry.value : 0
-      };
+    const entries = order.map((start) => {
+      const found = slot.derived.headingSummary.find((entry) => Number(entry?.start) === Number(start));
+      return found || { start, sector: formatHeadingSectorLabel(start, 10), count: 0 };
     });
-    const metricRows = resolveChartRowsWithMetric(rawData, 'value', mode);
-    const maxForMode = normalizeChartMetricMode(mode) === CHART_MODE_NORMALIZED ? 100 : maxOverride;
-    return `<div class="mtc chart-card"><div class="gradient">&nbsp;Beam heading</div>${renderBars(metricRows, 'label', 'chartValue', maxForMode, { valueTextField: 'chartText', barClass: 'chart-bar' })}</div>`;
+    return renderHeadingCompassCard(entries, {
+      title: 'Beam heading',
+      mode,
+      maxValue: maxOverride
+    });
   }
 
   function renderChartBeamHeadingCompareAligned() {
@@ -15360,9 +15590,7 @@
     const slots = getActiveCompareSnapshots();
     const maps = slots.map((entry) => buildHeadingChartMap(entry.snapshot.derived));
     const order = buildHeadingChartOrderFromMaps(maps);
-    const values = [];
-    maps.forEach((map) => map.forEach((entry) => values.push(entry.value || 0)));
-    const maxValue = mode === CHART_MODE_NORMALIZED ? 100 : Math.max(1, ...values);
+    const maxValue = getHeadingMetricMax(slots.map((entry) => entry.snapshot.derived), mode);
     const htmlBlocks = slots.map((entry) => (
       entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, order, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
@@ -15410,21 +15638,12 @@
     if (!slot.derived || !slot.derived.headingByHourSeries) {
       return renderPlaceholder({ id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' });
     }
-    const map = buildHeadingByHourMap(slot.derived);
-    const header = sectors.map((s) => `<th>${s}-${s + 29}</th>`).join('');
-    const rows = hours.map((hour, idx) => {
-      const date = formatDateSh6(hour * 3600000);
-      const sectorMap = map.get(hour) || new Map();
-      const cells = sectors.map((s) => `<td>${sectorMap.get(s) || 0}</td>`).join('');
-      const cls = idx % 2 === 0 ? 'td1' : 'td0';
-      return `<tr class="${cls}"><td>${date}</td>${cells}</tr>`;
-    }).join('');
-    return `
-      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>Hour (UTC)</th>${header}</tr>
-        ${rows}
-      </table>
-    `;
+    return renderHeadingByHourHeatmapCard(slot.derived, {
+      title: 'Beam heading by hour',
+      hours,
+      sectors,
+      maxValue: getHeadingByHourMax(slot.derived)
+    });
   }
 
   function renderChartBeamHeadingByHourCompareAligned() {
@@ -15432,8 +15651,14 @@
     const maps = slots.map((entry) => buildHeadingByHourMap(entry.snapshot.derived));
     const hours = buildHeadingByHourOrderFromMaps(maps);
     const sectors = buildHeadingByHourSectorsFromMaps(maps);
+    const maxValue = getHeadingByHourMax(slots.map((entry) => entry.snapshot.derived));
     const htmlBlocks = slots.map((entry, idx) => (
-      entry.ready ? renderChartBeamHeadingByHourForSlot(entry.snapshot, hours, sectors) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderHeadingByHourHeatmapCard(entry.snapshot.derived, {
+        title: 'Beam heading by hour',
+        hours,
+        sectors,
+        maxValue
+      }) : `<p>No ${entry.label} loaded.</p>`
     ));
     return renderComparePanels(slots, htmlBlocks, 'charts_beam_heading_by_hour', { chart: true });
   }

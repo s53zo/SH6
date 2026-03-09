@@ -84,7 +84,7 @@
           import('../modules/ui/load-panel-runtime.js')
         ]);
 
-        add('Main.js imports the load panel runtime module', mainSource.includes("const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.14';"));
+        add('Main.js imports the load panel runtime module', mainSource.includes("const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.15';"));
         const initStartIdx = mainSource.indexOf('async function init() {');
         const startupHookIdx = mainSource.indexOf("document.addEventListener('DOMContentLoaded'", initStartIdx);
         const initSource = initStartIdx >= 0 && startupHookIdx > initStartIdx

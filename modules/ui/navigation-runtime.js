@@ -50,6 +50,44 @@ export function createNavigationRuntime(deps = {}) {
     return String(value == null ? '' : value);
   }
 
+  function buildNavSearchText(report, title) {
+    const parts = [String(title || '').trim()];
+    const recommendation = report?.menuRecommendation || null;
+    if (recommendation?.label) parts.push(String(recommendation.label || '').trim());
+    return parts.filter(Boolean).join(' ').trim().toLowerCase();
+  }
+
+  function appendNavItemContent(node, report, title) {
+    if (!(node instanceof HTMLElement)) return;
+    node.textContent = '';
+    const body = document.createElement('span');
+    body.className = 'nav-item-body';
+
+    const label = document.createElement('span');
+    label.className = 'nav-item-label';
+    label.textContent = title;
+    body.appendChild(label);
+
+    const recommendation = report?.menuRecommendation || null;
+    if (recommendation?.href) {
+      const link = document.createElement('a');
+      link.className = 'nav-item-recommendation';
+      link.href = String(recommendation.href || '').trim();
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = String(recommendation.label || 'Recommended').trim() || 'Recommended';
+      link.addEventListener('click', (evt) => {
+        evt.stopPropagation();
+      });
+      link.addEventListener('keydown', (evt) => {
+        evt.stopPropagation();
+      });
+      body.appendChild(link);
+    }
+
+    node.appendChild(body);
+  }
+
   function bindNavStickyBottom() {
     const dom = getDomSafe();
     if (navStickyBottomBound || !dom.navList) return;
@@ -342,21 +380,21 @@ export function createNavigationRuntime(deps = {}) {
       return fallbackSectionId;
     };
 
-    const makeNavItem = (index, title, baseClass) => {
+    const makeNavItem = (report, index, title, baseClass) => {
       const li = document.createElement('li');
-      li.textContent = title;
       li.dataset.index = index;
       li.dataset.baseClass = baseClass;
-      li.dataset.searchText = String(title || '').trim().toLowerCase();
+      li.dataset.searchText = buildNavSearchText(report, title);
       li.classList.add(baseClass);
+      appendNavItemContent(li, report, title);
       const activate = () => {
-        const report = getReportsSafe()[index];
-        if (report?.id === 'load_logs') {
+        const activeReport = getReportsSafe()[index];
+        if (activeReport?.id === 'load_logs') {
           state.showLoadPanel = false;
         }
         trackEvent?.('menu_click', {
-          report_id: report?.id || '',
-          report_title: report?.title || title || ''
+          report_id: activeReport?.id || '',
+          report_title: activeReport?.title || title || ''
         });
         setActiveReport(index);
       };
@@ -365,18 +403,18 @@ export function createNavigationRuntime(deps = {}) {
       return li;
     };
 
-    const makeSummary = (index, title, baseClass) => {
+    const makeSummary = (report, index, title, baseClass) => {
       const summary = document.createElement('summary');
-      summary.textContent = title;
       summary.dataset.index = index;
       summary.dataset.baseClass = baseClass;
-      summary.dataset.searchText = String(title || '').trim().toLowerCase();
+      summary.dataset.searchText = buildNavSearchText(report, title);
       summary.classList.add(baseClass, 'nav-summary');
+      appendNavItemContent(summary, report, title);
       summary.addEventListener('click', () => {
-        const report = getReportsSafe()[index];
+        const activeReport = getReportsSafe()[index];
         trackEvent?.('menu_click', {
-          report_id: report?.id || '',
-          report_title: report?.title || title || '',
+          report_id: activeReport?.id || '',
+          report_title: activeReport?.title || title || '',
           group: 'summary'
         });
         setActiveReport(index);
@@ -415,12 +453,12 @@ export function createNavigationRuntime(deps = {}) {
           const group = groups.get(report.id) || [];
           const groupDetails = document.createElement('details');
           groupDetails.classList.add('nav-group');
-          groupDetails.appendChild(makeSummary(index, report.title, 'mli'));
+          groupDetails.appendChild(makeSummary(report, index, report.title, 'mli'));
           const sublist = document.createElement('ol');
           sublist.classList.add('nav-sublist');
           group.forEach((child) => {
             if (!child || child.index == null) return;
-            sublist.appendChild(makeNavItem(child.index, child.report.title, 'cli'));
+            sublist.appendChild(makeNavItem(child.report, child.index, child.report.title, 'cli'));
           });
           groupDetails.appendChild(sublist);
           const groupWrap = document.createElement('li');
@@ -429,7 +467,7 @@ export function createNavigationRuntime(deps = {}) {
           sectionList.appendChild(groupWrap);
           return;
         }
-        sectionList.appendChild(makeNavItem(index, report.title, 'mli'));
+        sectionList.appendChild(makeNavItem(report, index, report.title, 'mli'));
       });
       details.appendChild(sectionList);
       wrapper.appendChild(details);

@@ -49,8 +49,22 @@
     { id: 'charts_beam_heading_by_hour', title: 'Beam heading by hour' },
     { id: 'comments', title: 'Comments' },
     { id: 'spots', title: 'Spots' },
-    { id: 'rbn_spots', title: 'RBN spots' },
-    { id: 'rbn_compare_signal', title: 'RBN compare signal' },
+    {
+      id: 'rbn_spots',
+      title: 'RBN spots',
+      menuRecommendation: {
+        label: 'Try dedicated RBN site',
+        href: 'https://s53m.com/RBN'
+      }
+    },
+    {
+      id: 'rbn_compare_signal',
+      title: 'RBN compare signal',
+      menuRecommendation: {
+        label: 'Try dedicated RBN site',
+        href: 'https://s53m.com/RBN'
+      }
+    },
     { id: 'export', title: 'EXPORT PDF, HTML, CBR' },
     { id: 'session', title: 'Save&Load session' },
     { id: 'qsl_labels', title: 'QSL labels' },
@@ -9652,7 +9666,7 @@
     return `
       ${noticeHtml}
       <div class="utility-callout"><b>Session</b>: save or restore full comparisons and settings.</div>
-      <div class="utility-primary-row">
+      <div class="utility-primary-row utility-primary-row-stacked">
         <button type="button" class="button utility-primary-btn session-permalink">Copy permalink</button>
         <button type="button" class="button utility-primary-btn session-save">Save session</button>
         <button type="button" class="button utility-primary-btn session-load">Load session</button>
@@ -9699,7 +9713,7 @@
       <div class="mtc export-panel utility-panel">
         <div class="gradient">&nbsp;Save&Load session</div>
         <p>Sessions capture the full state of your analysis, including compare slots, filters, and report settings.</p>
-        <div class="utility-grid">
+        <div class="utility-stack">
           <div class="utility-block">
             <h4>Permalink</h4>
             <p>Generates a URL that restores archive logs and settings. Local logs cannot be auto-loaded; the app will ask you to upload them again.</p>
@@ -9712,8 +9726,8 @@
             <h4>Load session</h4>
             <p>Opens a saved session JSON and restores everything.</p>
           </div>
-          ${renderSavedComparePerspectives()}
         </div>
+        ${renderSavedComparePerspectives()}
         ${renderSessionControls()}
       </div>
     `;

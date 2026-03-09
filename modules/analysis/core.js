@@ -2881,10 +2881,6 @@
       if (bucket === 'Digital') bm.digital += 1;
       if (bucket === 'Phone') bm.phone += 1;
       bm.all += 1;
-      if (Number.isFinite(q.points)) {
-        bm.points += q.points;
-        totalPoints += q.points;
-      }
 
       const loggedCq = parseZone(q.raw?.CQZ ?? q.raw?.CQ_ZONE);
       const loggedItu = parseZone(q.raw?.ITUZ ?? q.raw?.ITU_ZONE);
@@ -3343,6 +3339,17 @@
     const hourPointSeries = Array.from(hourPoints.entries()).sort((a, b) => a[0] - b[0]).map(([hour, points]) => ({ hour, points }));
     const minutePointSeries = Array.from(minutePoints.entries()).sort((a, b) => a[0] - b[0]).map(([minute, points]) => ({ minute, points }));
     const effectivePointsTotal = effectivePointsByIndex.reduce((sum, p) => sum + (Number.isFinite(p) ? p : 0), 0);
+    const effectivePointsByBand = new Map();
+    qsos.forEach((q, idx) => {
+      const points = Number(effectivePointsByIndex[idx] || 0);
+      if (!Number.isFinite(points)) return;
+      const bandKey = normalizeBand(q?.band, Number.isFinite(q?.freq) ? q.freq : null) || 'unknown';
+      effectivePointsByBand.set(bandKey, (effectivePointsByBand.get(bandKey) || 0) + points);
+    });
+    bandModeSummary.forEach((entry) => {
+      entry.points = effectivePointsByBand.get(entry.band) || 0;
+    });
+    totalPoints = effectivePointsTotal;
     const monthColumnList = Array.from(monthColumns).sort((a, b) => a.localeCompare(b));
     const yearColumnList = Array.from(yearColumns).sort((a, b) => Number(a) - Number(b));
 

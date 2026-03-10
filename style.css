@@ -3537,6 +3537,12 @@ table.mtc.countries-month-heatmap-table {
   overflow: hidden;
 }
 
+.heading-visual-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
 .heading-visual-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -3671,6 +3677,12 @@ table.mtc.countries-month-heatmap-table {
 
   .heading-visual-stat-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .heading-visual-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

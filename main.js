@@ -13248,47 +13248,67 @@
     return `${String(safeStart).padStart(3, '0')} - ${String(safeEnd).padStart(3, '0')}`;
   }
 
-  function collectHeadingHistogramFromQsos(qsos, binSize = 1) {
+  function collectHeadingHistogramFromQsos(qsos, options = {}) {
     const list = Array.isArray(qsos) ? qsos : [];
-    const safeBinSize = Math.max(1, Math.min(30, Number(binSize) || 1));
+    const safeBinSize = Math.max(1, Math.min(30, Number(options.binSize) || 10));
+    const metric = options.metric === 'points' ? 'points' : 'qsos';
+    const pointsByIndex = Array.isArray(options.pointsByIndex) ? options.pointsByIndex : null;
     const bins = new Map();
-    list.forEach((q) => {
+    list.forEach((q, idx) => {
       const bearing = Number(q?.bearing);
       if (!Number.isFinite(bearing)) return;
       const normalized = ((bearing % 360) + 360) % 360;
       const start = Math.floor(normalized / safeBinSize) * safeBinSize;
-      bins.set(start, (bins.get(start) || 0) + 1);
+      const existing = bins.get(start) || {
+        start,
+        span: safeBinSize,
+        sector: formatHeadingSectorLabel(start, safeBinSize),
+        count: 0,
+        points: 0
+      };
+      const pointValue = Math.max(0, Number(pointsByIndex?.[idx] ?? q?.points) || 0);
+      existing.count += 1;
+      existing.points += pointValue;
+      bins.set(start, existing);
     });
-    return Array.from(bins.entries()).map(([start, count]) => ({
-      start,
-      span: safeBinSize,
-      sector: formatHeadingSectorLabel(start, safeBinSize),
-      count
-    })).sort((left, right) => left.start - right.start);
+    return Array.from(bins.values())
+      .filter((entry) => metric !== 'points' || entry.points > 0)
+      .sort((left, right) => left.start - right.start);
   }
 
   function buildHeadingMetricEntries(summary, mode = CHART_MODE_ABSOLUTE, options = {}) {
     const normalizedMode = normalizeChartMetricMode(mode);
     const qsoList = Array.isArray(options.qsos) ? options.qsos : null;
+    const metric = options.metric === 'points' ? 'points' : 'qsos';
+    const unitLabel = metric === 'points' ? 'pts' : 'QSOs';
     const binSize = Math.max(1, Math.min(30, Number(options.binSize) || 10));
     const list = qsoList
-      ? collectHeadingHistogramFromQsos(qsoList, binSize)
-      : (Array.isArray(summary) ? summary : []);
-    const total = list.reduce((sum, entry) => sum + (Number(entry?.count) || 0), 0);
+      ? collectHeadingHistogramFromQsos(qsoList, {
+        binSize,
+        metric,
+        pointsByIndex: options.pointsByIndex
+      })
+      : (metric === 'points' ? [] : (Array.isArray(summary) ? summary : []));
+    const total = list.reduce((sum, entry) => sum + (metric === 'points' ? (Number(entry?.points) || 0) : (Number(entry?.count) || 0)), 0);
     return list.map((entry) => {
       const count = Number(entry?.count) || 0;
+      const points = Number(entry?.points) || 0;
       const start = Number(entry?.start) || 0;
       const span = Math.max(1, Number(entry?.span) || (qsoList ? binSize : 10));
-      const pct = total > 0 ? (count / total) * 100 : 0;
+      const absoluteValue = metric === 'points' ? points : count;
+      const pct = total > 0 ? (absoluteValue / total) * 100 : 0;
       return {
         start,
         span,
         sector: String(entry?.sector || formatHeadingSectorLabel(start, span)),
         count,
+        points,
+        absoluteValue,
         pct,
-        metricValue: normalizedMode === CHART_MODE_NORMALIZED ? pct : count,
-        metricText: normalizedMode === CHART_MODE_NORMALIZED ? `${pct.toFixed(1)}%` : formatNumberSh6(count),
-        detailText: `${formatNumberSh6(count)} QSOs · ${pct.toFixed(1)}%`
+        unitLabel,
+        metricValue: normalizedMode === CHART_MODE_NORMALIZED ? pct : absoluteValue,
+        metricText: normalizedMode === CHART_MODE_NORMALIZED ? `${pct.toFixed(1)}%` : formatNumberSh6(Math.round(absoluteValue)),
+        detailText: `${formatNumberSh6(Math.round(absoluteValue))} ${unitLabel} · ${pct.toFixed(1)}%`
       };
     }).sort((left, right) => left.start - right.start);
   }
@@ -13299,7 +13319,13 @@
     source.forEach((derived) => {
       const summary = Array.isArray(derived?.headingSummary) ? derived.headingSummary : [];
       const qsos = Array.isArray(derived?.qsos) ? derived.qsos : null;
-      buildHeadingMetricEntries(summary, mode, { qsos, binSize: options.binSize }).forEach((entry) => {
+      const pointsByIndex = Array.isArray(derived?.pointsByIndex) ? derived.pointsByIndex : null;
+      buildHeadingMetricEntries(summary, mode, {
+        qsos,
+        binSize: options.binSize,
+        metric: options.metric,
+        pointsByIndex
+      }).forEach((entry) => {
         if (entry.metricValue > max) max = entry.metricValue;
       });
     });
@@ -13338,17 +13364,22 @@
   function renderHeadingCompassCard(summary, options = {}) {
     const title = options.title || 'Beam heading compass';
     const mode = options.mode || CHART_MODE_ABSOLUTE;
-    const binSize = Math.max(1, Math.min(30, Number(options.binSize) || 1));
+    const metric = options.metric === 'points' ? 'points' : 'qsos';
+    const unitLabel = metric === 'points' ? 'Pts' : 'QSOs';
+    const hue = metric === 'points' ? 28 : 212;
+    const binSize = Math.max(1, Math.min(30, Number(options.binSize) || 10));
     const entries = buildHeadingMetricEntries(summary, mode, {
       qsos: Array.isArray(options.qsos) ? options.qsos : null,
-      binSize
+      binSize,
+      metric,
+      pointsByIndex: Array.isArray(options.pointsByIndex) ? options.pointsByIndex : null
     });
-    if (!entries.length) return '<p>No heading data.</p>';
+    if (!entries.length) return `<p>No ${metric === 'points' ? 'point' : 'heading'} data.</p>`;
     const maxMetric = Number.isFinite(options.maxValue) && options.maxValue > 0
       ? Number(options.maxValue)
       : Math.max(1, ...entries.map((entry) => entry.metricValue));
-    const totalQsos = entries.reduce((sum, entry) => sum + entry.count, 0);
-    const strongest = entries.slice().sort((left, right) => right.count - left.count || left.start - right.start).slice(0, 6);
+    const totalValue = entries.reduce((sum, entry) => sum + entry.absoluteValue, 0);
+    const strongest = entries.slice().sort((left, right) => right.absoluteValue - left.absoluteValue || left.start - right.start).slice(0, 6);
     const normalizedMode = normalizeChartMetricMode(mode);
     const cx = 180;
     const cy = 180;
@@ -13361,7 +13392,7 @@
       const startDeg = entry.start + inset;
       const endDeg = entry.start + entry.span - inset;
       const lightness = 86 - ratio * 36;
-      const fill = `hsl(212 72% ${lightness.toFixed(1)}%)`;
+      const fill = `hsl(${hue} 72% ${lightness.toFixed(1)}%)`;
       const path = describeDonutSector(cx, cy, innerRadius, currentOuter, startDeg, endDeg);
       return `
         <a href="#" class="log-heading heading-sector-link" data-heading="${escapeAttr(entry.start)}" data-heading-span="${escapeAttr(entry.span)}">
@@ -13404,7 +13435,10 @@
     `).join('');
     const scaleText = normalizedMode === CHART_MODE_NORMALIZED
       ? `Scaled to the strongest sector share (${maxMetric.toFixed(1)}%).`
-      : `Scaled to the strongest sector (${formatNumberSh6(Math.round(maxMetric))} QSOs).`;
+      : `Scaled to the strongest sector (${formatNumberSh6(Math.round(maxMetric))} ${unitLabel}).`;
+    const copyText = metric === 'points'
+      ? 'Compass-style histogram of effective points by heading. Longer wedges indicate where score came from.'
+      : 'Compass-style histogram of worked headings. Longer wedges indicate stronger activity in that direction.';
     return `
       <section class="heading-visual-card chart-card">
         <div class="gradient">&nbsp;${escapeHtml(title)}</div>
@@ -13415,13 +13449,13 @@
               ${axisLines}
               ${sectorPaths}
               <circle cx="${cx}" cy="${cy}" r="${(innerRadius - 10).toFixed(1)}" class="heading-compass-core"></circle>
-              <text x="${cx}" y="${cy - 4}" text-anchor="middle" class="heading-compass-total">${escapeHtml(formatNumberSh6(totalQsos))}</text>
-              <text x="${cx}" y="${cy + 14}" text-anchor="middle" class="heading-compass-caption">QSOs</text>
+              <text x="${cx}" y="${cy - 4}" text-anchor="middle" class="heading-compass-total">${escapeHtml(formatNumberSh6(Math.round(totalValue)))}</text>
+              <text x="${cx}" y="${cy + 14}" text-anchor="middle" class="heading-compass-caption">${escapeHtml(unitLabel)}</text>
               ${compassLabels}
             </svg>
           </div>
           <div class="heading-visual-details">
-            <p class="heading-visual-copy">Compass-style histogram of worked headings. Longer wedges indicate stronger activity in that direction.</p>
+            <p class="heading-visual-copy">${escapeHtml(copyText)}</p>
             <div class="heading-visual-stat-grid">
               <div class="heading-visual-stat">
                 <span>Direction buckets</span>
@@ -13441,6 +13475,35 @@
           </div>
         </div>
       </section>
+    `;
+  }
+
+  function renderHeadingCompassPair(summary, options = {}) {
+    const mode = options.mode || CHART_MODE_ABSOLUTE;
+    const binSize = Math.max(1, Math.min(30, Number(options.binSize) || 10));
+    const qsos = Array.isArray(options.qsos) ? options.qsos : [];
+    const pointsByIndex = Array.isArray(options.pointsByIndex) ? options.pointsByIndex : null;
+    return `
+      <div class="heading-visual-grid">
+        ${renderHeadingCompassCard(summary, {
+          title: options.qsoTitle || 'QSO compass',
+          mode,
+          maxValue: options.qsoMaxValue,
+          qsos,
+          pointsByIndex,
+          binSize,
+          metric: 'qsos'
+        })}
+        ${renderHeadingCompassCard(summary, {
+          title: options.pointsTitle || 'Points compass',
+          mode,
+          maxValue: options.pointsMaxValue,
+          qsos,
+          pointsByIndex,
+          binSize,
+          metric: 'points'
+        })}
+      </div>
     `;
   }
 
@@ -13575,9 +13638,11 @@
       'Compass histogram of worked bearings, followed by the detailed per-band table for drill-down and map jumps.',
       [
         `${formatNumberSh6(total)} QSOs with bearings`,
-        '1° compass bins + 10° drill-down table'
+        '10° compass bins + 10° drill-down table'
       ]
     );
+    const qsos = state.qsoData?.qsos || [];
+    const pointsByIndex = getEffectivePointsByIndex(state.derived, qsos);
     const table = renderRetainedVirtualTable('beam_heading', {
       rows,
       rowHeight: 28,
@@ -13591,10 +13656,12 @@
       `,
       footerHtml: mapAllFooter(bands.length + 5)
     });
-    return `${intro}${renderHeadingCompassCard(state.derived.headingSummary, {
-      title: 'Compass histogram',
-      qsos: state.qsoData?.qsos || [],
-      binSize: 1
+    return `${intro}${renderHeadingCompassPair(state.derived.headingSummary, {
+      qsoTitle: 'QSO compass',
+      pointsTitle: 'Points compass',
+      qsos,
+      pointsByIndex,
+      binSize: 10
     })}${table}`;
   }
 
@@ -14812,11 +14879,15 @@
   function renderChartBeamHeading() {
     if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     const mode = normalizeChartMetricMode(state.chartMetricMode);
-    return `${renderChartModeControls('charts_beam_heading', mode)}${renderHeadingCompassCard(state.derived.headingSummary, {
-      title: 'Beam heading',
+    const qsos = state.qsoData?.qsos || [];
+    const pointsByIndex = getEffectivePointsByIndex(state.derived, qsos);
+    return `${renderChartModeControls('charts_beam_heading', mode)}${renderHeadingCompassPair(state.derived.headingSummary, {
+      qsoTitle: 'QSO compass',
+      pointsTitle: 'Points compass',
       mode,
-      qsos: state.qsoData?.qsos || [],
-      binSize: 1
+      qsos,
+      pointsByIndex,
+      binSize: 10
     })}`;
   }
 
@@ -15402,18 +15473,31 @@
     const chartMax = getHeadingMetricMax(
       slots.map((entry) => ({ qsos: entry.snapshot.qsoData?.qsos || [] })),
       CHART_MODE_ABSOLUTE,
-      { binSize: 1 }
+      { binSize: 10, metric: 'qsos' }
+    );
+    const pointsMax = getHeadingMetricMax(
+      slots.map((entry) => ({
+        qsos: entry.snapshot.qsoData?.qsos || [],
+        pointsByIndex: getEffectivePointsByIndex(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [])
+      })),
+      CHART_MODE_ABSOLUTE,
+      { binSize: 10, metric: 'points' }
     );
     const htmlBlocks = slots.map((entry) => {
       if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
       const rows = list.length ? renderHeadingRowsFromList(list, entry.snapshot.derived) : '';
       if (!rows) return '<p>No heading data.</p>';
-      return `${renderHeadingCompassCard(entry.snapshot.derived?.headingSummary || [], {
-        title: `${entry.label} compass`,
+      const qsos = entry.snapshot.qsoData?.qsos || [];
+      const pointsByIndex = getEffectivePointsByIndex(entry.snapshot.derived, qsos);
+      return `${renderHeadingCompassPair(entry.snapshot.derived?.headingSummary || [], {
+        qsoTitle: `${entry.label} QSO compass`,
+        pointsTitle: `${entry.label} points compass`,
         mode: CHART_MODE_ABSOLUTE,
-        maxValue: chartMax,
-        qsos: entry.snapshot.qsoData?.qsos || [],
-        binSize: 1
+        qsoMaxValue: chartMax,
+        pointsMaxValue: pointsMax,
+        qsos,
+        pointsByIndex,
+        binSize: 10
       })}${renderHeadingTable(rows)}`;
     });
     return renderComparePanels(slots, htmlBlocks, 'beam_heading');
@@ -15608,12 +15692,17 @@
     if (!slot.derived || !slot.derived.headingSummary) {
       return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     }
-    return renderHeadingCompassCard(slot.derived.headingSummary, {
-      title: 'Beam heading',
+    const qsos = slot.qsoData?.qsos || [];
+    const pointsByIndex = getEffectivePointsByIndex(slot.derived, qsos);
+    return renderHeadingCompassPair(slot.derived.headingSummary, {
+      qsoTitle: 'QSO compass',
+      pointsTitle: 'Points compass',
       mode,
-      maxValue: maxOverride,
-      qsos: slot.qsoData?.qsos || [],
-      binSize: 1
+      qsoMaxValue: maxOverride.qsos,
+      pointsMaxValue: maxOverride.points,
+      qsos,
+      pointsByIndex,
+      binSize: 10
     });
   }
 
@@ -15623,10 +15712,18 @@
     const maxValue = getHeadingMetricMax(
       slots.map((entry) => ({ qsos: entry.snapshot.qsoData?.qsos || [] })),
       mode,
-      { binSize: 1 }
+      { binSize: 10, metric: 'qsos' }
+    );
+    const pointsMaxValue = getHeadingMetricMax(
+      slots.map((entry) => ({
+        qsos: entry.snapshot.qsoData?.qsos || [],
+        pointsByIndex: getEffectivePointsByIndex(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [])
+      })),
+      mode,
+      { binSize: 10, metric: 'points' }
     );
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, { qsos: maxValue, points: pointsMaxValue }, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
     return `${renderChartModeControls('charts_beam_heading', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_beam_heading', { chart: true })}`;
   }

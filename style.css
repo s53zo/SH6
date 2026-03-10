@@ -3538,15 +3538,13 @@ table.mtc.countries-month-heatmap-table {
 }
 
 .heading-visual-layout {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 12px;
   padding: 10px 12px 12px;
 }
 
 .heading-visual-figure {
-  flex: 1 1 18rem;
-  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3590,9 +3588,7 @@ table.mtc.countries-month-heatmap-table {
   font-weight: 700;
 }
 
-.heading-visual-side {
-  flex: 1 1 16rem;
-  min-width: 0;
+.heading-visual-details {
   display: grid;
   gap: 10px;
   align-content: start;
@@ -3633,13 +3629,13 @@ table.mtc.countries-month-heatmap-table {
 }
 
 .heading-visual-chip-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 
 .heading-visual-chip {
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
@@ -3666,6 +3662,16 @@ table.mtc.countries-month-heatmap-table {
 .heading-sector-link:focus-visible path {
   stroke: #0f3970;
   stroke-width: 1.4;
+}
+
+@media (min-width: 768px) {
+  .heading-visual-layout {
+    gap: 14px;
+  }
+
+  .heading-visual-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .heading-heatmap-meta {

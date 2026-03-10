@@ -13244,20 +13244,46 @@
     const safeStart = Math.max(0, Math.min(359, Number(start) || 0));
     const safeSpan = Math.max(1, Number(span) || 10);
     const safeEnd = Math.max(safeStart, Math.min(359, safeStart + safeSpan - 1));
+    if (safeSpan === 1) return `${String(safeStart).padStart(3, '0')}°`;
     return `${String(safeStart).padStart(3, '0')} - ${String(safeEnd).padStart(3, '0')}`;
   }
 
-  function buildHeadingMetricEntries(summary, mode = CHART_MODE_ABSOLUTE) {
+  function collectHeadingHistogramFromQsos(qsos, binSize = 1) {
+    const list = Array.isArray(qsos) ? qsos : [];
+    const safeBinSize = Math.max(1, Math.min(30, Number(binSize) || 1));
+    const bins = new Map();
+    list.forEach((q) => {
+      const bearing = Number(q?.bearing);
+      if (!Number.isFinite(bearing)) return;
+      const normalized = ((bearing % 360) + 360) % 360;
+      const start = Math.floor(normalized / safeBinSize) * safeBinSize;
+      bins.set(start, (bins.get(start) || 0) + 1);
+    });
+    return Array.from(bins.entries()).map(([start, count]) => ({
+      start,
+      span: safeBinSize,
+      sector: formatHeadingSectorLabel(start, safeBinSize),
+      count
+    })).sort((left, right) => left.start - right.start);
+  }
+
+  function buildHeadingMetricEntries(summary, mode = CHART_MODE_ABSOLUTE, options = {}) {
     const normalizedMode = normalizeChartMetricMode(mode);
-    const list = Array.isArray(summary) ? summary : [];
+    const qsoList = Array.isArray(options.qsos) ? options.qsos : null;
+    const binSize = Math.max(1, Math.min(30, Number(options.binSize) || 10));
+    const list = qsoList
+      ? collectHeadingHistogramFromQsos(qsoList, binSize)
+      : (Array.isArray(summary) ? summary : []);
     const total = list.reduce((sum, entry) => sum + (Number(entry?.count) || 0), 0);
     return list.map((entry) => {
       const count = Number(entry?.count) || 0;
       const start = Number(entry?.start) || 0;
+      const span = Math.max(1, Number(entry?.span) || (qsoList ? binSize : 10));
       const pct = total > 0 ? (count / total) * 100 : 0;
       return {
         start,
-        sector: String(entry?.sector || formatHeadingSectorLabel(start, 10)),
+        span,
+        sector: String(entry?.sector || formatHeadingSectorLabel(start, span)),
         count,
         pct,
         metricValue: normalizedMode === CHART_MODE_NORMALIZED ? pct : count,
@@ -13267,11 +13293,13 @@
     }).sort((left, right) => left.start - right.start);
   }
 
-  function getHeadingMetricMax(derivedList, mode = CHART_MODE_ABSOLUTE) {
+  function getHeadingMetricMax(derivedList, mode = CHART_MODE_ABSOLUTE, options = {}) {
     const source = Array.isArray(derivedList) ? derivedList : [derivedList];
     let max = 0;
     source.forEach((derived) => {
-      buildHeadingMetricEntries(derived?.headingSummary || [], mode).forEach((entry) => {
+      const summary = Array.isArray(derived?.headingSummary) ? derived.headingSummary : [];
+      const qsos = Array.isArray(derived?.qsos) ? derived.qsos : null;
+      buildHeadingMetricEntries(summary, mode, { qsos, binSize: options.binSize }).forEach((entry) => {
         if (entry.metricValue > max) max = entry.metricValue;
       });
     });
@@ -13310,7 +13338,11 @@
   function renderHeadingCompassCard(summary, options = {}) {
     const title = options.title || 'Beam heading compass';
     const mode = options.mode || CHART_MODE_ABSOLUTE;
-    const entries = buildHeadingMetricEntries(summary, mode);
+    const binSize = Math.max(1, Math.min(30, Number(options.binSize) || 1));
+    const entries = buildHeadingMetricEntries(summary, mode, {
+      qsos: Array.isArray(options.qsos) ? options.qsos : null,
+      binSize
+    });
     if (!entries.length) return '<p>No heading data.</p>';
     const maxMetric = Number.isFinite(options.maxValue) && options.maxValue > 0
       ? Number(options.maxValue)
@@ -13325,13 +13357,14 @@
     const sectorPaths = entries.map((entry) => {
       const ratio = maxMetric > 0 ? entry.metricValue / maxMetric : 0;
       const currentOuter = innerRadius + Math.max(0.08, ratio) * (outerRadius - innerRadius);
-      const startDeg = entry.start + 0.6;
-      const endDeg = entry.start + 9.4;
+      const inset = Math.min(0.22, Math.max(0.04, entry.span * 0.14));
+      const startDeg = entry.start + inset;
+      const endDeg = entry.start + entry.span - inset;
       const lightness = 86 - ratio * 36;
       const fill = `hsl(212 72% ${lightness.toFixed(1)}%)`;
       const path = describeDonutSector(cx, cy, innerRadius, currentOuter, startDeg, endDeg);
       return `
-        <a href="#" class="log-heading heading-sector-link" data-heading="${escapeAttr(entry.start)}">
+        <a href="#" class="log-heading heading-sector-link" data-heading="${escapeAttr(entry.start)}" data-heading-span="${escapeAttr(entry.span)}">
           <title>${escapeHtml(`${entry.sector}: ${entry.detailText}`)}</title>
           <path d="${path}" fill="${fill}" stroke="#1c4f95" stroke-width="1"></path>
         </a>
@@ -13364,7 +13397,7 @@
       `;
     }).join('');
     const topChips = strongest.map((entry) => `
-      <a href="#" class="heading-visual-chip log-heading" data-heading="${escapeAttr(entry.start)}">
+      <a href="#" class="heading-visual-chip log-heading" data-heading="${escapeAttr(entry.start)}" data-heading-span="${escapeAttr(entry.span)}">
         <span>${escapeHtml(entry.sector)}</span>
         <b>${escapeHtml(entry.detailText)}</b>
       </a>
@@ -13387,7 +13420,7 @@
               ${compassLabels}
             </svg>
           </div>
-          <div class="heading-visual-side">
+          <div class="heading-visual-details">
             <p class="heading-visual-copy">Compass-style histogram of worked headings. Longer wedges indicate stronger activity in that direction.</p>
             <div class="heading-visual-stat-grid">
               <div class="heading-visual-stat">
@@ -13397,6 +13430,10 @@
               <div class="heading-visual-stat">
                 <span>Strongest sector</span>
                 <b>${escapeHtml(strongest[0]?.sector || 'N/A')}</b>
+              </div>
+              <div class="heading-visual-stat">
+                <span>Compass detail</span>
+                <b>${escapeHtml(`${binSize}° bins`)}</b>
               </div>
             </div>
             <p class="heading-visual-scale">${escapeHtml(scaleText)}</p>
@@ -13538,7 +13575,7 @@
       'Compass histogram of worked bearings, followed by the detailed per-band table for drill-down and map jumps.',
       [
         `${formatNumberSh6(total)} QSOs with bearings`,
-        '10° sectors'
+        '1° compass bins + 10° drill-down table'
       ]
     );
     const table = renderRetainedVirtualTable('beam_heading', {
@@ -13554,7 +13591,11 @@
       `,
       footerHtml: mapAllFooter(bands.length + 5)
     });
-    return `${intro}${renderHeadingCompassCard(state.derived.headingSummary, { title: 'Compass histogram' })}${table}`;
+    return `${intro}${renderHeadingCompassCard(state.derived.headingSummary, {
+      title: 'Compass histogram',
+      qsos: state.qsoData?.qsos || [],
+      binSize: 1
+    })}${table}`;
   }
 
   function renderBeamHeadingCompareContent() {
@@ -14771,7 +14812,12 @@
   function renderChartBeamHeading() {
     if (!state.derived || !state.derived.headingSummary) return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     const mode = normalizeChartMetricMode(state.chartMetricMode);
-    return `${renderChartModeControls('charts_beam_heading', mode)}${renderHeadingCompassCard(state.derived.headingSummary, { title: 'Beam heading', mode })}`;
+    return `${renderChartModeControls('charts_beam_heading', mode)}${renderHeadingCompassCard(state.derived.headingSummary, {
+      title: 'Beam heading',
+      mode,
+      qsos: state.qsoData?.qsos || [],
+      binSize: 1
+    })}`;
   }
 
   function renderChartBeamHeadingByHour() {
@@ -15353,7 +15399,11 @@
     const slots = getActiveCompareSnapshots();
     const lists = slots.map((entry) => buildHeadingList(entry.snapshot.derived));
     const list = mergeListsMany(mergeHeadingLists, lists);
-    const chartMax = getHeadingMetricMax(slots.map((entry) => entry.snapshot.derived), CHART_MODE_ABSOLUTE);
+    const chartMax = getHeadingMetricMax(
+      slots.map((entry) => ({ qsos: entry.snapshot.qsoData?.qsos || [] })),
+      CHART_MODE_ABSOLUTE,
+      { binSize: 1 }
+    );
     const htmlBlocks = slots.map((entry) => {
       if (!entry.ready) return `<p>No ${entry.label} loaded.</p>`;
       const rows = list.length ? renderHeadingRowsFromList(list, entry.snapshot.derived) : '';
@@ -15361,7 +15411,9 @@
       return `${renderHeadingCompassCard(entry.snapshot.derived?.headingSummary || [], {
         title: `${entry.label} compass`,
         mode: CHART_MODE_ABSOLUTE,
-        maxValue: chartMax
+        maxValue: chartMax,
+        qsos: entry.snapshot.qsoData?.qsos || [],
+        binSize: 1
       })}${renderHeadingTable(rows)}`;
     });
     return renderComparePanels(slots, htmlBlocks, 'beam_heading');
@@ -15552,47 +15604,29 @@
     return renderComparePanels(slots, htmlBlocks, 'charts_frequencies', { chart: true });
   }
 
-  function buildHeadingChartMap(derived) {
-    const map = new Map();
-    if (!derived || !derived.headingSummary) return map;
-    derived.headingSummary.forEach((h) => map.set(h.start, { label: h.sector, value: h.count }));
-    return map;
-  }
-
-  function buildHeadingChartOrder(mapA, mapB) {
-    const starts = new Set([...mapA.keys(), ...mapB.keys()]);
-    return Array.from(starts).sort((a, b) => a - b);
-  }
-
-  function buildHeadingChartOrderFromMaps(maps) {
-    const starts = new Set();
-    maps.forEach((map) => map.forEach((_, key) => starts.add(key)));
-    return Array.from(starts).sort((a, b) => a - b);
-  }
-
-  function renderChartBeamHeadingForSlot(slot, order, maxOverride, mode = CHART_MODE_ABSOLUTE) {
+  function renderChartBeamHeadingForSlot(slot, maxOverride, mode = CHART_MODE_ABSOLUTE) {
     if (!slot.derived || !slot.derived.headingSummary) {
       return renderPlaceholder({ id: 'charts_beam_heading', title: 'Beam heading' });
     }
-    const entries = order.map((start) => {
-      const found = slot.derived.headingSummary.find((entry) => Number(entry?.start) === Number(start));
-      return found || { start, sector: formatHeadingSectorLabel(start, 10), count: 0 };
-    });
-    return renderHeadingCompassCard(entries, {
+    return renderHeadingCompassCard(slot.derived.headingSummary, {
       title: 'Beam heading',
       mode,
-      maxValue: maxOverride
+      maxValue: maxOverride,
+      qsos: slot.qsoData?.qsos || [],
+      binSize: 1
     });
   }
 
   function renderChartBeamHeadingCompareAligned() {
     const mode = normalizeChartMetricMode(state.chartMetricMode);
     const slots = getActiveCompareSnapshots();
-    const maps = slots.map((entry) => buildHeadingChartMap(entry.snapshot.derived));
-    const order = buildHeadingChartOrderFromMaps(maps);
-    const maxValue = getHeadingMetricMax(slots.map((entry) => entry.snapshot.derived), mode);
+    const maxValue = getHeadingMetricMax(
+      slots.map((entry) => ({ qsos: entry.snapshot.qsoData?.qsos || [] })),
+      mode,
+      { binSize: 1 }
+    );
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, order, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderChartBeamHeadingForSlot(entry.snapshot, maxValue, mode) : `<p>No ${entry.label} loaded.</p>`
     ));
     return `${renderChartModeControls('charts_beam_heading', mode)}${renderComparePanels(slots, htmlBlocks, 'charts_beam_heading', { chart: true })}`;
   }
@@ -16663,6 +16697,7 @@
       link.addEventListener('click', (evt) => {
         evt.preventDefault();
         const heading = Number(link.dataset.heading);
+        const span = Math.max(1, Number(link.dataset.headingSpan) || 10);
         if (!Number.isFinite(heading)) return;
         state.logRange = null;
         state.logSearch = '';
@@ -16680,7 +16715,7 @@
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
         state.logDistanceRange = null;
-        state.logHeadingRange = { start: heading, end: heading + 9 };
+        state.logHeadingRange = { start: heading, end: heading + span - 1 };
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);
@@ -16692,6 +16727,7 @@
       link.addEventListener('click', (evt) => {
         evt.preventDefault();
         const heading = Number(link.dataset.heading);
+        const span = Math.max(1, Number(link.dataset.headingSpan) || 10);
         const band = (link.dataset.band || '').trim().toUpperCase();
         if (!Number.isFinite(heading)) return;
         state.logRange = null;
@@ -16710,7 +16746,7 @@
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
         state.logDistanceRange = null;
-        state.logHeadingRange = { start: heading, end: heading + 9 };
+        state.logHeadingRange = { start: heading, end: heading + span - 1 };
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
         if (logIndex >= 0) setActiveReport(logIndex);

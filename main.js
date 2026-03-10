@@ -17355,15 +17355,7 @@
     if (permalinkState) {
       await applySessionPayload(permalinkState, { fromPermalink: true });
     } else {
-      const autosave = (storageRuntimeLoaded && canRestoreSession)
-        ? await getStorageRuntime().loadAutosaveSession().catch(() => null)
-        : null;
-      const hasAutosave = autosave && Array.isArray(autosave.slots) && autosave.slots.some((slot) => slot && !slot.empty);
-      if (hasAutosave) {
-        await applySessionPayload(autosave, { fromPermalink: false });
-      } else {
-        setActiveReport(0);
-      }
+      setActiveReport(0);
     }
     if (mapParams && mapParams.full) {
       document.body.classList.add('map-full');

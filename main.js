@@ -146,7 +146,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.16';
+  const APP_VERSION = 'v6.2.17';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -186,34 +186,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.16';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.16';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.16';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.16';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.16';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.16';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.16';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.16';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.16';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.16';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.16';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.16';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.16';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.16';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.16';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.16';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.16';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.16';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.16';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.16';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.16';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.16';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.16';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.16';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.16';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.16';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.16';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.16';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.17';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.17';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.17';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.17';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.17';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.17';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.17';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.17';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.17';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.17';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.17';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.17';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.17';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.17';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.17';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.17';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.17';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.17';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.17';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.17';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.17';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.17';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.17';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.17';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.17';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.17';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.17';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.17';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'

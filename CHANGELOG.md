@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.17 (2026-03-13)
+- Maps: restore per-row `map` links in retained and virtualized reports by switching `.map-link` handling to delegated click binding on the report container, fixing `CQ zones` and covering the same pattern in other map-enabled tables.
+- Break time: add `ON AIR time`, calculated as each log's own participation span minus that log's break minutes for the current threshold.
+- Break time compare: keep calculations per log separately rather than aligning all panels to the earliest start across the loaded logs.
+- Version bump to `v6.2.17` and refresh cache-busting references in `index.html`, `main.js`, the session smoke script, and browser smoke expectations.
+
 ## v6.2.16 (2026-03-10)
 - Beam heading: replace the over-detailed 1° compass with clearer 10° sectors, matching the existing drill-down table and keeping the directional summary readable.
 - Beam heading: add a second side-by-side compass for effective points by heading, so directional activity and score contribution can be compared directly.

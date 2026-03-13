@@ -81,7 +81,7 @@
           import('../modules/spots/drilldown-runtime.js')
         ]);
 
-        add('Main.js imports the spots drilldown runtime module', mainSource.includes("const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.16';"));
+        add('Main.js imports the spots drilldown runtime module', mainSource.includes("const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.17';"));
         add('Main.js preloads the spots drilldown runtime during init', mainSource.includes('const spotsDrilldownRuntimeReady = loadSpotsDrilldownRuntimeModule();') && mainSource.includes('await spotsDrilldownRuntimeReady;'));
         add('Main.js delegates bucket detail rendering to the drilldown runtime', mainSource.includes('const renderSpotBucketDetail = (spots) => getSpotsDrilldownRuntime().renderSpotBucketDetail({'));
         add('Spots drilldown runtime exports the factory', moduleSource.includes('export function createSpotsDrilldownRuntime'));

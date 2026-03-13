@@ -123,7 +123,7 @@
 
         // Session payload includes analysisMode
         expect(mainSource, 'analysisMode: state.analysisMode', 'Session payload stores analysisMode');
-        expect(mainSource, "const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.16';", 'Main.js imports the session codec module');
+        expect(mainSource, "const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.17';", 'Main.js imports the session codec module');
         expect(mainSource, 'function loadSessionCodecModule()', 'Main.js loads the session codec module');
         expect(sessionCodecSource, 'if (payload.analysisMode === analysisModeDxer) compact.am = payload.analysisMode;', 'Compact payload saves analysisMode');
         expect(sessionCodecSource, 'const analysisMode = normalizeAnalysisMode(compact.am);', 'Compact payload restores analysisMode');

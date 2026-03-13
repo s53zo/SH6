@@ -133,7 +133,7 @@ const codec = createSessionCodec({
   getState: () => state,
   getSlotById: (id) => slotMap.get(id),
   slotIds: ['A', 'B', 'C', 'D'],
-  appVersion: '6.2.16',
+  appVersion: '6.2.17',
   sessionVersion: 6,
   permalinkBaseUrl: 'https://s53m.com/SH6/',
   permalinkCompactPrefix: 'v2.',

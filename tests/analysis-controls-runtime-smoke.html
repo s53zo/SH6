@@ -81,7 +81,7 @@
           import('../modules/ui/analysis-controls-runtime.js')
         ]);
 
-        add('Main.js imports the analysis controls runtime module', mainSource.includes("const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.16';"));
+        add('Main.js imports the analysis controls runtime module', mainSource.includes("const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.17';"));
         const initStartIdx = mainSource.indexOf('async function init() {');
         const startupHookIdx = mainSource.indexOf("document.addEventListener('DOMContentLoaded'", initStartIdx);
         const initSource = initStartIdx >= 0 && startupHookIdx > initStartIdx

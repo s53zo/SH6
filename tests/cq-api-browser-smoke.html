@@ -87,10 +87,10 @@
           if (!mainSource.includes('function renderSpots(')) checks.push('Spots renderer missing in main.js');
           if (!mainSource.includes('chart-mode-btn')) checks.push('Chart metric mode controls missing in main.js');
           if (!mainSource.includes("{ id: 'export', title: 'EXPORT PDF, HTML, CBR' }")) checks.push('Export menu label mismatch');
-          if (!mainSource.includes("const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.16';")) {
+          if (!mainSource.includes("const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.17';")) {
             checks.push('Compare workspace module import missing in main.js');
           }
-          if (!mainSource.includes("const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.16';")) {
+          if (!mainSource.includes("const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.17';")) {
             checks.push('Archive client module import missing in main.js');
           }
           if (!mainSource.includes('function loadArchiveClientModule()')) {

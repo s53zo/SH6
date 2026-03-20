@@ -84,7 +84,7 @@
           import('../modules/ui/navigation-runtime.js')
         ]);
 
-        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.18';"));
+        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.19';"));
         add('Main.js loads navigation runtime before nav setup', mainSource.includes('const navigationRuntimeReady = loadNavigationRuntimeModule();') && mainSource.includes('await navigationRuntimeReady;'));
         add('Main.js delegates initNavigation to the navigation runtime', mainSource.includes('return getNavigationRuntime().initNavigation();'));
         add('Main.js delegates setActiveReport to the navigation runtime', mainSource.includes('return getNavigationRuntime().setActiveReport(idx);'));

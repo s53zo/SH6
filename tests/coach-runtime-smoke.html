@@ -81,7 +81,7 @@
           import('../modules/coach/runtime.js')
         ]);
 
-        add('Main.js imports the coach runtime module', mainSource.includes("const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.18';"));
+        add('Main.js imports the coach runtime module', mainSource.includes("const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.19';"));
         add('Main.js preloads the coach runtime during init', mainSource.includes('const coachRuntimeReady = loadCoachRuntimeModule();') && mainSource.includes('await coachRuntimeReady;'));
         add(
           'Main.js delegates coach orchestration helpers to the runtime',

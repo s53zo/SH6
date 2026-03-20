@@ -81,7 +81,7 @@
           import('../modules/reports/retained-runtime.js')
         ]);
 
-        add('Main.js imports the retained runtime module', mainSource.includes("const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.18';"));
+        add('Main.js imports the retained runtime module', mainSource.includes("const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.19';"));
         add('Main.js preloads retained runtime during init', mainSource.includes('const retainedRuntimeReady = loadRetainedRuntimeModule();') && mainSource.includes('await retainedRuntimeReady;'));
         add('Main.js delegates retained report shell rendering', mainSource.includes('return getRetainedRuntime().renderRetainedReportShell(reportId, html);'));
         add('Main.js delegates retained virtual table rendering', mainSource.includes('return getRetainedRuntime().renderRetainedVirtualTable(reportId, options);'));

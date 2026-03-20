@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.19 (2026-03-20)
+- Archive mirror: keep the Azure mirror at `https://hclamirror20260320.z1.web.core.windows.net` as the only archive source for shards and raw logs.
+- Archive availability: fix `Archive search failed: Load failed` and `Demo log download failed` regressions by applying the same generic CORS-proxy fallback pattern SH6 already uses for other remote resources when the mirror is reachable but does not yet allow browser cross-origin fetches.
+- Version bump to `v6.2.19` and refresh cache-busting references in `index.html`, `main.js`, the session smoke script, and browser smoke expectations.
+
 ## v6.2.18 (2026-03-20)
 - Archive mirror: switch archive shard and raw-log downloads from GitHub/jsDelivr to the Azure static-site mirror at `https://hclamirror20260320.z1.web.core.windows.net`.
 - Archive client: remove GitHub branch-specific raw URL construction and use generic archive base/fallback URL handling so mirror hosting is configurable.

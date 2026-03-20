@@ -3,6 +3,7 @@ export function createArchiveClient(deps = {}) {
     sqlJsBaseUrls,
     archiveBaseUrl,
     archiveFallbackBaseUrls,
+    buildFetchUrls,
     normalizeCall,
     normalizeArchiveContestToken,
     normalizeArchiveModeToken,
@@ -54,8 +55,9 @@ export function createArchiveClient(deps = {}) {
     const cacheKey = shardUrls.join('|');
     if (archiveShardDbCache.has(cacheKey)) return archiveShardDbCache.get(cacheKey);
     const SQL = await loadArchiveSqlJs();
+    const fetchUrls = typeof buildFetchUrls === 'function' ? buildFetchUrls(shardUrls) : shardUrls;
     let lastErr = null;
-    for (const url of shardUrls) {
+    for (const url of fetchUrls) {
       try {
         const response = await withTimeoutPromise(fetch(url, { cache: 'no-store' }), 20000, 'Archive shard download');
         if (!response.ok) throw new Error(`Shard download failed: HTTP ${response.status}`);
@@ -154,8 +156,9 @@ export function createArchiveClient(deps = {}) {
       const fallbackUrl = `${String(baseUrl || '').replace(/\/+$/, '')}/${normalizedPath}`;
       if (!urls.includes(fallbackUrl)) urls.push(fallbackUrl);
     });
+    const fetchUrls = typeof buildFetchUrls === 'function' ? buildFetchUrls(urls) : urls;
     try {
-      const workerResult = await runEngineTask('archiveText', { urls });
+      const workerResult = await runEngineTask('archiveText', { urls: fetchUrls });
       if (workerResult && typeof workerResult.text === 'string') {
         const source = workerResult.url || primary;
         storage?.saveArchiveLog?.(path, workerResult.text, { path, source }).catch(() => {});
@@ -167,7 +170,7 @@ export function createArchiveClient(deps = {}) {
     } catch (err) {
       /* fall back to main-thread fetch */
     }
-    for (const url of urls) {
+    for (const url of fetchUrls) {
       try {
         const res = await fetch(url);
         if (res.ok) {

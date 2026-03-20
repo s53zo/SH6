@@ -98,7 +98,7 @@
           import('../modules/spots/rbn-compare-chart-runtime.js')
         ]);
 
-        add('Main.js imports the RBN compare chart runtime module', mainSource.includes("const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.18';"));
+        add('Main.js imports the RBN compare chart runtime module', mainSource.includes("const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.19';"));
         add('Main.js preloads the RBN compare chart runtime during init', mainSource.includes('const rbnCompareChartRuntimeReady = loadRbnCompareChartRuntimeModule();') && mainSource.includes('await rbnCompareChartRuntimeReady;'));
         add(
           'Main.js delegates chart helpers and draw paths to the chart runtime',

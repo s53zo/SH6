@@ -2,17 +2,17 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
-## v6.2.20 (2026-03-23)
+## v6.2.21 (2026-03-23)
 - `RUN vs S&P vs INBAND`: remove the `Top RUN freqs` column to keep the table focused on the operating-style counts and percentages.
 - Compare layout: render `RUN vs S&P vs INBAND` in the existing 2-column quad grid when 3 or 4 logs are loaded, instead of stretching to 3 or 4 columns.
-- Version bump to `v6.2.20` and refresh cache-busting references in `index.html`, `main.js`, the session smoke script, and browser smoke expectations.
+- Version bump to `v6.2.21` and refresh cache-busting references in `index.html`, `main.js`, the session smoke script, and browser smoke expectations.
 
-## v6.2.21 (2026-03-23)
+## v6.2.20 (2026-03-23)
 - Rates & Time: add `RUN vs S&P vs INBAND` as menu item 11, with per-band operating-style classification based only on log time/frequency data.
 - Operating-style classifier: tighten `INBAND` to require nearby same-band return-to-run behavior, and treat sustained late QSY streaks as new `RUN`s instead of false `INBAND`.
 - Tests: extend the DXER smoke to open and render the new report, and add a dedicated operating-style regression script covering no-return, true-inband, and late-QSY cases.
 - Report formatting: round all `RUN vs S&P vs INBAND` percentages to whole numbers.
-- Version bump to `v6.2.21` and refresh cache-busting references in `index.html`, `main.js`, the session smoke script, and browser smoke expectations.
+- Version bump to `v6.2.20` and refresh cache-busting references in `index.html`, `main.js`, the session smoke script, and browser smoke expectations.
 
 ## v6.2.19 (2026-03-20)
 - Archive mirror: keep the Azure mirror at `https://hclamirror20260320.z1.web.core.windows.net` as the only archive source for shards and raw logs.

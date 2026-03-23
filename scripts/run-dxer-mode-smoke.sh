@@ -91,6 +91,8 @@ if [[ "${load_panel_ready}" != true ]]; then
   exit 1
 fi
 
+run_ab --session "${SESSION}" eval "(() => { window.__sh6Errors = []; window.addEventListener('error', (evt) => window.__sh6Errors.push({ type: 'error', message: evt.message, filename: evt.filename, lineno: evt.lineno, colno: evt.colno })); window.addEventListener('unhandledrejection', (evt) => window.__sh6Errors.push({ type: 'rejection', message: evt.reason && evt.reason.message ? evt.reason.message : String(evt.reason) })); return 'ok'; })()" >/dev/null
+
 runtime_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
 (() => {
   function collectMenuEntries() {
@@ -117,7 +119,8 @@ runtime_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
       ituByMonth: has(contesterEntries, 'ITU zones by month'),
       qsByMinute: has(contesterEntries, 'Qs by minute'),
       pointsByMinute: has(contesterEntries, 'Points by minute'),
-      breakTime: has(contesterEntries, 'Break time')
+      breakTime: has(contesterEntries, 'Break time'),
+      runSpInband: has(contesterEntries, 'RUN vs S&P vs INBAND')
     },
     dxer: {
       countriesByMonth: has(dxerEntries, 'Countries by month'),
@@ -128,7 +131,8 @@ runtime_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
       breakTime: has(dxerEntries, 'Break time'),
       qsByHour: has(dxerEntries, 'Qs by hour sheet'),
       pointsByHour: has(dxerEntries, 'Points by hour sheet'),
-      oneMinuteRates: has(dxerEntries, 'One minute rates')
+      oneMinuteRates: has(dxerEntries, 'One minute rates'),
+      runSpInband: has(dxerEntries, 'RUN vs S&P vs INBAND')
     }
   };
 })();
@@ -154,11 +158,64 @@ runtime_ok="$(echo "${runtime_payload}" | jq -r '
    inv($r | .dxer.qsByHour) and
    inv($r | .dxer.pointsByHour) and
    inv($r | .dxer.oneMinuteRates) and
-   ($r | .contester.qsByMinute))
+   inv($r | .dxer.runSpInband) and
+   ($r | .contester.qsByMinute) and
+   ($r | .contester.runSpInband))
 ' 2>/dev/null || true)"
 if [[ "${runtime_ok}" != "true" ]]; then
   echo "[dxer-mode-smoke] Runtime mode-gating check failed."
   echo "${runtime_payload}"
+  exit 1
+fi
+
+run_ab --session "${SESSION}" eval "(() => { const radio = document.querySelector('.analysis-mode-option[value=\"contester\"]'); if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); } return 'contester'; })()" >/dev/null
+sleep 1
+run_ab --session "${SESSION}" eval "(() => { document.querySelector('.demo-log-btn[data-slot=\"A\"]')?.click(); return 'demo'; })()" >/dev/null
+sleep 6
+run_ab --session "${SESSION}" eval "(() => { document.querySelector('#viewReportsBtn')?.click(); return 'view'; })()" >/dev/null
+sleep 2
+run_ab --session "${SESSION}" eval "(() => { const item = Array.from(document.querySelectorAll('#navList [data-index]')).find((el) => (el.textContent || '').trim() === 'RUN vs S&P vs INBAND'); if (item) item.click(); return item ? item.dataset.index : 'missing'; })()" >/dev/null
+sleep 3
+
+report_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
+(() => {
+  const headers = Array.from(document.querySelectorAll('#viewContainer th')).map((el) => (el.textContent || '').trim());
+  const notes = Array.from(document.querySelectorAll('#viewContainer .export-note')).map((el) => (el.textContent || '').trim());
+  return {
+    title: document.querySelector('#viewTitle')?.textContent || '',
+    busy: document.querySelector('#viewContainer')?.getAttribute('aria-busy') || '',
+    hasTable: !!document.querySelector('#viewContainer table'),
+    hasRunHeader: headers.indexOf('RUN') !== -1,
+    hasInbandHeader: headers.indexOf('INBAND') !== -1,
+    hasSearchHeader: headers.indexOf('Search only') !== -1,
+    notes,
+    errors: window.__sh6Errors || []
+  };
+})();
+JS
+)")"
+report_payload="$(echo "${report_eval_raw}" | jq -c '.data.result' 2>/dev/null || true)"
+if [[ -z "${report_payload}" || "${report_payload}" == "null" ]]; then
+  echo "[dxer-mode-smoke] Report eval failed to return JSON payload." >&2
+  echo "${report_eval_raw}"
+  exit 1
+fi
+
+report_ok="$(echo "${report_payload}" | jq -r '
+  . as $r |
+  (($r | .title) == "RUN vs S&P vs INBAND") and
+  (($r | .busy) == "false") and
+  ($r | .hasTable) and
+  ($r | .hasRunHeader) and
+  ($r | .hasInbandHeader) and
+  ($r | .hasSearchHeader) and
+  (($r | .notes | map(test("Heuristic"; "i")) | any)) and
+  (($r | .notes | map(test("Definition"; "i")) | any)) and
+  (($r | .errors | length) == 0)
+' 2>/dev/null || true)"
+if [[ "${report_ok}" != "true" ]]; then
+  echo "[dxer-mode-smoke] RUN vs S&P vs INBAND render check failed."
+  echo "${report_payload}"
   exit 1
 fi
 

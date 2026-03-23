@@ -377,6 +377,268 @@
     return { totalBreakMin, breaks };
   }
 
+  function clampNumber(value, min, max) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return min;
+    return Math.max(min, Math.min(max, num));
+  }
+
+  function medianNumber(values) {
+    const list = (values || []).filter((value) => Number.isFinite(value)).slice().sort((a, b) => a - b);
+    if (!list.length) return null;
+    const mid = Math.floor(list.length / 2);
+    return list.length % 2 ? list[mid] : (list[mid - 1] + list[mid]) / 2;
+  }
+
+  function exportOperatingStyleFrequencies(freqMap) {
+    return Array.from((freqMap instanceof Map ? freqMap : new Map()).entries())
+      .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+      .slice(0, 3)
+      .map(([freqKey, count]) => ({ freq: freqKey / 1000, count }));
+  }
+
+  function estimateOperatingStyleRadiusKhz(freqs, mode) {
+    const unique = Array.from(new Set((freqs || []).filter((value) => Number.isFinite(value)))).sort((a, b) => a - b);
+    const diffs = [];
+    for (let i = 1; i < unique.length; i += 1) {
+      const deltaKhz = (unique[i] - unique[i - 1]) * 1000;
+      if (deltaKhz > 0.01) diffs.push(deltaKhz);
+    }
+    const medianStepKhz = medianNumber(diffs);
+    const isPhone = mode === 'Phone';
+    const minRadiusKhz = isPhone ? 2.5 : 1;
+    const maxRadiusKhz = isPhone ? 4 : 2;
+    const candidateKhz = Number.isFinite(medianStepKhz) ? medianStepKhz : minRadiusKhz;
+    return clampNumber(candidateKhz, minRadiusKhz, maxRadiusKhz);
+  }
+
+  function buildOperatingStyleSummary(qsos) {
+    const meta = {
+      windowRadiusQsos: 20,
+      minClusterCount: 4,
+      dominanceShareMin: 0.35,
+      inbandReturnRadiusQsos: 10
+    };
+    const buckets = new Map();
+    let excludedQsoCount = 0;
+    (qsos || []).forEach((q, index) => {
+      if (!q || q.isQtc) return;
+      if (!Number.isFinite(q.ts) || !Number.isFinite(q.freq)) {
+        excludedQsoCount += 1;
+        return;
+      }
+      const band = normalizeBand(q.band, q.freq) || 'unknown';
+      const mode = modeBucket(q.mode);
+      const key = `${band}|${mode}`;
+      if (!buckets.has(key)) buckets.set(key, { band, mode, items: [] });
+      buckets.get(key).items.push({ q, index });
+    });
+    const bandMap = new Map();
+    const ensureBand = (band) => {
+      if (!bandMap.has(band)) {
+        bandMap.set(band, {
+          band,
+          qsos: 0,
+          runQsos: 0,
+          inbandQsos: 0,
+          searchQsos: 0,
+          spQsos: 0,
+          runPct: 0,
+          inbandPct: 0,
+          searchPct: 0,
+          spPct: 0,
+          topRunFrequencies: [],
+          modeBreakdown: [],
+          _runFreqs: new Map()
+        });
+      }
+      return bandMap.get(band);
+    };
+
+    buckets.forEach((bucket) => {
+      const list = bucket.items.slice().sort((a, b) => (
+        (a.q.ts - b.q.ts)
+        || ((a.q.qsoNumber || 0) - (b.q.qsoNumber || 0))
+        || (a.index - b.index)
+      ));
+      const radiusKhz = estimateOperatingStyleRadiusKhz(list.map((entry) => entry.q.freq), bucket.mode);
+      const radiusMHz = radiusKhz / 1000;
+      const modeEntry = {
+        mode: bucket.mode,
+        qsos: list.length,
+        runQsos: 0,
+        inbandQsos: 0,
+        searchQsos: 0,
+        spQsos: 0,
+        runPct: 0,
+        inbandPct: 0,
+        searchPct: 0,
+        spPct: 0,
+        clusterRadiusKhz: radiusKhz,
+        topRunFrequencies: []
+      };
+      const modeRunFreqs = new Map();
+      const bandEntry = ensureBand(bucket.band);
+      const analysis = new Array(list.length);
+      const countSupport = (centerFreq, lo, hi) => {
+        let count = 0;
+        for (let k = lo; k <= hi; k += 1) {
+          if (Math.abs(list[k].q.freq - centerFreq) <= radiusMHz + 1e-9) count += 1;
+        }
+        return count;
+      };
+
+      for (let i = 0; i < list.length; i += 1) {
+        const lo = Math.max(0, i - meta.windowRadiusQsos);
+        const hi = Math.min(list.length - 1, i + meta.windowRadiusQsos);
+        let bestFreq = null;
+        let bestCount = 0;
+        let bestDistance = Infinity;
+        for (let j = lo; j <= hi; j += 1) {
+          const center = list[j].q.freq;
+          const count = countSupport(center, lo, hi);
+          const distance = Math.abs(list[i].q.freq - center);
+          if (count > bestCount || (count === bestCount && distance < bestDistance)) {
+            bestFreq = center;
+            bestCount = count;
+            bestDistance = distance;
+          }
+        }
+        const windowSize = hi - lo + 1;
+        const dominance = windowSize ? (bestCount / windowSize) : 0;
+        const centeredRunActive = bestCount >= meta.minClusterCount && dominance >= meta.dominanceShareMin;
+        const centeredOnRun = centeredRunActive && Math.abs(list[i].q.freq - bestFreq) <= radiusMHz + 1e-9;
+        let streakLo = i;
+        while (streakLo > 0 && Math.abs(list[streakLo - 1].q.freq - list[i].q.freq) <= radiusMHz + 1e-9) streakLo -= 1;
+        let streakHi = i;
+        while (streakHi + 1 < list.length && Math.abs(list[streakHi + 1].q.freq - list[i].q.freq) <= radiusMHz + 1e-9) streakHi += 1;
+        analysis[i] = {
+          centeredRunActive,
+          centeredOnRun,
+          dominantRunFreq: Number.isFinite(bestFreq) ? bestFreq : null,
+          streakRunSupported: (streakHi - streakLo + 1) >= meta.minClusterCount
+        };
+      }
+
+      for (let i = 0; i < list.length; i += 1) {
+        let hasPrevCenteredRun = false;
+        for (let j = i - 1; j >= Math.max(0, i - meta.inbandReturnRadiusQsos); j -= 1) {
+          if (analysis[j].centeredOnRun) {
+            hasPrevCenteredRun = true;
+            break;
+          }
+        }
+        let hasNextCenteredRun = false;
+        for (let j = i + 1; j <= Math.min(list.length - 1, i + meta.inbandReturnRadiusQsos); j += 1) {
+          if (analysis[j].centeredOnRun) {
+            hasNextCenteredRun = true;
+            break;
+          }
+        }
+        const hasRunReturn = hasPrevCenteredRun && hasNextCenteredRun;
+        const transitionRun = analysis[i].streakRunSupported && !hasRunReturn;
+        const role = analysis[i].centeredOnRun || transitionRun
+          ? 'RUN'
+          : (analysis[i].centeredRunActive && hasRunReturn ? 'INBAND' : 'SEARCH');
+        const q = list[i].q;
+        q.operatingStyleRole = role;
+        q.operatingStyleBand = bucket.band;
+        q.operatingStyleMode = bucket.mode;
+        q.operatingStyleRunFreq = role === 'RUN'
+          ? (analysis[i].centeredOnRun ? analysis[i].dominantRunFreq : q.freq)
+          : analysis[i].dominantRunFreq;
+
+        bandEntry.qsos += 1;
+        modeEntry.qsos = list.length;
+        if (role === 'RUN') {
+          bandEntry.runQsos += 1;
+          modeEntry.runQsos += 1;
+          const runFreq = Number.isFinite(q.operatingStyleRunFreq) ? q.operatingStyleRunFreq : q.freq;
+          const freqKey = Math.round(runFreq * 1000);
+          bandEntry._runFreqs.set(freqKey, (bandEntry._runFreqs.get(freqKey) || 0) + 1);
+          modeRunFreqs.set(freqKey, (modeRunFreqs.get(freqKey) || 0) + 1);
+        } else if (role === 'INBAND') {
+          bandEntry.inbandQsos += 1;
+          modeEntry.inbandQsos += 1;
+        } else {
+          bandEntry.searchQsos += 1;
+          modeEntry.searchQsos += 1;
+        }
+      }
+
+      modeEntry.spQsos = modeEntry.inbandQsos + modeEntry.searchQsos;
+      if (modeEntry.qsos) {
+        modeEntry.runPct = (modeEntry.runQsos / modeEntry.qsos) * 100;
+        modeEntry.inbandPct = (modeEntry.inbandQsos / modeEntry.qsos) * 100;
+        modeEntry.searchPct = (modeEntry.searchQsos / modeEntry.qsos) * 100;
+        modeEntry.spPct = (modeEntry.spQsos / modeEntry.qsos) * 100;
+      }
+      modeEntry.topRunFrequencies = exportOperatingStyleFrequencies(modeRunFreqs);
+      bandEntry.modeBreakdown.push(modeEntry);
+    });
+
+    const modeOrder = new Map([['CW', 0], ['Phone', 1], ['Digital', 2]]);
+    const bands = Array.from(bandMap.values()).map((entry) => {
+      entry.spQsos = entry.inbandQsos + entry.searchQsos;
+      if (entry.qsos) {
+        entry.runPct = (entry.runQsos / entry.qsos) * 100;
+        entry.inbandPct = (entry.inbandQsos / entry.qsos) * 100;
+        entry.searchPct = (entry.searchQsos / entry.qsos) * 100;
+        entry.spPct = (entry.spQsos / entry.qsos) * 100;
+      }
+      entry.modeBreakdown.sort((a, b) => {
+        const ai = modeOrder.has(a.mode) ? modeOrder.get(a.mode) : 99;
+        const bi = modeOrder.has(b.mode) ? modeOrder.get(b.mode) : 99;
+        if (ai !== bi) return ai - bi;
+        return String(a.mode || '').localeCompare(String(b.mode || ''));
+      });
+      entry.topRunFrequencies = exportOperatingStyleFrequencies(entry._runFreqs);
+      delete entry._runFreqs;
+      return entry;
+    }).sort((a, b) => {
+      const ai = bandOrderIndex(a.band);
+      const bi = bandOrderIndex(b.band);
+      if (ai !== bi) return ai - bi;
+      return String(a.band || '').localeCompare(String(b.band || ''));
+    });
+
+    const totals = bands.reduce((acc, entry) => {
+      acc.qsos += entry.qsos;
+      acc.runQsos += entry.runQsos;
+      acc.inbandQsos += entry.inbandQsos;
+      acc.searchQsos += entry.searchQsos;
+      return acc;
+    }, {
+      band: 'All',
+      qsos: 0,
+      runQsos: 0,
+      inbandQsos: 0,
+      searchQsos: 0,
+      spQsos: 0,
+      runPct: 0,
+      inbandPct: 0,
+      searchPct: 0,
+      spPct: 0,
+      topRunFrequencies: [],
+      modeBreakdown: []
+    });
+    totals.spQsos = totals.inbandQsos + totals.searchQsos;
+    if (totals.qsos) {
+      totals.runPct = (totals.runQsos / totals.qsos) * 100;
+      totals.inbandPct = (totals.inbandQsos / totals.qsos) * 100;
+      totals.searchPct = (totals.searchQsos / totals.qsos) * 100;
+      totals.spPct = (totals.spQsos / totals.qsos) * 100;
+    }
+
+    return {
+      meta,
+      analyzedQsoCount: totals.qsos,
+      excludedQsoCount,
+      bands,
+      totals
+    };
+  }
+
   function gridToLatLon(grid) {
     if (!grid || grid.length < 4) return null;
     const g = grid.trim().toUpperCase();
@@ -3352,6 +3614,7 @@
     totalPoints = effectivePointsTotal;
     const monthColumnList = Array.from(monthColumns).sort((a, b) => a.localeCompare(b));
     const yearColumnList = Array.from(yearColumns).sort((a, b) => Number(a) - Number(b));
+    const operatingStyle = buildOperatingStyleSummary(qsos);
 
     return {
       dupes,
@@ -3396,6 +3659,7 @@
       possibleErrors,
       timeRange: { minTs, maxTs },
       breakSummary,
+      operatingStyle,
       totalPoints,
       effectivePointsTotal
     };

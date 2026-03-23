@@ -28,6 +28,7 @@
     { id: 'distance', title: 'Distance' },
     { id: 'beam_heading', title: 'Beam heading' },
     { id: 'breaks', title: 'Break time' },
+    { id: 'run_sp_inband', title: 'RUN vs S&P vs INBAND' },
     { id: 'continents', title: 'Continents' },
     { id: 'kmz_files', title: 'KMZ files' },
     { id: 'fields_map', title: 'Fields map' },
@@ -95,6 +96,7 @@
     points_by_minute: 'rate_time',
     one_minute_rates: 'rate_time',
     one_minute_point_rates: 'rate_time',
+    run_sp_inband: 'rate_time',
     breaks: 'rate_time',
 
     countries: 'geo_analysis',
@@ -146,7 +148,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.19';
+  const APP_VERSION = 'v6.2.20';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -186,34 +188,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.19';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.19';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.19';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.19';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.19';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.19';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.19';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.19';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.19';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.19';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.19';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.19';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.19';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.19';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.19';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.19';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.19';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.19';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.19';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.19';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.19';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.19';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.19';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.19';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.19';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.19';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.19';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.19';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.20';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.20';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.20';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.20';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.20';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.20';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.20';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.20';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.20';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.20';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.20';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.20';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.20';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.20';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.20';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.20';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.20';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.20';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.20';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.20';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.20';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.20';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.20';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.20';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.20';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.20';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.20';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.20';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -351,6 +353,7 @@
     'points_by_minute',
     'one_minute_rates',
     'one_minute_point_rates',
+    'run_sp_inband',
     'breaks'
   ]);
   const CONTESTER_HIDDEN_REPORTS = new Set([
@@ -12846,6 +12849,110 @@
     return renderComparePanels(slots, htmlBlocks, 'points_rates');
   }
 
+  function formatOperatingStylePct(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? `${Math.round(num)}%` : '';
+  }
+
+  function formatOperatingStyleFrequencyList(freqs) {
+    if (!Array.isArray(freqs) || !freqs.length) return '';
+    return freqs
+      .map((entry) => `${formatFrequency(entry.freq)} (${formatNumberSh6(entry.count)})`)
+      .join(' · ');
+  }
+
+  function renderOperatingStyleTable(operatingStyle) {
+    const bands = Array.isArray(operatingStyle?.bands) ? operatingStyle.bands : [];
+    if (!bands.length) return '<p>No operating-style data available. This report needs QSOs with valid time and frequency values.</p>';
+    const totals = operatingStyle?.totals || null;
+    const rowsData = totals ? bands.concat([totals]) : bands.slice();
+    const rows = rowsData.map((entry, idx) => {
+      const isTotals = idx === rowsData.length - 1 && entry?.band === 'All';
+      const cls = isTotals ? 'td1 operating-style-total-row' : (idx % 2 === 0 ? 'td1' : 'td0');
+      const bandLabel = isTotals ? 'All bands' : formatBandLabel(entry?.band || '');
+      const freqList = isTotals ? '' : formatOperatingStyleFrequencyList(entry?.topRunFrequencies);
+      return `
+        <tr class="${cls}">
+          <td class="${bandClass(entry?.band)}"><b>${escapeHtml(bandLabel)}</b></td>
+          <td><b>${formatNumberSh6(entry?.qsos || 0)}</b></td>
+          <td>${formatNumberSh6(entry?.runQsos || 0)}</td>
+          <td>${formatOperatingStylePct(entry?.runPct)}</td>
+          <td>${formatNumberSh6(entry?.spQsos || 0)}</td>
+          <td>${formatOperatingStylePct(entry?.spPct)}</td>
+          <td>${formatNumberSh6(entry?.inbandQsos || 0)}</td>
+          <td>${formatOperatingStylePct(entry?.inbandPct)}</td>
+          <td>${formatNumberSh6(entry?.searchQsos || 0)}</td>
+          <td>${formatOperatingStylePct(entry?.searchPct)}</td>
+          <td class="tl wrap-cell">${escapeHtml(freqList)}</td>
+        </tr>
+      `;
+    }).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc">
+          <th>Band</th>
+          <th>QSOs</th>
+          <th>RUN</th>
+          <th>% RUN</th>
+          <th>S&amp;P</th>
+          <th>% S&amp;P</th>
+          <th>INBAND</th>
+          <th>% INBAND</th>
+          <th>Search only</th>
+          <th>% Search</th>
+          <th>Top RUN freqs</th>
+        </tr>
+        ${rows}
+      </table>
+    `;
+  }
+
+  function renderOperatingStyleReportForDerived(derived) {
+    const operatingStyle = derived?.operatingStyle || null;
+    const bands = Array.isArray(operatingStyle?.bands) ? operatingStyle.bands : [];
+    if (!bands.length) {
+      return renderStateCard({
+        type: 'info',
+        title: 'RUN vs S&P vs INBAND unavailable',
+        message: 'This report needs QSOs with valid time and frequency values.'
+      });
+    }
+    const totals = operatingStyle?.totals || {};
+    const meta = operatingStyle?.meta || {};
+    const excluded = Number(operatingStyle?.excludedQsoCount || 0);
+    const intro = renderReportIntroCard(
+      'RUN vs S&P vs INBAND',
+      'Per-band operating-style estimate based on local frequency clustering. S&P includes both INBAND and search-only QSOs.',
+      [
+        `${formatNumberSh6(totals.qsos || 0)} classified QSOs`,
+        `RUN ${formatOperatingStylePct(totals.runPct || 0)}`,
+        `S&P ${formatOperatingStylePct(totals.spPct || 0)}`,
+        `INBAND ${formatOperatingStylePct(totals.inbandPct || 0)}`
+      ]
+    );
+    const heuristicText = [
+      `Window ±${formatNumberSh6(meta.windowRadiusQsos || 0)} QSOs`,
+      `min cluster ${formatNumberSh6(meta.minClusterCount || 0)}`,
+      `min share ${formatOperatingStylePct((Number(meta.dominanceShareMin) || 0) * 100)}`,
+      `RUN return ±${formatNumberSh6(meta.inbandReturnRadiusQsos || 0)} QSOs`
+    ].join(' · ');
+    const excludedNote = excluded
+      ? `<div class="export-actions export-note">Excluded from this analysis: ${formatNumberSh6(excluded)} QSOs without valid time or frequency.</div>`
+      : '';
+    return `
+      ${intro}
+      <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>
+      <div class="export-actions export-note"><b>Definition</b>: INBAND means an off-run QSO bracketed by nearby RUN QSOs on the same band. S&amp;P = INBAND + Search only.</div>
+      ${excludedNote}
+      ${renderOperatingStyleTable(operatingStyle)}
+    `;
+  }
+
+  function renderOperatingStyleReport() {
+    if (!state.derived) return renderPlaceholder({ id: 'run_sp_inband', title: 'RUN vs S&P vs INBAND' });
+    return renderOperatingStyleReportForDerived(state.derived);
+  }
+
   function buildPrefixGroups(derived) {
     const groups = new Map();
     if (!derived || !derived.prefixGroups) return groups;
@@ -15091,6 +15198,7 @@
         case 'points_by_minute': return renderPointsByMinute();
         case 'one_minute_rates': return renderOneMinuteRates();
         case 'one_minute_point_rates': return renderOneMinutePointRates();
+        case 'run_sp_inband': return renderOperatingStyleReport();
         case 'prefixes': return renderPrefixes();
         case 'callsign_length': return renderCallsignLength();
         case 'callsign_structure': return renderCallsignStructure();
@@ -15166,6 +15274,7 @@
     'points_rates',
     'one_minute_rates',
     'one_minute_point_rates',
+    'run_sp_inband',
     'spots',
     'rbn_spots'
   ]);
@@ -15192,6 +15301,7 @@
       case 'points_by_minute': return derived.minutePointSeries?.length || 0;
       case 'one_minute_rates': return derived.minuteSeries?.length || 0;
       case 'one_minute_point_rates': return derived.minutePointSeries?.length || 0;
+      case 'run_sp_inband': return derived.operatingStyle?.bands?.length || 0;
       case 'rates': return derived.hourSeries?.length || 0;
       case 'points_rates': return derived.hourSeries?.length || 0;
       case 'continents': return derived.continentSummary?.length || 0;

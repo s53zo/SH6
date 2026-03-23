@@ -82,7 +82,7 @@
           import('../modules/archive/search-runtime.js')
         ]);
 
-        add('Main.js imports the archive search runtime module', mainSource.includes("const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.19';"));
+        add('Main.js imports the archive search runtime module', mainSource.includes("const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.20';"));
         add('Main.js loads archive search runtime before setupRepoSearch calls', mainSource.includes('const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();') && mainSource.includes('await archiveSearchRuntimeReady;'));
         add('Main.js delegates setupRepoSearch to the archive search runtime', mainSource.includes('return getArchiveSearchRuntime().setupRepoSearch(slotId);'));
         add('Archive search runtime exports the factory', moduleSource.includes('export function createArchiveSearchRuntime'));

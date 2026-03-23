@@ -123,7 +123,7 @@
 
         // Session payload includes analysisMode
         expect(mainSource, 'analysisMode: state.analysisMode', 'Session payload stores analysisMode');
-        expect(mainSource, "const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.19';", 'Main.js imports the session codec module');
+        expect(mainSource, "const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.20';", 'Main.js imports the session codec module');
         expect(mainSource, 'function loadSessionCodecModule()', 'Main.js loads the session codec module');
         expect(sessionCodecSource, 'if (payload.analysisMode === analysisModeDxer) compact.am = payload.analysisMode;', 'Compact payload saves analysisMode');
         expect(sessionCodecSource, 'const analysisMode = normalizeAnalysisMode(compact.am);', 'Compact payload restores analysisMode');
@@ -140,18 +140,22 @@
         expect(mainSource, "'points_by_minute'", 'DXER hides Points by minute');
         expect(mainSource, "'one_minute_rates'", 'DXER hides one-minute rates');
         expect(mainSource, "'one_minute_point_rates'", 'DXER hides one-minute point rates');
+        expect(mainSource, "'run_sp_inband'", 'DXER hides RUN vs S&P vs INBAND report');
         expect(mainSource, "'breaks'", 'DXER hides break-time report');
 
         expect(mainSource, "const DXER_HIDDEN_REPORTS = new Set([", 'Build reports checks DXER hidden set');
         const hidden = extractSetItems(mainSource, /const DXER_HIDDEN_REPORTS = new Set\(\[([\s\S]*?)\]\);\s/);
         if (hidden) {
           const hiddenSet = new Set(hidden);
-          const expected = ['qs_by_hour_sheet', 'points_by_hour_sheet', 'graphs_qs_by_hour', 'graphs_points_by_hour', 'qs_by_minute', 'points_by_minute', 'one_minute_rates', 'one_minute_point_rates', 'breaks'];
+          const expected = ['qs_by_hour_sheet', 'points_by_hour_sheet', 'graphs_qs_by_hour', 'graphs_points_by_hour', 'qs_by_minute', 'points_by_minute', 'one_minute_rates', 'one_minute_point_rates', 'run_sp_inband', 'breaks'];
           const missing = expected.filter((id) => !hiddenSet.has(id));
           add('DXER_HIDDEN_REPORTS contains all intended hidden report IDs', missing.length === 0, missing.length ? `Missing from DXER hidden set: ${missing.join(', ')}` : '');
         } else {
           add('DXER_HIDDEN_REPORTS contains all intended hidden report IDs', false, 'Unable to parse DXER_HIDDEN_REPORTS block');
         }
+
+        expect(mainSource, "{ id: 'run_sp_inband', title: 'RUN vs S&P vs INBAND' }", 'Main.js registers RUN vs S&P vs INBAND report');
+        expect(mainSource, "case 'run_sp_inband': return renderOperatingStyleReport();", 'Single report switch routes RUN vs S&P vs INBAND report');
 
         const renderReportSingleHasMonthReports = includes(mainSource, "case 'countries_by_month': return renderCountriesByMonth();")
           && includes(mainSource, "case 'zones_cq_by_month': return renderCqZonesByMonth();")

@@ -100,7 +100,7 @@
           import('../modules/ui/canvas-zoom-runtime.js')
         ]);
 
-        add('Main.js imports the shared canvas zoom runtime module', mainSource.includes("const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.19';"));
+        add('Main.js imports the shared canvas zoom runtime module', mainSource.includes("const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.20';"));
         add('Main.js preloads the canvas zoom runtime during init', mainSource.includes('const canvasZoomRuntimeReady = loadCanvasZoomRuntimeModule();') && mainSource.includes('await canvasZoomRuntimeReady;'));
         add(
           'Main.js delegates zoom helpers to the shared runtime',

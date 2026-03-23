@@ -106,7 +106,7 @@
           import('../modules/spots/rbn-compare-model-runtime.js')
         ]);
 
-        add('Main.js imports the RBN compare model runtime module', mainSource.includes("const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.19';"));
+        add('Main.js imports the RBN compare model runtime module', mainSource.includes("const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.20';"));
         add('Main.js preloads the RBN compare model runtime during init', mainSource.includes('const rbnCompareModelRuntimeReady = loadRbnCompareModelRuntimeModule();') && mainSource.includes('await rbnCompareModelRuntimeReady;'));
         add(
           'Main.js delegates the extracted RBN compare model helpers to the runtime',

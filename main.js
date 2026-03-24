@@ -150,7 +150,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.24';
+  const APP_VERSION = 'v6.2.25';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -3515,8 +3515,10 @@
   function isCqWpxContest(context = state) {
     const contestText = String(context?.derived?.contestMeta?.contestId || '').trim();
     const contestPath = String(context?.logFile?.path || '');
-    const contestId = normalizeContestIdForCoach(contestText, contestPath);
-    return CQ_WPX_REPORT_IDS.has(contestId);
+    const archiveContestId = normalizeArchiveContestToken(getArchiveFolderFromPath(contestPath));
+    if (archiveContestId && CQ_WPX_REPORT_IDS.has(archiveContestId)) return true;
+    const contestId = normalizeArchiveContestToken(contestText);
+    return contestId.startsWith('CQWPX');
   }
 
   function buildReportsList() {

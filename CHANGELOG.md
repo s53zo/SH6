@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.25 (2026-03-24)
+- WPX by hour sheet: fix a startup regression where `isCqWpxContest()` called the coach-only helper `normalizeContestIdForCoach`, which is not available in `main.js` during app startup.
+- WPX report gating: switch the contest check to the local archive/contest normalization helpers so the report list can be rebuilt safely for demo, archive, and uploaded logs.
+- Version bump to `v6.2.25` and refresh cache-busting references in `main.js`.
+
 ## v6.2.23 (2026-03-23)
 - Rates: fix the `QSO rates` drilldown so clicking a best-window count opens the same non-dupe QSO set used by the rate calculation, instead of the full raw QSO-number span including dupes.
 - Log filter note: label those drilldowns as `non-dupes only` so the filtered Log view explains why the count matches the rate table.

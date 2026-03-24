@@ -18,6 +18,7 @@
     { id: 'qs_by_hour_sheet', title: 'Qs by hour sheet' },
     { id: 'graphs_qs_by_hour', title: 'Qs by hour' },
     { id: 'points_by_hour_sheet', title: 'Points by hour sheet' },
+    { id: 'wpx_by_hour_sheet', title: 'WPX by hour sheet' },
     { id: 'graphs_points_by_hour', title: 'Points by hour' },
     { id: 'qs_by_minute', title: 'Qs by minute' },
     { id: 'points_by_minute', title: 'Points by minute' },
@@ -87,6 +88,7 @@
     rates: 'rate_time',
     points_rates: 'rate_time',
     qs_by_hour_sheet: 'rate_time',
+    wpx_by_hour_sheet: 'rate_time',
     graphs_qs_by_hour: 'rate_time',
     points_by_hour_sheet: 'rate_time',
     graphs_points_by_hour: 'rate_time',
@@ -144,10 +146,15 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.1.21';
+  const APP_VERSION = 'v6.1.22';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
+  const WPX_COLUMN_MODE_ALL = 'all';
+  const WPX_COLUMN_MODE_PREFIX = 'prefix';
+  const WPX_COLUMN_MODE_BAND = 'band';
+  const WPX_COLUMN_MODE_CONTINENT = 'continent';
+  const WPX_COLUMN_MODE_DEFAULT = WPX_COLUMN_MODE_ALL;
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -275,6 +282,7 @@
     'points_rates',
     'competitor_coach',
     'qs_by_hour_sheet',
+    'wpx_by_hour_sheet',
     'points_by_hour_sheet',
     'graphs_qs_by_hour',
     'graphs_points_by_hour',
@@ -292,6 +300,7 @@
     'zones_itu_by_month',
     'zones_itu_by_year'
   ]);
+  const CQ_WPX_REPORT_IDS = new Set(['CQWPX', 'CQWPXRTTY']);
 
   function cloneCompareFocus(source = DEFAULT_COMPARE_FOCUS) {
     return {
@@ -522,6 +531,7 @@
         stationQsoRange: state.logStationQsoRange || null,
         distanceRange: state.logDistanceRange || null
       },
+      wpxColumnMode: normalizeWpxColumnMode(state.wpxColumnMode),
       slots
     };
   }
@@ -791,6 +801,8 @@
     if (Number.isFinite(compareStart) && compareStart !== 0) compact.w = compareStart;
     const compareSize = Number(payload.compareLogWindowSize);
     if (Number.isFinite(compareSize) && compareSize !== 1000) compact.x = compareSize;
+    const wpxColumnMode = normalizeWpxColumnMode(payload.wpxColumnMode);
+    if (wpxColumnMode !== WPX_COLUMN_MODE_DEFAULT) compact.wp = wpxColumnMode;
     if (Array.isArray(payload.globalYearsFilter) && payload.globalYearsFilter.length) {
       compact[PERIOD_FILTER_COMPACT_YEARS] = normalizePeriodYears(payload.globalYearsFilter);
     }
@@ -830,6 +842,7 @@
       logPage: Number.isFinite(logPage) ? logPage : 0,
       compareLogWindowStart: Number.isFinite(compareStart) ? compareStart : 0,
       compareLogWindowSize: Number.isFinite(compareSize) ? compareSize : 1000,
+      wpxColumnMode: normalizeWpxColumnMode(compact.wp),
       logFilters: inflateCompactLogFilters(compact.l),
       slots: inflateCompactSlots(compact.s)
     };
@@ -1004,6 +1017,7 @@
     if (Number.isFinite(migrated.logPage)) state.logPage = migrated.logPage;
     if (Number.isFinite(migrated.compareLogWindowStart)) state.compareLogWindowStart = migrated.compareLogWindowStart;
     if (Number.isFinite(migrated.compareLogWindowSize)) state.compareLogWindowSize = migrated.compareLogWindowSize;
+    state.wpxColumnMode = normalizeWpxColumnMode(migrated.wpxColumnMode);
     applySessionFilters(migrated.logFilters);
     const slotPayloads = Array.isArray(migrated.slots) ? migrated.slots : [];
     const payloadMap = new Map(slotPayloads.map((s) => [String(s.id || '').toUpperCase(), s]));
@@ -1256,6 +1270,7 @@
     compareEnabled: false,
     analysisMode: ANALYSIS_MODE_DEFAULT,
     analysisModeSuggestion: null,
+    wpxColumnMode: WPX_COLUMN_MODE_DEFAULT,
     compareCount: 1,
     compareCountBeforeDxer: 1,
     compareSyncEnabled: true,
@@ -1463,6 +1478,15 @@
   function normalizeChartMetricMode(value) {
     const key = String(value || '').trim().toLowerCase();
     return key === CHART_MODE_NORMALIZED ? CHART_MODE_NORMALIZED : CHART_MODE_ABSOLUTE;
+  }
+
+  function normalizeWpxColumnMode(value) {
+    const key = String(value || '').trim().toLowerCase();
+    if (key === WPX_COLUMN_MODE_PREFIX) return WPX_COLUMN_MODE_PREFIX;
+    if (key === WPX_COLUMN_MODE_BAND) return WPX_COLUMN_MODE_BAND;
+    if (key === WPX_COLUMN_MODE_CONTINENT) return WPX_COLUMN_MODE_CONTINENT;
+    if (key === WPX_COLUMN_MODE_ALL) return WPX_COLUMN_MODE_ALL;
+    return WPX_COLUMN_MODE_DEFAULT;
   }
 
   function getLoadedCompareSlots() {
@@ -2466,11 +2490,20 @@
     return formatBandLabel(band).replace(/[^a-z0-9]+/gi, '_');
   }
 
+  function isCqWpxContest(context = state) {
+    const contestText = String(context?.derived?.contestMeta?.contestId || '').trim();
+    const contestPath = String(context?.logFile?.path || '');
+    const contestId = normalizeContestIdForCoach(contestText, contestPath);
+    return CQ_WPX_REPORT_IDS.has(contestId);
+  }
+
   function buildReportsList() {
     const list = [];
+    const showWpxHourSheet = isCqWpxContest();
     BASE_REPORTS.forEach((r) => {
       if (state.analysisMode === ANALYSIS_MODE_DXER && DXER_HIDDEN_REPORTS.has(r.id)) return;
       if (state.analysisMode === ANALYSIS_MODE_CONTESTER && CONTESTER_HIDDEN_REPORTS.has(r.id)) return;
+      if (r.id === 'wpx_by_hour_sheet' && !showWpxHourSheet) return;
       list.push(r);
     });
     return list;
@@ -16420,6 +16453,47 @@
     return map;
   }
 
+  function buildWpxHourBucketMap(qsos) {
+    const map = new Map();
+    (qsos || []).forEach((q) => {
+      if (!Number.isFinite(q.ts)) return;
+      if (q.isDupe) return;
+      const prefix = (q.wpxPrefix || '').trim().toUpperCase();
+      if (!prefix) return;
+      const band = q.band ? normalizeBandToken(q.band) : '';
+      const rawContinent = normalizeContinent(q.continent || '');
+      const continent = CONTINENT_ORDER.includes(rawContinent) ? rawContinent : (rawContinent || 'Other');
+      const d = new Date(q.ts);
+      const day = d.getUTCDay();
+      const hour = d.getUTCHours();
+      const key = `${day}-${hour}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          day,
+          hour,
+          qsos: 0,
+          prefixes: new Map(),
+          bands: new Map(),
+          continents: new Map(),
+          sampleTs: q.ts
+        });
+      }
+      const entry = map.get(key);
+      entry.qsos += 1;
+      entry.prefixes.set(prefix, (entry.prefixes.get(prefix) || 0) + 1);
+      if (band) {
+        entry.bands.set(band, (entry.bands.get(band) || 0) + 1);
+      }
+      if (continent) {
+        entry.continents.set(continent, (entry.continents.get(continent) || 0) + 1);
+      }
+      if (!Number.isFinite(entry.sampleTs)) {
+        entry.sampleTs = q.ts;
+      }
+    });
+    return map;
+  }
+
   function buildHourKeyOrderFromMaps(mapA, mapB, qsosA, qsosB) {
     return buildHourKeyOrderFromMapsList([mapA, mapB], [qsosA, qsosB]);
   }
@@ -16447,6 +16521,65 @@
       const db = (bi - startIndex + 168) % 168;
       return da - db;
     });
+  }
+
+  function buildWpxColumnOrderFromMaps(maps, mode) {
+    const normalizedMode = normalizeWpxColumnMode(mode);
+    if (normalizedMode === WPX_COLUMN_MODE_ALL) return ['All'];
+    const totals = new Map();
+    maps.forEach((map) => {
+      map.forEach((entry) => {
+        if (!entry) return;
+        const source = normalizedMode === WPX_COLUMN_MODE_BAND ? entry.bands
+          : normalizedMode === WPX_COLUMN_MODE_CONTINENT ? entry.continents
+          : entry.prefixes;
+        if (!(source instanceof Map)) return;
+        source.forEach((count, key) => {
+          if (!key) return;
+          totals.set(String(key), (totals.get(String(key)) || 0) + Number(count) || 0);
+        });
+      });
+    });
+    if (!totals.size) return [];
+    if (normalizedMode === WPX_COLUMN_MODE_BAND) return sortBands(Array.from(totals.keys()));
+    if (normalizedMode === WPX_COLUMN_MODE_CONTINENT) return Array.from(totals.keys()).sort((a, b) => {
+      const ai = continentOrderIndex(a);
+      const bi = continentOrderIndex(b);
+      if (ai !== bi) return ai - bi;
+      return String(a || '').localeCompare(String(b || ''));
+    });
+    return Array.from(totals.entries())
+      .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+      .map(([prefix]) => prefix);
+  }
+
+  function resolveWpxColumnLabel(mode, key) {
+    const normalizedMode = normalizeWpxColumnMode(mode);
+    if (normalizedMode === WPX_COLUMN_MODE_BAND) return formatBandLabel(key);
+    if (normalizedMode === WPX_COLUMN_MODE_CONTINENT) return key;
+    return key;
+  }
+
+  function resolveWpxColumnValue(entry, mode, key) {
+    const normalizedMode = normalizeWpxColumnMode(mode);
+    if (normalizedMode === WPX_COLUMN_MODE_ALL) return entry ? (entry.qsos || 0) : 0;
+    if (!entry) return 0;
+    if (normalizedMode === WPX_COLUMN_MODE_BAND) return entry.bands?.get(key) || 0;
+    if (normalizedMode === WPX_COLUMN_MODE_CONTINENT) return entry.continents?.get(key) || 0;
+    return entry.prefixes?.get(key) || 0;
+  }
+
+  function renderWpxByHourModeControls() {
+    const mode = normalizeWpxColumnMode(state.wpxColumnMode);
+    return `
+      <div class="chart-mode-controls" role="group" aria-label="WPX hour sheet columns">
+        <span class="chart-mode-label">Columns</span>
+        <button type="button" class="chart-mode-btn${mode === WPX_COLUMN_MODE_ALL ? ' active' : ''}" data-wpx-mode="${WPX_COLUMN_MODE_ALL}" aria-pressed="${mode === WPX_COLUMN_MODE_ALL ? 'true' : 'false'}">All</button>
+        <button type="button" class="chart-mode-btn${mode === WPX_COLUMN_MODE_BAND ? ' active' : ''}" data-wpx-mode="${WPX_COLUMN_MODE_BAND}" aria-pressed="${mode === WPX_COLUMN_MODE_BAND ? 'true' : 'false'}">Bands</button>
+        <button type="button" class="chart-mode-btn${mode === WPX_COLUMN_MODE_CONTINENT ? ' active' : ''}" data-wpx-mode="${WPX_COLUMN_MODE_CONTINENT}" aria-pressed="${mode === WPX_COLUMN_MODE_CONTINENT ? 'true' : 'false'}">Continents</button>
+        <button type="button" class="chart-mode-btn${mode === WPX_COLUMN_MODE_PREFIX ? ' active' : ''}" data-wpx-mode="${WPX_COLUMN_MODE_PREFIX}" aria-pressed="${mode === WPX_COLUMN_MODE_PREFIX ? 'true' : 'false'}">Prefixes</button>
+      </div>
+    `;
   }
 
   function renderQsByHourSheetForSlot(slot, keyOrder, bucketMap) {
@@ -16581,6 +16714,94 @@
       entry.ready ? renderPointsByHourSheetForSlot(entry.snapshot, order, maps[idx]) : `<p>No ${entry.label} loaded.</p>`
     ));
     return renderComparePanels(slots, htmlBlocks, 'points_by_hour_sheet');
+  }
+
+  function renderWpxByHourSheetForSlot(slot, keyOrder, columnOrder, bucketMap, mode) {
+    if (!slot || !slot.derived) return '<p>No log loaded.</p>';
+    const normalizedMode = normalizeWpxColumnMode(mode);
+    if (!columnOrder.length) return '<p>No WPX columns to analyze.</p>';
+    let accum = 0;
+    let lastDay = null;
+    const showGrandTotal = normalizedMode !== WPX_COLUMN_MODE_ALL;
+    const rows = keyOrder.map((key, idx) => {
+      const entry = bucketMap.get(key);
+      const day = entry ? entry.day : Number(String(key).split('-')[0]);
+      const hour = entry ? entry.hour : Number(String(key).split('-')[1]);
+      const dayLabel = day !== lastDay ? (WEEKDAY_LABELS[day] || '') : '';
+      lastDay = day;
+      const cells = columnOrder.map((column) => {
+        const count = resolveWpxColumnValue(entry, normalizedMode, column);
+        if (!count) return '<td></td>';
+        const hourBucket = entry ? Math.floor(entry.sampleTs / 3600000) : null;
+        if (hourBucket == null) {
+          return `<td>${formatNumberSh6(count)}</td>`;
+        }
+        if (normalizedMode === WPX_COLUMN_MODE_PREFIX) {
+          return `<td><a href="#" class="log-hour-prefix" data-hour="${hourBucket}" data-prefix="${escapeAttr(column)}">${formatNumberSh6(count)}</a></td>`;
+        }
+        if (normalizedMode === WPX_COLUMN_MODE_BAND) {
+          return `<td><a href="#" class="log-hour-band" data-hour="${hourBucket}" data-band="${escapeAttr(column)}">${formatNumberSh6(count)}</a></td>`;
+        }
+        if (normalizedMode === WPX_COLUMN_MODE_CONTINENT) {
+          return `<td><a href="#" class="log-hour-continent" data-hour="${hourBucket}" data-continent="${escapeAttr(column)}">${formatNumberSh6(count)}</a></td>`;
+        }
+        return `<td><a href="#" class="log-hour" data-hour="${hourBucket}">${formatNumberSh6(count)}</a></td>`;
+      }).join('');
+      const qsos = entry ? entry.qsos : 0;
+      accum += qsos;
+      const cls = idx % 2 === 0 ? 'td1' : 'td0';
+      const hourLabel = `${String(hour).padStart(2, '0')}:00Z`;
+      const hourBucket = entry ? Math.floor(entry.sampleTs / 3600000) : null;
+      const allLink = qsos && hourBucket != null
+        ? `<a href="#" class="log-hour" data-hour="${hourBucket}"><b>${formatNumberSh6(qsos)}</b></a>`
+        : (qsos ? `<b>${formatNumberSh6(qsos)}</b>` : '');
+      const totalCell = showGrandTotal ? `<td>${allLink}</td>` : '';
+      return `<tr class="${cls}"><td>${dayLabel}</td><td><b>${hourLabel}</b></td>${cells}${totalCell}<td>${formatNumberSh6(accum || '')}</td></tr>`;
+    }).join('');
+    const dataHeader = columnOrder.map((column) => `<th>${escapeHtml(resolveWpxColumnLabel(normalizedMode, column))}</th>`).join('');
+    return `
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc">
+          <th rowspan="2">Day</th>
+          <th rowspan="2">Hour</th>
+          <th colspan="${columnOrder.length + (showGrandTotal ? 2 : 1)}">QSOs</th>
+        </tr>
+        <tr class="thc">
+          ${dataHeader}
+          ${showGrandTotal ? '<th>All</th>' : ''}
+          <th>Accum.</th>
+        </tr>
+        ${rows}
+      </table>
+    `;
+  }
+
+  function renderWpxByHourSheet() {
+    if (!state.derived) return renderPlaceholder({ id: 'wpx_by_hour_sheet', title: 'WPX by hour sheet' });
+    if (!state.derived.prefixSummary || !state.derived.prefixSummary.length) return '<p>No WPX prefixes found.</p>';
+    const qsos = state.qsoData?.qsos || [];
+    const map = buildWpxHourBucketMap(qsos);
+    if (!map.size) return '<p>No WPX QSOs to analyze.</p>';
+    const order = buildHourKeyOrderFromMapsList([map], [qsos]);
+    if (!order.length) return '<p>No hour rows to analyze.</p>';
+    const mode = normalizeWpxColumnMode(state.wpxColumnMode);
+    const columnOrder = buildWpxColumnOrderFromMaps([map], mode);
+    if (!columnOrder.length) return '<p>No WPX columns to analyze.</p>';
+    return `${renderWpxByHourModeControls()}${renderWpxByHourSheetForSlot({ derived: state.derived }, order, columnOrder, map, mode)}`;
+  }
+
+  function renderWpxByHourSheetCompare() {
+    const slots = getActiveCompareSnapshots();
+    const maps = slots.map((entry) => buildWpxHourBucketMap(entry.snapshot.qsoData?.qsos || []));
+    const order = buildHourKeyOrderFromMapsList(maps, slots.map((entry) => entry.snapshot.qsoData?.qsos || []));
+    if (!order.length) return renderComparePanels(slots, slots.map((entry) => `<p>No ${entry.label} loaded.</p>`), 'wpx_by_hour_sheet');
+    const mode = normalizeWpxColumnMode(state.wpxColumnMode);
+    const columnOrder = buildWpxColumnOrderFromMaps(maps, mode);
+    if (!columnOrder.length) return renderComparePanels(slots, slots.map((entry) => `<p>No WPX columns to analyze.</p>`), 'wpx_by_hour_sheet');
+    const htmlBlocks = slots.map((entry, idx) => (
+      entry.ready ? renderWpxByHourSheetForSlot(entry.snapshot, order, columnOrder, maps[idx], mode) : `<p>No ${entry.label} loaded.</p>`
+    ));
+    return `${renderWpxByHourModeControls()}${renderComparePanels(slots, htmlBlocks, 'wpx_by_hour_sheet')}`;
   }
 
   function renderQsoRatesForData(qsos) {
@@ -18614,6 +18835,7 @@
         case 'zones_cq_by_year': return renderCqZonesByYear();
         case 'zones_itu_by_year': return renderItuZonesByYear();
         case 'qs_by_hour_sheet': return renderQsByHourSheet();
+        case 'wpx_by_hour_sheet': return renderWpxByHourSheet();
         case 'graphs_qs_by_hour': return renderGraphsQsByHour(null);
         case 'points_by_hour_sheet': return renderPointsByHourSheet();
         case 'graphs_points_by_hour': return renderGraphsPointsByHour(null);
@@ -18691,6 +18913,7 @@
     'zones_itu',
     'qs_per_station',
     'qs_by_hour_sheet',
+    'wpx_by_hour_sheet',
     'points_by_hour_sheet',
     'qs_by_minute',
     'points_by_minute',
@@ -18805,6 +19028,7 @@
       case 'dupes': return derived.dupes?.length || 0;
       case 'qs_per_station': return getMaxQsosPerStation(derived) || 0;
       case 'qs_by_hour_sheet': return derived.hourSeries?.length || 0;
+      case 'wpx_by_hour_sheet': return derived.prefixSummary?.length || 0;
       case 'points_by_hour_sheet': return derived.hourPointSeries?.length || 0;
       case 'graphs_points_by_hour': return derived.hourPointSeries?.length || 0;
       case 'qs_by_minute': return derived.minuteSeries?.length || 0;
@@ -19597,6 +19821,9 @@
     if (report.id === 'qs_by_hour_sheet') {
       return renderQsByHourSheetCompare();
     }
+    if (report.id === 'wpx_by_hour_sheet') {
+      return renderWpxByHourSheetCompare();
+    }
     if (report.id === 'points_by_hour_sheet') {
       return renderPointsByHourSheetCompare();
     }
@@ -19763,9 +19990,19 @@
     chartModeButtons.forEach((btn) => {
       btn.addEventListener('click', (evt) => {
         evt.preventDefault();
-        const nextMode = normalizeChartMetricMode(btn.dataset.chartMode || '');
-        if (nextMode === state.chartMetricMode) return;
-        state.chartMetricMode = nextMode;
+        const chartMode = (btn.dataset.chartMode || '').trim();
+        const wpxMode = (btn.dataset.wpxMode || '').trim();
+        if (chartMode) {
+          const nextMode = normalizeChartMetricMode(chartMode);
+          if (nextMode === state.chartMetricMode) return;
+          state.chartMetricMode = nextMode;
+          renderReportWithLoading(reports[state.activeIndex]);
+          return;
+        }
+        if (!wpxMode) return;
+        const nextWpxMode = normalizeWpxColumnMode(wpxMode);
+        if (nextWpxMode === state.wpxColumnMode) return;
+        state.wpxColumnMode = nextWpxMode;
         renderReportWithLoading(reports[state.activeIndex]);
       });
     });
@@ -21211,6 +21448,68 @@
         state.logCallStructFilter = '';
         state.logCountryFilter = '';
         state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = { startTs, endTs };
+        state.logHeadingRange = null;
+        state.logStationQsoRange = null;
+        state.logDistanceRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const hourWpxLinks = document.querySelectorAll('.log-hour-prefix');
+    hourWpxLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const hour = Number(link.dataset.hour);
+        const prefix = (link.dataset.prefix || '').trim().toUpperCase();
+        if (!Number.isFinite(hour) || !prefix) return;
+        const startTs = hour * 3600000;
+        const endTs = startTs + 3599999;
+        state.logRange = null;
+        state.logSearch = prefix;
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = '';
+        state.logCqFilter = '';
+        state.logItuFilter = '';
+        state.logTimeRange = { startTs, endTs };
+        state.logHeadingRange = null;
+        state.logStationQsoRange = null;
+        state.logDistanceRange = null;
+        state.logPage = 0;
+        const logIndex = reports.findIndex((r) => r.id === 'log');
+        if (logIndex >= 0) setActiveReport(logIndex);
+      });
+    });
+
+    const hourWpxContinentLinks = document.querySelectorAll('.log-hour-continent');
+    hourWpxContinentLinks.forEach((link) => {
+      link.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const hour = Number(link.dataset.hour);
+        const continent = (link.dataset.continent || '').trim().toUpperCase();
+        if (!Number.isFinite(hour) || !continent) return;
+        const startTs = hour * 3600000;
+        const endTs = startTs + 3599999;
+        state.logRange = null;
+        state.logSearch = '';
+        state.logFieldFilter = '';
+        state.logBandFilter = '';
+        state.logModeFilter = '';
+        state.logOpFilter = '';
+        state.logCallLenFilter = null;
+        state.logCallStructFilter = '';
+        state.logCountryFilter = '';
+        state.logContinentFilter = continent;
         state.logCqFilter = '';
         state.logItuFilter = '';
         state.logTimeRange = { startTs, endTs };

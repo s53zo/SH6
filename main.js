@@ -150,7 +150,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.26';
+  const APP_VERSION = 'v6.2.27';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -980,102 +980,110 @@
   async function applySessionPayload(payload, options = {}) {
     const migrated = migrateSessionPayload(payload);
     if (!migrated || typeof migrated !== 'object') return;
+    const shouldShowRestoreOverlay = options.fromPermalink === true;
     clearAnalysisModeSuggestion();
     const hadAnalysisMode = Object.prototype.hasOwnProperty.call(migrated, 'analysisMode');
     const pendingPermalinkLocalUploads = [];
+    if (shouldShowRestoreOverlay) {
+      showSessionRestoreOverlay('Restoring permalink...', 'SH6 is loading logs and rebuilding the session view.');
+    }
     state.sessionNotice = [];
     state.allCallsignsCountryFilter = '';
-    state.analysisMode = normalizeAnalysisMode(migrated.analysisMode) || ANALYSIS_MODE_DEFAULT;
-    state.compareScoreMode = normalizeCompareScoreMode(migrated.compareScoreMode);
-    state.compareSyncEnabled = migrated.compareSyncEnabled !== false;
-    state.compareStickyEnabled = migrated.compareStickyEnabled !== false;
-    state.compareTimeRangeLock = cloneTsRange(migrated.compareTimeRangeLock);
-    if (dom.analysisModeRadios && dom.analysisModeRadios.length) {
-      dom.analysisModeRadios.forEach((radio) => {
-        radio.checked = String(radio.value) === state.analysisMode;
-      });
-    }
-    if (!hadAnalysisMode) {
-      state.sessionNotice.push('Session load used default analysis mode: Contester.');
-    }
-    const compareCount = Math.min(4, Math.max(1, Number(migrated.compareCount) || 1));
-    if (state.analysisMode === ANALYSIS_MODE_DXER) {
-      if (compareCount > 1) state.compareCountBeforeDxer = compareCount;
-      setCompareCount(1, true);
-    } else {
-      setCompareCount(compareCount, true);
-    }
-    syncLoadPanelFlowForAnalysisMode();
-    state.compareFocus = migrated.compareFocus || state.compareFocus;
-    state.globalBandFilter = migrated.globalBandFilter || '';
-    state.globalYearsFilter = normalizePeriodYears(migrated.globalYearsFilter);
-    state.globalMonthsFilter = normalizePeriodMonths(migrated.globalMonthsFilter);
-    state.breakThreshold = Number(migrated.breakThreshold) || state.breakThreshold;
-    state.passedQsoWindow = Number(migrated.passedQsoWindow) || state.passedQsoWindow;
-    if (Number.isFinite(migrated.logPageSize)) state.logPageSize = migrated.logPageSize;
-    if (Number.isFinite(migrated.logPage)) state.logPage = migrated.logPage;
-    if (Number.isFinite(migrated.compareLogWindowStart)) state.compareLogWindowStart = migrated.compareLogWindowStart;
-    if (Number.isFinite(migrated.compareLogWindowSize)) state.compareLogWindowSize = migrated.compareLogWindowSize;
-    state.wpxColumnMode = normalizeWpxColumnMode(migrated.wpxColumnMode);
-    applySessionFilters(migrated.logFilters);
-    const slotPayloads = Array.isArray(migrated.slots) ? migrated.slots : [];
-    const payloadMap = new Map(slotPayloads.map((s) => [String(s.id || '').toUpperCase(), s]));
-    for (const id of ['A', 'B', 'C', 'D']) {
-      const data = payloadMap.get(id);
-      if (!data || data.empty) {
-        if (id === 'A') resetMainSlot();
-        else resetCompareSlot(id);
-        const slot = getSlotById(id);
-        if (slot) slot.skipped = !!data?.skipped;
-        updateSlotStatus(id);
-        setArchiveCompact(id, false);
-        continue;
-      }
-      if (options.fromPermalink && data.sourceType === 'local') {
-        const label = data.file?.name ? ` (${data.file.name})` : '';
-        state.sessionNotice.push(`Permalink needs local log upload for slot ${id}${label}.`);
-        pendingPermalinkLocalUploads.push({
-          id,
-          fileName: data.file?.name || ''
+    try {
+      state.analysisMode = normalizeAnalysisMode(migrated.analysisMode) || ANALYSIS_MODE_DEFAULT;
+      state.compareScoreMode = normalizeCompareScoreMode(migrated.compareScoreMode);
+      state.compareSyncEnabled = migrated.compareSyncEnabled !== false;
+      state.compareStickyEnabled = migrated.compareStickyEnabled !== false;
+      state.compareTimeRangeLock = cloneTsRange(migrated.compareTimeRangeLock);
+      if (dom.analysisModeRadios && dom.analysisModeRadios.length) {
+        dom.analysisModeRadios.forEach((radio) => {
+          radio.checked = String(radio.value) === state.analysisMode;
         });
-        if (id === 'A') resetMainSlot();
-        else resetCompareSlot(id);
-        continue;
       }
-      if (data.rawText) {
-        await applyLoadedLogToSlot(id, data.rawText, data.file?.name || `${id}.log`, data.file?.size || data.rawText.length, 'Session', null, data.archivePath || '');
-        applySpotSettings(getSlotById(id), data);
-        continue;
+      if (!hadAnalysisMode) {
+        state.sessionNotice.push('Session load used default analysis mode: Contester.');
       }
-      if (data.sourceType === 'local') {
-        const cachedRaw = await loadDurableRawLog(id);
-        if (cachedRaw && cachedRaw.text) {
-          await applyLoadedLogToSlot(id, cachedRaw.text, data.file?.name || `${id}.log`, data.file?.size || cachedRaw.text.length, 'Autosave', null, data.archivePath || '');
+      const compareCount = Math.min(4, Math.max(1, Number(migrated.compareCount) || 1));
+      if (state.analysisMode === ANALYSIS_MODE_DXER) {
+        if (compareCount > 1) state.compareCountBeforeDxer = compareCount;
+        setCompareCount(1, true);
+      } else {
+        setCompareCount(compareCount, true);
+      }
+      syncLoadPanelFlowForAnalysisMode();
+      state.compareFocus = migrated.compareFocus || state.compareFocus;
+      state.globalBandFilter = migrated.globalBandFilter || '';
+      state.globalYearsFilter = normalizePeriodYears(migrated.globalYearsFilter);
+      state.globalMonthsFilter = normalizePeriodMonths(migrated.globalMonthsFilter);
+      state.breakThreshold = Number(migrated.breakThreshold) || state.breakThreshold;
+      state.passedQsoWindow = Number(migrated.passedQsoWindow) || state.passedQsoWindow;
+      if (Number.isFinite(migrated.logPageSize)) state.logPageSize = migrated.logPageSize;
+      if (Number.isFinite(migrated.logPage)) state.logPage = migrated.logPage;
+      if (Number.isFinite(migrated.compareLogWindowStart)) state.compareLogWindowStart = migrated.compareLogWindowStart;
+      if (Number.isFinite(migrated.compareLogWindowSize)) state.compareLogWindowSize = migrated.compareLogWindowSize;
+      state.wpxColumnMode = normalizeWpxColumnMode(migrated.wpxColumnMode);
+      applySessionFilters(migrated.logFilters);
+      const slotPayloads = Array.isArray(migrated.slots) ? migrated.slots : [];
+      const payloadMap = new Map(slotPayloads.map((s) => [String(s.id || '').toUpperCase(), s]));
+      for (const id of ['A', 'B', 'C', 'D']) {
+        const data = payloadMap.get(id);
+        if (!data || data.empty) {
+          if (id === 'A') resetMainSlot();
+          else resetCompareSlot(id);
+          const slot = getSlotById(id);
+          if (slot) slot.skipped = !!data?.skipped;
+          updateSlotStatus(id);
+          setArchiveCompact(id, false);
+          continue;
+        }
+        if (options.fromPermalink && data.sourceType === 'local') {
+          const label = data.file?.name ? ` (${data.file.name})` : '';
+          state.sessionNotice.push(`Permalink needs local log upload for slot ${id}${label}.`);
+          pendingPermalinkLocalUploads.push({
+            id,
+            fileName: data.file?.name || ''
+          });
+          if (id === 'A') resetMainSlot();
+          else resetCompareSlot(id);
+          continue;
+        }
+        if (data.rawText) {
+          await applyLoadedLogToSlot(id, data.rawText, data.file?.name || `${id}.log`, data.file?.size || data.rawText.length, 'Session', null, data.archivePath || '', { deferUiRefresh: true });
           applySpotSettings(getSlotById(id), data);
           continue;
         }
-      }
-      if (data.archivePath) {
-        const result = await fetchArchiveLogText(data.archivePath);
-        if (result && result.text) {
-          const name = data.file?.name || data.archivePath.split('/').pop() || `${id}.log`;
-          await applyLoadedLogToSlot(id, result.text, name, result.text.length, 'Archive', null, data.archivePath);
-          applySpotSettings(getSlotById(id), data);
-        } else {
-          state.sessionNotice.push(`Failed to load archive log for slot ${id}.`);
-          if (id === 'A') resetMainSlot();
-          else resetCompareSlot(id);
+        if (data.sourceType === 'local') {
+          const cachedRaw = await loadDurableRawLog(id);
+          if (cachedRaw && cachedRaw.text) {
+            await applyLoadedLogToSlot(id, cachedRaw.text, data.file?.name || `${id}.log`, data.file?.size || cachedRaw.text.length, 'Autosave', null, data.archivePath || '', { deferUiRefresh: true });
+            applySpotSettings(getSlotById(id), data);
+            continue;
+          }
+        }
+        if (data.archivePath) {
+          const result = await fetchArchiveLogText(data.archivePath);
+          if (result && result.text) {
+            const name = data.file?.name || data.archivePath.split('/').pop() || `${id}.log`;
+            await applyLoadedLogToSlot(id, result.text, name, result.text.length, 'Archive', null, data.archivePath, { deferUiRefresh: true });
+            applySpotSettings(getSlotById(id), data);
+          } else {
+            state.sessionNotice.push(`Failed to load archive log for slot ${id}.`);
+            if (id === 'A') resetMainSlot();
+            else resetCompareSlot(id);
+          }
         }
       }
+      updateLoadSummary();
+      invalidateCompareLogData();
+      updateBandRibbon();
+      syncPeriodFiltersWithAvailableData();
+      rebuildReports();
+      const logIndex = reports.findIndex((r) => r.id === 'log');
+      if (logIndex >= 0) setActiveReport(logIndex);
+      scheduleAutosaveSession();
+    } finally {
+      if (shouldShowRestoreOverlay) closeSessionRestoreOverlay();
     }
-    updateLoadSummary();
-    invalidateCompareLogData();
-    updateBandRibbon();
-    syncPeriodFiltersWithAvailableData();
-    rebuildReports();
-    const logIndex = reports.findIndex((r) => r.id === 'log');
-    if (logIndex >= 0) setActiveReport(logIndex);
-    scheduleAutosaveSession();
     queuePermalinkLogPrompts(options.fromPermalink ? pendingPermalinkLocalUploads : []);
   }
 
@@ -2866,6 +2874,30 @@
   let permalinkLogPromptQueue = [];
   let permalinkLogPromptOverlay = null;
   let permalinkLogPromptKeyHandler = null;
+  let sessionRestoreOverlay = null;
+
+  function closeSessionRestoreOverlay() {
+    if (!sessionRestoreOverlay) return;
+    sessionRestoreOverlay.remove();
+    sessionRestoreOverlay = null;
+  }
+
+  function showSessionRestoreOverlay(title, message) {
+    closeSessionRestoreOverlay();
+    const overlay = document.createElement('div');
+    overlay.id = 'sessionRestoreOverlay';
+    overlay.className = 'export-dialog-overlay no-print';
+    overlay.innerHTML = `
+      <div class="export-dialog">
+        <div class="export-dialog-head">
+          <strong>${escapeHtml(title || 'Restoring session...')}</strong>
+        </div>
+        <p>${escapeHtml(message || 'SH6 is loading logs and rebuilding the session view.')}</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    sessionRestoreOverlay = overlay;
+  }
 
   function closePermalinkLogPrompt() {
     if (permalinkLogPromptOverlay) {
@@ -7494,9 +7526,10 @@
     }
   }
 
-  async function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl, sourcePath) {
+  async function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl, sourcePath, renderOptions = {}) {
     const safeSize = Number.isFinite(size) ? size : text.length;
     const slotKey = String(slotId || 'A').toUpperCase();
+    const deferUiRefresh = renderOptions && renderOptions.deferUiRefresh === true;
     const target = getSlotById(slotId);
     if (!target) return null;
     target.skipped = false;
@@ -7571,17 +7604,19 @@
       qso_count: target.qsoData.qsos.length || 0,
       log_type: target.qsoData.type || ''
     });
-    invalidateCompareLogData();
-    updateBandRibbon();
-    rebuildReports();
-    setActiveReport(state.activeIndex);
-    updateLoadSummary();
+    if (!deferUiRefresh) {
+      invalidateCompareLogData();
+      updateBandRibbon();
+      rebuildReports();
+      setActiveReport(state.activeIndex);
+      updateLoadSummary();
+    }
     if (Array.isArray(state.sessionNotice) && state.sessionNotice.length) {
       const tag = `slot ${String(slotId || '').toUpperCase()}`;
       state.sessionNotice = state.sessionNotice.filter((msg) => !String(msg).toLowerCase().includes(tag.toLowerCase()));
     }
     persistDurableSlotLog(slotKey, target, text);
-    scheduleAutosaveSession();
+    if (!deferUiRefresh) scheduleAutosaveSession();
     triggerCqApiEnrichmentForSlot(target, slotKey);
     return target.qsoData;
   }

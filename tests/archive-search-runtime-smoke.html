@@ -109,6 +109,7 @@
         const applyCalls = [];
         const fakeRows = [
           { path: 'ARRL/DX/2024/PH/S53M.log', contest: 'ARRL', year: 2024, mode: 'PH', season: '', subcontest: 'DX' },
+          { path: 'RECONSTRUCTED_LOGS/ARRL/arrl_10_meter_contest/2025/S53M.log', contest: 'ARRL', year: 2025, mode: '', season: '' },
           { path: 'CQWW/cw/2025/S53M.log', contest: 'CQWW', year: 2025, mode: 'CW', season: '' },
           { path: 'OK1WC_Memorial/2026-03-02/S53M.log', contest: 'OK1WC_Memorial', year: 2026, mode: '', season: 'Spring' },
           { path: 'RECONSTRUCTED_LOGS/CQWW/cw/2023/S53M.log', contest: 'CQWW', year: 2023, mode: 'CW', season: '' }
@@ -178,6 +179,13 @@
           dom.resultsEl.textContent.includes('OK1WC_Memorial')
             && dom.resultsEl.textContent.includes('2026-03-02')
             && !dom.resultsEl.textContent.includes('Spring'),
+          dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
+        );
+        add(
+          'Reconstructed ARRL paths render under the real subcontest without an unspecified mode folder',
+          dom.resultsEl.textContent.includes('10 Meter Contest')
+            && !dom.resultsEl.textContent.includes('ARRL ARRL')
+            && !dom.resultsEl.textContent.includes('UNSPECIFIED'),
           dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
         );
         add(

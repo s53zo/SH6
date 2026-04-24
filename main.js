@@ -202,7 +202,7 @@
   const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.31';
   const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.31';
   const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.31';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.31';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.32';
   const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.31';
   const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.31';
   const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.31';

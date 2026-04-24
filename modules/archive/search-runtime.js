@@ -41,13 +41,31 @@ export function createArchiveSearchRuntime(deps = {}) {
     return mode || 'UNSPECIFIED';
   }
 
+  function getArchivePathParts(path) {
+    const parts = normalizeLabel(path).split('/').filter(Boolean);
+    return parts[0] === 'RECONSTRUCTED_LOGS' ? parts.slice(1) : parts;
+  }
+
+  function formatArchiveSlugLabel(value) {
+    return normalizeLabel(value)
+      .replace(/^arrl[_-]+/i, '')
+      .split(/[_-]+/)
+      .filter(Boolean)
+      .map((part) => {
+        const upper = part.toUpperCase();
+        if (/^(CW|SSB|RTTY|FT4|FT8|DX|VHF|UHF|SHF|EME)$/.test(upper)) return upper;
+        return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+      })
+      .join(' ');
+  }
+
   function normalizeArchiveSubcontest(row) {
     const contest = normalizeLabel(row?.contest).toUpperCase();
     if (contest !== 'ARRL') return '';
     const explicit = normalizeLabel(row?.subcontest);
     if (explicit) return explicit;
-    const parts = normalizeLabel(row?.path).split('/').filter(Boolean);
-    return parts[1] || UNSPECIFIED_ARCHIVE_SUBCONTEST;
+    const parts = getArchivePathParts(row?.path);
+    return formatArchiveSlugLabel(parts[1]) || UNSPECIFIED_ARCHIVE_SUBCONTEST;
   }
 
   function compareArchiveModes(modeA, modeB) {
@@ -102,7 +120,7 @@ export function createArchiveSearchRuntime(deps = {}) {
       return roundDate || 'Weekly round';
     }
     if (contest === 'EU_VHF_CONTESTS') {
-      const parts = path.split('/').filter(Boolean);
+      const parts = getArchivePathParts(path);
       const event = parts[1] ? parts[1].replace(/_/g, ' ') : '';
       const band = parts[2] || '';
       return [event, band].filter(Boolean).join(' • ');
@@ -177,7 +195,7 @@ export function createArchiveSearchRuntime(deps = {}) {
         const yearMap = subMap.get(subcontest);
         if (!yearMap.has(year)) yearMap.set(year, new Map());
         const modeMap = yearMap.get(year);
-        const mode = normalizeArchiveMode(row?.mode);
+        const mode = normalizeLabel(row?.mode).toUpperCase();
         if (!modeMap.has(mode)) modeMap.set(mode, []);
         modeMap.get(mode).push(row);
         return;

@@ -150,7 +150,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.31';
+  const APP_VERSION = 'v6.2.32';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -196,34 +196,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.31';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.31';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.31';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.31';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.31';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.31';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.32';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.32';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.32';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.32';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.32';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.32';
   const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.32';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.31';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.31';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.31';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.31';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.31';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.31';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.31';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.31';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.31';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.31';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.31';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.31';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.31';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.31';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.31';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.31';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.31';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.31';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.31';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.31';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.31';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.32';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.32';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.32';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.32';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.32';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.32';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.32';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.32';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.32';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.32';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.32';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.32';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.32';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.32';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.32';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.32';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.32';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.32';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.32';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.32';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.32';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -494,6 +494,7 @@
       qsoData: null,
       qsoLite: null,
       rawLogText: '',
+      scoringRuleOverride: '',
       derived: null,
       logPage: 0,
       logPageSize: 1000,
@@ -513,6 +514,7 @@
     state.qsoData = null;
     state.qsoLite = null;
     state.rawLogText = '';
+    state.scoringRuleOverride = '';
     state.derived = null;
     state.logPage = 0;
     state.allCallsignsCountryFilter = '';
@@ -780,6 +782,7 @@
         ruleName: scoring.ruleName || '',
         ruleReferenceUrl: scoring.ruleReferenceUrl || '',
         detectionMethod: scoring.detectionMethod || '',
+        scoringRuleOverride: scoring.scoringRuleOverride || '',
         duplicatePolicy: scoring.duplicatePolicy || '',
         multiplierCreditPolicy: scoring.multiplierCreditPolicy || '',
         claimedScoreHeader: Number.isFinite(scoring.claimedScoreHeader) ? scoring.claimedScoreHeader : null,
@@ -1048,14 +1051,20 @@
           continue;
         }
         if (data.rawText) {
-          await applyLoadedLogToSlot(id, data.rawText, data.file?.name || `${id}.log`, data.file?.size || data.rawText.length, 'Session', null, data.archivePath || '', { deferUiRefresh: true });
+          await applyLoadedLogToSlot(id, data.rawText, data.file?.name || `${id}.log`, data.file?.size || data.rawText.length, 'Session', null, data.archivePath || '', {
+            deferUiRefresh: true,
+            scoringRuleOverride: data.scoringRuleOverride || ''
+          });
           applySpotSettings(getSlotById(id), data);
           continue;
         }
         if (data.sourceType === 'local') {
           const cachedRaw = await loadDurableRawLog(id);
           if (cachedRaw && cachedRaw.text) {
-            await applyLoadedLogToSlot(id, cachedRaw.text, data.file?.name || `${id}.log`, data.file?.size || cachedRaw.text.length, 'Autosave', null, data.archivePath || '', { deferUiRefresh: true });
+            await applyLoadedLogToSlot(id, cachedRaw.text, data.file?.name || `${id}.log`, data.file?.size || cachedRaw.text.length, 'Autosave', null, data.archivePath || '', {
+              deferUiRefresh: true,
+              scoringRuleOverride: data.scoringRuleOverride || ''
+            });
             applySpotSettings(getSlotById(id), data);
             continue;
           }
@@ -1064,7 +1073,10 @@
           const result = await fetchArchiveLogText(data.archivePath);
           if (result && result.text) {
             const name = data.file?.name || data.archivePath.split('/').pop() || `${id}.log`;
-            await applyLoadedLogToSlot(id, result.text, name, result.text.length, 'Archive', null, data.archivePath, { deferUiRefresh: true });
+            await applyLoadedLogToSlot(id, result.text, name, result.text.length, 'Archive', null, data.archivePath, {
+              deferUiRefresh: true,
+              scoringRuleOverride: data.scoringRuleOverride || ''
+            });
             applySpotSettings(getSlotById(id), data);
           } else {
             state.sessionNotice.push(`Failed to load archive log for slot ${id}.`);
@@ -1081,6 +1093,7 @@
       const logIndex = reports.findIndex((r) => r.id === 'log');
       if (logIndex >= 0) setActiveReport(logIndex);
       scheduleAutosaveSession();
+      maybePromptWrtcScoringForLoadedSlots();
     } finally {
       if (shouldShowRestoreOverlay) closeSessionRestoreOverlay();
     }
@@ -1205,6 +1218,7 @@
     qsoData: null,
     qsoLite: null,
     rawLogText: '',
+    scoringRuleOverride: '',
     ctyDat: null,
     masterDta: null,
     ctyTable: null,
@@ -2875,6 +2889,7 @@
   let permalinkLogPromptOverlay = null;
   let permalinkLogPromptKeyHandler = null;
   let sessionRestoreOverlay = null;
+  let wrtcScoringPromptOverlay = null;
 
   function closeSessionRestoreOverlay() {
     if (!sessionRestoreOverlay) return;
@@ -5203,6 +5218,7 @@
     yuri_gagarin: ['YURI GAGARIN', 'GAGARIN'],
     wed_minitest_40m: ['WEDNESDAY MINITEST 40M', 'WED MINI 40M'],
     wed_minitest_80m: ['WEDNESDAY MINITEST 80M', 'WED MINI 80M'],
+    wrtc_2026: ['WRTC', 'WRTC 2026', 'WRTC UK'],
     arrl_family_bundle: ['ARRL']
   });
   const SCORING_PHASE1_RULES = new Set([
@@ -5221,7 +5237,8 @@
     'ham_spirit',
     'rcc_cup',
     'rrtc',
-    'yuri_gagarin'
+    'yuri_gagarin',
+    'wrtc_2026'
   ]);
   const SCORING_PHASE2_RULES = new Set([
     'darc_fieldday',
@@ -5235,6 +5252,31 @@
 
   function normalizeContestKey(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '').trim();
+  }
+
+  function normalizeScoringRuleOverride(value) {
+    const key = normalizeContestKey(value);
+    if (key === 'WRTC' || key === 'WRTC2026' || key === 'WRTC2026UK' || key === 'WRTC_2026') return 'wrtc_2026';
+    return '';
+  }
+
+  function isIaruHfContestMeta(contestMeta) {
+    const key = normalizeContestKey(contestMeta?.contestId || '');
+    if (!key) return false;
+    if (!key.includes('IARU')) return false;
+    return key.includes('HF') || key.includes('CHAMPIONSHIP') || key.includes('WORLDCHAMPIONSHIP');
+  }
+
+  function isWrtcScoringCandidate(contestMeta) {
+    if (!isIaruHfContestMeta(contestMeta)) return false;
+    const operator = String(contestMeta?.categoryOperator || contestMeta?.category || '').toUpperCase();
+    const transmitter = String(contestMeta?.categoryTransmitter || '').toUpperCase();
+    const power = String(contestMeta?.categoryPower || '').toUpperCase();
+    const category = `${operator} ${transmitter} ${power} ${String(contestMeta?.category || '').toUpperCase()}`;
+    const isMulti = operator.includes('MULTI') || /\bM\/?2\b/.test(category) || category.includes('MULTI-TWO');
+    const isTwoTx = transmitter === 'TWO' || /\bM\/?2\b/.test(category) || category.includes('MULTI-TWO');
+    const isLowPower = power === 'LOW' || power === 'LP' || category.includes('LOW') || /\bLP\b/.test(category);
+    return isMulti && isTwoTx && isLowPower;
   }
 
   function parseClaimedScoreNumber(value) {
@@ -5397,6 +5439,22 @@
         detectionMethod: 'none'
       };
     }
+    const scoringOverride = normalizeScoringRuleOverride(context?.scoringRuleOverride);
+    if (scoringOverride === 'wrtc_2026' && isWrtcScoringCandidate(contestMeta)) {
+      const overrideRule = byId.get(scoringOverride);
+      if (overrideRule) {
+        return {
+          supported: true,
+          rule: overrideRule,
+          ruleId: overrideRule.id,
+          confidence: getConfidenceLabel(overrideRule),
+          detectionMethod: 'user_override',
+          detectionValue: 'WRTC 2026',
+          assumptions: ['User selected WRTC 2026 scoring for an IARU HF M/2 Low Power log.'],
+          bundle: null
+        };
+      }
+    }
     const archivePath = context?.logFile?.path || context?.sourcePath || '';
     const folder = getArchiveFolderFromPath(archivePath);
     const contestRaw = String(contestMeta?.contestId || '').trim();
@@ -5406,6 +5464,13 @@
     let detectionMethod = ruleId ? 'archive_folder' : 'contest_id_alias';
     if (!ruleId) {
       ruleId = resolveRuleIdByContestName(contestRaw);
+    }
+    if (String(context?.scoringRuleOverride || '').trim().toLowerCase() === 'standard'
+      && ruleId === 'wrtc_2026'
+      && isWrtcScoringCandidate(contestMeta)) {
+      ruleId = resolveRuleIdByContestName(contestRaw);
+      if (ruleId === 'wrtc_2026') ruleId = null;
+      detectionMethod = ruleId ? 'contest_id_alias' : 'contest_id_alias';
     }
     const rule = ruleId ? byId.get(ruleId) : null;
     if (!rule) {
@@ -5730,6 +5795,7 @@
       exchangeTeamCode: extractTeamCode(exchangeTokens),
       exchangeYear: extractYearToken(exchangeTokens),
       exchangeRegion: extractRegionToken(exchangeTokens),
+      isIaruHqOrOfficial: Boolean(exchangeTokens[0]) && !/^\d+$/.test(exchangeTokens[0]),
       bandNorm,
       modeKey,
       bandModeKey,
@@ -5786,6 +5852,10 @@
         return facts.sameContinent && !facts.sameCountry && facts.differentItuZone;
       case 'different_continent':
         return facts.differentContinent;
+      case 'qso_with_europe':
+        return facts.validQso && facts.qIsEu;
+      case 'qso_outside_europe':
+        return facts.validQso && !facts.qIsEu;
       case 'different_continent_and_zone':
         return facts.differentContinent && facts.differentCqZone;
       case 'non_eu_same_country':
@@ -6049,6 +6119,8 @@
       case 'dl_station_uses_country_entities':
       case 'wae_country_or_dxcc_set_by_station_region':
         return facts.qCountryKey || '';
+      case 'dxcc_country_excluding_iaru_hq':
+        return facts.isIaruHqOrOfficial ? '' : (facts.qCountryKey || '');
       case 'cq_zone':
         return facts.qCqZone != null ? String(facts.qCqZone) : '';
       case 'cq_zone_except_own':
@@ -6079,6 +6151,8 @@
         return facts.exchangeRccNumber || '';
       case 'rrtc_team_code':
         return facts.exchangeTeamCode || '';
+      case 'iaru_hq_or_official':
+        return facts.isIaruHqOrOfficial ? (facts.exchangePrimary || '') : '';
       case 'special_station_abbreviation':
       case 'departments_and_special_prefixes':
         return facts.exchangeRefDepartment || facts.exchangeRegion || facts.exchangePrimary || '';
@@ -6500,6 +6574,7 @@
     const ruleReferenceUrl = Array.isArray(resolved?.rule?.official_rules_urls) && resolved.rule.official_rules_urls.length
       ? String(resolved.rule.official_rules_urls[0] || '')
       : '';
+    const activeScoringRuleOverride = resolved.ruleId === 'wrtc_2026' && resolved.detectionMethod === 'user_override' ? 'wrtc_2026' : '';
     if (!resolved.supported) {
       return {
         supported: false,
@@ -6507,6 +6582,7 @@
         warning: resolved.warning || (state.analysisMode === ANALYSIS_MODE_DXER ? SCORING_UNKNOWN_WARNING_DXER : SCORING_UNKNOWN_WARNING),
         assumptions: Array.isArray(resolved.assumptions) ? resolved.assumptions : [],
         detectionMethod: resolved.detectionMethod || 'none',
+        scoringRuleOverride: '',
         detectionValue: resolved.detectionValue || '',
         ruleId: null,
         ruleName: state.analysisMode === ANALYSIS_MODE_DXER ? 'Unknown rules' : 'Unknown contest',
@@ -6550,6 +6626,7 @@
         warning: '',
         assumptions: Array.from(assumptions),
         detectionMethod: resolved.detectionMethod || '',
+        scoringRuleOverride: activeScoringRuleOverride,
         detectionValue: resolved.detectionValue || '',
         ruleId: resolved.ruleId || '',
         ruleName: resolved.rule?.name || resolved.ruleId || '',
@@ -6581,6 +6658,7 @@
         warning: '',
         assumptions: Array.from(assumptions),
         detectionMethod: resolved.detectionMethod || '',
+        scoringRuleOverride: activeScoringRuleOverride,
         detectionValue: resolved.detectionValue || '',
         ruleId: resolved.ruleId || '',
         ruleName: resolved.rule?.name || resolved.ruleId || '',
@@ -6618,6 +6696,7 @@
       warning: '',
       assumptions: Array.from(assumptions),
       detectionMethod: resolved.detectionMethod || '',
+      scoringRuleOverride: activeScoringRuleOverride,
       detectionValue: resolved.detectionValue || '',
       ruleId: resolved.ruleId || '',
       ruleName: resolved.rule?.name || resolved.ruleId || '',
@@ -7572,19 +7651,24 @@
     }
     const statusTarget = statusEl || getStatusElBySlot(slotId);
     target.rawLogText = text;
+    target.scoringRuleOverride = renderOptions?.scoringRuleOverride === 'standard'
+      ? 'standard'
+      : normalizeScoringRuleOverride(renderOptions?.scoringRuleOverride);
     const analysisSeq = (target.analysisSeq || 0) + 1;
     target.analysisSeq = analysisSeq;
     if (statusTarget) statusTarget.textContent = `Analyzing ${filename} (${formatNumberSh6(safeSize)} bytes)...`;
     const analyzed = await analyzeLogWithEngine(text, filename, {
       logFile: target.logFile,
       sourcePath: target.logFile?.path || '',
-      analysisMode: state.analysisMode
+      analysisMode: state.analysisMode,
+      scoringRuleOverride: target.scoringRuleOverride
     });
     if (target.analysisSeq !== analysisSeq) return null;
     target.qsoData = analyzed?.qsoData || { type: 'unknown', qsos: [] };
     target.derived = analyzed?.derived || buildDerived(target.qsoData.qsos, {
       logFile: target.logFile,
-      analysisMode: state.analysisMode
+      analysisMode: state.analysisMode,
+      scoringRuleOverride: target.scoringRuleOverride
     });
     queueCallsignGridLookup(target.qsoData.qsos);
     const suggestedMode = target === state || !state.qsoData ? resolveAnalysisModeSuggestion(target.qsoData, target.derived) : null;
@@ -7635,6 +7719,7 @@
       setActiveReport(state.activeIndex);
       updateLoadSummary();
     }
+    maybePromptWrtcScoringForSlot(slotKey, target, { deferUiRefresh });
     if (Array.isArray(state.sessionNotice) && state.sessionNotice.length) {
       const tag = `slot ${String(slotId || '').toUpperCase()}`;
       state.sessionNotice = state.sessionNotice.filter((msg) => !String(msg).toLowerCase().includes(tag.toLowerCase()));
@@ -7689,6 +7774,77 @@
         hideDropReplacePrompt();
       });
     }
+  }
+
+  function shouldPromptForWrtcScoring(slot) {
+    if (!slot || !slot.derived || !slot.qsoData) return false;
+    if (slot.scoringRuleOverride) return false;
+    return isWrtcScoringCandidate(slot.derived.contestMeta || {});
+  }
+
+  function closeWrtcScoringPrompt() {
+    if (!wrtcScoringPromptOverlay) return;
+    wrtcScoringPromptOverlay.remove();
+    wrtcScoringPromptOverlay = null;
+  }
+
+  function showWrtcScoringPrompt(slotId, slot) {
+    closeWrtcScoringPrompt();
+    const meta = slot?.derived?.contestMeta || {};
+    const call = escapeHtml(meta.stationCallsign || slot?.logFile?.name || String(slotId || 'A').toUpperCase());
+    const category = escapeHtml(formatContestCategoryDisplay(meta));
+    const overlay = document.createElement('div');
+    overlay.id = 'wrtcScoringPrompt';
+    overlay.className = 'export-dialog-overlay wrtc-scoring-dialog-overlay no-print';
+    overlay.innerHTML = `
+      <div class="export-dialog wrtc-scoring-dialog" role="dialog" aria-modal="true" aria-labelledby="wrtcScoringTitle">
+        <div class="export-dialog-head">
+          <strong id="wrtcScoringTitle">Use WRTC 2026 scoring?</strong>
+        </div>
+        <p>This log is an IARU HF <strong>M/2 Low Power</strong> entry (${category}) for <strong>${call}</strong>.</p>
+        <p>WRTC 2026 uses its own scoring overlay: 2 points for Europe QSOs, 5 points outside Europe, and DXCC plus IARU HQ/official multipliers per band.</p>
+        <div class="wrtc-scoring-source">
+          Source: <a href="https://www.wrtc2026.org/2025/02/10/wrtc-uk-competition-rules/" target="_blank" rel="noopener noreferrer">WRTC UK Competition Rules</a>
+        </div>
+        <div class="export-dialog-footer wrtc-scoring-actions">
+          <button type="button" class="button" data-wrtc-scoring="standard">Use IARU/default scoring</button>
+          <button type="button" class="button primary" data-wrtc-scoring="wrtc">Use WRTC 2026 scoring</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    wrtcScoringPromptOverlay = overlay;
+    const buttons = overlay.querySelectorAll('[data-wrtc-scoring]');
+    buttons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        const choice = button.getAttribute('data-wrtc-scoring');
+        closeWrtcScoringPrompt();
+        const target = getSlotById(slotId);
+        if (!target) return;
+        target.scoringRuleOverride = choice === 'wrtc' ? 'wrtc_2026' : 'standard';
+        await recomputeDerived('wrtc_scoring');
+        scheduleAutosaveSession();
+        invalidateCompareLogData();
+        rebuildReports();
+        renderActiveReport();
+        updateLoadSummary();
+      });
+    });
+  }
+
+  function maybePromptWrtcScoringForSlot(slotId, slot, options = {}) {
+    if (options.deferUiRefresh) return;
+    if (!shouldPromptForWrtcScoring(slot)) return;
+    showWrtcScoringPrompt(slotId, slot);
+  }
+
+  function maybePromptWrtcScoringForLoadedSlots() {
+    for (const entry of getActiveCompareSlots()) {
+      if (!entry?.slot || !shouldPromptForWrtcScoring(entry.slot)) continue;
+      showWrtcScoringPrompt(entry.id, entry.slot);
+      return true;
+    }
+    return false;
   }
 
   function setupGlobalDragOverlay() {
@@ -7816,7 +7972,8 @@
         context: {
           logFile: state.logFile,
           sourcePath: state.logFile?.path || '',
-          analysisMode: state.analysisMode
+          analysisMode: state.analysisMode,
+          scoringRuleOverride: state.scoringRuleOverride || ''
         }
       });
     }
@@ -7828,7 +7985,8 @@
         context: {
           logFile: slot.logFile,
           sourcePath: slot.logFile?.path || '',
-          analysisMode: state.analysisMode
+          analysisMode: state.analysisMode,
+          scoringRuleOverride: slot.scoringRuleOverride || ''
         }
       });
     });
@@ -9142,6 +9300,57 @@
         multiplierTotal: zeroPointMults.total,
         groupCounts: zeroPointMults.groupCounts
       }
+    });
+
+    const wrtcRule = {
+      id: 'wrtc_2026',
+      qso_points: {
+        model: 'table_by_eu_membership_and_geography',
+        rules: [
+          { when: 'qso_with_europe', points: 2 },
+          { when: 'qso_outside_europe', points: 5 }
+        ]
+      },
+      multipliers: {
+        model: 'sum_of_groups',
+        counting_scope: 'per_band',
+        groups: ['dxcc_country_excluding_iaru_hq', 'iaru_hq_or_official']
+      }
+    };
+    const wrtcQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '28' },
+      { call: 'K1ABC', band: '20M', mode: 'SSB', country: 'United States', continent: 'NA', exchRcvd: '8' },
+      { call: 'W1AW', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'ARRL' }
+    ];
+    const wrtcPointState = computeRuleQsoPoints(wrtcRule, wrtcQsos, makeStation(), new Set());
+    const wrtcMults = computeRuleMultipliers(wrtcRule, wrtcQsos, makeStation(), wrtcPointState, new Set());
+    checks.push({
+      name: 'WRTC 2026 scoring uses Europe/outside-Europe points and excludes HQ stations from DXCC mults',
+      passed: wrtcPointState.qsoPointsTotal === 12
+        && wrtcMults.total === 3
+        && wrtcMults.groupCounts.dxcc_country_excluding_iaru_hq === 2
+        && wrtcMults.groupCounts.iaru_hq_or_official === 1,
+      details: {
+        qsoPointsTotal: wrtcPointState.qsoPointsTotal,
+        multiplierTotal: wrtcMults.total,
+        groupCounts: wrtcMults.groupCounts
+      }
+    });
+    checks.push({
+      name: 'IARU HF M/2 Low Power metadata is eligible for WRTC scoring prompt',
+      passed: isWrtcScoringCandidate({
+        contestId: 'IARU-HF',
+        categoryOperator: 'MULTI-OP',
+        categoryTransmitter: 'TWO',
+        categoryPower: 'LOW'
+      }) === true
+        && isWrtcScoringCandidate({
+          contestId: 'IARU-HF',
+          categoryOperator: 'MULTI-OP',
+          categoryTransmitter: 'ONE',
+          categoryPower: 'HIGH'
+        }) === false,
+      details: {}
     });
 
     return {

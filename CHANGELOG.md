@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.32 (2026-04-24)
+- Scoring: add a user-confirmed WRTC 2026 scoring overlay for IARU-HF Multi-Operator Two-Transmitter Low Power logs loaded from upload, archive, session restore, or permalink restore.
+- WRTC prompt: ask eligible logs whether to use WRTC 2026 scoring or standard IARU/default scoring, then recompute immediately and persist the choice in saved sessions.
+- Scoring engine: support WRTC Europe/outside-Europe QSO points plus per-band DXCC and IARU HQ/official multipliers without counting HQ/official contacts as DXCC multipliers.
+- Smoke coverage: extend scoring and session-codec checks to cover WRTC scoring math, eligibility, and override persistence.
+- Version bump to `v6.2.32` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.31 (2026-04-21)
 - Archive search: render `OK1WC_Memorial` entries by weekly round date from the archive path instead of grouping them under generic seasons.
 - Archive smoke: cover weekly-round archive grouping so seasonal shard metadata does not leak into the tree for weekly events.

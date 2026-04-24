@@ -113,6 +113,7 @@ const slotMap = new Map([
     qsoData: { qsos: [1, 2] },
     logFile: { name: 'S55OO.log', size: 14535, source: 'Archive', path: 'ZRS_KVP/2025/jesen/S55OO.log' },
     rawLogText: 'RAW-A',
+    scoringRuleOverride: 'wrtc_2026',
     skipped: false,
     spotsState: { windowMinutes: 20, bandFilter: ['20M'] },
     rbnState: { windowMinutes: 30, bandFilter: ['20M'], selectedDays: ['20251116'] }
@@ -176,6 +177,7 @@ const add = (name, passed, details = null) => checks.push({ name, passed: Boolea
 const payload = codec.buildSessionPayload(true);
 add('Session payload stores analysisMode', payload.analysisMode === 'dxer', payload.analysisMode);
 add('Session payload includes raw slot text when requested', payload.slots[0].rawText === 'RAW-A', payload.slots[0].rawText);
+add('Session payload preserves scoring override', payload.slots[0].scoringRuleOverride === 'wrtc_2026', payload.slots[0]);
 
 const compact = codec.buildCompactSessionPayload(payload, true);
 add('Compact payload saves analysisMode', compact.am === 'dxer', compact);
@@ -188,6 +190,7 @@ const parsed = codec.parsePermalinkState(`?state=${encoded}`);
 add('Permalink parse restores analysisMode', parsed?.analysisMode === 'dxer', parsed?.analysisMode);
 add('Permalink parse restores compare count', parsed?.compareCount === 4, parsed?.compareCount);
 add('Permalink parse restores slot archive path', parsed?.slots?.[0]?.archivePath === 'ZRS_KVP/2025/jesen/S55OO.log', parsed?.slots?.[0]);
+add('Permalink parse restores scoring override', parsed?.slots?.[0]?.scoringRuleOverride === 'wrtc_2026', parsed?.slots?.[0]);
 add('Permalink parse restores skipped compact slot', parsed?.slots?.[2]?.skipped === true, parsed?.slots?.[2]);
 
 const permalink = codec.buildPermalink();

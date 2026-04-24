@@ -86,6 +86,7 @@
     yuri_gagarin: ['YURI GAGARIN', 'GAGARIN'],
     wed_minitest_40m: ['WEDNESDAY MINITEST 40M', 'WED MINI 40M'],
     wed_minitest_80m: ['WEDNESDAY MINITEST 80M', 'WED MINI 80M'],
+    wrtc_2026: ['WRTC', 'WRTC 2026', 'WRTC UK'],
     arrl_family_bundle: ['ARRL']
   });
   const SCORING_PHASE1_RULES = new Set([
@@ -104,7 +105,8 @@
     'ham_spirit',
     'rcc_cup',
     'rrtc',
-    'yuri_gagarin'
+    'yuri_gagarin',
+    'wrtc_2026'
   ]);
   const SCORING_PHASE2_RULES = new Set([
     'darc_fieldday',
@@ -1668,6 +1670,31 @@
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '').trim();
   }
 
+  function normalizeScoringRuleOverride(value) {
+    const key = normalizeContestKey(value);
+    if (key === 'WRTC' || key === 'WRTC2026' || key === 'WRTC2026UK' || key === 'WRTC_2026') return 'wrtc_2026';
+    return '';
+  }
+
+  function isIaruHfContestMeta(contestMeta) {
+    const key = normalizeContestKey(contestMeta?.contestId || '');
+    if (!key) return false;
+    if (!key.includes('IARU')) return false;
+    return key.includes('HF') || key.includes('CHAMPIONSHIP') || key.includes('WORLDCHAMPIONSHIP');
+  }
+
+  function isWrtcScoringCandidate(contestMeta) {
+    if (!isIaruHfContestMeta(contestMeta)) return false;
+    const operator = String(contestMeta?.categoryOperator || contestMeta?.category || '').toUpperCase();
+    const transmitter = String(contestMeta?.categoryTransmitter || '').toUpperCase();
+    const power = String(contestMeta?.categoryPower || '').toUpperCase();
+    const category = `${operator} ${transmitter} ${power} ${String(contestMeta?.category || '').toUpperCase()}`;
+    const isMulti = operator.includes('MULTI') || /\bM\/?2\b/.test(category) || category.includes('MULTI-TWO');
+    const isTwoTx = transmitter === 'TWO' || /\bM\/?2\b/.test(category) || category.includes('MULTI-TWO');
+    const isLowPower = power === 'LOW' || power === 'LP' || category.includes('LOW') || /\bLP\b/.test(category);
+    return isMulti && isTwoTx && isLowPower;
+  }
+
   function parseClaimedScoreNumber(value) {
     if (value == null || value === '') return null;
     const raw = String(value).trim();
@@ -1816,6 +1843,22 @@
         detectionMethod: 'none'
       };
     }
+    const scoringOverride = normalizeScoringRuleOverride(context?.scoringRuleOverride);
+    if (scoringOverride === 'wrtc_2026' && isWrtcScoringCandidate(contestMeta)) {
+      const overrideRule = byId.get(scoringOverride);
+      if (overrideRule) {
+        return {
+          supported: true,
+          rule: overrideRule,
+          ruleId: overrideRule.id,
+          confidence: getConfidenceLabel(overrideRule),
+          detectionMethod: 'user_override',
+          detectionValue: 'WRTC 2026',
+          assumptions: ['User selected WRTC 2026 scoring for an IARU HF M/2 Low Power log.'],
+          bundle: null
+        };
+      }
+    }
     const archivePath = context?.logFile?.path || context?.sourcePath || '';
     const folder = getArchiveFolderFromPath(archivePath);
     const contestRaw = String(contestMeta?.contestId || '').trim();
@@ -1824,6 +1867,13 @@
     let ruleId = folderKey ? byFolder.get(folderKey) : null;
     let detectionMethod = ruleId ? 'archive_folder' : 'contest_id_alias';
     if (!ruleId) ruleId = resolveRuleIdByContestName(contestRaw);
+    if (String(context?.scoringRuleOverride || '').trim().toLowerCase() === 'standard'
+      && ruleId === 'wrtc_2026'
+      && isWrtcScoringCandidate(contestMeta)) {
+      ruleId = resolveRuleIdByContestName(contestRaw);
+      if (ruleId === 'wrtc_2026') ruleId = null;
+      detectionMethod = ruleId ? 'contest_id_alias' : 'contest_id_alias';
+    }
     const rule = ruleId ? byId.get(ruleId) : null;
     if (!rule) {
       return {
@@ -2114,6 +2164,7 @@
       exchangeTeamCode: extractTeamCode(exchangeTokens),
       exchangeYear: extractYearToken(exchangeTokens),
       exchangeRegion: extractRegionToken(exchangeTokens),
+      isIaruHqOrOfficial: Boolean(exchangeTokens[0]) && !/^\d+$/.test(exchangeTokens[0]),
       bandNorm,
       modeKey,
       bandModeKey,
@@ -2168,6 +2219,10 @@
         return facts.sameContinent && !facts.sameCountry && facts.differentItuZone;
       case 'different_continent':
         return facts.differentContinent;
+      case 'qso_with_europe':
+        return facts.validQso && facts.qIsEu;
+      case 'qso_outside_europe':
+        return facts.validQso && !facts.qIsEu;
       case 'different_continent_and_zone':
         return facts.differentContinent && facts.differentCqZone;
       case 'non_eu_same_country':
@@ -2468,6 +2523,8 @@
       case 'dl_station_uses_country_entities':
       case 'wae_country_or_dxcc_set_by_station_region':
         return facts.qCountryKey || '';
+      case 'dxcc_country_excluding_iaru_hq':
+        return facts.isIaruHqOrOfficial ? '' : (facts.qCountryKey || '');
       case 'cq_zone':
         return facts.qCqZone != null ? String(facts.qCqZone) : '';
       case 'cq_zone_except_own':
@@ -2498,6 +2555,8 @@
         return facts.exchangeRccNumber || '';
       case 'rrtc_team_code':
         return facts.exchangeTeamCode || '';
+      case 'iaru_hq_or_official':
+        return facts.isIaruHqOrOfficial ? (facts.exchangePrimary || '') : '';
       case 'special_station_abbreviation':
       case 'departments_and_special_prefixes':
         return facts.exchangeRefDepartment || facts.exchangeRegion || facts.exchangePrimary || '';
@@ -2892,6 +2951,7 @@
     const ruleReferenceUrl = Array.isArray(resolved?.rule?.official_rules_urls) && resolved.rule.official_rules_urls.length
       ? String(resolved.rule.official_rules_urls[0] || '')
       : '';
+    const activeScoringRuleOverride = resolved.ruleId === 'wrtc_2026' && resolved.detectionMethod === 'user_override' ? 'wrtc_2026' : '';
     if (!resolved.supported) {
       return {
         supported: false,
@@ -2899,6 +2959,7 @@
         warning: resolved.warning || (activeAnalysisEnv?.analysisMode === ANALYSIS_MODE_DXER ? SCORING_UNKNOWN_WARNING_DXER : SCORING_UNKNOWN_WARNING),
         assumptions: Array.isArray(resolved.assumptions) ? resolved.assumptions : [],
         detectionMethod: resolved.detectionMethod || 'none',
+        scoringRuleOverride: '',
         detectionValue: resolved.detectionValue || '',
         ruleId: null,
         ruleName: activeAnalysisEnv?.analysisMode === ANALYSIS_MODE_DXER ? 'Unknown rules' : 'Unknown contest',
@@ -2940,6 +3001,7 @@
         warning: '',
         assumptions: Array.from(assumptions),
         detectionMethod: resolved.detectionMethod || '',
+        scoringRuleOverride: activeScoringRuleOverride,
         detectionValue: resolved.detectionValue || '',
         ruleId: resolved.ruleId || '',
         ruleName: resolved.rule?.name || resolved.ruleId || '',
@@ -2971,6 +3033,7 @@
         warning: '',
         assumptions: Array.from(assumptions),
         detectionMethod: resolved.detectionMethod || '',
+        scoringRuleOverride: activeScoringRuleOverride,
         detectionValue: resolved.detectionValue || '',
         ruleId: resolved.ruleId || '',
         ruleName: resolved.rule?.name || resolved.ruleId || '',
@@ -3004,6 +3067,7 @@
       warning: '',
       assumptions: Array.from(assumptions),
       detectionMethod: resolved.detectionMethod || '',
+      scoringRuleOverride: activeScoringRuleOverride,
       detectionValue: resolved.detectionValue || '',
       ruleId: resolved.ruleId || '',
       ruleName: resolved.rule?.name || resolved.ruleId || '',
@@ -3601,7 +3665,8 @@
 
     const scoring = computeContestScoringSummary(qsos, contestMeta, {
       logFile: context?.logFile || null,
-      sourcePath: context?.sourcePath || ''
+      sourcePath: context?.sourcePath || '',
+      scoringRuleOverride: context?.scoringRuleOverride || ''
     });
     const effectivePointsByIndex = (scoring?.effectivePointsSource === 'computed'
       && Array.isArray(scoring.computedPointsByIndex)

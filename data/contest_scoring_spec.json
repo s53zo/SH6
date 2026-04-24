@@ -462,6 +462,48 @@
       "formula": "score = qso_points_total * multipliers_total"
     },
     {
+      "id": "wrtc_2026",
+      "archive_folder": "WRTC_2026",
+      "name": "WRTC 2026 UK scoring overlay for IARU HF M/2 Low Power",
+      "official_rules_urls": [
+        "https://www.wrtc2026.org/2025/02/10/wrtc-uk-competition-rules/",
+        "https://www.wrtc2026.org/wp-content/uploads/2025/11/WRTC-2026-competition-rules-v1.09.pdf"
+      ],
+      "confidence": "high",
+      "aliases": [
+        "WRTC",
+        "WRTC 2026",
+        "WRTC UK"
+      ],
+      "qso_points": {
+        "model": "table_by_eu_membership_and_geography",
+        "rules": [
+          {
+            "when": "qso_with_europe",
+            "points": 2
+          },
+          {
+            "when": "qso_outside_europe",
+            "points": 5
+          }
+        ],
+        "notes": "WRTC 2026 scores each valid CW/SSB QSO as 2 points within Europe and 5 points outside Europe. Continents are defined by CQ Zone/continent definitions."
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "dxcc_country_excluding_iaru_hq",
+          "iaru_hq_or_official"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "This rule is offered as a user-selected alternative when an IARU HF log is M/2 Low Power.",
+        "IARU member society HQ stations and officials count as abbreviation multipliers, not DXCC country multipliers."
+      ]
+    },
+    {
       "id": "eu_vhf_bundle",
       "archive_folder": "EU_VHF_CONTESTS",
       "name": "EU VHF Contest Bundle",

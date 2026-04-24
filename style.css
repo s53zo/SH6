@@ -2874,6 +2874,33 @@ body.analysis-mode-dxer .load-tip-badge {
   margin-top: 10px;
 }
 
+.wrtc-scoring-dialog {
+  width: min(560px, 92vw);
+}
+
+.wrtc-scoring-dialog p {
+  margin: 8px 0;
+  line-height: 1.45;
+}
+
+.wrtc-scoring-source {
+  border: 1px solid #d7e0ef;
+  background: #f7f9fd;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #2f4264;
+}
+
+.wrtc-scoring-actions {
+  align-items: center;
+}
+
+.wrtc-scoring-actions .primary {
+  background: #244f9f;
+  border-color: #1b3e80;
+  color: #ffffff;
+}
+
 .export-panel {
   padding: 0 0 8px;
 }

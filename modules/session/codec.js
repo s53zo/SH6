@@ -61,6 +61,7 @@ export function createSessionCodec(deps = {}) {
         file,
         sourceType,
         archivePath: path || '',
+        scoringRuleOverride: slot.scoringRuleOverride || '',
         spots: serializeSpotSettings(slot.spotsState),
         rbn: serializeRbnSettings(slot.rbnState)
       };
@@ -313,6 +314,7 @@ export function createSessionCodec(deps = {}) {
       const source = slot.file?.source || '';
       if (source) item.o = source;
       if (slot.archivePath) item.p = slot.archivePath;
+      if (slot.scoringRuleOverride) item.q = slot.scoringRuleOverride;
       if (slot.sourceType === 'local') item.t = 'l';
       else if (slot.archivePath || slot.sourceType === 'archive') item.t = 'a';
       const spots = compactSpotSettingsData(slot.spots, false);
@@ -351,6 +353,7 @@ export function createSessionCodec(deps = {}) {
           file,
           sourceType,
           archivePath: path,
+          scoringRuleOverride: typeof item.q === 'string' ? item.q : '',
           spots: inflateSpotSettingsData(item.s, false),
           rbn: inflateSpotSettingsData(item.r, true)
         };

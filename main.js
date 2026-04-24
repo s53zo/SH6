@@ -150,7 +150,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.32';
+  const APP_VERSION = 'v6.2.33';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -196,34 +196,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.32';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.32';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.32';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.32';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.32';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.32';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.32';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.32';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.32';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.32';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.32';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.32';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.32';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.32';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.32';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.32';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.32';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.32';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.32';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.32';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.32';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.32';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.32';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.32';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.32';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.32';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.32';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.32';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.33';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.33';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.33';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.33';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.33';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.33';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.33';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.33';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.33';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.33';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.33';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.33';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.33';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.33';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.33';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.33';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.33';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.33';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.33';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.33';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.33';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.33';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.33';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.33';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.33';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.33';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.33';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.33';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -5218,6 +5218,7 @@
     yuri_gagarin: ['YURI GAGARIN', 'GAGARIN'],
     wed_minitest_40m: ['WEDNESDAY MINITEST 40M', 'WED MINI 40M'],
     wed_minitest_80m: ['WEDNESDAY MINITEST 80M', 'WED MINI 80M'],
+    wrtc_2022: ['WRTC 2022', 'WRTC Italy'],
     wrtc_2026: ['WRTC', 'WRTC 2026', 'WRTC UK'],
     arrl_family_bundle: ['ARRL']
   });
@@ -5238,6 +5239,7 @@
     'rcc_cup',
     'rrtc',
     'yuri_gagarin',
+    'wrtc_2022',
     'wrtc_2026'
   ]);
   const SCORING_PHASE2_RULES = new Set([
@@ -5256,8 +5258,19 @@
 
   function normalizeScoringRuleOverride(value) {
     const key = normalizeContestKey(value);
+    if (key === 'WRTC2022' || key === 'WRTC2022ITALY' || key === 'WRTCITALY' || key === 'WRTC_2022') return 'wrtc_2022';
     if (key === 'WRTC' || key === 'WRTC2026' || key === 'WRTC2026UK' || key === 'WRTC_2026') return 'wrtc_2026';
     return '';
+  }
+
+  function isWrtcScoringRuleId(ruleId) {
+    return ruleId === 'wrtc_2022' || ruleId === 'wrtc_2026';
+  }
+
+  function getWrtcScoringRuleLabel(ruleId) {
+    if (ruleId === 'wrtc_2022') return 'WRTC 2022';
+    if (ruleId === 'wrtc_2026') return 'WRTC 2026';
+    return 'WRTC';
   }
 
   function isIaruHfContestMeta(contestMeta) {
@@ -5440,17 +5453,18 @@
       };
     }
     const scoringOverride = normalizeScoringRuleOverride(context?.scoringRuleOverride);
-    if (scoringOverride === 'wrtc_2026' && isWrtcScoringCandidate(contestMeta)) {
+    if (isWrtcScoringRuleId(scoringOverride) && isWrtcScoringCandidate(contestMeta)) {
       const overrideRule = byId.get(scoringOverride);
       if (overrideRule) {
+        const label = getWrtcScoringRuleLabel(scoringOverride);
         return {
           supported: true,
           rule: overrideRule,
           ruleId: overrideRule.id,
           confidence: getConfidenceLabel(overrideRule),
           detectionMethod: 'user_override',
-          detectionValue: 'WRTC 2026',
-          assumptions: ['User selected WRTC 2026 scoring for an IARU HF M/2 Low Power log.'],
+          detectionValue: label,
+          assumptions: [`User selected ${label} scoring for an IARU HF M/2 Low Power log.`],
           bundle: null
         };
       }
@@ -5466,10 +5480,10 @@
       ruleId = resolveRuleIdByContestName(contestRaw);
     }
     if (String(context?.scoringRuleOverride || '').trim().toLowerCase() === 'standard'
-      && ruleId === 'wrtc_2026'
+      && isWrtcScoringRuleId(ruleId)
       && isWrtcScoringCandidate(contestMeta)) {
       ruleId = resolveRuleIdByContestName(contestRaw);
-      if (ruleId === 'wrtc_2026') ruleId = null;
+      if (isWrtcScoringRuleId(ruleId)) ruleId = null;
       detectionMethod = ruleId ? 'contest_id_alias' : 'contest_id_alias';
     }
     const rule = ruleId ? byId.get(ruleId) : null;
@@ -5856,6 +5870,14 @@
         return facts.validQso && facts.qIsEu;
       case 'qso_outside_europe':
         return facts.validQso && !facts.qIsEu;
+      case 'qso_cw_with_europe':
+        return facts.validQso && facts.modeKey === 'CW' && facts.qIsEu;
+      case 'qso_cw_outside_europe':
+        return facts.validQso && facts.modeKey === 'CW' && !facts.qIsEu;
+      case 'qso_ssb_with_europe':
+        return facts.validQso && facts.modeKey === 'SSB' && facts.qIsEu;
+      case 'qso_ssb_outside_europe':
+        return facts.validQso && facts.modeKey === 'SSB' && !facts.qIsEu;
       case 'different_continent_and_zone':
         return facts.differentContinent && facts.differentCqZone;
       case 'non_eu_same_country':
@@ -6574,7 +6596,9 @@
     const ruleReferenceUrl = Array.isArray(resolved?.rule?.official_rules_urls) && resolved.rule.official_rules_urls.length
       ? String(resolved.rule.official_rules_urls[0] || '')
       : '';
-    const activeScoringRuleOverride = resolved.ruleId === 'wrtc_2026' && resolved.detectionMethod === 'user_override' ? 'wrtc_2026' : '';
+    const activeScoringRuleOverride = isWrtcScoringRuleId(resolved.ruleId) && resolved.detectionMethod === 'user_override'
+      ? String(resolved.ruleId || '')
+      : '';
     if (!resolved.supported) {
       return {
         supported: false,
@@ -7799,16 +7823,24 @@
     overlay.innerHTML = `
       <div class="export-dialog wrtc-scoring-dialog" role="dialog" aria-modal="true" aria-labelledby="wrtcScoringTitle">
         <div class="export-dialog-head">
-          <strong id="wrtcScoringTitle">Use WRTC 2026 scoring?</strong>
+          <strong id="wrtcScoringTitle">Choose scoring rules</strong>
         </div>
         <p>This log is an IARU HF <strong>M/2 Low Power</strong> entry (${category}) for <strong>${call}</strong>.</p>
-        <p>WRTC 2026 uses its own scoring overlay: 2 points for Europe QSOs, 5 points outside Europe, and DXCC plus IARU HQ/official multipliers per band.</p>
+        <p>Use default IARU scoring, or treat it as a WRTC team log and apply the matching WRTC scoring year.</p>
+        <div class="wrtc-scoring-options">
+          <div><strong>WRTC 2022</strong>: CW 2/5 points and SSB 3/6 points for Europe/outside-Europe QSOs.</div>
+          <div><strong>WRTC 2026</strong>: all CW/SSB QSOs score 2/5 points for Europe/outside-Europe QSOs.</div>
+        </div>
         <div class="wrtc-scoring-source">
-          Source: <a href="https://www.wrtc2026.org/2025/02/10/wrtc-uk-competition-rules/" target="_blank" rel="noopener noreferrer">WRTC UK Competition Rules</a>
+          Sources:
+          <a href="https://www.wrtc2022.it/en/competition-rules-29.asp" target="_blank" rel="noopener noreferrer">WRTC 2022 rules</a>
+          ·
+          <a href="https://www.wrtc2026.org/2025/02/10/wrtc-uk-competition-rules/" target="_blank" rel="noopener noreferrer">WRTC 2026 rules</a>
         </div>
         <div class="export-dialog-footer wrtc-scoring-actions">
           <button type="button" class="button" data-wrtc-scoring="standard">Use IARU/default scoring</button>
-          <button type="button" class="button primary" data-wrtc-scoring="wrtc">Use WRTC 2026 scoring</button>
+          <button type="button" class="button" data-wrtc-scoring="wrtc_2022">Use WRTC 2022 scoring</button>
+          <button type="button" class="button primary" data-wrtc-scoring="wrtc_2026">Use WRTC 2026 scoring</button>
         </div>
       </div>
     `;
@@ -7821,7 +7853,7 @@
         closeWrtcScoringPrompt();
         const target = getSlotById(slotId);
         if (!target) return;
-        target.scoringRuleOverride = choice === 'wrtc' ? 'wrtc_2026' : 'standard';
+        target.scoringRuleOverride = normalizeScoringRuleOverride(choice) || 'standard';
         await recomputeDerived('wrtc_scoring');
         scheduleAutosaveSession();
         invalidateCompareLogData();
@@ -9334,6 +9366,33 @@
         qsoPointsTotal: wrtcPointState.qsoPointsTotal,
         multiplierTotal: wrtcMults.total,
         groupCounts: wrtcMults.groupCounts
+      }
+    });
+
+    const wrtc2022Rule = Object.assign({}, wrtcRule, {
+      id: 'wrtc_2022',
+      qso_points: {
+        model: 'table_by_eu_membership_and_geography',
+        rules: [
+          { when: 'qso_cw_with_europe', points: 2 },
+          { when: 'qso_cw_outside_europe', points: 5 },
+          { when: 'qso_ssb_with_europe', points: 3 },
+          { when: 'qso_ssb_outside_europe', points: 6 }
+        ]
+      }
+    });
+    const wrtc2022PointState = computeRuleQsoPoints(wrtc2022Rule, wrtcQsos, makeStation(), new Set());
+    const wrtc2022Mults = computeRuleMultipliers(wrtc2022Rule, wrtcQsos, makeStation(), wrtc2022PointState, new Set());
+    checks.push({
+      name: 'WRTC 2022 scoring applies SSB-specific Europe/outside-Europe points',
+      passed: wrtc2022PointState.qsoPointsTotal === 13
+        && wrtc2022Mults.total === 3
+        && wrtc2022Mults.groupCounts.dxcc_country_excluding_iaru_hq === 2
+        && wrtc2022Mults.groupCounts.iaru_hq_or_official === 1,
+      details: {
+        qsoPointsTotal: wrtc2022PointState.qsoPointsTotal,
+        multiplierTotal: wrtc2022Mults.total,
+        groupCounts: wrtc2022Mults.groupCounts
       }
     });
     checks.push({

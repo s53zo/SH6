@@ -462,6 +462,54 @@
       "formula": "score = qso_points_total * multipliers_total"
     },
     {
+      "id": "wrtc_2022",
+      "archive_folder": "WRTC_2022",
+      "name": "WRTC 2022 Italy scoring overlay for IARU HF M/2 Low Power",
+      "official_rules_urls": [
+        "https://www.wrtc2022.it/en/competition-rules-29.asp"
+      ],
+      "confidence": "high",
+      "aliases": [
+        "WRTC 2022",
+        "WRTC Italy"
+      ],
+      "qso_points": {
+        "model": "table_by_eu_membership_and_geography",
+        "rules": [
+          {
+            "when": "qso_cw_with_europe",
+            "points": 2
+          },
+          {
+            "when": "qso_cw_outside_europe",
+            "points": 5
+          },
+          {
+            "when": "qso_ssb_with_europe",
+            "points": 3
+          },
+          {
+            "when": "qso_ssb_outside_europe",
+            "points": 6
+          }
+        ],
+        "notes": "WRTC 2022 scores CW QSOs as 2 points within Europe and 5 points outside Europe; SSB QSOs are 3 points within Europe and 6 points outside Europe."
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "dxcc_country_excluding_iaru_hq",
+          "iaru_hq_or_official"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "This rule is offered as a user-selected alternative when an IARU HF log is M/2 Low Power.",
+        "IARU member society HQ stations and officials count as abbreviation multipliers, not DXCC country multipliers."
+      ]
+    },
+    {
       "id": "wrtc_2026",
       "archive_folder": "WRTC_2026",
       "name": "WRTC 2026 UK scoring overlay for IARU HF M/2 Low Power",

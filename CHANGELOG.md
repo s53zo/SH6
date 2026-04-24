@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.33 (2026-04-24)
+- WRTC scoring prompt: offer three explicit choices for eligible IARU-HF M/2 Low Power logs: standard IARU/default scoring, WRTC 2022 scoring, or WRTC 2026 scoring.
+- Scoring: add WRTC 2022 rules with CW 2/5 and SSB 3/6 Europe/outside-Europe QSO points while sharing the WRTC per-band DXCC plus IARU HQ/official multiplier model.
+- Persistence/tests: preserve both WRTC 2022 and WRTC 2026 overrides through session and permalink encoding, and cover both scoring variants in smoke checks.
+- Version bump to `v6.2.33` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.32 (2026-04-24)
 - Scoring: add a user-confirmed WRTC 2026 scoring overlay for IARU-HF Multi-Operator Two-Transmitter Low Power logs loaded from upload, archive, session restore, or permalink restore.
 - WRTC prompt: ask eligible logs whether to use WRTC 2026 scoring or standard IARU/default scoring, then recompute immediately and persist the choice in saved sessions.

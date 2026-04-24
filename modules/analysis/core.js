@@ -86,6 +86,7 @@
     yuri_gagarin: ['YURI GAGARIN', 'GAGARIN'],
     wed_minitest_40m: ['WEDNESDAY MINITEST 40M', 'WED MINI 40M'],
     wed_minitest_80m: ['WEDNESDAY MINITEST 80M', 'WED MINI 80M'],
+    wrtc_2022: ['WRTC 2022', 'WRTC Italy'],
     wrtc_2026: ['WRTC', 'WRTC 2026', 'WRTC UK'],
     arrl_family_bundle: ['ARRL']
   });
@@ -106,6 +107,7 @@
     'rcc_cup',
     'rrtc',
     'yuri_gagarin',
+    'wrtc_2022',
     'wrtc_2026'
   ]);
   const SCORING_PHASE2_RULES = new Set([
@@ -1672,8 +1674,19 @@
 
   function normalizeScoringRuleOverride(value) {
     const key = normalizeContestKey(value);
+    if (key === 'WRTC2022' || key === 'WRTC2022ITALY' || key === 'WRTCITALY' || key === 'WRTC_2022') return 'wrtc_2022';
     if (key === 'WRTC' || key === 'WRTC2026' || key === 'WRTC2026UK' || key === 'WRTC_2026') return 'wrtc_2026';
     return '';
+  }
+
+  function isWrtcScoringRuleId(ruleId) {
+    return ruleId === 'wrtc_2022' || ruleId === 'wrtc_2026';
+  }
+
+  function getWrtcScoringRuleLabel(ruleId) {
+    if (ruleId === 'wrtc_2022') return 'WRTC 2022';
+    if (ruleId === 'wrtc_2026') return 'WRTC 2026';
+    return 'WRTC';
   }
 
   function isIaruHfContestMeta(contestMeta) {
@@ -1844,17 +1857,18 @@
       };
     }
     const scoringOverride = normalizeScoringRuleOverride(context?.scoringRuleOverride);
-    if (scoringOverride === 'wrtc_2026' && isWrtcScoringCandidate(contestMeta)) {
+    if (isWrtcScoringRuleId(scoringOverride) && isWrtcScoringCandidate(contestMeta)) {
       const overrideRule = byId.get(scoringOverride);
       if (overrideRule) {
+        const label = getWrtcScoringRuleLabel(scoringOverride);
         return {
           supported: true,
           rule: overrideRule,
           ruleId: overrideRule.id,
           confidence: getConfidenceLabel(overrideRule),
           detectionMethod: 'user_override',
-          detectionValue: 'WRTC 2026',
-          assumptions: ['User selected WRTC 2026 scoring for an IARU HF M/2 Low Power log.'],
+          detectionValue: label,
+          assumptions: [`User selected ${label} scoring for an IARU HF M/2 Low Power log.`],
           bundle: null
         };
       }
@@ -1868,10 +1882,10 @@
     let detectionMethod = ruleId ? 'archive_folder' : 'contest_id_alias';
     if (!ruleId) ruleId = resolveRuleIdByContestName(contestRaw);
     if (String(context?.scoringRuleOverride || '').trim().toLowerCase() === 'standard'
-      && ruleId === 'wrtc_2026'
+      && isWrtcScoringRuleId(ruleId)
       && isWrtcScoringCandidate(contestMeta)) {
       ruleId = resolveRuleIdByContestName(contestRaw);
-      if (ruleId === 'wrtc_2026') ruleId = null;
+      if (isWrtcScoringRuleId(ruleId)) ruleId = null;
       detectionMethod = ruleId ? 'contest_id_alias' : 'contest_id_alias';
     }
     const rule = ruleId ? byId.get(ruleId) : null;
@@ -2223,6 +2237,14 @@
         return facts.validQso && facts.qIsEu;
       case 'qso_outside_europe':
         return facts.validQso && !facts.qIsEu;
+      case 'qso_cw_with_europe':
+        return facts.validQso && facts.modeKey === 'CW' && facts.qIsEu;
+      case 'qso_cw_outside_europe':
+        return facts.validQso && facts.modeKey === 'CW' && !facts.qIsEu;
+      case 'qso_ssb_with_europe':
+        return facts.validQso && facts.modeKey === 'SSB' && facts.qIsEu;
+      case 'qso_ssb_outside_europe':
+        return facts.validQso && facts.modeKey === 'SSB' && !facts.qIsEu;
       case 'different_continent_and_zone':
         return facts.differentContinent && facts.differentCqZone;
       case 'non_eu_same_country':
@@ -2951,7 +2973,9 @@
     const ruleReferenceUrl = Array.isArray(resolved?.rule?.official_rules_urls) && resolved.rule.official_rules_urls.length
       ? String(resolved.rule.official_rules_urls[0] || '')
       : '';
-    const activeScoringRuleOverride = resolved.ruleId === 'wrtc_2026' && resolved.detectionMethod === 'user_override' ? 'wrtc_2026' : '';
+    const activeScoringRuleOverride = isWrtcScoringRuleId(resolved.ruleId) && resolved.detectionMethod === 'user_override'
+      ? String(resolved.ruleId || '')
+      : '';
     if (!resolved.supported) {
       return {
         supported: false,

@@ -2883,6 +2883,15 @@ body.analysis-mode-dxer .load-tip-badge {
   line-height: 1.45;
 }
 
+.wrtc-scoring-options {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  color: #2f3b52;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .wrtc-scoring-source {
   border: 1px solid #d7e0ef;
   background: #f7f9fd;
@@ -2893,6 +2902,7 @@ body.analysis-mode-dxer .load-tip-badge {
 
 .wrtc-scoring-actions {
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .wrtc-scoring-actions .primary {

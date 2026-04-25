@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.34 (2026-04-25)
+- Scoring architecture: centralize Cabrillo parsing and scoring helper logic in `modules/analysis/core.js`, leaving `main.js` as a delegating UI layer with explicit core capability checks.
+- Report security: escape nonnumeric log number/RST/exchange fields in live Log and export rendering so uploaded Cabrillo values cannot be interpreted as HTML.
+- Virtual tables: sanitize retained and virtualized table string fragments, including rows, empty rows, headers, colgroups, footers, active URL attributes, event handlers, `srcdoc`, `srcset`, `xlink:href`, `data:` URLs, and style nodes.
+- Audit coverage: add smoke checks for analysis-core capability drift, WRTC delegated scoring summaries, export fallback escaping, and retained/virtual sanitizer edge cases.
+- Version bump to `v6.2.34` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.33 (2026-04-24)
 - WRTC scoring prompt: offer three explicit choices for eligible IARU-HF M/2 Low Power logs: standard IARU/default scoring, WRTC 2022 scoring, or WRTC 2026 scoring.
 - Scoring: add WRTC 2022 rules with CW 2/5 and SSB 3/6 Europe/outside-Europe QSO points while sharing the WRTC per-band DXCC plus IARU HQ/official multiplier model.

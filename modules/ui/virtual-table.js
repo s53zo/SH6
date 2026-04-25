@@ -23,6 +23,51 @@ function isNode(value) {
   return value && typeof value.nodeType === 'number';
 }
 
+const BLOCKED_HTML_TAGS = new Set([
+  'script',
+  'iframe',
+  'object',
+  'embed',
+  'link',
+  'meta',
+  'base',
+  'style'
+]);
+
+function isUnsafeUrl(value) {
+  const normalized = String(value || '').replace(/[\u0000-\u001F\u007F\s]+/g, '').toLowerCase();
+  return normalized.startsWith('javascript:')
+    || normalized.startsWith('vbscript:')
+    || normalized.startsWith('data:');
+}
+
+function isUnsafeStyle(value) {
+  return /(?:expression\s*\(|url\s*\(|javascript:|vbscript:|data:text\/html)/i.test(String(value || ''));
+}
+
+export function sanitizeTableHtmlFragment(fragment) {
+  if (!fragment || typeof fragment.querySelectorAll !== 'function') return fragment;
+  fragment.querySelectorAll(Array.from(BLOCKED_HTML_TAGS).join(',')).forEach((node) => node.remove());
+  fragment.querySelectorAll('*').forEach((node) => {
+    Array.from(node.attributes || []).forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value;
+      if (name.startsWith('on') || name === 'srcdoc') {
+        node.removeAttribute(attr.name);
+        return;
+      }
+      if ((name === 'href' || name === 'src' || name === 'srcset' || name === 'xlink:href' || name === 'action' || name === 'formaction') && isUnsafeUrl(value)) {
+        node.removeAttribute(attr.name);
+        return;
+      }
+      if (name === 'style' && isUnsafeStyle(value)) {
+        node.removeAttribute(attr.name);
+      }
+    });
+  });
+  return fragment;
+}
+
 function normalizeRenderer(renderRow) {
   if (typeof renderRow === 'function') return renderRow;
   return (row) => row;
@@ -70,6 +115,7 @@ function appendRenderedRow(target, output, documentRef, fallbackColumnCount) {
   if (typeof output === 'string') {
     const template = documentRef.createElement('template');
     template.innerHTML = output;
+    sanitizeTableHtmlFragment(template.content);
     target.append(template.content);
     return;
   }
@@ -195,7 +241,10 @@ export function mountVirtualTable(config = {}) {
       const emptyKey = `empty:${state.emptyHtml}`;
       if (force || lastRenderKey !== emptyKey) {
         if (state.emptyHtml) {
-          tableBody.innerHTML = state.emptyHtml;
+          const template = documentRef.createElement('template');
+          template.innerHTML = state.emptyHtml;
+          sanitizeTableHtmlFragment(template.content);
+          tableBody.replaceChildren(template.content);
         } else {
           tableBody.replaceChildren();
         }

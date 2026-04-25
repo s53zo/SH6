@@ -3811,6 +3811,28 @@
     parseCtyDat,
     parseMasterDta,
     parseLogFile,
+    parseCabrillo,
+    parseCabrilloFreqToken,
+    normalizeScoringRuleOverride,
+    isWrtcScoringRuleId,
+    getWrtcScoringRuleLabel,
+    isWrtcScoringCandidate,
+    parseClaimedScoreNumber,
+    getArchiveFolderFromPath,
+    buildScoringIndexes,
+    normalizeCountryName,
+    computeRuleQsoPoints: (rule, qsos, station, assumptions, resources = {}) => (
+      withAnalysisEnv(resources, () => computeRuleQsoPoints(rule, qsos, station, assumptions))
+    ),
+    computeRuleMultipliers: (rule, qsos, station, pointState, assumptions, resources = {}) => (
+      withAnalysisEnv(resources, () => computeRuleMultipliers(rule, qsos, station, pointState, assumptions))
+    ),
+    resolveContestRuleSet: (contestMeta, context = {}, resources = {}) => (
+      withAnalysisEnv(resources, () => resolveContestRuleSet(contestMeta, context))
+    ),
+    computeContestScoringSummary: (qsos, contestMeta, context = {}, resources = {}) => (
+      withAnalysisEnv(resources, () => computeContestScoringSummary(qsos, contestMeta, context))
+    ),
     buildDerived,
     analyzeLogText,
     deriveLog

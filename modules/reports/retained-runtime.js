@@ -16,7 +16,16 @@ export function createRetainedReportRuntime(deps = {}) {
 
   function escapeAttrSafe(value) {
     if (typeof escapeAttr === 'function') return escapeAttr(value);
-    return String(value == null ? '' : value);
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => {
+      switch (ch) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&#39;';
+        default: return ch;
+      }
+    });
   }
 
   function getViewContainer() {
@@ -49,6 +58,30 @@ export function createRetainedReportRuntime(deps = {}) {
     return String(rows || '');
   }
 
+  function sanitizeTableHtml(html) {
+    const template = document.createElement('template');
+    template.innerHTML = String(html || '');
+    template.content.querySelectorAll('script,iframe,object,embed,link,meta,base,style').forEach((node) => node.remove());
+    template.content.querySelectorAll('*').forEach((node) => {
+      Array.from(node.attributes || []).forEach((attr) => {
+        const name = attr.name.toLowerCase();
+        const value = String(attr.value || '').replace(/[\u0000-\u001F\u007F\s]+/g, '').toLowerCase();
+        const unsafeUrl = value.startsWith('javascript:')
+          || value.startsWith('vbscript:')
+          || value.startsWith('data:');
+        const unsafeStyle = /(?:expression\s*\(|url\s*\(|javascript:|vbscript:|data:text\/html)/i.test(attr.value || '');
+        if (name.startsWith('on') || name === 'srcdoc') {
+          node.removeAttribute(attr.name);
+        } else if ((name === 'href' || name === 'src' || name === 'srcset' || name === 'xlink:href' || name === 'action' || name === 'formaction') && unsafeUrl) {
+          node.removeAttribute(attr.name);
+        } else if (name === 'style' && unsafeStyle) {
+          node.removeAttribute(attr.name);
+        }
+      });
+    });
+    return template.innerHTML;
+  }
+
   function withStaticVirtualTableRender(fn) {
     staticVirtualTableRenderDepth += 1;
     try {
@@ -65,11 +98,11 @@ export function createRetainedReportRuntime(deps = {}) {
     const emptyHtml = options.emptyHtml == null ? '' : String(options.emptyHtml);
     const tableClass = options.tableClass || 'mtc';
     const tableStyle = options.tableStyle || 'margin-top:5px;margin-bottom:10px;text-align:right;';
-    const colgroup = options.colgroupHtml || '';
-    const header = options.headerHtml || '';
-    const footer = options.footerHtml ? `<tfoot>${options.footerHtml}</tfoot>` : '';
+    const colgroup = sanitizeTableHtml(options.colgroupHtml || '');
+    const header = sanitizeTableHtml(options.headerHtml || '');
+    const footer = sanitizeTableHtml(options.footerHtml ? `<tfoot>${options.footerHtml}</tfoot>` : '');
     if (staticVirtualTableRenderDepth > 0) {
-      const body = rows.length ? joinTableRows(rows) : emptyHtml;
+      const body = sanitizeTableHtml(rows.length ? joinTableRows(rows) : emptyHtml);
       return `
         <table class="${escapeAttrSafe(tableClass)}" style="${escapeAttrSafe(tableStyle)}">
           ${colgroup}
@@ -132,7 +165,7 @@ export function createRetainedReportRuntime(deps = {}) {
       })
       .catch(() => {
         if (tbody instanceof HTMLElement) {
-          tbody.innerHTML = model.rows.length ? model.rows.join('') : model.emptyHtml;
+          tbody.innerHTML = sanitizeTableHtml(model.rows.length ? model.rows.join('') : model.emptyHtml);
         }
       });
   }

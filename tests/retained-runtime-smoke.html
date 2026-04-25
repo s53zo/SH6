@@ -69,7 +69,7 @@
       }
 
       try {
-        const [mainSource, moduleSource, retainedModule] = await Promise.all([
+        const [mainSource, moduleSource, retainedModule, virtualTableModule] = await Promise.all([
           fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
             if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
             return res.text();
@@ -78,15 +78,17 @@
             if (!res.ok) throw new Error(`Unable to read modules/reports/retained-runtime.js (${res.status})`);
             return res.text();
           }),
-          import('../modules/reports/retained-runtime.js')
+          import('../modules/reports/retained-runtime.js'),
+          import('../modules/ui/virtual-table.js')
         ]);
 
-        add('Main.js imports the retained runtime module', mainSource.includes("const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.21';"));
-        add('Main.js preloads retained runtime during init', mainSource.includes('const retainedRuntimeReady = loadRetainedRuntimeModule();') && mainSource.includes('await retainedRuntimeReady;'));
-        add('Main.js delegates retained report shell rendering', mainSource.includes('return getRetainedRuntime().renderRetainedReportShell(reportId, html);'));
-        add('Main.js delegates retained virtual table rendering', mainSource.includes('return getRetainedRuntime().renderRetainedVirtualTable(reportId, options);'));
-        add('Main.js delegates virtual table binding', mainSource.includes('return getRetainedRuntime().bindVirtualTable(reportId);'));
+        add('Main.js imports the retained runtime module', mainSource.includes("const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v="));
+        add('Main.js preloads retained runtime during init', mainSource.includes('const retainedRuntimeReady = loadRetainedRuntimeModule();') && mainSource.includes("awaitInitRuntime('retained runtime', retainedRuntimeReady"));
+        add('Main.js delegates retained report shell rendering', mainSource.includes('getRetainedRuntime().renderRetainedReportShell(reportId, html)'));
+        add('Main.js delegates retained virtual table rendering', mainSource.includes('getRetainedRuntime().renderRetainedVirtualTable(reportId, options)'));
+        add('Main.js delegates virtual table binding', mainSource.includes('getRetainedRuntime().bindVirtualTable(reportId)'));
         add('Retained runtime module exports the factory', moduleSource.includes('export function createRetainedReportRuntime'));
+        add('Virtual table module exports the sanitizer', typeof virtualTableModule.sanitizeTableHtmlFragment === 'function');
 
         const viewContainer = document.createElement('div');
         document.body.appendChild(viewContainer);
@@ -133,6 +135,42 @@
           'withStaticVirtualTableRender renders full table bodies inline',
           staticTableHtml.includes('<tbody><tr><td>Static</td></tr></tbody>') && !staticTableHtml.includes('data-virtual-body'),
           staticTableHtml
+        );
+
+        const unsafeStaticTableHtml = runtime.withStaticVirtualTableRender(() => runtime.renderRetainedVirtualTable('countries', {
+          rows: ['<tr><td><img src="data:image/svg+xml,<svg onload=alert(1)>" srcset="data:image/svg+xml,<svg onload=alert(1)> 1x" onerror="window.__retainedStaticXss=1"><a href="java\\nscript:alert(1)" OnClick="window.__retainedClickXss=1" xlink:href="javascript:alert(1)">Unsafe</a></td></tr>'],
+          columnCount: 1,
+          headerHtml: '<thead><tr><th><style>body{background:url(javascript:alert(1))}</style><a href="data:text/html,evil" srcdoc="evil" onclick="window.__retainedHeaderXss=1">Header</a></th></tr></thead>'
+        }));
+        add(
+          'withStaticVirtualTableRender strips active HTML from retained table fragments',
+          !unsafeStaticTableHtml.includes('onerror=')
+            && !unsafeStaticTableHtml.includes('onclick=')
+            && !unsafeStaticTableHtml.includes('srcdoc=')
+            && !unsafeStaticTableHtml.includes('srcset=')
+            && !unsafeStaticTableHtml.includes('xlink:href=')
+            && !unsafeStaticTableHtml.includes('<style')
+            && !unsafeStaticTableHtml.includes('data:')
+            && !unsafeStaticTableHtml.includes('javascript:'),
+          unsafeStaticTableHtml
+        );
+
+        const unsafeTemplate = document.createElement('template');
+        unsafeTemplate.innerHTML = '<tr><td><style>body{background:url(javascript:alert(1))}</style><img src="data:image/svg+xml,<svg onload=alert(1)>" srcset="data:image/svg+xml,<svg onload=alert(1)> 1x" onerror="window.__virtualXss=1"><a href="java\\nscript:alert(1)" OnClick="window.__virtualClickXss=1" xlink:href="javascript:alert(1)" srcdoc="evil" style="background:url(javascript:alert(1))">Unsafe</a></td></tr>';
+        virtualTableModule.sanitizeTableHtmlFragment(unsafeTemplate.content);
+        const sanitizedVirtualHtml = unsafeTemplate.innerHTML;
+        add(
+          'Virtual table sanitizer strips event handlers and active URLs',
+          !sanitizedVirtualHtml.includes('onerror=')
+            && !sanitizedVirtualHtml.includes('onclick=')
+            && !sanitizedVirtualHtml.includes('srcdoc=')
+            && !sanitizedVirtualHtml.includes('srcset=')
+            && !sanitizedVirtualHtml.includes('xlink:href=')
+            && !sanitizedVirtualHtml.includes('javascript:')
+            && !sanitizedVirtualHtml.includes('<style')
+            && !sanitizedVirtualHtml.includes('data:')
+            && !sanitizedVirtualHtml.includes('style='),
+          sanitizedVirtualHtml
         );
 
         const retainedShellHtml = runtime.renderRetainedReportShell('countries', runtime.renderRetainedVirtualTable('countries', {

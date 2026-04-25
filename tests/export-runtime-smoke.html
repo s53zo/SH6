@@ -87,8 +87,8 @@
           import('../modules/export/runtime.js')
         ]);
 
-        add('Main.js imports the export runtime module', mainSource.includes("const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.21';"));
-        add('Main.js preloads export runtime during init', mainSource.includes('const exportRuntimeReady = loadExportRuntimeModule();') && mainSource.includes('await exportRuntimeReady;'));
+        add('Main.js imports the export runtime module', mainSource.includes("const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v="));
+        add('Main.js preloads export runtime during init', mainSource.includes('const exportRuntimeReady = loadExportRuntimeModule();') && mainSource.includes("awaitInitRuntime('export runtime module', exportRuntimeReady);"));
         add('Main.js delegates renderLogExport to export runtime', mainSource.includes('return getExportRuntime().renderLogExport();'));
         add('Main.js delegates export dialog to export runtime', mainSource.includes('return getExportRuntime().openExportDialog(type);'));
         add('Export runtime module exports the factory', exportModuleSource.includes('export function createExportRuntime'));
@@ -138,7 +138,7 @@
         const state = {
           qsoData: {
             qsos: [{
-              qsoNumber: 1,
+              qsoNumber: '<b onclick="window.__exportNumXss=1">1</b>',
               ts: Date.UTC(2025, 10, 16, 10, 5, 0),
               time: '2025-11-16 10:05',
               band: '20M',
@@ -147,8 +147,8 @@
               call: 'S55OO',
               rstSent: '599',
               rstRcvd: '599',
-              stx: '001',
-              srx: '123',
+              stx: '<svg onload="window.__exportSentXss=1">',
+              srx: '<img src=x onerror="window.__exportXss=1">',
               op: 'S53ZO',
               country: 'Slovenia',
               continent: 'EU',
@@ -211,7 +211,7 @@
           { id: 'export', title: 'Export' }
         ];
 
-        const runtime = exportModule.createExportRuntime({
+        const runtimeDeps = {
           getState: () => state,
           getReports: () => reports,
           getSlotById: (id) => slotMap.get(String(id || '').toUpperCase()),
@@ -226,6 +226,7 @@
           showOverlayNotice: (message) => notices.push(String(message || '')),
           trackEvent: (name, payload) => events.push({ name, payload }),
           formatNumberSh6: (value) => String(value ?? ''),
+          formatNumberHtmlSh6: (value) => escape(String(value ?? '')),
           formatDateSh6: (value) => String(value ?? ''),
           formatBandLabel: (value) => String(value ?? ''),
           formatFrequency: (value) => String(value ?? ''),
@@ -236,13 +237,37 @@
           escapeCountry: escape,
           escapeHtml: escape,
           escapeAttr: escape
-        });
+        };
+        const runtime = exportModule.createExportRuntime(runtimeDeps);
 
         const reportHtml = runtime.renderReportExport({ id: 'summary', title: 'Summary' });
         add('renderReportExport strips links from exported report HTML', reportHtml.includes('<span') && !reportHtml.includes('<a '), reportHtml);
 
         const logHtml = runtime.renderLogExport();
         add('renderLogExport builds the log export table', logHtml.includes('<table') && logHtml.includes('S55OO'), logHtml.slice(0, 120));
+        add(
+          'renderLogExport escapes nonnumeric QSO number and exchange fields',
+          logHtml.includes('&lt;b onclick=&quot;window.__exportNumXss=1&quot;&gt;1&lt;/b&gt;')
+            && logHtml.includes('&lt;svg onload=&quot;window.__exportSentXss=1&quot;&gt;')
+            && logHtml.includes('&lt;img src=x onerror=&quot;window.__exportXss=1&quot;&gt;')
+            && !logHtml.includes('<b onclick=')
+            && !logHtml.includes('<svg onload=')
+            && !logHtml.includes('<img src=x'),
+          logHtml
+        );
+        const fallbackRuntime = exportModule.createExportRuntime({
+          ...runtimeDeps,
+          formatNumberHtmlSh6: null
+        });
+        const fallbackLogHtml = fallbackRuntime.renderLogExport();
+        add(
+          'renderLogExport escapes nonnumeric fields without injected HTML formatter',
+          fallbackLogHtml.includes('&lt;svg onload=&quot;window.__exportSentXss=1&quot;&gt;')
+            && fallbackLogHtml.includes('&lt;img src=x onerror=&quot;window.__exportXss=1&quot;&gt;')
+            && !fallbackLogHtml.includes('<svg onload=')
+            && !fallbackLogHtml.includes('<img src=x'),
+          fallbackLogHtml
+        );
 
         runtime.openExportDialog('html');
         const overlay = document.getElementById('exportDialog');

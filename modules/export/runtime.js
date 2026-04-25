@@ -11,6 +11,7 @@ export function createExportRuntime(deps = {}) {
     showOverlayNotice,
     trackEvent,
     formatNumberSh6,
+    formatNumberHtmlSh6,
     formatDateSh6,
     formatBandLabel,
     formatFrequency,
@@ -31,6 +32,12 @@ export function createExportRuntime(deps = {}) {
 
   function getReportsSafe() {
     return Array.isArray(getReports?.()) ? getReports() : [];
+  }
+
+  function formatNumberHtml(value) {
+    if (typeof formatNumberHtmlSh6 === 'function') return formatNumberHtmlSh6(value);
+    if (typeof escapeHtml === 'function') return escapeHtml(formatNumberSh6?.(value) ?? value ?? '');
+    return String(formatNumberSh6?.(value) ?? value ?? '');
   }
 
   function buildExportFilename(ext) {
@@ -82,16 +89,16 @@ export function createExportRuntime(deps = {}) {
       const itu = escapeHtml(q.ituZone || '');
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td class="log-qso c1">${formatNumberSh6(q.qsoNumber || '')}</td>
+        <td class="log-qso c1">${formatNumberHtml(q.qsoNumber || '')}</td>
         <td>${q.ts ? formatDateSh6(q.ts) : time}</td>
         <td class="${bandClass(q.band)}">${band}</td>
         <td class="${modeClass(q.mode)}">${mode}</td>
         <td class="${bandClass(q.band)}">${freq}</td>
         <td class="tl">${call}</td>
-        <td>${formatNumberSh6(q.rstSent || '')}</td>
-        <td>${formatNumberSh6(q.rstRcvd || '')}</td>
-        <td>${formatNumberSh6(q.stx || q.exchSent || '')}</td>
-        <td>${formatNumberSh6(q.srx || q.exchRcvd || '')}</td>
+        <td>${formatNumberHtml(q.rstSent || '')}</td>
+        <td>${formatNumberHtml(q.rstRcvd || '')}</td>
+        <td>${formatNumberHtml(q.stx || q.exchSent || '')}</td>
+        <td>${formatNumberHtml(q.srx || q.exchRcvd || '')}</td>
         <td>${op}</td>
         <td class="tl">${country}</td>
         <td class="tac ${continentClass(q.continent)}">${cont}</td>

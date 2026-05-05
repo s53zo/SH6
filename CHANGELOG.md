@@ -2,6 +2,10 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.37 (2026-05-05)
+- Compare reports: restore the shared static table row join helper used by Countries, Prefixes, Distance, and related compare tables.
+- Version bump to `v6.2.37` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.36 (2026-05-05)
 - Archive search: prefer archive shard `subcontest` and `detail` metadata when present, falling back to path parsing for older shard files.
 - Archive client: read optional `subcontest` and `detail` shard columns when present, while keeping compatibility with older shards.

@@ -77,7 +77,11 @@ export function createArchiveClient(deps = {}) {
     if (!normalized) return [];
     if (archiveRowsByCallCache.has(normalized)) return archiveRowsByCallCache.get(normalized);
     const db = await openArchiveShardDbForCallsign(normalized);
-    const stmt = db.prepare('SELECT path, contest, year, mode, season FROM logs WHERE callsign = ?');
+    const columnRows = db.exec('PRAGMA table_info(logs)');
+    const columnNames = new Set((columnRows?.[0]?.values || []).map((row) => row?.[1]).filter(Boolean));
+    const optionalColumns = ['subcontest', 'detail'].filter((column) => columnNames.has(column));
+    const columns = ['path', 'contest', 'year', 'mode', 'season'].concat(optionalColumns);
+    const stmt = db.prepare(`SELECT ${columns.join(', ')} FROM logs WHERE callsign = ?`);
     stmt.bind([normalized]);
     const rows = [];
     while (stmt.step()) {

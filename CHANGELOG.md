@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.36 (2026-05-05)
+- Archive search: prefer archive shard `subcontest` and `detail` metadata when present, falling back to path parsing for older shard files.
+- Archive client: read optional `subcontest` and `detail` shard columns when present, while keeping compatibility with older shards.
+- Archive smoke: cover metadata-driven 9A HRS, DARC, URE, and generic detail rendering.
+- Version bump to `v6.2.36` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.35 (2026-05-05)
 - Archive search: keep second-level contest folders visible for `9A_HRS_Contest`, `DARC`, and `URE`, so searches render entries such as `9A_HRS_Contest -> Zimski KV Kup -> 2026`, `DARC -> RTTY Kurzcontest -> 2026 -> Jan`, and `URE -> EARTTY -> 2024`.
 - Archive smoke: cover 9A HRS, DARC, and URE grouped archive paths, and report failed check names in the smoke output.

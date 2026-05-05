@@ -70,13 +70,17 @@
       }
 
       try {
-        const [mainSource, moduleSource, searchModule] = await Promise.all([
+        const [mainSource, moduleSource, clientSource, searchModule] = await Promise.all([
           fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
             if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
             return res.text();
           }),
           fetch('../modules/archive/search-runtime.js', { cache: 'no-store' }).then(async (res) => {
             if (!res.ok) throw new Error(`Unable to read modules/archive/search-runtime.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../modules/archive/client.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read modules/archive/client.js (${res.status})`);
             return res.text();
           }),
           import('../modules/archive/search-runtime.js')
@@ -91,6 +95,12 @@
         );
         add('Main.js delegates setupRepoSearch to the archive search runtime', mainSource.includes('return getArchiveSearchRuntime().setupRepoSearch(slotId);'));
         add('Archive search runtime exports the factory', moduleSource.includes('export function createArchiveSearchRuntime'));
+        add(
+          'Archive client reads optional subcontest/detail shard columns when present',
+          clientSource.includes("PRAGMA table_info(logs)")
+            && clientSource.includes("['subcontest', 'detail']")
+            && clientSource.includes("SELECT ${columns.join(', ')} FROM logs WHERE callsign = ?")
+        );
 
         const appRoot = document.createElement('div');
         appRoot.innerHTML = `
@@ -115,12 +125,12 @@
         const fakeRows = [
           { path: 'ARRL/DX/2024/PH/S53M.log', contest: 'ARRL', year: 2024, mode: 'PH', season: '', subcontest: 'DX' },
           { path: 'RECONSTRUCTED_LOGS/ARRL/arrl_10_meter_contest/2025/S53M.log', contest: 'ARRL', year: 2025, mode: '', season: '' },
-          { path: '9A_HRS_Contest/Zimski_KV_Kup/2026/9A5M.log', contest: '9A_HRS_Contest', year: 2026, mode: 'CW', season: '' },
-          { path: '9A_HRS_Contest/Croatian_DX_Contest/2025/9A5M.log', contest: '9A_HRS_Contest', year: 2025, mode: 'MIXED', season: '' },
-          { path: 'DARC/RTTY_Kurzcontest/2026/jan/S53M.log', contest: 'DARC', year: 2026, mode: 'RTTY', season: '' },
-          { path: 'DARC/Fieldday/CW/2024/S53M.log', contest: 'DARC', year: 2024, mode: 'CW', season: '' },
-          { path: 'URE/EARTTY/2024/S53M.log', contest: 'URE', year: 2024, mode: 'RTTY', season: '' },
-          { path: 'CQWW/cw/2025/S53M.log', contest: 'CQWW', year: 2025, mode: 'CW', season: '' },
+          { path: '9A_HRS_Contest/Zimski_KV_Kup/2026/9A5M.log', contest: '9A_HRS_Contest', subcontest: 'Zimski_KV_Kup', year: 2026, mode: 'CW', season: '' },
+          { path: '9A_HRS_Contest/Croatian_DX_Contest/2025/9A5M.log', contest: '9A_HRS_Contest', subcontest: 'Croatian_DX_Contest', year: 2025, mode: 'MIXED', season: '' },
+          { path: 'DARC/RTTY_Kurzcontest/2026/jan/S53M.log', contest: 'DARC', subcontest: 'RTTY_Kurzcontest', detail: 'jan', year: 2026, mode: 'RTTY', season: '' },
+          { path: 'DARC/Fieldday/CW/2024/S53M.log', contest: 'DARC', subcontest: 'Fieldday', detail: 'CW', year: 2024, mode: 'CW', season: '' },
+          { path: 'URE/EARTTY/2024/S53M.log', contest: 'URE', subcontest: 'EARTTY', year: 2024, mode: 'RTTY', season: '' },
+          { path: 'CQWW/cw/2025/S53M.log', contest: 'CQWW', detail: 'cw', year: 2025, mode: 'CW', season: '' },
           { path: 'OK1WC_Memorial/2026-03-02/S53M.log', contest: 'OK1WC_Memorial', year: 2026, mode: '', season: 'Spring' },
           { path: 'RECONSTRUCTED_LOGS/CQWW/cw/2023/S53M.log', contest: 'CQWW', year: 2023, mode: 'CW', season: '' }
         ];

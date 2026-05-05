@@ -14,7 +14,6 @@ export function createArchiveSearchRuntime(deps = {}) {
 
   const controllers = new Map();
   const UNSPECIFIED_ARCHIVE_SUBCONTEST = '(unspecified)';
-  const ARCHIVE_SUBCONTEST_ROOTS = new Set(['ARRL', 'DARC', 'URE', '9A_HRS_CONTEST']);
 
   function normalizeLabel(value) {
     return value == null ? '' : String(value).trim();
@@ -61,21 +60,45 @@ export function createArchiveSearchRuntime(deps = {}) {
   }
 
   function normalizeArchiveSubcontest(row) {
-    const contest = normalizeLabel(row?.contest).toUpperCase();
-    if (!ARCHIVE_SUBCONTEST_ROOTS.has(contest)) return '';
     const explicit = normalizeLabel(row?.subcontest);
-    if (explicit) return explicit;
+    if (explicit) return explicit.split('/').map(formatArchiveSlugLabel).filter(Boolean).join(' / ');
     const parts = getArchivePathParts(row?.path);
-    return formatArchiveSlugLabel(parts[1]) || UNSPECIFIED_ARCHIVE_SUBCONTEST;
+    const yearIndex = findArchiveYearIndex(parts, 1);
+    if (yearIndex <= 1) return '';
+    const subcontestParts = parts.slice(1, yearIndex).filter((part) => !isArchiveDetailSegment(part));
+    return subcontestParts.map(formatArchiveSlugLabel).filter(Boolean).join(' ') || UNSPECIFIED_ARCHIVE_SUBCONTEST;
   }
 
   function formatArchiveSubcontestDetail(row) {
+    const explicit = normalizeLabel(row?.detail);
+    if (explicit) return explicit.split('/').map(formatArchiveSlugLabel).filter(Boolean).join(' • ');
     const parts = getArchivePathParts(row?.path);
     const year = String(getNumericYear(row?.year));
-    const yearIndex = parts.findIndex((part, index) => index > 1 && part === year);
-    const detailSegments = yearIndex >= 0 ? parts.slice(yearIndex + 1, -1) : [];
+    const yearIndex = parts.findIndex((part, index) => index > 0 && part === year);
+    const beforeYearDetails = yearIndex > 1 ? parts.slice(1, yearIndex).filter(isArchiveDetailSegment) : [];
+    const afterYearDetails = yearIndex >= 0 ? parts.slice(yearIndex + 1, -1) : [];
+    const detailSegments = beforeYearDetails.concat(afterYearDetails);
     if (detailSegments.length) return detailSegments.map(formatArchiveSlugLabel).filter(Boolean).join(' • ');
     return [normalizeLabel(row?.mode), normalizeLabel(row?.season)].filter(Boolean).join(' • ');
+  }
+
+  function findArchiveYearIndex(parts, startIndex = 0) {
+    return (Array.isArray(parts) ? parts : []).findIndex((part, index) => (
+      index >= startIndex && (/^(19|20)\d{2}$/.test(String(part || '')) || /^\d{4}-\d{2}-\d{2}$/.test(String(part || '')))
+    ));
+  }
+
+  function isArchiveDetailSegment(value) {
+    const lower = normalizeLabel(value).toLowerCase();
+    if (!lower) return false;
+    if (/^\d+(?:mhz|ghz)$/.test(lower)) return true;
+    const tokens = lower.split(/[^a-z0-9]+/).filter(Boolean);
+    const detailTokens = new Set([
+      'cw', 'ssb', 'ph', 'phone', 'rtty', 'rt', 'digital', 'digi', 'mixed',
+      'jan', 'feb', 'mar', 'apr', 'mai', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+      'spring', 'summer', 'fall', 'autumn', 'winter', 'pomlad', 'jesen'
+    ]);
+    return Boolean(tokens.length) && tokens.every((token) => detailTokens.has(token) || /^\d+(?:mhz|ghz)$/.test(token));
   }
 
   function compareArchiveModes(modeA, modeB) {
@@ -135,6 +158,8 @@ export function createArchiveSearchRuntime(deps = {}) {
       const band = parts[2] || '';
       return [event, band].filter(Boolean).join(' • ');
     }
+    const explicit = normalizeLabel(row?.detail);
+    if (explicit) return explicit.split('/').map(formatArchiveSlugLabel).filter(Boolean).join(' • ');
     return [normalizeLabel(row?.mode), normalizeLabel(row?.season)].filter(Boolean).join(' • ');
   }
 
@@ -148,11 +173,9 @@ export function createArchiveSearchRuntime(deps = {}) {
       const contestA = normalizeLabel(a?.contest).toUpperCase();
       const contestB = normalizeLabel(b?.contest).toUpperCase();
       if (contestA !== contestB) return contestA.localeCompare(contestB);
-      if (ARCHIVE_SUBCONTEST_ROOTS.has(contestA)) {
-        const subA = normalizeArchiveSubcontest(a);
-        const subB = normalizeArchiveSubcontest(b);
-        if (subA !== subB) return subA.localeCompare(subB);
-      }
+      const subA = normalizeArchiveSubcontest(a);
+      const subB = normalizeArchiveSubcontest(b);
+      if (subA !== subB) return subA.localeCompare(subB);
       const yearA = getNumericYear(a?.year);
       const yearB = getNumericYear(b?.year);
       if (yearA !== yearB) return yearB - yearA;
@@ -196,9 +219,9 @@ export function createArchiveSearchRuntime(deps = {}) {
     archiveRows.forEach((row) => {
       const contest = normalizeLabel(row?.contest);
       const year = getNumericYear(row?.year) >= 0 ? String(getNumericYear(row?.year)) : '';
-      const hasSubcontest = ARCHIVE_SUBCONTEST_ROOTS.has(contest.toUpperCase());
+      const subcontest = normalizeArchiveSubcontest(row);
+      const hasSubcontest = Boolean(subcontest);
       if (hasSubcontest) {
-        const subcontest = normalizeArchiveSubcontest(row);
         if (!tree.has(contest)) tree.set(contest, new Map());
         const subMap = tree.get(contest);
         if (!subMap.has(subcontest)) subMap.set(subcontest, new Map());
@@ -223,7 +246,8 @@ export function createArchiveSearchRuntime(deps = {}) {
     tree.forEach((yearMap, contest) => {
       const hasContest = Boolean(contest);
       if (hasContest) chunks.push(`<details class="repo-contest"><summary>${escapeHtmlSafe(contest)}</summary>`);
-      const hasSubcontest = ARCHIVE_SUBCONTEST_ROOTS.has(contest.toUpperCase());
+      const firstValue = yearMap instanceof Map ? yearMap.values().next().value : null;
+      const hasSubcontest = firstValue instanceof Map && Array.from(firstValue.values()).some((value) => value instanceof Map);
       if (hasSubcontest) {
         yearMap.forEach((yearModeMap, subcontest) => {
           chunks.push(`<details class="repo-subcat"><summary>${escapeHtmlSafe(subcontest)}</summary>`);

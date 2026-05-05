@@ -14,6 +14,7 @@ export function createArchiveSearchRuntime(deps = {}) {
 
   const controllers = new Map();
   const UNSPECIFIED_ARCHIVE_SUBCONTEST = '(unspecified)';
+  const ARCHIVE_SUBCONTEST_ROOTS = new Set(['ARRL', 'DARC', 'URE', '9A_HRS_CONTEST']);
 
   function normalizeLabel(value) {
     return value == null ? '' : String(value).trim();
@@ -53,7 +54,7 @@ export function createArchiveSearchRuntime(deps = {}) {
       .filter(Boolean)
       .map((part) => {
         const upper = part.toUpperCase();
-        if (/^(CW|SSB|RTTY|FT4|FT8|DX|VHF|UHF|SHF|EME)$/.test(upper)) return upper;
+        if (/^(CW|SSB|RTTY|FT4|FT8|DX|KV|VHF|UHF|SHF|EME|WAG|XMAS|CME|CNCW|EARTTY|EAPSK63|SMRCW|SMRSSB)$/.test(upper)) return upper;
         return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
       })
       .join(' ');
@@ -61,11 +62,20 @@ export function createArchiveSearchRuntime(deps = {}) {
 
   function normalizeArchiveSubcontest(row) {
     const contest = normalizeLabel(row?.contest).toUpperCase();
-    if (contest !== 'ARRL') return '';
+    if (!ARCHIVE_SUBCONTEST_ROOTS.has(contest)) return '';
     const explicit = normalizeLabel(row?.subcontest);
     if (explicit) return explicit;
     const parts = getArchivePathParts(row?.path);
     return formatArchiveSlugLabel(parts[1]) || UNSPECIFIED_ARCHIVE_SUBCONTEST;
+  }
+
+  function formatArchiveSubcontestDetail(row) {
+    const parts = getArchivePathParts(row?.path);
+    const year = String(getNumericYear(row?.year));
+    const yearIndex = parts.findIndex((part, index) => index > 1 && part === year);
+    const detailSegments = yearIndex >= 0 ? parts.slice(yearIndex + 1, -1) : [];
+    if (detailSegments.length) return detailSegments.map(formatArchiveSlugLabel).filter(Boolean).join(' • ');
+    return [normalizeLabel(row?.mode), normalizeLabel(row?.season)].filter(Boolean).join(' • ');
   }
 
   function compareArchiveModes(modeA, modeB) {
@@ -138,7 +148,7 @@ export function createArchiveSearchRuntime(deps = {}) {
       const contestA = normalizeLabel(a?.contest).toUpperCase();
       const contestB = normalizeLabel(b?.contest).toUpperCase();
       if (contestA !== contestB) return contestA.localeCompare(contestB);
-      if (contestA === 'ARRL') {
+      if (ARCHIVE_SUBCONTEST_ROOTS.has(contestA)) {
         const subA = normalizeArchiveSubcontest(a);
         const subB = normalizeArchiveSubcontest(b);
         if (subA !== subB) return subA.localeCompare(subB);
@@ -186,18 +196,18 @@ export function createArchiveSearchRuntime(deps = {}) {
     archiveRows.forEach((row) => {
       const contest = normalizeLabel(row?.contest);
       const year = getNumericYear(row?.year) >= 0 ? String(getNumericYear(row?.year)) : '';
-      const isArrl = contest.toUpperCase() === 'ARRL';
-      if (isArrl) {
+      const hasSubcontest = ARCHIVE_SUBCONTEST_ROOTS.has(contest.toUpperCase());
+      if (hasSubcontest) {
         const subcontest = normalizeArchiveSubcontest(row);
         if (!tree.has(contest)) tree.set(contest, new Map());
         const subMap = tree.get(contest);
         if (!subMap.has(subcontest)) subMap.set(subcontest, new Map());
         const yearMap = subMap.get(subcontest);
         if (!yearMap.has(year)) yearMap.set(year, new Map());
-        const modeMap = yearMap.get(year);
-        const mode = normalizeLabel(row?.mode).toUpperCase();
-        if (!modeMap.has(mode)) modeMap.set(mode, []);
-        modeMap.get(mode).push(row);
+        const detailMap = yearMap.get(year);
+        const detail = formatArchiveSubcontestDetail(row);
+        if (!detailMap.has(detail)) detailMap.set(detail, []);
+        detailMap.get(detail).push(row);
         return;
       }
       const subKey = formatArchiveSubKey(row);
@@ -213,8 +223,8 @@ export function createArchiveSearchRuntime(deps = {}) {
     tree.forEach((yearMap, contest) => {
       const hasContest = Boolean(contest);
       if (hasContest) chunks.push(`<details class="repo-contest"><summary>${escapeHtmlSafe(contest)}</summary>`);
-      const isArrl = contest.toUpperCase() === 'ARRL';
-      if (isArrl) {
+      const hasSubcontest = ARCHIVE_SUBCONTEST_ROOTS.has(contest.toUpperCase());
+      if (hasSubcontest) {
         yearMap.forEach((yearModeMap, subcontest) => {
           chunks.push(`<details class="repo-subcat"><summary>${escapeHtmlSafe(subcontest)}</summary>`);
           const years = Array.from(yearModeMap.keys()).sort((a, b) => Number(b) - Number(a));

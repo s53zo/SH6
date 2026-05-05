@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.35 (2026-05-05)
+- Archive search: keep second-level contest folders visible for `9A_HRS_Contest`, `DARC`, and `URE`, so searches render entries such as `9A_HRS_Contest -> Zimski KV Kup -> 2026`, `DARC -> RTTY Kurzcontest -> 2026 -> Jan`, and `URE -> EARTTY -> 2024`.
+- Archive smoke: cover 9A HRS, DARC, and URE grouped archive paths, and report failed check names in the smoke output.
+- Version bump to `v6.2.35` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.34 (2026-04-25)
 - Scoring architecture: centralize Cabrillo parsing and scoring helper logic in `modules/analysis/core.js`, leaving `main.js` as a delegating UI layer with explicit core capability checks.
 - Report security: escape nonnumeric log number/RST/exchange fields in live Log and export rendering so uploaded Cabrillo values cannot be interpreted as HTML.

@@ -83,7 +83,12 @@
         ]);
 
         add('Main.js imports the archive search runtime module', /const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = '\.\/modules\/archive\/search-runtime\.js\?v=[^']+';/.test(mainSource));
-        add('Main.js loads archive search runtime before setupRepoSearch calls', mainSource.includes('const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();') && mainSource.includes('await archiveSearchRuntimeReady;'));
+        add(
+          'Main.js loads archive search runtime before setupRepoSearch calls',
+          mainSource.includes('const archiveSearchRuntimeReady = loadArchiveSearchRuntimeModule();')
+            && mainSource.includes("const archiveSearchLoaded = await awaitInitRuntime('archive search runtime', archiveSearchRuntimeReady);")
+            && mainSource.indexOf("const archiveSearchLoaded = await awaitInitRuntime('archive search runtime', archiveSearchRuntimeReady);") < mainSource.indexOf("setupRepoSearch('A');")
+        );
         add('Main.js delegates setupRepoSearch to the archive search runtime', mainSource.includes('return getArchiveSearchRuntime().setupRepoSearch(slotId);'));
         add('Archive search runtime exports the factory', moduleSource.includes('export function createArchiveSearchRuntime'));
 
@@ -110,6 +115,11 @@
         const fakeRows = [
           { path: 'ARRL/DX/2024/PH/S53M.log', contest: 'ARRL', year: 2024, mode: 'PH', season: '', subcontest: 'DX' },
           { path: 'RECONSTRUCTED_LOGS/ARRL/arrl_10_meter_contest/2025/S53M.log', contest: 'ARRL', year: 2025, mode: '', season: '' },
+          { path: '9A_HRS_Contest/Zimski_KV_Kup/2026/9A5M.log', contest: '9A_HRS_Contest', year: 2026, mode: 'CW', season: '' },
+          { path: '9A_HRS_Contest/Croatian_DX_Contest/2025/9A5M.log', contest: '9A_HRS_Contest', year: 2025, mode: 'MIXED', season: '' },
+          { path: 'DARC/RTTY_Kurzcontest/2026/jan/S53M.log', contest: 'DARC', year: 2026, mode: 'RTTY', season: '' },
+          { path: 'DARC/Fieldday/CW/2024/S53M.log', contest: 'DARC', year: 2024, mode: 'CW', season: '' },
+          { path: 'URE/EARTTY/2024/S53M.log', contest: 'URE', year: 2024, mode: 'RTTY', season: '' },
           { path: 'CQWW/cw/2025/S53M.log', contest: 'CQWW', year: 2025, mode: 'CW', season: '' },
           { path: 'OK1WC_Memorial/2026-03-02/S53M.log', contest: 'OK1WC_Memorial', year: 2026, mode: '', season: 'Spring' },
           { path: 'RECONSTRUCTED_LOGS/CQWW/cw/2023/S53M.log', contest: 'CQWW', year: 2023, mode: 'CW', season: '' }
@@ -189,6 +199,30 @@
           dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
         );
         add(
+          '9A HRS archive paths render under their contest slug before year and mode',
+          dom.resultsEl.textContent.includes('9A_HRS_Contest')
+            && dom.resultsEl.textContent.includes('Zimski KV Kup')
+            && dom.resultsEl.textContent.includes('Croatian DX Contest')
+            && dom.resultsEl.querySelector('button[data-path="9A_HRS_Contest/Zimski_KV_Kup/2026/9A5M.log"]'),
+          dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
+        );
+        add(
+          'DARC archive paths render under DARC subcontest and keep edition or mode detail',
+          dom.resultsEl.textContent.includes('DARC')
+            && dom.resultsEl.textContent.includes('RTTY Kurzcontest')
+            && dom.resultsEl.textContent.includes('Jan')
+            && dom.resultsEl.textContent.includes('Fieldday')
+            && dom.resultsEl.querySelector('button[data-path="DARC/RTTY_Kurzcontest/2026/jan/S53M.log"]'),
+          dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
+        );
+        add(
+          'URE archive paths render under their contest family before year and mode',
+          dom.resultsEl.textContent.includes('URE')
+            && dom.resultsEl.textContent.includes('EARTTY')
+            && dom.resultsEl.querySelector('button[data-path="URE/EARTTY/2024/S53M.log"]'),
+          dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
+        );
+        add(
           'Search status reflects a completed callsign lookup',
           dom.statusEl.textContent === 'Select a log to load for S53M.',
           dom.statusEl.textContent
@@ -229,6 +263,7 @@
         setResult(failed.length === 0, {
           checksTotal: checks.length,
           checksFailed: failed.length,
+          failed,
           queryCalls,
           fetchCalls,
           applyCalls,

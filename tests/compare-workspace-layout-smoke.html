@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compare Workspace Layout Smoke</title>
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status { font-weight: 700; margin-bottom: 0.75rem; }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    .check-list { margin: 0 0 1rem 0; padding: 0; list-style: none; }
+    .check-list li { margin: 0.35rem 0; }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Compare Workspace Layout Smoke</h1>
+  <p>Checks that wide compare reports render stacked panels instead of desktop side-by-side grids.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        const module = await import('../modules/compare/workspace-ui.js');
+        const renderer = module.createCompareWorkspaceRenderer({
+          escapeHtml: (value) => String(value == null ? '' : value).replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
+          escapeAttr: (value) => String(value == null ? '' : value).replaceAll('"', '&quot;'),
+          formatNumberSh6: (value) => String(value),
+          formatDateSh6: (value) => String(value),
+          resolveCompareScoreModeLabel: (value) => String(value || 'Computed score'),
+          normalizeCompareScoreMode: (value) => String(value || 'computed'),
+          parseClaimedScoreNumber: () => null,
+          cloneTsRange: (range) => range ? { startTs: range.startTs, endTs: range.endTs } : null,
+          sameTsRange: () => false,
+          formatCompareTimeRangeLabel: () => '',
+          getCompareTimeRangeLock: () => null,
+          getBaseReportId: (reportId) => String(reportId || '').split('::')[0],
+          getCompareFocusPair: () => ['A', 'B'],
+          filterQsosAndPointsByTsRange: (qsos, pointsByIndex) => ({ qsos, pointsByIndex }),
+          getEffectivePointsByIndex: () => [],
+          buildMinutePointMap: () => new Map(),
+          buildMinuteCountMap: () => new Map(),
+          compareTimeLockReports: new Set(),
+          compareScrollSyncReports: new Set([
+            'qs_by_minute',
+            'points_by_minute',
+            'one_minute_rates',
+            'one_minute_point_rates',
+            'countries_by_time',
+            'rates'
+          ]),
+          compareScoreModeComputed: 'computed',
+          compareScoreModeClaimed: 'claimed',
+          compareScoreModeLogged: 'logged'
+        });
+        const buildSlots = (count) => ['A', 'B', 'C', 'D'].slice(0, count).map((id) => ({
+          id,
+          label: `Log ${id}`,
+          snapshot: {
+            derived: { contestMeta: { stationCallsign: id, contestId: 'TEST' } },
+            qsoData: { qsos: [] }
+          }
+        }));
+        const buildBlocks = (count) => buildSlots(count).map((slot) => `<table><tr><td>${slot.id}</td></tr></table>`);
+        const context = {
+          state: { compareStickyEnabled: true, compareSyncEnabled: true, compareScoreMode: 'computed' },
+          reports: []
+        };
+        const render = (reportId, count = 2) => {
+          const html = renderer.renderComparePanels(buildSlots(count), buildBlocks(count), reportId, { hideToolbar: true }, context);
+          const root = document.createElement('div');
+          root.innerHTML = html;
+          return root.querySelector('.compare-grid');
+        };
+        const getComputedColumnCount = (reportId, count = 2) => {
+          const html = renderer.renderComparePanels(buildSlots(count), buildBlocks(count), reportId, { hideToolbar: true }, context);
+          const root = document.createElement('div');
+          root.innerHTML = html;
+          document.body.appendChild(root);
+          const grid = root.querySelector('.compare-grid');
+          const columns = window.getComputedStyle(grid).gridTemplateColumns
+            .split(' ')
+            .map((part) => part.trim())
+            .filter(Boolean);
+          root.remove();
+          return columns.length;
+        };
+
+        const stackedReports = ['rates', 'qs_by_minute', 'points_by_minute', 'one_minute_rates', 'one_minute_point_rates', 'countries_by_time'];
+        const stackedMissing = stackedReports.filter((reportId) => !render(reportId)?.classList.contains('compare-stack'));
+        add('Wide/time compare reports use vertical stacked layout', stackedMissing.length === 0, stackedMissing.join(', '));
+
+        const syncedReports = ['rates', 'qs_by_minute', 'points_by_minute', 'one_minute_rates', 'one_minute_point_rates', 'countries_by_time'];
+        const syncMissing = syncedReports.filter((reportId) => render(reportId)?.querySelectorAll('.compare-scroll-sync').length !== 2);
+        add(
+          'Stacked wide/time reports retain synchronized scroll hooks',
+          syncMissing.length === 0,
+          syncMissing.join(', ')
+        );
+
+        const wrappedReports = ['one_minute_rates', 'one_minute_point_rates'];
+        const wrapMissing = wrappedReports.filter((reportId) => render(reportId)?.querySelectorAll('.compare-scroll-wrap').length !== 2);
+        add(
+          'One-minute distribution reports remain wrapped while stacked',
+          wrapMissing.length === 0
+            && wrappedReports.every((reportId) => {
+              const grid = render(reportId);
+              return grid?.classList.contains('compare-stack') && grid?.classList.contains('compare-narrow');
+            }),
+          wrapMissing.join(', ')
+        );
+
+        const computedStackFailures = stackedReports.filter((reportId) => getComputedColumnCount(reportId) !== 1);
+        add(
+          'Stacked 2-slot reports compute to one desktop grid column',
+          computedStackFailures.length === 0,
+          computedStackFailures.join(', ')
+        );
+
+        const multiSlotStackFailures = [3, 4].flatMap((count) => (
+          ['one_minute_rates', 'one_minute_point_rates', 'rates'].filter((reportId) => getComputedColumnCount(reportId, count) !== 1)
+            .map((reportId) => `${reportId}:${count}`)
+        ));
+        add(
+          'Stacked narrow/quad reports compute to one column for 3- and 4-slot compare',
+          multiSlotStackFailures.length === 0,
+          multiSlotStackFailures.join(', ')
+        );
+
+        const compactGrid = render('summary');
+        add(
+          'Compact compare reports keep side-by-side capable layout',
+          compactGrid && !compactGrid.classList.contains('compare-stack'),
+          compactGrid?.className || ''
+        );
+
+        const chartGrid = render('charts_qs_by_band');
+        add(
+          'Chart compare reports remain chart layouts, not forced stacks',
+          chartGrid?.classList.contains('compare-chart') && !chartGrid.classList.contains('compare-stack'),
+          chartGrid?.className || ''
+        );
+
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, { checksTotal: checks.length, checksFailed: failed.length, failed });
+      } catch (err) {
+        setResult(false, {
+          error: err && err.stack ? err.stack : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

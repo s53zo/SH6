@@ -678,7 +678,7 @@ function buildPostmortemWriter(snapshot) {
     headline: 'Draft debrief is ready to refine',
     summary: 'Use this as the spine of your written postmortem, then attach evidence from the linked reports.',
     evidence: lines,
-    actions: [buildAction('Open Summary', 'summary'), buildAction('Open Save&Load session', 'session'), buildAction('Open Agent briefing', 'agent_briefing')],
+    actions: [buildAction('Open Summary', 'summary'), buildAction('Open Save&Load session', 'session')],
     provenance: {
       freshness: 'session',
       official: false,

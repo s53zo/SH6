@@ -238,7 +238,14 @@ export function createCompareWorkspaceRenderer(deps = {}) {
       'rates'
     ]);
     const wrapReports = new Set(['one_minute_rates', 'one_minute_point_rates']);
-    const stackReports = new Set(['rates']);
+    const stackReports = new Set([
+      'rates',
+      'qs_by_minute',
+      'points_by_minute',
+      'one_minute_rates',
+      'one_minute_point_rates',
+      'countries_by_time'
+    ]);
     const quadReports = new Set([
       'main',
       'summary',

@@ -1645,6 +1645,12 @@ body.analysis-mode-dxer .load-tip-badge {
   .compare-grid.compare-narrow.compare-count-4 {
     grid-template-columns: repeat(4, max-content);
   }
+
+  .compare-grid.compare-stack.compare-narrow.compare-count-2,
+  .compare-grid.compare-stack.compare-narrow.compare-count-3,
+  .compare-grid.compare-stack.compare-narrow.compare-count-4 {
+    grid-template-columns: 1fr;
+  }
 }
 
 .compare-panel {
@@ -1869,6 +1875,11 @@ body.analysis-mode-dxer .load-tip-badge {
   .compare-grid.compare-quad.compare-count-3,
   .compare-grid.compare-quad.compare-count-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compare-grid.compare-stack.compare-quad.compare-count-3,
+  .compare-grid.compare-stack.compare-quad.compare-count-4 {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menu Visibility Smoke</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 1.25rem;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .status { font-weight: 700; margin-bottom: 0.75rem; }
+    .status-pass { color: #166534; }
+    .status-fail { color: #b91c1c; }
+    .check-list { margin: 0 0 1rem 0; padding: 0; list-style: none; }
+    .check-list li { margin: 0.35rem 0; }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      max-height: 70vh;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Menu Visibility Smoke</h1>
+  <p>Checks that removed sidebar entries stay out of the generated report menu while replacement entries remain available.</p>
+  <div id="status" class="status">RUNNING</div>
+  <ul id="checks" class="check-list"></ul>
+  <pre id="result">Waiting for test result...</pre>
+
+  <script type="module">
+    (async () => {
+      const statusEl = document.getElementById('status');
+      const listEl = document.getElementById('checks');
+      const resultEl = document.getElementById('result');
+      const checks = [];
+      const add = (name, ok, details = '') => checks.push({ name, ok: Boolean(ok), details });
+
+      function setResult(ok, payload) {
+        statusEl.textContent = ok ? 'PASS' : 'FAIL';
+        statusEl.className = `status ${ok ? 'status-pass' : 'status-fail'}`;
+        listEl.innerHTML = '';
+        checks.forEach((entry) => {
+          const li = document.createElement('li');
+          li.className = entry.ok ? 'ok' : 'bad';
+          li.textContent = `${entry.ok ? '✓' : '✗'} ${entry.name}${entry.ok || !entry.details ? '' : ` - ${entry.details}`}`;
+          listEl.appendChild(li);
+        });
+        resultEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      try {
+        const [mainSource, agentSource, navModule] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then((res) => res.text()),
+          fetch('../modules/agents/runtime.js', { cache: 'no-store' }).then((res) => res.text()),
+          import('../modules/ui/navigation-runtime.js')
+        ]);
+        const baseReportsStart = mainSource.indexOf('const BASE_REPORTS = [');
+        const baseReportsEnd = mainSource.indexOf('];', baseReportsStart);
+        const baseReportsBlock = baseReportsStart >= 0 && baseReportsEnd > baseReportsStart
+          ? mainSource.slice(baseReportsStart, baseReportsEnd)
+          : '';
+        const navMapStart = mainSource.indexOf('const NAV_SECTION_BY_REPORT = Object.freeze({');
+        const navMapEnd = mainSource.indexOf('});', navMapStart);
+        const navMapBlock = navMapStart >= 0 && navMapEnd > navMapStart
+          ? mainSource.slice(navMapStart, navMapEnd)
+          : '';
+
+        add('BASE_REPORTS block was found', Boolean(baseReportsBlock), '');
+        add('Agent briefing is absent from the generated report menu', !baseReportsBlock.includes("id: 'agent_briefing'"), baseReportsBlock);
+        add('Geography Beam heading is absent from the generated report menu', !baseReportsBlock.includes("id: 'beam_heading'"), baseReportsBlock);
+        add('Charts Beam heading remains available', baseReportsBlock.includes("id: 'charts_beam_heading'"), baseReportsBlock);
+        add(
+          'Removed reports are not assigned to visible nav sections',
+          !/(^|\n)\s*agent_briefing\s*:/.test(navMapBlock)
+            && !/(^|\n)\s*beam_heading\s*:/.test(navMapBlock),
+          navMapBlock
+        );
+        add('Generated agent actions no longer offer Agent briefing', !agentSource.includes('Open Agent briefing'), '');
+
+        const reports = Array.from(baseReportsBlock.matchAll(/\{\s*id:\s*'([^']+)',\s*title:\s*'([^']+)'\s*\}/g))
+          .map((match) => ({ id: match[1], title: match[2] }));
+        const navSectionByReport = {};
+        Array.from(navMapBlock.matchAll(/(^|\n)\s*([a-z0-9_]+):\s*'([^']+)'/g))
+          .forEach((match) => {
+            navSectionByReport[match[2]] = match[3];
+          });
+        const appRoot = document.createElement('div');
+        appRoot.innerHTML = `
+          <input id="navSearchInput" aria-label="Command / report search">
+          <div id="navSearchEmpty" hidden aria-hidden="true"></div>
+          <ol id="navList"></ol>
+          <button id="prevBtn"></button>
+          <button id="nextBtn"></button>
+          <div id="viewTitle"></div>
+          <div id="viewContainer"></div>
+          <div id="loadPanel"></div>
+          <div id="bandRibbon"></div>
+          <div id="periodFilterRibbon"></div>
+        `;
+        document.body.appendChild(appRoot);
+        const state = {
+          activeIndex: 0,
+          mapViewActive: false,
+          navSearch: '',
+          showLoadPanel: true,
+          analysisMode: 'contester'
+        };
+        const runtime = navModule.createNavigationRuntime({
+          getDom: () => ({
+            navList: appRoot.querySelector('#navList'),
+            navSearchInput: appRoot.querySelector('#navSearchInput'),
+            navSearchEmpty: appRoot.querySelector('#navSearchEmpty'),
+            prevBtn: appRoot.querySelector('#prevBtn'),
+            nextBtn: appRoot.querySelector('#nextBtn'),
+            viewTitle: appRoot.querySelector('#viewTitle'),
+            viewContainer: appRoot.querySelector('#viewContainer'),
+            loadPanel: appRoot.querySelector('#loadPanel'),
+            bandRibbon: appRoot.querySelector('#bandRibbon'),
+            periodFilterRibbon: appRoot.querySelector('#periodFilterRibbon')
+          }),
+          getState: () => state,
+          getReports: () => reports,
+          navSections: [
+            { id: 'load_core', title: 'Load & Core', openByDefault: true },
+            { id: 'rate_time', title: 'Rates & Time', openByDefault: true },
+            { id: 'geo_analysis', title: 'Geography', openByDefault: true },
+            { id: 'quality_review', title: 'Quality & Review', openByDefault: false },
+            { id: 'maps_charts', title: 'Maps & Charts', openByDefault: true },
+            { id: 'spots_coach', title: 'Spots & Coach', openByDefault: true },
+            { id: 'export_tools', title: 'Export & Tools', openByDefault: false }
+          ],
+          navSectionByReport,
+          trackEvent: () => {},
+          renderReport: (report) => `<div>${report.title}</div>`,
+          bindReportInteractions: () => {},
+          destroyVirtualTableControllers: () => {},
+          renderRetainedReportContent: (reportId) => `<div>${reportId}</div>`,
+          isRetainedReport: () => false,
+          escapeAttr: (value) => String(value == null ? '' : value).replace(/"/g, '&quot;'),
+          trackRenderPerf: () => {},
+          renderMapView: () => '<div>Map</div>',
+          scheduleAutosaveSession: () => {},
+          shouldPeriodFilterReport: () => false,
+          updatePeriodRibbon: () => {},
+          analysisModeDxer: 'dxer'
+        });
+        runtime.initNavigation();
+        const navItems = Array.from(appRoot.querySelectorAll('#navList [data-index]')).map((el) => ({
+          text: (el.textContent || '').trim(),
+          section: el.closest('.nav-section-item')?.querySelector('summary')?.textContent.trim() || ''
+        }));
+        const beamItems = navItems.filter((item) => item.text === 'Beam heading');
+        add('Generated nav omits Agent briefing', !navItems.some((item) => item.text === 'Agent briefing'), JSON.stringify(navItems));
+        add(
+          'Generated nav keeps only Maps & Charts Beam heading',
+          beamItems.length === 1 && beamItems[0].section === 'Maps & Charts',
+          JSON.stringify(beamItems)
+        );
+
+        const failed = checks.filter((entry) => !entry.ok);
+        setResult(failed.length === 0, { checksTotal: checks.length, checksFailed: failed.length, failed });
+      } catch (err) {
+        setResult(false, {
+          error: err && err.stack ? err.stack : String(err),
+          checks
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

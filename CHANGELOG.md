@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.38 (2026-05-07)
+- Compare workspace: stack wide/time compare reports vertically for Rates, Qs by minute, Points by minute, one-minute distributions, and Countries by time while retaining synchronized scroll behavior.
+- Navigation: remove the visible Agent briefing entry and duplicate Geography Beam heading entry while keeping the Maps & Charts Beam heading report available.
+- Smoke coverage: add repeatable browser smokes for compare workspace layout and menu visibility.
+- Version bump to `v6.2.38` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.37 (2026-05-05)
 - Compare reports: restore the shared static table row join helper used by Countries, Prefixes, Distance, and related compare tables.
 - Version bump to `v6.2.37` and refresh cache-busting references in `index.html`, `main.js`.

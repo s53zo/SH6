@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.39 (2026-05-24)
+- Passed QSOs: render same-callsign cross-band contacts as paired pass candidates with From/To QSO numbers, timestamps, bands, modes, and delay.
+- Passed QSOs: add a band-transition summary table with pair counts plus average, fastest, and slowest delays.
+- Report drilldowns: delegate log-range and callsign link clicks through the report container so virtualized table links remain clickable after rows mount or recycle.
+- Version bump to `v6.2.39` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.38 (2026-05-07)
 - Compare workspace: stack wide/time compare reports vertically for Rates, Qs by minute, Points by minute, one-minute distributions, and Countries by time while retaining synchronized scroll behavior.
 - Navigation: remove the visible Agent briefing entry and duplicate Geography Beam heading entry while keeping the Maps & Charts Beam heading report available.

@@ -146,7 +146,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.38';
+  const APP_VERSION = 'v6.2.39';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -192,34 +192,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.38';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.38';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.38';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.38';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.38';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.38';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.38';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.38';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.38';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.38';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.38';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.38';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.38';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.38';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.38';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.38';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.38';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.38';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.38';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.38';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.38';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.38';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.38';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.38';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.38';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.38';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.38';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.38';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.39';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.39';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.39';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.39';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.39';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.39';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.39';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.39';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.39';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.39';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.39';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.39';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.39';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.39';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.39';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.39';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.39';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.39';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.39';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.39';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.39';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.39';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.39';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.39';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.39';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.39';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.39';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.39';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1322,6 +1322,7 @@
   let callsignGridInFlight = false;
   let callsignLookupLastRequestTs = 0;
   let viewContainerMapLinkHandler = null;
+  let viewContainerLogDrilldownHandler = null;
   let agentRuntimeModulePromise = null;
   let navigationRuntimeModulePromise = null;
   let navigationRuntime = null;
@@ -13814,53 +13815,114 @@
     return out;
   }
 
-  function buildPassedQsoSet(qsos, windowMinutes) {
+  function buildPassedQsoPairs(qsos, windowMinutes) {
     const windowMs = Math.max(1, Number(windowMinutes) || 10) * 60000;
     const byCall = new Map();
-    qsos.forEach((q, idx) => {
+    (qsos || []).forEach((q, idx) => {
       const call = (q.call || '').trim().toUpperCase();
-      const band = (q.band || '').trim();
+      const band = (q.band || '').trim().toUpperCase();
       if (!call || !band || !Number.isFinite(q.ts)) return;
       if (!byCall.has(call)) byCall.set(call, []);
-      byCall.get(call).push({ idx, ts: q.ts, band });
+      byCall.get(call).push({ q, idx, call, band, ts: q.ts });
     });
-    const passed = new Set();
+
+    const pairs = [];
+    const seen = new Set();
     byCall.forEach((list) => {
       if (list.length < 2) return;
-      list.sort((a, b) => a.ts - b.ts);
-      let l = 0;
-      let r = 0;
-      const bandCounts = new Map();
-      const addBand = (band) => {
-        bandCounts.set(band, (bandCounts.get(band) || 0) + 1);
-      };
-      const removeBand = (band) => {
-        const next = (bandCounts.get(band) || 0) - 1;
-        if (next <= 0) bandCounts.delete(band);
-        else bandCounts.set(band, next);
-      };
-      for (let i = 0; i < list.length; i += 1) {
-        const currentTs = list[i].ts;
-        while (r < list.length && list[r].ts - currentTs <= windowMs) {
-          addBand(list[r].band);
-          r += 1;
+      list.sort((a, b) => a.ts - b.ts || a.idx - b.idx);
+      for (let i = 0; i < list.length - 1; i += 1) {
+        let best = null;
+        for (let j = i + 1; j < list.length; j += 1) {
+          const delayMs = list[j].ts - list[i].ts;
+          if (delayMs > windowMs) break;
+          if (list[i].band === list[j].band) continue;
+          best = { from: list[i], to: list[j], delayMs };
+          break;
         }
-        while (currentTs - list[l].ts > windowMs) {
-          removeBand(list[l].band);
-          l += 1;
-        }
-        if (bandCounts.size > 1) {
-          passed.add(list[i].idx);
-        }
+        if (!best) continue;
+        const key = `${best.from.idx}:${best.to.idx}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        pairs.push(best);
       }
     });
-    return passed;
+    pairs.sort((a, b) => a.from.ts - b.from.ts || a.to.ts - b.to.ts || a.from.idx - b.from.idx);
+    return pairs;
+  }
+
+  function buildPassedTransitionStats(pairs) {
+    const stats = new Map();
+    (pairs || []).forEach((pair) => {
+      const fromBand = (pair?.from?.band || '').trim().toUpperCase();
+      const toBand = (pair?.to?.band || '').trim().toUpperCase();
+      if (!fromBand || !toBand) return;
+      const key = `${fromBand}>${toBand}`;
+      const existing = stats.get(key) || {
+        fromBand,
+        toBand,
+        count: 0,
+        totalDelayMs: 0,
+        minDelayMs: Infinity,
+        maxDelayMs: 0
+      };
+      const delayMs = Math.max(0, Number(pair.delayMs) || 0);
+      existing.count += 1;
+      existing.totalDelayMs += delayMs;
+      existing.minDelayMs = Math.min(existing.minDelayMs, delayMs);
+      existing.maxDelayMs = Math.max(existing.maxDelayMs, delayMs);
+      stats.set(key, existing);
+    });
+    return Array.from(stats.values()).sort((a, b) => (
+      b.count - a.count
+      || a.fromBand.localeCompare(b.fromBand)
+      || a.toBand.localeCompare(b.toBand)
+    ));
+  }
+
+  function formatPassedDelay(delayMs) {
+    const totalSeconds = Math.max(0, Math.round((Number(delayMs) || 0) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const rest = minutes % 60;
+      return `${hours}h ${String(rest).padStart(2, '0')}m`;
+    }
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function renderPassedTransitionMatrix(pairs) {
+    const stats = buildPassedTransitionStats(pairs);
+    if (!stats.length) return '';
+    const rows = stats.map((entry, idx) => {
+      const avgDelay = entry.count ? entry.totalDelayMs / entry.count : 0;
+      const fromLabel = escapeHtml(formatBandLabel(entry.fromBand));
+      const toLabel = escapeHtml(formatBandLabel(entry.toBand));
+      return `
+      <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
+        <td class="${bandClass(entry.fromBand)}">${fromLabel}</td>
+        <td class="${bandClass(entry.toBand)}">${toLabel}</td>
+        <td>${formatNumberHtmlSh6(entry.count)}</td>
+        <td>${escapeHtml(formatPassedDelay(avgDelay))}</td>
+        <td>${escapeHtml(formatPassedDelay(entry.minDelayMs))}</td>
+        <td>${escapeHtml(formatPassedDelay(entry.maxDelayMs))}</td>
+      </tr>
+      `;
+    }).join('');
+    return `
+      <h3>Band transitions</h3>
+      <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+        <tr class="thc"><th>From</th><th>To</th><th>Pairs</th><th>Avg delay</th><th>Fastest</th><th>Slowest</th></tr>
+        ${rows}
+      </table>
+    `;
   }
 
   function renderPassedQsosForList(qsos, options = {}) {
     const windowMinutes = Math.max(1, Number(state.passedQsoWindow) || 10);
-    const passedSet = buildPassedQsoSet(qsos, windowMinutes);
-    const passed = qsos.filter((_, idx) => passedSet.has(idx));
+    const pairs = buildPassedQsoPairs(qsos, windowMinutes);
+    const calls = new Set(pairs.map((pair) => pair.from.call));
     const showControls = options.showControls !== false;
     const slider = showControls ? `
       <div class="break-controls passed-controls">
@@ -13868,37 +13930,61 @@
         <input type="range" class="passed-window" min="1" max="60" step="1" value="${windowMinutes}">
         <span class="passed-window-value">${windowMinutes}</span>
       </div>
-      <p>A passed QSO is a callsign worked on another band within ${windowMinutes} minutes.</p>
+      <p>A passed QSO pair is the nearest later same-callsign contact on another band within ${windowMinutes} minutes.</p>
     ` : '';
-    if (!passed.length) return `${slider}<p>No passed QSOs detected.</p>`;
-    const rows = passed.map((q, idx) => {
-      const number = q.qsoNumber || '';
-      const numberAttr = escapeAttr(number);
-      const numberCell = number ? `<a href="#" class="log-range" data-start="${numberAttr}" data-end="${numberAttr}">${formatNumberHtmlSh6(number)}</a>` : '';
-      const time = escapeHtml(q.time || '');
-      const call = escapeHtml(q.call || '');
-      const callAttr = escapeAttr(q.call || '');
-      const band = escapeHtml(formatBandLabel(q.band || ''));
-      const mode = escapeHtml(q.mode || '');
+    if (!pairs.length) return `${slider}<p>No passed QSO pairs detected.</p>`;
+    const summary = `
+      <p>
+        Passed QSO pairs: ${formatNumberSh6(pairs.length)}
+        &nbsp;|&nbsp; Callsigns: ${formatNumberSh6(calls.size)}
+        &nbsp;|&nbsp; Window: ${formatNumberSh6(windowMinutes)} minutes
+      </p>
+    `;
+    const transitionMatrix = renderPassedTransitionMatrix(pairs);
+    const rows = pairs.map((pair, idx) => {
+      const from = pair.from.q || {};
+      const to = pair.to.q || {};
+      const fromNumber = from.qsoNumber || '';
+      const toNumber = to.qsoNumber || '';
+      const fromNumberAttr = escapeAttr(fromNumber);
+      const toNumberAttr = escapeAttr(toNumber);
+      const fromNumberCell = fromNumber ? `<a href="#" class="log-range" data-start="${fromNumberAttr}" data-end="${fromNumberAttr}">${formatNumberHtmlSh6(fromNumber)}</a>` : '';
+      const toNumberCell = toNumber ? `<a href="#" class="log-range" data-start="${toNumberAttr}" data-end="${toNumberAttr}">${formatNumberHtmlSh6(toNumber)}</a>` : '';
+      const call = escapeHtml(pair.from.call || '');
+      const callAttr = escapeAttr(pair.from.call || '');
+      const fromTime = escapeHtml(from.ts ? formatDateSh6(from.ts) : (from.time || ''));
+      const toTime = escapeHtml(to.ts ? formatDateSh6(to.ts) : (to.time || ''));
+      const fromBand = escapeHtml(formatBandLabel(from.band || ''));
+      const toBand = escapeHtml(formatBandLabel(to.band || ''));
+      const fromMode = escapeHtml(from.mode || '');
+      const toMode = escapeHtml(to.mode || '');
+      const delay = escapeHtml(formatPassedDelay(pair.delayMs));
       return `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}">
-        <td>${numberCell}</td>
-        <td>${q.ts ? formatDateSh6(q.ts) : time}</td>
         <td><a href="#" class="log-call" data-call="${callAttr}">${call}</a></td>
-        <td class="${bandClass(q.band)}">${band}</td>
-        <td class="${modeClass(q.mode)}">${mode}</td>
+        <td>${fromNumberCell}</td>
+        <td>${fromTime}</td>
+        <td class="${bandClass(from.band)}">${fromBand}</td>
+        <td class="${modeClass(from.mode)}">${fromMode}</td>
+        <td>${toNumberCell}</td>
+        <td>${toTime}</td>
+        <td class="${bandClass(to.band)}">${toBand}</td>
+        <td class="${modeClass(to.mode)}">${toMode}</td>
+        <td>${delay}</td>
       </tr>
     `;
     });
     return `
       ${slider}
+      ${summary}
+      ${transitionMatrix}
       ${renderRetainedVirtualTable('passed_qsos', {
         rows,
         rowHeight: 28,
         overscan: 10,
-        columnCount: 5,
-        emptyHtml: '<tr class="td1"><td colspan="5">No passed QSOs detected.</td></tr>',
-        headerHtml: '<tr class="thc"><th>#</th><th>Time</th><th>Call</th><th>Band</th><th>Mode</th></tr>'
+        columnCount: 10,
+        emptyHtml: '<tr class="td1"><td colspan="10">No passed QSO pairs detected.</td></tr>',
+        headerHtml: '<tr class="thc"><th>Call</th><th>From #</th><th>From time</th><th>From band</th><th>From mode</th><th>To #</th><th>To time</th><th>To band</th><th>To mode</th><th>Delay</th></tr>'
       })}
     `;
   }
@@ -15872,6 +15958,67 @@
     });
 
     if (dom.viewContainer instanceof HTMLElement) {
+      if (typeof viewContainerLogDrilldownHandler === 'function') {
+        dom.viewContainer.removeEventListener('click', viewContainerLogDrilldownHandler);
+      }
+      viewContainerLogDrilldownHandler = (evt) => {
+        if (evt.defaultPrevented) return;
+        const target = evt.target instanceof Element ? evt.target.closest('.log-range, .log-call') : null;
+        if (!(target instanceof HTMLElement) || !dom.viewContainer.contains(target)) return;
+        if (target.classList.contains('log-range')) {
+          evt.preventDefault();
+          const start = Number(target.dataset.start);
+          const end = Number(target.dataset.end);
+          const excludeDupes = target.dataset.excludeDupes === '1';
+          if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+          state.logRange = { start, end, excludeDupes };
+          state.logSearch = '';
+          state.logFieldFilter = '';
+          state.logBandFilter = '';
+          state.logModeFilter = '';
+          state.logOpFilter = '';
+          state.logCallLenFilter = null;
+          state.logCallStructFilter = '';
+          state.logCountryFilter = '';
+          state.logContinentFilter = '';
+          state.logCqFilter = '';
+          state.logItuFilter = '';
+          state.logTimeRange = null;
+          state.logHeadingRange = null;
+          state.logStationQsoRange = null;
+          state.logDistanceRange = null;
+          state.logPage = 0;
+          const logIndex = reports.findIndex((r) => r.id === 'log');
+          if (logIndex >= 0) setActiveReport(logIndex);
+          return;
+        }
+        if (target.classList.contains('log-call')) {
+          evt.preventDefault();
+          const call = (target.dataset.call || '').trim().toUpperCase();
+          if (!call) return;
+          state.logRange = null;
+          state.logSearch = call;
+          state.logFieldFilter = '';
+          state.logBandFilter = '';
+          state.logModeFilter = '';
+          state.logOpFilter = '';
+          state.logCallLenFilter = null;
+          state.logCallStructFilter = '';
+          state.logCountryFilter = '';
+          state.logContinentFilter = '';
+          state.logCqFilter = '';
+          state.logItuFilter = '';
+          state.logTimeRange = null;
+          state.logHeadingRange = null;
+          state.logStationQsoRange = null;
+          state.logDistanceRange = null;
+          state.logPage = 0;
+          const logIndex = reports.findIndex((r) => r.id === 'log');
+          if (logIndex >= 0) setActiveReport(logIndex);
+        }
+      };
+      dom.viewContainer.addEventListener('click', viewContainerLogDrilldownHandler);
+
       if (typeof viewContainerMapLinkHandler === 'function') {
         dom.viewContainer.removeEventListener('click', viewContainerMapLinkHandler);
       }

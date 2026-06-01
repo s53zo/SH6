@@ -146,7 +146,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.39';
+  const APP_VERSION = 'v6.2.40';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -192,34 +192,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.39';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.39';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.39';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.39';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.39';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.39';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.39';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.39';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.39';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.39';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.39';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.39';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.39';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.39';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.39';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.39';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.39';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.39';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.39';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.39';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.39';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.39';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.39';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.39';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.39';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.39';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.39';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.39';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.40';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.40';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.40';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.40';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.40';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.40';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.40';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.40';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.40';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.40';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.40';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.40';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.40';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.40';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.40';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.40';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.40';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.40';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.40';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.40';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.40';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.40';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.40';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.40';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.40';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.40';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.40';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.40';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -12143,9 +12143,9 @@
           <td>${formatNumberSh6(entry?.spQsos || 0)}</td>
           <td>${formatOperatingStylePct(entry?.spPct)}</td>
           <td>${formatNumberSh6(entry?.inbandQsos || 0)}</td>
-          <td>${formatOperatingStylePct(entry?.inbandPct)}</td>
-          <td>${formatNumberSh6(entry?.searchQsos || 0)}</td>
-          <td>${formatOperatingStylePct(entry?.searchPct)}</td>
+          <td>${formatOperatingStylePct(entry?.inbandPctOfSp)}</td>
+          <td>${formatNumberSh6(entry?.offbandSpQsos || entry?.searchQsos || 0)}</td>
+          <td>${formatOperatingStylePct(entry?.offbandSpPctOfSp ?? entry?.searchPctOfSp)}</td>
         </tr>
       `;
     }).join('');
@@ -12157,11 +12157,11 @@
           <th>RUN</th>
           <th>% RUN</th>
           <th>S&amp;P</th>
-          <th>% S&amp;P</th>
+          <th>% S&amp;P of all</th>
           <th>INBAND</th>
-          <th>% INBAND</th>
-          <th>Search only</th>
-          <th>% Search</th>
+          <th>% INBAND of S&amp;P</th>
+          <th>Off-band S&amp;P</th>
+          <th>% Off-band of S&amp;P</th>
         </tr>
         ${rows}
       </table>
@@ -12183,19 +12183,19 @@
     const excluded = Number(operatingStyle?.excludedQsoCount || 0);
     const intro = renderReportIntroCard(
       'RUN vs S&P vs INBAND',
-      'Per-band operating-style estimate based on local frequency clustering. S&P includes both INBAND and search-only QSOs.',
+      'Per-band operating-style estimate based on local frequency clustering. S&P includes both INBAND and off-band S&P QSOs.',
       [
         `${formatNumberSh6(totals.qsos || 0)} classified QSOs`,
         `RUN ${formatOperatingStylePct(totals.runPct || 0)}`,
         `S&P ${formatOperatingStylePct(totals.spPct || 0)}`,
-        `INBAND ${formatOperatingStylePct(totals.inbandPct || 0)}`
+        `INBAND ${formatOperatingStylePct(totals.inbandPctOfSp || 0)} of S&P`
       ]
     );
     const heuristicText = [
       `Window ±${formatNumberSh6(meta.windowRadiusQsos || 0)} QSOs`,
       `min cluster ${formatNumberSh6(meta.minClusterCount || 0)}`,
       `min share ${formatOperatingStylePct((Number(meta.dominanceShareMin) || 0) * 100)}`,
-      `RUN return ±${formatNumberSh6(meta.inbandReturnRadiusQsos || 0)} QSOs`
+      `active RUN gap ≤${formatNumberSh6(meta.activeRunGapQsos || 0)} QSOs`
     ].join(' · ');
     const excludedNote = excluded
       ? `<div class="export-actions export-note">Excluded from this analysis: ${formatNumberSh6(excluded)} QSOs without valid time or frequency.</div>`
@@ -12203,7 +12203,7 @@
     return `
       ${intro}
       <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>
-      <div class="export-actions export-note"><b>Definition</b>: INBAND means an off-run QSO bracketed by nearby RUN QSOs on the same band. S&amp;P = INBAND + Search only.</div>
+      <div class="export-actions export-note"><b>Definition</b>: INBAND means an S&amp;P QSO on a band where SH6 infers an active RUN stream. S&amp;P = INBAND + Off-band S&amp;P; INBAND percentage is computed over S&amp;P.</div>
       ${excludedNote}
       ${renderOperatingStyleTable(operatingStyle)}
     `;

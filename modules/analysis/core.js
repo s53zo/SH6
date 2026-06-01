@@ -421,7 +421,8 @@
       windowRadiusQsos: 20,
       minClusterCount: 4,
       dominanceShareMin: 0.35,
-      inbandReturnRadiusQsos: 10
+      inbandReturnRadiusQsos: 10,
+      activeRunGapQsos: 40
     };
     const buckets = new Map();
     let excludedQsoCount = 0;
@@ -438,6 +439,7 @@
       buckets.get(key).items.push({ q, index });
     });
     const bandMap = new Map();
+    const allOperatingItems = [];
     const ensureBand = (band) => {
       if (!bandMap.has(band)) {
         bandMap.set(band, {
@@ -446,10 +448,14 @@
           runQsos: 0,
           inbandQsos: 0,
           searchQsos: 0,
+          offbandSpQsos: 0,
           spQsos: 0,
           runPct: 0,
           inbandPct: 0,
           searchPct: 0,
+          inbandPctOfSp: 0,
+          searchPctOfSp: 0,
+          offbandSpPctOfSp: 0,
           spPct: 0,
           topRunFrequencies: [],
           modeBreakdown: [],
@@ -473,10 +479,14 @@
         runQsos: 0,
         inbandQsos: 0,
         searchQsos: 0,
+        offbandSpQsos: 0,
         spQsos: 0,
         runPct: 0,
         inbandPct: 0,
         searchPct: 0,
+        inbandPctOfSp: 0,
+        searchPctOfSp: 0,
+        offbandSpPctOfSp: 0,
         spPct: 0,
         clusterRadiusKhz: radiusKhz,
         topRunFrequencies: []
@@ -524,6 +534,7 @@
         };
       }
 
+      const bucketItems = [];
       for (let i = 0; i < list.length; i += 1) {
         let hasPrevCenteredRun = false;
         for (let j = i - 1; j >= Math.max(0, i - meta.inbandReturnRadiusQsos); j -= 1) {
@@ -541,35 +552,82 @@
         }
         const hasRunReturn = hasPrevCenteredRun && hasNextCenteredRun;
         const transitionRun = analysis[i].streakRunSupported && !hasRunReturn;
-        const role = analysis[i].centeredOnRun || transitionRun
-          ? 'RUN'
-          : (analysis[i].centeredRunActive && hasRunReturn ? 'INBAND' : 'SEARCH');
         const q = list[i].q;
-        q.operatingStyleRole = role;
         q.operatingStyleBand = bucket.band;
         q.operatingStyleMode = bucket.mode;
-        q.operatingStyleRunFreq = role === 'RUN'
-          ? (analysis[i].centeredOnRun ? analysis[i].dominantRunFreq : q.freq)
-          : analysis[i].dominantRunFreq;
-
-        bandEntry.qsos += 1;
-        modeEntry.qsos = list.length;
-        if (role === 'RUN') {
-          bandEntry.runQsos += 1;
-          modeEntry.runQsos += 1;
-          const runFreq = Number.isFinite(q.operatingStyleRunFreq) ? q.operatingStyleRunFreq : q.freq;
-          const freqKey = Math.round(runFreq * 1000);
-          bandEntry._runFreqs.set(freqKey, (bandEntry._runFreqs.get(freqKey) || 0) + 1);
-          modeRunFreqs.set(freqKey, (modeRunFreqs.get(freqKey) || 0) + 1);
-        } else if (role === 'INBAND') {
-          bandEntry.inbandQsos += 1;
-          modeEntry.inbandQsos += 1;
-        } else {
-          bandEntry.searchQsos += 1;
-          modeEntry.searchQsos += 1;
-        }
+        bucketItems.push({
+          q,
+          index: list[i].index,
+          band: bucket.band,
+          mode: bucket.mode,
+          modeEntry,
+          bandEntry,
+          modeRunFreqs,
+          preliminaryRun: analysis[i].centeredOnRun || transitionRun,
+          runFreq: analysis[i].centeredOnRun ? analysis[i].dominantRunFreq : q.freq,
+          candidateRunFreq: analysis[i].dominantRunFreq
+        });
       }
+      allOperatingItems.push(...bucketItems);
+      modeEntry.qsos = list.length;
+      bandEntry.modeBreakdown.push(modeEntry);
+    });
 
+    const itemsByBand = new Map();
+    allOperatingItems.forEach((entry) => {
+      if (!itemsByBand.has(entry.band)) itemsByBand.set(entry.band, []);
+      itemsByBand.get(entry.band).push(entry);
+    });
+    const activeRunRangesByBand = new Map();
+    itemsByBand.forEach((items, band) => {
+      const ordered = items.slice().sort((a, b) => (
+        (a.q.ts - b.q.ts)
+        || ((a.q.qsoNumber || 0) - (b.q.qsoNumber || 0))
+        || (a.index - b.index)
+      ));
+      const ranges = [];
+      ordered.forEach((entry, pos) => {
+        entry.bandPosition = pos;
+        if (!entry.preliminaryRun) return;
+        const last = ranges[ranges.length - 1];
+        if (last && pos - last.end <= meta.activeRunGapQsos) last.end = pos;
+        else ranges.push({ start: pos, end: pos });
+      });
+      activeRunRangesByBand.set(band, ranges);
+    });
+    const isActiveRunPosition = (entry) => {
+      const ranges = activeRunRangesByBand.get(entry.band) || [];
+      return ranges.some((range) => entry.bandPosition >= range.start && entry.bandPosition <= range.end);
+    };
+
+    allOperatingItems.forEach((entry) => {
+      const role = entry.preliminaryRun ? 'RUN' : (isActiveRunPosition(entry) ? 'INBAND' : 'SEARCH');
+      const q = entry.q;
+      const { bandEntry, modeEntry, modeRunFreqs } = entry;
+      q.operatingStyleRole = role;
+      q.operatingStyleRunFreq = role === 'RUN' ? entry.runFreq : entry.candidateRunFreq;
+      bandEntry.qsos += 1;
+      if (role === 'RUN') {
+        bandEntry.runQsos += 1;
+        modeEntry.runQsos += 1;
+        const runFreq = Number.isFinite(q.operatingStyleRunFreq) ? q.operatingStyleRunFreq : q.freq;
+        const freqKey = Math.round(runFreq * 1000);
+        bandEntry._runFreqs.set(freqKey, (bandEntry._runFreqs.get(freqKey) || 0) + 1);
+        modeRunFreqs.set(freqKey, (modeRunFreqs.get(freqKey) || 0) + 1);
+      } else if (role === 'INBAND') {
+        bandEntry.inbandQsos += 1;
+        modeEntry.inbandQsos += 1;
+      } else {
+        bandEntry.searchQsos += 1;
+        bandEntry.offbandSpQsos += 1;
+        modeEntry.searchQsos += 1;
+        modeEntry.offbandSpQsos += 1;
+      }
+    });
+
+    buckets.forEach((bucket) => {
+      const modeEntry = ensureBand(bucket.band).modeBreakdown.find((entry) => entry.mode === bucket.mode);
+      if (!modeEntry) return;
       modeEntry.spQsos = modeEntry.inbandQsos + modeEntry.searchQsos;
       if (modeEntry.qsos) {
         modeEntry.runPct = (modeEntry.runQsos / modeEntry.qsos) * 100;
@@ -577,18 +635,37 @@
         modeEntry.searchPct = (modeEntry.searchQsos / modeEntry.qsos) * 100;
         modeEntry.spPct = (modeEntry.spQsos / modeEntry.qsos) * 100;
       }
-      modeEntry.topRunFrequencies = exportOperatingStyleFrequencies(modeRunFreqs);
-      bandEntry.modeBreakdown.push(modeEntry);
+      if (modeEntry.spQsos) {
+        modeEntry.inbandPctOfSp = (modeEntry.inbandQsos / modeEntry.spQsos) * 100;
+        modeEntry.searchPctOfSp = (modeEntry.searchQsos / modeEntry.spQsos) * 100;
+        modeEntry.offbandSpPctOfSp = modeEntry.searchPctOfSp;
+      }
+      modeEntry.topRunFrequencies = exportOperatingStyleFrequencies(
+        allOperatingItems
+          .filter((entry) => entry.band === bucket.band && entry.mode === bucket.mode && entry.q.operatingStyleRole === 'RUN')
+          .reduce((map, entry) => {
+            const runFreq = Number.isFinite(entry.q.operatingStyleRunFreq) ? entry.q.operatingStyleRunFreq : entry.q.freq;
+            const freqKey = Math.round(runFreq * 1000);
+            map.set(freqKey, (map.get(freqKey) || 0) + 1);
+            return map;
+          }, new Map())
+      );
     });
 
     const modeOrder = new Map([['CW', 0], ['Phone', 1], ['Digital', 2]]);
     const bands = Array.from(bandMap.values()).map((entry) => {
       entry.spQsos = entry.inbandQsos + entry.searchQsos;
+      entry.offbandSpQsos = entry.searchQsos;
       if (entry.qsos) {
         entry.runPct = (entry.runQsos / entry.qsos) * 100;
         entry.inbandPct = (entry.inbandQsos / entry.qsos) * 100;
         entry.searchPct = (entry.searchQsos / entry.qsos) * 100;
         entry.spPct = (entry.spQsos / entry.qsos) * 100;
+      }
+      if (entry.spQsos) {
+        entry.inbandPctOfSp = (entry.inbandQsos / entry.spQsos) * 100;
+        entry.searchPctOfSp = (entry.searchQsos / entry.spQsos) * 100;
+        entry.offbandSpPctOfSp = entry.searchPctOfSp;
       }
       entry.modeBreakdown.sort((a, b) => {
         const ai = modeOrder.has(a.mode) ? modeOrder.get(a.mode) : 99;
@@ -618,20 +695,30 @@
       runQsos: 0,
       inbandQsos: 0,
       searchQsos: 0,
+      offbandSpQsos: 0,
       spQsos: 0,
       runPct: 0,
       inbandPct: 0,
       searchPct: 0,
+      inbandPctOfSp: 0,
+      searchPctOfSp: 0,
+      offbandSpPctOfSp: 0,
       spPct: 0,
       topRunFrequencies: [],
       modeBreakdown: []
     });
     totals.spQsos = totals.inbandQsos + totals.searchQsos;
+    totals.offbandSpQsos = totals.searchQsos;
     if (totals.qsos) {
       totals.runPct = (totals.runQsos / totals.qsos) * 100;
       totals.inbandPct = (totals.inbandQsos / totals.qsos) * 100;
       totals.searchPct = (totals.searchQsos / totals.qsos) * 100;
       totals.spPct = (totals.spQsos / totals.qsos) * 100;
+    }
+    if (totals.spQsos) {
+      totals.inbandPctOfSp = (totals.inbandQsos / totals.spQsos) * 100;
+      totals.searchPctOfSp = (totals.searchQsos / totals.spQsos) * 100;
+      totals.offbandSpPctOfSp = totals.searchPctOfSp;
     }
 
     return {

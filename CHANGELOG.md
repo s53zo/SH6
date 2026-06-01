@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.40 (2026-06-01)
+- Operating style: classify INBAND as S&P QSOs made while a RUN stream is active on the same band.
+- Operating style: report INBAND and off-band S&P percentages over S&P QSOs, with clearer table labels and definitions.
+- Regression coverage: lock active-run-band, off-band S&P, and S&P-denominator behavior.
+- Version bump to `v6.2.40` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.39 (2026-05-24)
 - Passed QSOs: render same-callsign cross-band contacts as paired pass candidates with From/To QSO numbers, timestamps, bands, modes, and delay.
 - Passed QSOs: add a band-transition summary table with pair counts plus average, fastest, and slowest delays.

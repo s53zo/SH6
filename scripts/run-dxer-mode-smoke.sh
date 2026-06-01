@@ -187,7 +187,8 @@ report_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
     hasTable: !!document.querySelector('#viewContainer table'),
     hasRunHeader: headers.indexOf('RUN') !== -1,
     hasInbandHeader: headers.indexOf('INBAND') !== -1,
-    hasSearchHeader: headers.indexOf('Search only') !== -1,
+    hasOffbandHeader: headers.indexOf('Off-band S&P') !== -1,
+    hasInbandPctHeader: headers.indexOf('% INBAND of S&P') !== -1,
     notes,
     errors: window.__sh6Errors || []
   };
@@ -208,7 +209,8 @@ report_ok="$(echo "${report_payload}" | jq -r '
   ($r | .hasTable) and
   ($r | .hasRunHeader) and
   ($r | .hasInbandHeader) and
-  ($r | .hasSearchHeader) and
+  ($r | .hasOffbandHeader) and
+  ($r | .hasInbandPctHeader) and
   (($r | .notes | map(test("Heuristic"; "i")) | any)) and
   (($r | .notes | map(test("Definition"; "i")) | any)) and
   (($r | .errors | length) == 0)

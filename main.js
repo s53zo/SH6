@@ -146,7 +146,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.42';
+  const APP_VERSION = 'v6.2.43';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -192,34 +192,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.42';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.42';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.42';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.42';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.42';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.42';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.42';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.42';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.42';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.42';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.42';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.42';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.42';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.42';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.42';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.42';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.42';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.42';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.42';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.42';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.42';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.42';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.42';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.42';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.42';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.42';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.42';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.42';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.43';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.43';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.43';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.43';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.43';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.43';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.43';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.43';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.43';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.43';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.43';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.43';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.43';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.43';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.43';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.43';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.43';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.43';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.43';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.43';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.43';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.43';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.43';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.43';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.43';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.43';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.43';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.43';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -12239,6 +12239,14 @@
     return `<a href="#" class="operating-style-drilldown" data-band="${escapeAttr(band || 'ALL')}" data-role="${escapeAttr(safeRole)}" title="${title}">${text}</a>`;
   }
 
+  function formatOperatingStyleRoleLabel(role) {
+    const key = String(role || '').trim().toUpperCase();
+    if (key === 'RUN') return 'RUN';
+    if (key === 'INBAND') return 'INBAND S&P';
+    if (key === 'SEARCH' || key === 'OFFBAND') return 'Off-band S&P';
+    return 'N/A';
+  }
+
   function renderOperatingStyleTable(operatingStyle) {
     const bands = Array.isArray(operatingStyle?.bands) ? operatingStyle.bands : [];
     if (!bands.length) return '<p>No operating-style data available. This report needs QSOs with valid time and frequency values.</p>';
@@ -12282,7 +12290,42 @@
     `;
   }
 
-  function renderOperatingStyleReportForDerived(derived) {
+  function renderOperatingStyleQsoLog(qsos) {
+    const list = Array.isArray(qsos) ? qsos : [];
+    if (!list.length) return '';
+    const rows = list.map((q, idx) => {
+      const rowClass = idx % 2 === 0 ? 'td1' : 'td0';
+      const qsoNumber = formatNumberHtmlSh6(q.qsoNumber || q.raw?.QSO_NUMBER || '');
+      const time = escapeHtml(q.ts ? formatDateSh6(q.ts) : (q.time || ''));
+      const band = escapeHtml(formatBandLabel(q.band || ''));
+      const mode = escapeHtml(q.mode || '');
+      const freq = escapeHtml(formatFrequency(q.freq));
+      const call = escapeHtml(q.call || '');
+      const style = escapeHtml(formatOperatingStyleRoleLabel(q.operatingStyleRole));
+      return `
+        <tr class="${rowClass}">
+          <td class="log-qso c1">${qsoNumber}</td>
+          <td>${time}</td>
+          <td class="${bandClass(q.band)}">${band}</td>
+          <td class="${modeClass(q.mode)}">${mode}</td>
+          <td class="${bandClass(q.band)}">${freq}</td>
+          <td class="tl">${call}</td>
+          <td>${style}</td>
+        </tr>
+      `;
+    }).join('');
+    return `
+      <div class="export-actions export-note"><b>QSO audit</b>: compact log with the operating style assigned to each QSO in the current analysis context.</div>
+      <div class="table-wrap table-wrap--tall">
+        <table class="mtc log-table operating-style-qso-log" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>Operating style</th></tr>
+          ${rows}
+        </table>
+      </div>
+    `;
+  }
+
+  function renderOperatingStyleReportForDerived(derived, qsos = []) {
     const operatingStyle = derived?.operatingStyle || null;
     const bands = Array.isArray(operatingStyle?.bands) ? operatingStyle.bands : [];
     if (!bands.length) {
@@ -12326,12 +12369,13 @@
       <div class="export-actions export-note"><b>Definition</b>: INBAND means an S&amp;P QSO on a band where SH6 infers an active RUN stream. S&amp;P = INBAND + Off-band S&amp;P; visible percentages are computed over all classified QSOs.</div>
       ${excludedNote}
       ${renderOperatingStyleTable(operatingStyle)}
+      ${renderOperatingStyleQsoLog(qsos)}
     `;
   }
 
   function renderOperatingStyleReport() {
     if (!state.derived) return renderPlaceholder({ id: 'run_sp_inband', title: 'RUN vs S&P vs INBAND' });
-    return renderOperatingStyleReportForDerived(state.derived);
+    return renderOperatingStyleReportForDerived(state.derived, state.qsoData?.qsos || []);
   }
 
   function buildPrefixGroups(derived) {

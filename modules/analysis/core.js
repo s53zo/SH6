@@ -419,7 +419,8 @@
         band,
         freqMHz: Number.isFinite(freqMHz) ? freqMHz : null,
         source,
-        mode: modeBucket(raw.mode || ''),
+        mode: modeBucket(raw.txMode || raw.tx_mode || raw.mode || ''),
+        spotter: normalizeCall(raw.spotter || raw.spotterCall || raw.de || raw.by || ''),
         confidence: source === 'rbn' ? 1 : 0.6
       });
     });
@@ -451,11 +452,20 @@
       activeRunGapQsos: 40,
       spotAnchorRadiusQsos: 10,
       rbnAnchorRadiusQsos: 1,
+      rbnMicroAnchorRadiusQsos: 1,
+      rbnMicroActiveRunGapQsos: 24,
       spotAnchorMaxGapMinutes: 15,
+      rbnMicroAnchorMaxGapMinutes: 5,
+      rbnMicroAnchorWindowMinutes: 3,
+      rbnMicroAnchorFreqRadiusKhz: 2,
+      rbnMicroAnchorLocalRadiusQsos: 12,
+      rbnMicroAnchorMinLocalQsos: 2,
+      rbnMicroAnchorMinSpots: 3,
+      rbnMicroAnchorMinSpotters: 3,
       rbnAnchorsRequirePreliminaryRun: true,
       spotAnchoringUsed: false,
       spotAnchorCount: 0,
-      spotAnchorCountsBySource: { spots: 0, rbn: 0 }
+      spotAnchorCountsBySource: { spots: 0, rbn: 0, rbnMicro: 0 }
     };
     const buckets = new Map();
     let excludedQsoCount = 0;
@@ -652,41 +662,119 @@
         }
         return bestPos >= 0 ? { entry: ordered[bestPos], pos: bestPos, delta: bestDelta } : null;
       };
-      spotAnchors
-        .filter((anchor) => anchor.band === band)
-        .forEach((anchor) => {
-          const maxGapMs = meta.spotAnchorMaxGapMinutes * 60000;
-          const best = nearestPositionForTs(
+      const anchorsForBand = spotAnchors.filter((anchor) => anchor.band === band);
+      const rbnAnchorsForBand = anchorsForBand
+        .filter((anchor) => (
+          anchor.source === 'rbn'
+          && anchor.mode === 'CW'
+          && Number.isFinite(anchor.freqMHz)
+        ))
+        .sort((a, b) => a.ts - b.ts);
+      const isNearAnchorFreq = (entry, anchor, radiusMHz) => (
+        entry
+        && entry.mode === 'CW'
+        && Number.isFinite(anchor?.freqMHz)
+        && Number.isFinite(entry.q?.freq)
+        && Math.abs(entry.q.freq - anchor.freqMHz) <= radiusMHz + 1e-9
+      );
+      const lowerBoundRbnAnchorTs = (ts) => {
+        let lo = 0;
+        let hi = rbnAnchorsForBand.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (rbnAnchorsForBand[mid].ts < ts) lo = mid + 1;
+          else hi = mid;
+        }
+        return lo;
+      };
+      const hasStrongRbnCluster = (anchor) => {
+        const windowMs = meta.rbnMicroAnchorWindowMinutes * 60000;
+        const radiusMHz = meta.rbnMicroAnchorFreqRadiusKhz / 1000;
+        const endTs = anchor.ts + windowMs;
+        let idx = lowerBoundRbnAnchorTs(anchor.ts - windowMs);
+        let spotCount = 0;
+        const spotters = new Set();
+        for (; idx < rbnAnchorsForBand.length; idx += 1) {
+          const candidate = rbnAnchorsForBand[idx];
+          if (candidate.ts > endTs) break;
+          if (Math.abs(candidate.freqMHz - anchor.freqMHz) > radiusMHz + 1e-9) continue;
+          spotCount += 1;
+          if (candidate.spotter) spotters.add(candidate.spotter);
+        }
+        return spotCount >= meta.rbnMicroAnchorMinSpots
+          && spotters.size >= meta.rbnMicroAnchorMinSpotters;
+      };
+      const hasRbnMicroSupport = (anchor, pos) => {
+        if (!Number.isFinite(anchor?.freqMHz)) return false;
+        const radiusMHz = meta.rbnMicroAnchorFreqRadiusKhz / 1000;
+        const lo = Math.max(0, pos - meta.rbnMicroAnchorLocalRadiusQsos);
+        const hi = Math.min(ordered.length - 1, pos + meta.rbnMicroAnchorLocalRadiusQsos);
+        let localCount = 0;
+        for (let idx = lo; idx <= hi; idx += 1) {
+          if (isNearAnchorFreq(ordered[idx], anchor, radiusMHz)) localCount += 1;
+        }
+        if (localCount >= meta.rbnMicroAnchorMinLocalQsos) return true;
+        return localCount > 0 && hasStrongRbnCluster(anchor);
+      };
+      const addedMicroSeeds = new Set();
+      anchorsForBand.forEach((anchor) => {
+        const maxGapMs = meta.spotAnchorMaxGapMinutes * 60000;
+        const best = nearestPositionForTs(
+          anchor.ts,
+          anchor.source === 'rbn' ? (entry) => entry.mode === 'CW' : null,
+          maxGapMs
+        );
+        if (!best) return;
+        let seedSource = anchor.source;
+        let seedPos = best.pos;
+        if (anchor.source === 'rbn' && meta.rbnAnchorsRequirePreliminaryRun) {
+          const corroboratingRun = nearestPositionForTs(
             anchor.ts,
-            anchor.source === 'rbn' ? (entry) => entry.mode === 'CW' : null,
+            (entry) => entry.mode === 'CW' && entry.preliminaryRun,
             maxGapMs
           );
-          if (!best) return;
-          if (anchor.source === 'rbn' && meta.rbnAnchorsRequirePreliminaryRun) {
-            const corroboratingRun = nearestPositionForTs(
+          if (!corroboratingRun) {
+            const radiusMHz = meta.rbnMicroAnchorFreqRadiusKhz / 1000;
+            const microMaxGapMs = meta.rbnMicroAnchorMaxGapMinutes * 60000;
+            const microBest = nearestPositionForTs(
               anchor.ts,
-              (entry) => entry.mode === 'CW' && entry.preliminaryRun,
-              maxGapMs
+              (entry) => isNearAnchorFreq(entry, anchor, radiusMHz),
+              microMaxGapMs
             );
-            if (!corroboratingRun) return;
+            if (!microBest || !hasRbnMicroSupport(anchor, microBest.pos)) return;
+            seedSource = 'rbnMicro';
+            seedPos = microBest.pos;
+            const seedKey = `${seedSource}:${seedPos}`;
+            if (addedMicroSeeds.has(seedKey)) return;
+            addedMicroSeeds.add(seedKey);
           }
-          seedPositions.push({ pos: best.pos, source: anchor.source });
-          meta.spotAnchoringUsed = true;
-          meta.spotAnchorCount += 1;
-          meta.spotAnchorCountsBySource[anchor.source] = (meta.spotAnchorCountsBySource[anchor.source] || 0) + 1;
-        });
+        }
+        seedPositions.push({ pos: seedPos, source: seedSource });
+        meta.spotAnchoringUsed = true;
+        meta.spotAnchorCount += 1;
+        meta.spotAnchorCountsBySource[seedSource] = (meta.spotAnchorCountsBySource[seedSource] || 0) + 1;
+      });
       const ranges = [];
       seedPositions
         .sort((a, b) => a.pos - b.pos)
         .forEach((seed) => {
           const radius = seed.source === 'cabrillo'
             ? 0
-            : (seed.source === 'rbn' ? meta.rbnAnchorRadiusQsos : meta.spotAnchorRadiusQsos);
+            : (seed.source === 'rbn'
+              ? meta.rbnAnchorRadiusQsos
+              : (seed.source === 'rbnMicro' ? meta.rbnMicroAnchorRadiusQsos : meta.spotAnchorRadiusQsos));
           const start = Math.max(0, seed.pos - radius);
           const end = Math.min(ordered.length - 1, seed.pos + radius);
           const last = ranges[ranges.length - 1];
-          if (last && start - last.end <= meta.activeRunGapQsos) last.end = Math.max(last.end, end);
-          else ranges.push({ start, end });
+          const gapLimit = last && (seed.source === 'rbnMicro' || last.source === 'rbnMicro')
+            ? meta.rbnMicroActiveRunGapQsos
+            : meta.activeRunGapQsos;
+          if (last && start - last.end <= gapLimit) {
+            last.end = Math.max(last.end, end);
+            if (seed.source === 'rbnMicro') last.source = 'rbnMicro';
+          } else {
+            ranges.push({ start, end, source: seed.source });
+          }
         });
       activeRunRangesByBand.set(band, ranges);
     });

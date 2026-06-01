@@ -155,6 +155,47 @@ assert(
   }
 );
 
+const rbnMicroLocal = derive([
+  { band: '20M', freq: 14.031 },
+  { band: '20M', freq: 14.032 },
+  { band: '15M', freq: 21.021 }
+], {
+  operatingStyleSpotAnchors: [
+    { direction: 'ofUs', source: 'rbn', ts: spotAnchorTs, band: '20M', freqMHz: 14.0315, mode: 'CW', spotter: 'K1ABC' }
+  ]
+});
+assert(
+  rbnMicroLocal.qsos.slice(0, 2).every((q) => q.operatingStyleRole === 'INBAND')
+    && rbnMicroLocal.qsos[2].operatingStyleRole === 'SEARCH'
+    && rbnMicroLocal.derived.operatingStyle.meta.spotAnchorCountsBySource.rbnMicro === 1,
+  'A single RBN spot may bridge a local same-frequency CW micro-RUN without changing another band.',
+  {
+    roles: rbnMicroLocal.qsos.map((q) => ({ band: q.band, mode: q.mode, role: q.operatingStyleRole })),
+    meta: rbnMicroLocal.derived.operatingStyle.meta
+  }
+);
+
+const rbnMicroSpotterCluster = derive([
+  { band: '20M', freq: 14.031 },
+  { band: '15M', freq: 21.021 }
+], {
+  operatingStyleSpotAnchors: [
+    { direction: 'ofUs', source: 'rbn', ts: spotAnchorTs, band: '20M', freqMHz: 14.031, mode: 'CW', spotter: 'K1AAA' },
+    { direction: 'ofUs', source: 'rbn', ts: spotAnchorTs + 30000, band: '20M', freqMHz: 14.0312, mode: 'CW', spotter: 'K1BBB' },
+    { direction: 'ofUs', source: 'rbn', ts: spotAnchorTs + 60000, band: '20M', freqMHz: 14.0309, mode: 'CW', spotter: 'K1CCC' }
+  ]
+});
+assert(
+  rbnMicroSpotterCluster.qsos[0].operatingStyleRole === 'INBAND'
+    && rbnMicroSpotterCluster.qsos[1].operatingStyleRole === 'SEARCH'
+    && rbnMicroSpotterCluster.derived.operatingStyle.meta.spotAnchorCountsBySource.rbnMicro === 1,
+  'Multiple independent RBN spotters can bridge a one-QSO CW micro-RUN island.',
+  {
+    roles: rbnMicroSpotterCluster.qsos.map((q) => ({ band: q.band, mode: q.mode, role: q.operatingStyleRole })),
+    meta: rbnMicroSpotterCluster.derived.operatingStyle.meta
+  }
+);
+
 const rbnCorroboratesRun = derive([
   ...new Array(4).fill(0).map(() => ({ band: '20M', freq: 14.02 })),
   { band: '20M', freq: 14.031 },

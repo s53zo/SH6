@@ -146,13 +146,32 @@ const rbnAnchored = derive(spotAnchorEntries, {
   ]
 });
 assert(
-  rbnAnchored.qsos[0].operatingStyleRole === 'INBAND'
-    && rbnAnchored.qsos[2].operatingStyleRole === 'SEARCH'
-    && rbnAnchored.derived.operatingStyle.meta.spotAnchorCountsBySource.rbn === 1,
-  'RBN CW spots of us should add RUN anchors only on the spotted band.',
+  rbnAnchored.qsos.every((q) => q.operatingStyleRole === 'SEARCH')
+    && rbnAnchored.derived.operatingStyle.meta.spotAnchorCountsBySource.rbn === 0,
+  'RBN CW spots must not create RUN anchors when Cabrillo clustering did not already infer RUN.',
   {
     roles: rbnAnchored.qsos.map((q) => ({ band: q.band, mode: q.mode, role: q.operatingStyleRole })),
     meta: rbnAnchored.derived.operatingStyle.meta
+  }
+);
+
+const rbnCorroboratesRun = derive([
+  ...new Array(4).fill(0).map(() => ({ band: '20M', freq: 14.02 })),
+  { band: '20M', freq: 14.031 },
+  { band: '15M', freq: 21.021 }
+], {
+  operatingStyleSpotAnchors: [
+    { direction: 'ofUs', source: 'rbn', ts: spotAnchorTs + (3 * 60 * 1000), band: '20M', freqMHz: 14.02, mode: 'CW' }
+  ]
+});
+assert(
+  rbnCorroboratesRun.qsos[4].operatingStyleRole === 'INBAND'
+    && rbnCorroboratesRun.qsos[5].operatingStyleRole === 'SEARCH'
+    && rbnCorroboratesRun.derived.operatingStyle.meta.spotAnchorCountsBySource.rbn === 1,
+  'RBN CW spots should extend active RUN intervals only when they corroborate a Cabrillo-inferred RUN QSO.',
+  {
+    roles: rbnCorroboratesRun.qsos.map((q) => ({ band: q.band, mode: q.mode, role: q.operatingStyleRole })),
+    meta: rbnCorroboratesRun.derived.operatingStyle.meta
   }
 );
 

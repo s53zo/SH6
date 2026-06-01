@@ -450,7 +450,9 @@
       inbandReturnRadiusQsos: 10,
       activeRunGapQsos: 40,
       spotAnchorRadiusQsos: 10,
+      rbnAnchorRadiusQsos: 1,
       spotAnchorMaxGapMinutes: 15,
+      rbnAnchorsRequirePreliminaryRun: true,
       spotAnchoringUsed: false,
       spotAnchorCount: 0,
       spotAnchorCountsBySource: { spots: 0, rbn: 0 }
@@ -621,7 +623,7 @@
         entry.bandPosition = pos;
         if (entry.preliminaryRun) seedPositions.push({ pos, source: 'cabrillo' });
       });
-      const nearestPositionForTs = (ts) => {
+      const nearestPositionForTs = (ts, predicate = null, maxDelta = Infinity) => {
         let lo = 0;
         let hi = ordered.length;
         while (lo < hi) {
@@ -631,23 +633,43 @@
         }
         let bestPos = -1;
         let bestDelta = Infinity;
-        [lo - 1, lo].forEach((pos) => {
-          if (pos < 0 || pos >= ordered.length) return;
+        const consider = (pos) => {
+          if (pos < 0 || pos >= ordered.length) return false;
           const delta = Math.abs(Number(ordered[pos].q.ts) - ts);
+          if (delta > maxDelta) return false;
+          if (typeof predicate === 'function' && !predicate(ordered[pos])) return true;
           if (delta < bestDelta) {
             bestPos = pos;
             bestDelta = delta;
           }
-        });
+          return true;
+        };
+        for (let pos = lo - 1; pos >= 0; pos -= 1) {
+          if (!consider(pos)) break;
+        }
+        for (let pos = lo; pos < ordered.length; pos += 1) {
+          if (!consider(pos)) break;
+        }
         return bestPos >= 0 ? { entry: ordered[bestPos], pos: bestPos, delta: bestDelta } : null;
       };
       spotAnchors
         .filter((anchor) => anchor.band === band)
         .forEach((anchor) => {
-          const best = nearestPositionForTs(anchor.ts);
+          const maxGapMs = meta.spotAnchorMaxGapMinutes * 60000;
+          const best = nearestPositionForTs(
+            anchor.ts,
+            anchor.source === 'rbn' ? (entry) => entry.mode === 'CW' : null,
+            maxGapMs
+          );
           if (!best) return;
-          if (best.delta > meta.spotAnchorMaxGapMinutes * 60000) return;
-          if (anchor.source === 'rbn' && best.entry.mode !== 'CW') return;
+          if (anchor.source === 'rbn' && meta.rbnAnchorsRequirePreliminaryRun) {
+            const corroboratingRun = nearestPositionForTs(
+              anchor.ts,
+              (entry) => entry.mode === 'CW' && entry.preliminaryRun,
+              maxGapMs
+            );
+            if (!corroboratingRun) return;
+          }
           seedPositions.push({ pos: best.pos, source: anchor.source });
           meta.spotAnchoringUsed = true;
           meta.spotAnchorCount += 1;
@@ -657,7 +679,9 @@
       seedPositions
         .sort((a, b) => a.pos - b.pos)
         .forEach((seed) => {
-          const radius = seed.source === 'cabrillo' ? 0 : meta.spotAnchorRadiusQsos;
+          const radius = seed.source === 'cabrillo'
+            ? 0
+            : (seed.source === 'rbn' ? meta.rbnAnchorRadiusQsos : meta.spotAnchorRadiusQsos);
           const start = Math.max(0, seed.pos - radius);
           const end = Math.min(ordered.length - 1, seed.pos + radius);
           const last = ranges[ranges.length - 1];

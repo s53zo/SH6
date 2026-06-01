@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.42 (2026-06-01)
+- Operating style: make RBN anchors corroborative-only so they extend active RUN windows only near Cabrillo-inferred CW RUN activity.
+- Operating style: keep classic spot anchors at the broader window while limiting RBN anchor spread to nearby QSOs.
+- Regression coverage: lock RBN behavior so isolated RBN spots cannot create RUN ranges from S&P-only segments.
+- Version bump to `v6.2.42` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.41 (2026-06-01)
 - Operating style: add optional Spots/RBN RUN anchoring when spot data is loaded, with Cabrillo-only fallback when it is unavailable.
 - Operating style: show all visible RUN, S&P, INBAND, and off-band percentages over total classified QSOs.

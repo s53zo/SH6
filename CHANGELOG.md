@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.44 (2026-06-01)
+- Operating style: show Spots and RBN status rows when RUN vs S&P vs INBAND loads spot-anchor data.
+- Regression coverage: lock status-row visibility for the operating-style report's spot/RBN loader path.
+- Version bump to `v6.2.44` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.43 (2026-06-01)
 - Operating style: add a compact per-QSO audit log to RUN vs S&P vs INBAND with detected operating style for each analyzed log.
 - Compare view: show the same compact audit table inside each analyzed log panel.

@@ -108,6 +108,8 @@
         add(
           'Main.js requests spot/RBN anchor data from the operating-style report',
           mainSource.includes("if (reportId === 'run_sp_inband') {")
+            && mainSource.includes("dom.spotsStatusRow) dom.spotsStatusRow.classList.remove('hidden')")
+            && mainSource.includes("dom.rbnStatusRow) dom.rbnStatusRow.classList.remove('hidden')")
             && mainSource.includes("runtime.bindSpotControls('spots');")
             && mainSource.includes("runtime.bindSpotControls('rbn');"),
           ''

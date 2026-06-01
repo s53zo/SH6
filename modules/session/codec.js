@@ -105,6 +105,7 @@ export function createSessionCodec(deps = {}) {
         continentFilter: state.logContinentFilter || '',
         cqFilter: state.logCqFilter || '',
         ituFilter: state.logItuFilter || '',
+        operatingStyleFilter: state.logOperatingStyleFilter || null,
         rangeFilter: state.logRange || null,
         timeRange: state.logTimeRange || null,
         headingRange: state.logHeadingRange || null,
@@ -128,6 +129,7 @@ export function createSessionCodec(deps = {}) {
       continentFilter: '',
       cqFilter: '',
       ituFilter: '',
+      operatingStyleFilter: null,
       rangeFilter: null,
       timeRange: null,
       headingRange: null,
@@ -233,6 +235,11 @@ export function createSessionCodec(deps = {}) {
     if (f.continentFilter) compact.k = f.continentFilter;
     if (f.cqFilter) compact.q = f.cqFilter;
     if (f.ituFilter) compact.i = f.ituFilter;
+    if (f.operatingStyleFilter && typeof f.operatingStyleFilter === 'object') {
+      const band = String(f.operatingStyleFilter.band || '').trim();
+      const role = String(f.operatingStyleFilter.role || '').trim();
+      if (band || role) compact.v = { b: band, r: role };
+    }
     const qsoRange = compactRangeObject(f.rangeFilter, 'start', 'end');
     if (qsoRange) compact.r = qsoRange;
     if (f.rangeFilter?.excludeDupes) compact.rd = 1;
@@ -261,6 +268,12 @@ export function createSessionCodec(deps = {}) {
     if (typeof compact.k === 'string') out.continentFilter = compact.k;
     if (typeof compact.q === 'string') out.cqFilter = compact.q;
     if (typeof compact.i === 'string') out.ituFilter = compact.i;
+    if (compact.v && typeof compact.v === 'object') {
+      out.operatingStyleFilter = {
+        band: typeof compact.v.b === 'string' ? compact.v.b : '',
+        role: typeof compact.v.r === 'string' ? compact.v.r : ''
+      };
+    }
     out.rangeFilter = inflateRangeObject(compact.r, 'start', 'end');
     if (out.rangeFilter && compact.rd === 1) out.rangeFilter.excludeDupes = true;
     out.timeRange = inflateRangeObject(compact.y, 'startTs', 'endTs');

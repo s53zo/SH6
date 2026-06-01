@@ -53,6 +53,7 @@
     const headingRange = filters.headingRange;
     const stationQsoRange = filters.stationQsoRange;
     const distanceRange = filters.distanceRange;
+    const operatingStyleFilter = filters.operatingStyleFilter;
 
     for (const q of qsos || []) {
       if (search && (!q.call || !q.call.includes(search))) continue;
@@ -66,6 +67,22 @@
       if (continentFilter && (!q.continent || q.continent.toUpperCase() !== continentFilter)) continue;
       if (cqFilter && String(q.cqZone || '') !== cqFilter) continue;
       if (ituFilter && String(q.ituZone || '') !== ituFilter) continue;
+      if (operatingStyleFilter) {
+        const band = String(operatingStyleFilter.band || '').trim().toUpperCase();
+        const role = String(operatingStyleFilter.role || '').trim().toUpperCase();
+        const qBand = String(q.operatingStyleBand || q.band || '').trim().toUpperCase();
+        const qRole = String(q.operatingStyleRole || '').trim().toUpperCase();
+        if (band && band !== 'ALL' && qBand !== band) continue;
+        if (role === 'ALL') {
+          if (!qRole) continue;
+        } else if (role === 'SP') {
+          if (qRole !== 'INBAND' && qRole !== 'SEARCH') continue;
+        } else if (role === 'OFFBAND') {
+          if (qRole !== 'SEARCH') continue;
+        } else if (qRole !== role) {
+          continue;
+        }
+      }
       if (rangeFilter && Number.isFinite(rangeFilter.start) && Number.isFinite(rangeFilter.end)) {
         const qsoNumber = Number(q.qsoNumber);
         if (!Number.isFinite(qsoNumber) || qsoNumber < rangeFilter.start || qsoNumber > rangeFilter.end) continue;

@@ -146,7 +146,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.2.40';
+  const APP_VERSION = 'v6.2.41';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -192,34 +192,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.40';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.40';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.40';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.40';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.40';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.40';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.40';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.40';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.40';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.40';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.40';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.40';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.40';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.40';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.40';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.40';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.40';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.40';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.40';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.40';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.40';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.40';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.40';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.40';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.40';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.40';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.40';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.40';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.2.41';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.2.41';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.2.41';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.41';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.41';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.2.41';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.2.41';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.2.41';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.2.41';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.2.41';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.2.41';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.2.41';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.2.41';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.2.41';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.2.41';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.2.41';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.2.41';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.2.41';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.41';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.2.41';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.2.41';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.2.41';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.2.41';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.2.41';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.2.41';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.2.41';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.2.41';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.2.41';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -589,6 +589,7 @@
     state.logContinentFilter = f.continentFilter || '';
     state.logCqFilter = f.cqFilter || '';
     state.logItuFilter = f.ituFilter || '';
+    state.logOperatingStyleFilter = f.operatingStyleFilter || null;
     state.logRange = f.rangeFilter || null;
     state.logTimeRange = f.timeRange || null;
     state.logHeadingRange = f.headingRange || null;
@@ -1237,6 +1238,7 @@
     logContinentFilter: '',
     logCqFilter: '',
     logItuFilter: '',
+    logOperatingStyleFilter: null,
     allCallsignsCountryFilter: '',
     logRange: null,
     logTimeRange: null,
@@ -2152,6 +2154,7 @@
             runEngineTask,
             updateDataStatus,
             renderActiveReport,
+            refreshOperatingStyleSpotAnchors,
             spotsBaseUrl: SPOTS_BASE_URL,
             rbnProxyUrl: RBN_PROXY_URL,
             rbnSummaryOnlyThreshold: RBN_SUMMARY_ONLY_THRESHOLD
@@ -2665,8 +2668,39 @@
     return core;
   }
 
-  function buildAnalysisResourcesPayload() {
-    return {
+  function collectOperatingStyleSpotAnchors(slot) {
+    const anchors = [];
+    const minTs = Number(slot?.derived?.timeRange?.minTs);
+    const maxTs = Number(slot?.derived?.timeRange?.maxTs);
+    const collect = (spotState, source) => {
+      if (!spotState || spotState.status !== 'ready') return;
+      const rows = Array.isArray(spotState.raw?.ofUsSpots)
+        ? spotState.raw.ofUsSpots
+        : (Array.isArray(spotState.stats?.ofUsSpots) ? spotState.stats.ofUsSpots : []);
+      rows.forEach((spot) => {
+        if (!spot || !Number.isFinite(Number(spot.ts))) return;
+        const ts = Number(spot.ts);
+        if (Number.isFinite(minTs) && ts < minTs) return;
+        if (Number.isFinite(maxTs) && ts > maxTs) return;
+        anchors.push({
+          direction: 'ofUs',
+          source,
+          ts,
+          band: normalizeBandToken(spot.band || ''),
+          freqMHz: Number.isFinite(Number(spot.freqMHz))
+            ? Number(spot.freqMHz)
+            : (Number.isFinite(Number(spot.freqKHz)) ? Number(spot.freqKHz) / 1000 : null),
+          mode: spot.mode || ''
+        });
+      });
+    };
+    collect(slot?.spotsState, 'spots');
+    collect(slot?.rbnState, 'rbn');
+    return anchors;
+  }
+
+  function buildAnalysisResourcesPayload(options = {}) {
+    const resources = {
       ctyTable: Array.isArray(state.ctyTable) ? state.ctyTable : [],
       masterCalls: state.masterSet instanceof Set ? Array.from(state.masterSet.values()) : [],
       scoringSpec: state.scoringSpec || null,
@@ -2676,6 +2710,11 @@
       analysisMode: state.analysisMode || ANALYSIS_MODE_DEFAULT,
       callsignGridEntries: state.callsignGridCache instanceof Map ? Array.from(state.callsignGridCache.entries()) : []
     };
+    const anchorSlot = options?.operatingStyleSpotAnchorSlot || null;
+    if (anchorSlot) {
+      resources.operatingStyleSpotAnchors = collectOperatingStyleSpotAnchors(anchorSlot);
+    }
+    return resources;
   }
 
   async function analyzeLogWithEngine(text, filename, context = {}) {
@@ -5981,7 +6020,9 @@
       ts: q.ts,
       bearing: q.bearing,
       distance: q.distance,
-      callCount: q.callCount
+      callCount: q.callCount,
+      operatingStyleRole: q.operatingStyleRole || '',
+      operatingStyleBand: q.operatingStyleBand || q.band || ''
     }));
   }
 
@@ -7530,6 +7571,27 @@
     return getAnalysisCore().buildDerived(qsos, context, buildAnalysisResourcesPayload());
   }
 
+  function refreshOperatingStyleSpotAnchors(slot = state) {
+    const target = slot && typeof slot === 'object' ? slot : state;
+    if (!target?.qsoData || !Array.isArray(target.qsoData.qsos) || !target.derived) return false;
+    const anchors = collectOperatingStyleSpotAnchors(target);
+    if (!anchors.length && !target.derived?.operatingStyle?.meta?.spotAnchoringUsed) return false;
+    const context = {
+      logFile: target.logFile || null,
+      sourcePath: target.logFile?.path || '',
+      analysisMode: state.analysisMode,
+      scoringRuleOverride: target.scoringRuleOverride || ''
+    };
+    const resources = buildAnalysisResourcesPayload({ operatingStyleSpotAnchorSlot: target });
+    target.derived = getAnalysisCore().buildDerived(target.qsoData.qsos, context, resources);
+    target.fullDerived = target.derived;
+    target.qsoLite = buildQsoLiteArray(target.qsoData.qsos);
+    target.bandDerivedCache = new Map();
+    target.periodFilterCache = new Map();
+    target.logVersion = (target.logVersion || 0) + 1;
+    return true;
+  }
+
   function runDupeModeRegressionChecks() {
     const checks = [];
     const baseTs = 1_700_000_000_000;
@@ -8402,6 +8464,7 @@
       continentFilter: (state.logContinentFilter || '').trim().toUpperCase(),
       cqFilter: (state.logCqFilter || '').trim(),
       ituFilter: (state.logItuFilter || '').trim(),
+      operatingStyleFilter: state.logOperatingStyleFilter || null,
       rangeFilter: state.logRange,
       timeRange: state.logTimeRange,
       headingRange: state.logHeadingRange,
@@ -8447,6 +8510,19 @@
     }
     if (filters.ituFilter) {
       filtered = filtered.filter((q) => String(q.ituZone || '') === filters.ituFilter);
+    }
+    if (filters.operatingStyleFilter) {
+      const band = String(filters.operatingStyleFilter.band || '').trim().toUpperCase();
+      const role = String(filters.operatingStyleFilter.role || '').trim().toUpperCase();
+      filtered = filtered.filter((q) => {
+        const qBand = String(q.operatingStyleBand || q.band || '').trim().toUpperCase();
+        if (band && band !== 'ALL' && qBand !== band) return false;
+        const qRole = String(q.operatingStyleRole || '').trim().toUpperCase();
+        if (role === 'ALL') return Boolean(qRole);
+        if (role === 'SP') return qRole === 'INBAND' || qRole === 'SEARCH';
+        if (role === 'OFFBAND') return qRole === 'SEARCH';
+        return qRole === role;
+      });
     }
     if (filters.rangeFilter && Number.isFinite(filters.rangeFilter.start) && Number.isFinite(filters.rangeFilter.end)) {
       filtered = filtered.filter((q) => {
@@ -8744,6 +8820,9 @@
     const headingKey = filters.headingRange ? `${filters.headingRange.start}-${filters.headingRange.end}` : '';
     const stationKey = filters.stationQsoRange ? `${filters.stationQsoRange.min}-${filters.stationQsoRange.max}` : '';
     const distanceKey = filters.distanceRange ? `${filters.distanceRange.start}-${filters.distanceRange.end}` : '';
+    const operatingStyleKey = filters.operatingStyleFilter
+      ? `${filters.operatingStyleFilter.band || ''}-${filters.operatingStyleFilter.role || ''}`
+      : '';
     const slotVersions = getActiveCompareSlots().map((entry) => entry.slot?.logVersion || 0).join(',');
     return [
       state.compareCount || 1,
@@ -8759,6 +8838,7 @@
       filters.continentFilter || '',
       filters.cqFilter || '',
       filters.ituFilter || '',
+      operatingStyleKey,
       rangeKey,
       timeKey,
       headingKey,
@@ -8975,8 +9055,10 @@
     const safeItu = escapeHtml(filters.ituFilter || '');
     const stationRange = filters.stationQsoRange;
     const distanceRange = filters.distanceRange;
-    const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange || stationRange || distanceRange
-      ? `<p class="log-filter-note">Filter applied to all logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)}${filters.rangeFilter.excludeDupes ? ' non-dupes only' : ''})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+    const styleFilter = filters.operatingStyleFilter;
+    const styleLabel = styleFilter ? formatOperatingStyleFilterLabel(styleFilter) : '';
+    const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange || stationRange || distanceRange || styleFilter
+      ? `<p class="log-filter-note">Filter applied to all logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${styleLabel ? ` ${escapeHtml(styleLabel)}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)}${filters.rangeFilter.excludeDupes ? ' non-dupes only' : ''})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const note = `<p>${slotEntries.map((entry, idx) => `${entry.label}: ${formatNumberSh6(counts[idx] || 0)} QSOs`).join(' · ')}</p>`;
     const missingSlots = slotEntries.filter((entry) => !entry.slot?.qsoData).map((entry) => entry.label);
@@ -9130,8 +9212,10 @@
     const safeItu = escapeHtml(ituFilter || '');
     const stationRange = filters.stationQsoRange;
     const distanceRange = filters.distanceRange;
-    const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter || headingRange || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || stationRange || distanceRange
-      ? `<p class="log-filter-note">Filter: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)}${rangeFilter.excludeDupes ? ' non-dupes only' : ''})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+    const styleFilter = filters.operatingStyleFilter;
+    const styleLabel = styleFilter ? formatOperatingStyleFilterLabel(styleFilter) : '';
+    const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter || headingRange || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || stationRange || distanceRange || styleFilter
+      ? `<p class="log-filter-note">Filter: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${styleLabel ? ` ${escapeHtml(styleLabel)}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)}${rangeFilter.excludeDupes ? ' non-dupes only' : ''})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const pageLinks = Array.from({ length: totalPages }, (_, i) => {
       const from = i * state.logPageSize + 1;
@@ -12125,6 +12209,36 @@
     return Number.isFinite(num) ? `${Math.round(num)}%` : '';
   }
 
+  function formatOperatingStyleFilterLabel(filter) {
+    if (!filter) return '';
+    const role = String(filter.role || '').trim().toUpperCase();
+    const band = String(filter.band || '').trim().toUpperCase();
+    const roleLabel = role === 'SP'
+      ? 'S&P'
+      : (role === 'OFFBAND' ? 'Off-band S&P' : (role === 'ALL' ? 'operating-style QSOs' : role));
+    const bandLabel = band && band !== 'ALL' ? formatBandLabel(band) : 'All bands';
+    return `Operating style ${bandLabel} ${roleLabel}`.trim();
+  }
+
+  function renderOperatingStyleDrilldownLink(entry, role, value, options = {}) {
+    const count = Number(value) || 0;
+    const text = options.pct ? formatOperatingStylePct(value) : formatNumberSh6(count);
+    if (!count && !options.pct) return text;
+    const band = entry?.band === 'All' ? 'ALL' : String(entry?.band || '').trim().toUpperCase();
+    const safeRole = String(role || 'ALL').trim().toUpperCase();
+    const title = escapeAttr(`Show ${formatOperatingStyleFilterLabel({ band, role: safeRole })}`);
+    return `<a href="#" class="operating-style-drilldown" data-band="${escapeAttr(band || 'ALL')}" data-role="${escapeAttr(safeRole)}" title="${title}">${text}</a>`;
+  }
+
+  function renderOperatingStylePctDrilldownLink(entry, role, pctValue, countValue) {
+    const text = formatOperatingStylePct(pctValue);
+    if (!text || !(Number(countValue) > 0)) return text;
+    const band = entry?.band === 'All' ? 'ALL' : String(entry?.band || '').trim().toUpperCase();
+    const safeRole = String(role || 'ALL').trim().toUpperCase();
+    const title = escapeAttr(`Show ${formatOperatingStyleFilterLabel({ band, role: safeRole })}`);
+    return `<a href="#" class="operating-style-drilldown" data-band="${escapeAttr(band || 'ALL')}" data-role="${escapeAttr(safeRole)}" title="${title}">${text}</a>`;
+  }
+
   function renderOperatingStyleTable(operatingStyle) {
     const bands = Array.isArray(operatingStyle?.bands) ? operatingStyle.bands : [];
     if (!bands.length) return '<p>No operating-style data available. This report needs QSOs with valid time and frequency values.</p>';
@@ -12137,15 +12251,15 @@
       return `
         <tr class="${cls}">
           <td class="${bandClass(entry?.band)}"><b>${escapeHtml(bandLabel)}</b></td>
-          <td><b>${formatNumberSh6(entry?.qsos || 0)}</b></td>
-          <td>${formatNumberSh6(entry?.runQsos || 0)}</td>
-          <td>${formatOperatingStylePct(entry?.runPct)}</td>
-          <td>${formatNumberSh6(entry?.spQsos || 0)}</td>
-          <td>${formatOperatingStylePct(entry?.spPct)}</td>
-          <td>${formatNumberSh6(entry?.inbandQsos || 0)}</td>
-          <td>${formatOperatingStylePct(entry?.inbandPctOfSp)}</td>
-          <td>${formatNumberSh6(entry?.offbandSpQsos || entry?.searchQsos || 0)}</td>
-          <td>${formatOperatingStylePct(entry?.offbandSpPctOfSp ?? entry?.searchPctOfSp)}</td>
+          <td><b>${renderOperatingStyleDrilldownLink(entry, 'ALL', entry?.qsos || 0)}</b></td>
+          <td>${renderOperatingStyleDrilldownLink(entry, 'RUN', entry?.runQsos || 0)}</td>
+          <td>${renderOperatingStylePctDrilldownLink(entry, 'RUN', entry?.runPct, entry?.runQsos)}</td>
+          <td>${renderOperatingStyleDrilldownLink(entry, 'SP', entry?.spQsos || 0)}</td>
+          <td>${renderOperatingStylePctDrilldownLink(entry, 'SP', entry?.spPct, entry?.spQsos)}</td>
+          <td>${renderOperatingStyleDrilldownLink(entry, 'INBAND', entry?.inbandQsos || 0)}</td>
+          <td>${renderOperatingStylePctDrilldownLink(entry, 'INBAND', entry?.inbandPct, entry?.inbandQsos)}</td>
+          <td>${renderOperatingStyleDrilldownLink(entry, 'OFFBAND', entry?.offbandSpQsos || entry?.searchQsos || 0)}</td>
+          <td>${renderOperatingStylePctDrilldownLink(entry, 'OFFBAND', entry?.searchPct, entry?.offbandSpQsos || entry?.searchQsos)}</td>
         </tr>
       `;
     }).join('');
@@ -12159,9 +12273,9 @@
           <th>S&amp;P</th>
           <th>% S&amp;P of all</th>
           <th>INBAND</th>
-          <th>% INBAND of S&amp;P</th>
+          <th>% INBAND of all</th>
           <th>Off-band S&amp;P</th>
-          <th>% Off-band of S&amp;P</th>
+          <th>% Off-band of all</th>
         </tr>
         ${rows}
       </table>
@@ -12188,22 +12302,28 @@
         `${formatNumberSh6(totals.qsos || 0)} classified QSOs`,
         `RUN ${formatOperatingStylePct(totals.runPct || 0)}`,
         `S&P ${formatOperatingStylePct(totals.spPct || 0)}`,
-        `INBAND ${formatOperatingStylePct(totals.inbandPctOfSp || 0)} of S&P`
+        `INBAND ${formatOperatingStylePct(totals.inbandPct || 0)} of all QSOs`
       ]
     );
     const heuristicText = [
       `Window ±${formatNumberSh6(meta.windowRadiusQsos || 0)} QSOs`,
       `min cluster ${formatNumberSh6(meta.minClusterCount || 0)}`,
       `min share ${formatOperatingStylePct((Number(meta.dominanceShareMin) || 0) * 100)}`,
-      `active RUN gap ≤${formatNumberSh6(meta.activeRunGapQsos || 0)} QSOs`
+      `active RUN gap ≤${formatNumberSh6(meta.activeRunGapQsos || 0)} QSOs`,
+      `spot anchor ≤${formatNumberSh6(meta.spotAnchorMaxGapMinutes || 0)} min`
     ].join(' · ');
+    const anchorCounts = meta.spotAnchorCountsBySource || {};
+    const anchorText = meta.spotAnchoringUsed
+      ? `Loaded Spots/RBN added ${formatNumberSh6(meta.spotAnchorCount || 0)} RUN anchors (Spots ${formatNumberSh6(anchorCounts.spots || 0)}, RBN ${formatNumberSh6(anchorCounts.rbn || 0)}).`
+      : 'RUN intervals use Cabrillo frequency clustering; loaded Spots/RBN may add RUN anchors when available.';
     const excludedNote = excluded
       ? `<div class="export-actions export-note">Excluded from this analysis: ${formatNumberSh6(excluded)} QSOs without valid time or frequency.</div>`
       : '';
     return `
       ${intro}
       <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>
-      <div class="export-actions export-note"><b>Definition</b>: INBAND means an S&amp;P QSO on a band where SH6 infers an active RUN stream. S&amp;P = INBAND + Off-band S&amp;P; INBAND percentage is computed over S&amp;P.</div>
+      <div class="export-actions export-note"><b>Anchors</b>: ${escapeHtml(anchorText)}</div>
+      <div class="export-actions export-note"><b>Definition</b>: INBAND means an S&amp;P QSO on a band where SH6 infers an active RUN stream. S&amp;P = INBAND + Off-band S&amp;P; visible percentages are computed over all classified QSOs.</div>
       ${excludedNote}
       ${renderOperatingStyleTable(operatingStyle)}
     `;
@@ -15454,6 +15574,14 @@
           });
         });
     }
+    if (reportId === 'run_sp_inband') {
+      updateDataStatus();
+      invokeOptionalRuntime('spots actions runtime', () => {
+        const runtime = getSpotsActionsRuntime();
+        runtime.bindSpotControls('spots');
+        runtime.bindSpotControls('rbn');
+      });
+    }
     invokeOptionalRuntime('investigation actions runtime', () => getInvestigationActionsRuntime().bindInvestigationActions(reportId));
     if (reportId === 'not_in_master') {
       const buttons = document.querySelectorAll('.not-master-btn');
@@ -15575,6 +15703,7 @@
         const timeRange = state.logTimeRange;
         const stationQsoRange = state.logStationQsoRange;
         const distanceRange = state.logDistanceRange;
+        const operatingStyleFilter = state.logOperatingStyleFilter;
         let filtered = state.qsoData?.qsos || [];
         if (search) {
           filtered = filtered.filter((q) => q.call && q.call.includes(search));
@@ -15608,6 +15737,19 @@
         }
         if (ituFilter) {
           filtered = filtered.filter((q) => String(q.ituZone || '') === ituFilter);
+        }
+        if (operatingStyleFilter) {
+          const band = String(operatingStyleFilter.band || '').trim().toUpperCase();
+          const role = String(operatingStyleFilter.role || '').trim().toUpperCase();
+          filtered = filtered.filter((q) => {
+            const qBand = String(q.operatingStyleBand || q.band || '').trim().toUpperCase();
+            if (band && band !== 'ALL' && qBand !== band) return false;
+            const qRole = String(q.operatingStyleRole || '').trim().toUpperCase();
+            if (role === 'ALL') return Boolean(qRole);
+            if (role === 'SP') return qRole === 'INBAND' || qRole === 'SEARCH';
+            if (role === 'OFFBAND') return qRole === 'SEARCH';
+            return qRole === role;
+          });
         }
         if (rangeFilter && Number.isFinite(rangeFilter.start) && Number.isFinite(rangeFilter.end)) {
           filtered = filtered.filter((q) => {
@@ -15658,6 +15800,7 @@
           state.logContinentFilter = '';
           state.logCqFilter = '';
           state.logItuFilter = '';
+          state.logOperatingStyleFilter = null;
           state.logRange = null;
           state.logTimeRange = null;
           state.logHeadingRange = null;
@@ -15680,6 +15823,7 @@
           state.logContinentFilter = '';
           state.logCqFilter = '';
           state.logItuFilter = '';
+          state.logOperatingStyleFilter = null;
           state.logRange = null;
           state.logTimeRange = null;
           state.logHeadingRange = null;
@@ -15703,6 +15847,7 @@
           state.logContinentFilter = '';
           state.logCqFilter = '';
           state.logItuFilter = '';
+          state.logOperatingStyleFilter = null;
           state.logRange = null;
           state.logTimeRange = null;
           state.logHeadingRange = null;
@@ -15887,6 +16032,7 @@
           state.logContinentFilter = '';
           state.logCqFilter = '';
           state.logItuFilter = '';
+          state.logOperatingStyleFilter = null;
           state.logRange = null;
           state.logTimeRange = null;
           state.logHeadingRange = null;
@@ -15919,6 +16065,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -15947,6 +16094,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -15963,7 +16111,7 @@
       }
       viewContainerLogDrilldownHandler = (evt) => {
         if (evt.defaultPrevented) return;
-        const target = evt.target instanceof Element ? evt.target.closest('.log-range, .log-call') : null;
+        const target = evt.target instanceof Element ? evt.target.closest('.log-range, .log-call, .operating-style-drilldown') : null;
         if (!(target instanceof HTMLElement) || !dom.viewContainer.contains(target)) return;
         if (target.classList.contains('log-range')) {
           evt.preventDefault();
@@ -15983,6 +16131,7 @@
           state.logContinentFilter = '';
           state.logCqFilter = '';
           state.logItuFilter = '';
+          state.logOperatingStyleFilter = null;
           state.logTimeRange = null;
           state.logHeadingRange = null;
           state.logStationQsoRange = null;
@@ -16008,6 +16157,33 @@
           state.logContinentFilter = '';
           state.logCqFilter = '';
           state.logItuFilter = '';
+          state.logOperatingStyleFilter = null;
+          state.logTimeRange = null;
+          state.logHeadingRange = null;
+          state.logStationQsoRange = null;
+          state.logDistanceRange = null;
+          state.logPage = 0;
+          const logIndex = reports.findIndex((r) => r.id === 'log');
+          if (logIndex >= 0) setActiveReport(logIndex);
+          return;
+        }
+        if (target.classList.contains('operating-style-drilldown')) {
+          evt.preventDefault();
+          const band = (target.dataset.band || 'ALL').trim().toUpperCase();
+          const role = (target.dataset.role || 'ALL').trim().toUpperCase();
+          state.logRange = null;
+          state.logSearch = '';
+          state.logFieldFilter = '';
+          state.logBandFilter = '';
+          state.logModeFilter = '';
+          state.logOpFilter = '';
+          state.logCallLenFilter = null;
+          state.logCallStructFilter = '';
+          state.logCountryFilter = '';
+          state.logContinentFilter = '';
+          state.logCqFilter = '';
+          state.logItuFilter = '';
+          state.logOperatingStyleFilter = { band, role };
           state.logTimeRange = null;
           state.logHeadingRange = null;
           state.logStationQsoRange = null;
@@ -16063,6 +16239,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16092,6 +16269,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16120,6 +16298,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16148,6 +16327,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16176,6 +16356,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16205,6 +16386,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = { min, max };
@@ -16233,6 +16415,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16284,6 +16467,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16312,6 +16496,7 @@
         state.logContinentFilter = continent;
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16341,6 +16526,7 @@
         state.logContinentFilter = continent;
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16370,6 +16556,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16401,6 +16588,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16432,6 +16620,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = { startTs, endTs };
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16463,6 +16652,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = { startTs, endTs };
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16494,6 +16684,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = { startTs, endTs };
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16525,6 +16716,7 @@
         state.logContinentFilter = continent;
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = { startTs, endTs };
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16555,6 +16747,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = { startTs, endTs };
         state.logPage = 0;
         const logIndex = reports.findIndex((r) => r.id === 'log');
@@ -16582,6 +16775,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16611,6 +16805,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = cq;
         state.logItuFilter = '';
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;
@@ -16640,6 +16835,7 @@
         state.logContinentFilter = '';
         state.logCqFilter = '';
         state.logItuFilter = itu;
+        state.logOperatingStyleFilter = null;
         state.logTimeRange = null;
         state.logHeadingRange = null;
         state.logStationQsoRange = null;

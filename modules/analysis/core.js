@@ -151,7 +151,8 @@
       scoringError: '',
       scoringSource: '',
       analysisMode: ANALYSIS_MODE_DEFAULT,
-      callsignGridCache: new Map()
+      callsignGridCache: new Map(),
+      operatingStyleSpotAnchors: []
     };
   }
 
@@ -401,6 +402,30 @@
       .map(([freqKey, count]) => ({ freq: freqKey / 1000, count }));
   }
 
+  function normalizeOperatingStyleSpotAnchors(anchors) {
+    if (!Array.isArray(anchors)) return [];
+    const out = [];
+    anchors.forEach((raw) => {
+      if (!raw || typeof raw !== 'object') return;
+      const direction = String(raw.direction || raw.kind || 'ofUs').trim().toLowerCase();
+      if (direction && direction !== 'ofus') return;
+      const source = String(raw.source || '').trim().toLowerCase() === 'rbn' ? 'rbn' : 'spots';
+      const ts = Number(raw.ts);
+      const freqMHz = Number(raw.freqMHz ?? raw.freq);
+      const band = normalizeBand(raw.band, Number.isFinite(freqMHz) ? freqMHz : null) || '';
+      if (!Number.isFinite(ts) || !band) return;
+      out.push({
+        ts,
+        band,
+        freqMHz: Number.isFinite(freqMHz) ? freqMHz : null,
+        source,
+        mode: modeBucket(raw.mode || ''),
+        confidence: source === 'rbn' ? 1 : 0.6
+      });
+    });
+    return out.sort((a, b) => a.ts - b.ts);
+  }
+
   function estimateOperatingStyleRadiusKhz(freqs, mode) {
     const unique = Array.from(new Set((freqs || []).filter((value) => Number.isFinite(value)))).sort((a, b) => a - b);
     const diffs = [];
@@ -417,12 +442,18 @@
   }
 
   function buildOperatingStyleSummary(qsos) {
+    const spotAnchors = normalizeOperatingStyleSpotAnchors(activeAnalysisEnv?.operatingStyleSpotAnchors || []);
     const meta = {
       windowRadiusQsos: 20,
       minClusterCount: 4,
       dominanceShareMin: 0.35,
       inbandReturnRadiusQsos: 10,
-      activeRunGapQsos: 40
+      activeRunGapQsos: 40,
+      spotAnchorRadiusQsos: 10,
+      spotAnchorMaxGapMinutes: 15,
+      spotAnchoringUsed: false,
+      spotAnchorCount: 0,
+      spotAnchorCountsBySource: { spots: 0, rbn: 0 }
     };
     const buckets = new Map();
     let excludedQsoCount = 0;
@@ -585,14 +616,54 @@
         || ((a.q.qsoNumber || 0) - (b.q.qsoNumber || 0))
         || (a.index - b.index)
       ));
-      const ranges = [];
+      const seedPositions = [];
       ordered.forEach((entry, pos) => {
         entry.bandPosition = pos;
-        if (!entry.preliminaryRun) return;
-        const last = ranges[ranges.length - 1];
-        if (last && pos - last.end <= meta.activeRunGapQsos) last.end = pos;
-        else ranges.push({ start: pos, end: pos });
+        if (entry.preliminaryRun) seedPositions.push({ pos, source: 'cabrillo' });
       });
+      const nearestPositionForTs = (ts) => {
+        let lo = 0;
+        let hi = ordered.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (Number(ordered[mid].q.ts) < ts) lo = mid + 1;
+          else hi = mid;
+        }
+        let bestPos = -1;
+        let bestDelta = Infinity;
+        [lo - 1, lo].forEach((pos) => {
+          if (pos < 0 || pos >= ordered.length) return;
+          const delta = Math.abs(Number(ordered[pos].q.ts) - ts);
+          if (delta < bestDelta) {
+            bestPos = pos;
+            bestDelta = delta;
+          }
+        });
+        return bestPos >= 0 ? { entry: ordered[bestPos], pos: bestPos, delta: bestDelta } : null;
+      };
+      spotAnchors
+        .filter((anchor) => anchor.band === band)
+        .forEach((anchor) => {
+          const best = nearestPositionForTs(anchor.ts);
+          if (!best) return;
+          if (best.delta > meta.spotAnchorMaxGapMinutes * 60000) return;
+          if (anchor.source === 'rbn' && best.entry.mode !== 'CW') return;
+          seedPositions.push({ pos: best.pos, source: anchor.source });
+          meta.spotAnchoringUsed = true;
+          meta.spotAnchorCount += 1;
+          meta.spotAnchorCountsBySource[anchor.source] = (meta.spotAnchorCountsBySource[anchor.source] || 0) + 1;
+        });
+      const ranges = [];
+      seedPositions
+        .sort((a, b) => a.pos - b.pos)
+        .forEach((seed) => {
+          const radius = seed.source === 'cabrillo' ? 0 : meta.spotAnchorRadiusQsos;
+          const start = Math.max(0, seed.pos - radius);
+          const end = Math.min(ordered.length - 1, seed.pos + radius);
+          const last = ranges[ranges.length - 1];
+          if (last && start - last.end <= meta.activeRunGapQsos) last.end = Math.max(last.end, end);
+          else ranges.push({ start, end });
+        });
       activeRunRangesByBand.set(band, ranges);
     });
     const isActiveRunPosition = (entry) => {
@@ -3227,6 +3298,7 @@
     env.scoringError = String(resources.scoringError || '');
     env.scoringStatus = env.scoringSpec ? 'ok' : (resources.scoringStatus === 'error' ? 'error' : 'pending');
     env.callsignGridCache = toCallsignGridMap(resources);
+    env.operatingStyleSpotAnchors = normalizeOperatingStyleSpotAnchors(resources.operatingStyleSpotAnchors);
     if (env.scoringSpec) {
       let indexes = scoringIndexCache.get(env.scoringSpec);
       if (!indexes) {

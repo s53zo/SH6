@@ -43,11 +43,11 @@ if (!core || typeof core.buildDerived !== 'function') {
   throw new Error('Unable to load SH6AnalysisCore.buildDerived');
 }
 
-function makeQso(freq, minute, qsoNumber, band = '20M') {
+function makeQso(freq, minute, qsoNumber, band = '20M', mode = 'CW') {
   return {
     call: `TEST${String(qsoNumber).padStart(3, '0')}`,
     band,
-    mode: 'CW',
+    mode,
     freq,
     ts: Date.UTC(2024, 9, 26, 0, minute, 0),
     qsoNumber,
@@ -61,9 +61,9 @@ function classify(freqs) {
   return qsos.map((q) => q.operatingStyleRole);
 }
 
-function derive(entries) {
-  const qsos = entries.map((entry, idx) => makeQso(entry.freq, idx, idx + 1, entry.band || '20M'));
-  const derived = core.buildDerived(qsos, {});
+function derive(entries, resources = {}) {
+  const qsos = entries.map((entry, idx) => makeQso(entry.freq, idx, idx + 1, entry.band || '20M', entry.mode || 'CW'));
+  const derived = core.buildDerived(qsos, {}, resources);
   return { qsos, derived };
 }
 
@@ -111,8 +111,123 @@ assert(
 assert(
   Math.round(activeRunScenario.derived.operatingStyle.totals.inbandPctOfSp) === 60
     && Math.round(activeRunScenario.derived.operatingStyle.totals.offbandSpPctOfSp) === 40,
-  'INBAND and off-band percentages must be computed over S&P QSOs.',
+  'S&P-denominator operating-style percentages should remain available for non-table consumers.',
   activeRunScenario.derived.operatingStyle.totals
+);
+assert(
+  Math.round(activeRunScenario.derived.operatingStyle.totals.inbandPct) === 23
+    && Math.round(activeRunScenario.derived.operatingStyle.totals.searchPct) === 15,
+  'Visible table percentages use all classified QSOs as the denominator.',
+  activeRunScenario.derived.operatingStyle.totals
+);
+
+const spotAnchorEntries = [
+  { band: '20M', freq: 14.031 },
+  { band: '20M', freq: 14.037 },
+  { band: '15M', freq: 21.021 }
+];
+const spotAnchorTs = Date.UTC(2024, 9, 26, 0, 0, 0);
+const fallbackNoAnchors = derive(spotAnchorEntries);
+const fallbackEmptyAnchors = derive(spotAnchorEntries, { operatingStyleSpotAnchors: [] });
+assert(
+  JSON.stringify(fallbackNoAnchors.qsos.map((q) => q.operatingStyleRole)) === JSON.stringify(fallbackEmptyAnchors.qsos.map((q) => q.operatingStyleRole))
+    && fallbackEmptyAnchors.derived.operatingStyle.meta.spotAnchoringUsed === false,
+  'Empty spot anchor resources must preserve Cabrillo-only classification.',
+  {
+    without: fallbackNoAnchors.qsos.map((q) => q.operatingStyleRole),
+    empty: fallbackEmptyAnchors.qsos.map((q) => q.operatingStyleRole),
+    meta: fallbackEmptyAnchors.derived.operatingStyle.meta
+  }
+);
+
+const rbnAnchored = derive(spotAnchorEntries, {
+  operatingStyleSpotAnchors: [
+    { direction: 'ofUs', source: 'rbn', ts: spotAnchorTs, band: '20M', freqMHz: 14.031, mode: 'CW' }
+  ]
+});
+assert(
+  rbnAnchored.qsos[0].operatingStyleRole === 'INBAND'
+    && rbnAnchored.qsos[2].operatingStyleRole === 'SEARCH'
+    && rbnAnchored.derived.operatingStyle.meta.spotAnchorCountsBySource.rbn === 1,
+  'RBN CW spots of us should add RUN anchors only on the spotted band.',
+  {
+    roles: rbnAnchored.qsos.map((q) => ({ band: q.band, mode: q.mode, role: q.operatingStyleRole })),
+    meta: rbnAnchored.derived.operatingStyle.meta
+  }
+);
+
+const rbnPhoneIgnored = derive([
+  { band: '20M', freq: 14.031, mode: 'SSB' },
+  { band: '20M', freq: 14.037, mode: 'SSB' }
+], {
+  operatingStyleSpotAnchors: [
+    { direction: 'ofUs', source: 'rbn', ts: spotAnchorTs, band: '20M', freqMHz: 14.031, mode: 'CW' }
+  ]
+});
+assert(
+  rbnPhoneIgnored.qsos.every((q) => q.operatingStyleRole === 'SEARCH')
+    && rbnPhoneIgnored.derived.operatingStyle.meta.spotAnchorCount === 0,
+  'RBN anchors must not affect non-CW operating-style intervals.',
+  {
+    roles: rbnPhoneIgnored.qsos.map((q) => ({ mode: q.mode, role: q.operatingStyleRole })),
+    meta: rbnPhoneIgnored.derived.operatingStyle.meta
+  }
+);
+
+const classicSpotAnchored = derive([
+  { band: '20M', freq: 14.031, mode: 'SSB' },
+  { band: '15M', freq: 21.021, mode: 'SSB' }
+], {
+  operatingStyleSpotAnchors: [
+    { direction: 'ofUs', source: 'spots', ts: spotAnchorTs, band: '20M', freqMHz: 14.031 }
+  ]
+});
+assert(
+  classicSpotAnchored.qsos[0].operatingStyleRole === 'INBAND'
+    && classicSpotAnchored.qsos[1].operatingStyleRole === 'SEARCH'
+    && classicSpotAnchored.derived.operatingStyle.meta.spotAnchorCountsBySource.spots === 1,
+  'Classic spots of us should add all-mode RUN anchors with lower-confidence source metadata.',
+  {
+    roles: classicSpotAnchored.qsos.map((q) => ({ band: q.band, mode: q.mode, role: q.operatingStyleRole })),
+    meta: classicSpotAnchored.derived.operatingStyle.meta
+  }
+);
+
+const byUsIgnored = derive(spotAnchorEntries, {
+  operatingStyleSpotAnchors: [
+    { direction: 'byUs', source: 'spots', ts: spotAnchorTs, band: '20M', freqMHz: 14.031 }
+  ]
+});
+assert(
+  byUsIgnored.qsos.every((q) => q.operatingStyleRole === 'SEARCH')
+    && byUsIgnored.derived.operatingStyle.meta.spotAnchorCount === 0,
+  'Spots made by us must not become RUN anchors.',
+  {
+    roles: byUsIgnored.qsos.map((q) => q.operatingStyleRole),
+    meta: byUsIgnored.derived.operatingStyle.meta
+  }
+);
+
+const distantSpotIgnored = derive(spotAnchorEntries, {
+  operatingStyleSpotAnchors: [
+    { direction: 'ofUs', source: 'spots', ts: spotAnchorTs + (60 * 60 * 1000), band: '20M', freqMHz: 14.031 }
+  ]
+});
+assert(
+  distantSpotIgnored.qsos.every((q) => q.operatingStyleRole === 'SEARCH')
+    && distantSpotIgnored.derived.operatingStyle.meta.spotAnchorCount === 0,
+  'Spot anchors too far away from logged QSOs must not create active RUN intervals.',
+  {
+    roles: distantSpotIgnored.qsos.map((q) => q.operatingStyleRole),
+    meta: distantSpotIgnored.derived.operatingStyle.meta
+  }
+);
+
+const emptySpotState = derive(spotAnchorEntries, { operatingStyleSpotAnchors: null });
+assert(
+  emptySpotState.qsos.every((q) => q.operatingStyleRole === 'SEARCH'),
+  'Unavailable spot anchor resources must not throw or change fallback classification.',
+  { roles: emptySpotState.qsos.map((q) => q.operatingStyleRole) }
 );
 
 const qsyRunRoles = classify([

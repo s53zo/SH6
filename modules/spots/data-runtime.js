@@ -11,6 +11,7 @@ export function createSpotsDataRuntime(deps = {}) {
     runEngineTask,
     updateDataStatus,
     renderActiveReport,
+    refreshOperatingStyleSpotAnchors,
     spotsBaseUrl = '',
     rbnProxyUrl = '',
     rbnSummaryOnlyThreshold = 0
@@ -107,6 +108,11 @@ export function createSpotsDataRuntime(deps = {}) {
 
   function renderActiveReportSafe() {
     if (typeof renderActiveReport === 'function') renderActiveReport();
+  }
+
+  function refreshOperatingStyleSpotAnchorsSafe(slot) {
+    if (typeof refreshOperatingStyleSpotAnchors !== 'function') return;
+    refreshOperatingStyleSpotAnchors(slot);
   }
 
   function formatDayOfYear(ts) {
@@ -662,6 +668,7 @@ export function createSpotsDataRuntime(deps = {}) {
       spotsState.qsoIndex = qsoIndex;
       spotsState.qsoCallIndex = qsoCallIndex;
       computeSpotsStats(target);
+      refreshOperatingStyleSpotAnchorsSafe(target);
     } catch (err) {
       const status = err && typeof err === 'object' && Number.isFinite(err.status) ? Number(err.status) : null;
       const retryAfterMs = err && typeof err === 'object' && Number.isFinite(err.retryAfterMs) ? Number(err.retryAfterMs) : 0;
@@ -766,6 +773,7 @@ export function createSpotsDataRuntime(deps = {}) {
       rbnState.qsoIndex = qsoIndex;
       rbnState.qsoCallIndex = qsoCallIndex;
       computeSpotsStats(target, rbnState);
+      refreshOperatingStyleSpotAnchorsSafe(target);
     } catch (err) {
       const status = err && typeof err === 'object' && Number.isFinite(err.status) ? Number(err.status) : null;
       const retryAfterMs = err && typeof err === 'object' && Number.isFinite(err.retryAfterMs) ? Number(err.retryAfterMs) : 0;

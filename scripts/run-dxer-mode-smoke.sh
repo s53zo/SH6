@@ -188,7 +188,8 @@ report_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
     hasRunHeader: headers.indexOf('RUN') !== -1,
     hasInbandHeader: headers.indexOf('INBAND') !== -1,
     hasOffbandHeader: headers.indexOf('Off-band S&P') !== -1,
-    hasInbandPctHeader: headers.indexOf('% INBAND of S&P') !== -1,
+    hasInbandPctHeader: headers.indexOf('% INBAND of all') !== -1,
+    hasDrilldownLink: !!document.querySelector('#viewContainer .operating-style-drilldown[data-role="RUN"]'),
     notes,
     errors: window.__sh6Errors || []
   };
@@ -211,6 +212,7 @@ report_ok="$(echo "${report_payload}" | jq -r '
   ($r | .hasInbandHeader) and
   ($r | .hasOffbandHeader) and
   ($r | .hasInbandPctHeader) and
+  ($r | .hasDrilldownLink) and
   (($r | .notes | map(test("Heuristic"; "i")) | any)) and
   (($r | .notes | map(test("Definition"; "i")) | any)) and
   (($r | .errors | length) == 0)
@@ -218,6 +220,29 @@ report_ok="$(echo "${report_payload}" | jq -r '
 if [[ "${report_ok}" != "true" ]]; then
   echo "[dxer-mode-smoke] RUN vs S&P vs INBAND render check failed."
   echo "${report_payload}"
+  exit 1
+fi
+
+run_ab --session "${SESSION}" eval "(() => { const link = document.querySelector('#viewContainer .operating-style-drilldown[data-role=\"RUN\"]'); if (link) link.click(); return Boolean(link); })()" >/dev/null
+sleep 1
+drill_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
+(() => ({
+  title: document.querySelector('#viewTitle')?.textContent || '',
+  filterNote: document.querySelector('#viewContainer .log-filter-note')?.textContent || '',
+  hasRows: !!document.querySelector('#viewContainer [data-virtual-body="log"], #viewContainer .log-table')
+}))();
+JS
+)")"
+drill_payload="$(echo "${drill_eval_raw}" | jq -c '.data.result' 2>/dev/null || true)"
+drill_ok="$(echo "${drill_payload}" | jq -r '
+  . as $r |
+  (($r | .title) == "Log") and
+  (($r | .filterNote | test("Operating style"; "i"))) and
+  ($r | .hasRows)
+' 2>/dev/null || true)"
+if [[ "${drill_ok}" != "true" ]]; then
+  echo "[dxer-mode-smoke] RUN vs S&P drilldown check failed."
+  echo "${drill_payload}"
   exit 1
 fi
 

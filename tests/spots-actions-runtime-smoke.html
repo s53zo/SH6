@@ -98,11 +98,18 @@
           import('../modules/spots/actions-runtime.js')
         ]);
 
-        add('Main.js imports the spots actions runtime module', mainSource.includes("const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.2.21';"));
-        add('Main.js preloads the spots actions runtime during init', mainSource.includes('const spotsActionsRuntimeReady = loadSpotsActionsRuntimeModule();') && mainSource.includes('await spotsActionsRuntimeReady;'));
+        add('Main.js imports the spots actions runtime module', /const SPOTS_ACTIONS_RUNTIME_MODULE_URL = '\.\/modules\/spots\/actions-runtime\.js\?v=[^']+';/.test(mainSource));
+        add('Main.js preloads the spots actions runtime during init', mainSource.includes('const spotsActionsRuntimeReady = loadSpotsActionsRuntimeModule();') && mainSource.includes("await awaitInitRuntime('spots actions runtime', spotsActionsRuntimeReady);"));
         add(
           'Main.js delegates the standard spots reports to the spots actions runtime',
-          mainSource.includes('getSpotsActionsRuntime().bindSpotReport(reportId);'),
+          mainSource.includes('getSpotsActionsRuntime().bindSpotReport(reportId)'),
+          ''
+        );
+        add(
+          'Main.js requests spot/RBN anchor data from the operating-style report',
+          mainSource.includes("if (reportId === 'run_sp_inband') {")
+            && mainSource.includes("runtime.bindSpotControls('spots');")
+            && mainSource.includes("runtime.bindSpotControls('rbn');"),
           ''
         );
         add('Spots actions runtime exports the factory', moduleSource.includes('export function createSpotsActionsRuntime'));

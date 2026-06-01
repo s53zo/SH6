@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.2.41 (2026-06-01)
+- Operating style: add optional Spots/RBN RUN anchoring when spot data is loaded, with Cabrillo-only fallback when it is unavailable.
+- Operating style: show all visible RUN, S&P, INBAND, and off-band percentages over total classified QSOs.
+- Log drilldowns: make operating-style counts and percentages clickable so the Log report opens with matching QSOs.
+- Performance: match spot anchors to nearest QSOs with time-indexed lookup instead of scanning every QSO per spot.
+- Version bump to `v6.2.41` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.40 (2026-06-01)
 - Operating style: classify INBAND as S&P QSOs made while a RUN stream is active on the same band.
 - Operating style: report INBAND and off-band S&P percentages over S&P QSOs, with clearer table labels and definitions.

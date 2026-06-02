@@ -448,8 +448,10 @@
       windowRadiusQsos: 20,
       minClusterCount: 4,
       dominanceShareMin: 0.35,
+      cabrilloRunWindowMaxMinutes: 10,
       inbandReturnRadiusQsos: 10,
       activeRunGapQsos: 40,
+      activeRunGapMaxMinutes: 10,
       spotAnchorRadiusQsos: 10,
       rbnAnchorRadiusQsos: 1,
       rbnMicroAnchorRadiusQsos: 1,
@@ -537,31 +539,37 @@
       const modeRunFreqs = new Map();
       const bandEntry = ensureBand(bucket.band);
       const analysis = new Array(list.length);
-      const countSupport = (centerFreq, lo, hi) => {
+      const cabrilloWindowMaxMs = meta.cabrilloRunWindowMaxMinutes * 60000;
+      const countSupport = (centerFreq, positions) => {
         let count = 0;
-        for (let k = lo; k <= hi; k += 1) {
+        positions.forEach((k) => {
           if (Math.abs(list[k].q.freq - centerFreq) <= radiusMHz + 1e-9) count += 1;
-        }
+        });
         return count;
       };
 
       for (let i = 0; i < list.length; i += 1) {
         const lo = Math.max(0, i - meta.windowRadiusQsos);
         const hi = Math.min(list.length - 1, i + meta.windowRadiusQsos);
+        const currentTs = Number(list[i].q.ts);
+        const windowPositions = [];
+        for (let k = lo; k <= hi; k += 1) {
+          if (Math.abs(Number(list[k].q.ts) - currentTs) <= cabrilloWindowMaxMs) windowPositions.push(k);
+        }
         let bestFreq = null;
         let bestCount = 0;
         let bestDistance = Infinity;
-        for (let j = lo; j <= hi; j += 1) {
+        windowPositions.forEach((j) => {
           const center = list[j].q.freq;
-          const count = countSupport(center, lo, hi);
+          const count = countSupport(center, windowPositions);
           const distance = Math.abs(list[i].q.freq - center);
           if (count > bestCount || (count === bestCount && distance < bestDistance)) {
             bestFreq = center;
             bestCount = count;
             bestDistance = distance;
           }
-        }
-        const windowSize = hi - lo + 1;
+        });
+        const windowSize = windowPositions.length;
         const dominance = windowSize ? (bestCount / windowSize) : 0;
         const centeredRunActive = bestCount >= meta.minClusterCount && dominance >= meta.dominanceShareMin;
         const centeredOnRun = centeredRunActive && Math.abs(list[i].q.freq - bestFreq) <= radiusMHz + 1e-9;
@@ -569,11 +577,12 @@
         while (streakLo > 0 && Math.abs(list[streakLo - 1].q.freq - list[i].q.freq) <= radiusMHz + 1e-9) streakLo -= 1;
         let streakHi = i;
         while (streakHi + 1 < list.length && Math.abs(list[streakHi + 1].q.freq - list[i].q.freq) <= radiusMHz + 1e-9) streakHi += 1;
+        const streakSpanMs = Number(list[streakHi].q.ts) - Number(list[streakLo].q.ts);
         analysis[i] = {
           centeredRunActive,
           centeredOnRun,
           dominantRunFreq: Number.isFinite(bestFreq) ? bestFreq : null,
-          streakRunSupported: (streakHi - streakLo + 1) >= meta.minClusterCount
+          streakRunSupported: (streakHi - streakLo + 1) >= meta.minClusterCount && streakSpanMs <= cabrilloWindowMaxMs
         };
       }
 
@@ -763,13 +772,34 @@
             : (seed.source === 'rbn'
               ? meta.rbnAnchorRadiusQsos
               : (seed.source === 'rbnMicro' ? meta.rbnMicroAnchorRadiusQsos : meta.spotAnchorRadiusQsos));
-          const start = Math.max(0, seed.pos - radius);
-          const end = Math.min(ordered.length - 1, seed.pos + radius);
+          const seedTs = Number(ordered[seed.pos]?.q?.ts);
+          const radiusMaxMs = meta.activeRunGapMaxMinutes * 60000;
+          let start = Math.max(0, seed.pos - radius);
+          let end = Math.min(ordered.length - 1, seed.pos + radius);
+          while (
+            start < seed.pos
+            && Number.isFinite(seedTs)
+            && (seedTs - Number(ordered[start]?.q?.ts)) > radiusMaxMs
+          ) {
+            start += 1;
+          }
+          while (
+            end > seed.pos
+            && Number.isFinite(seedTs)
+            && (Number(ordered[end]?.q?.ts) - seedTs) > radiusMaxMs
+          ) {
+            end -= 1;
+          }
           const last = ranges[ranges.length - 1];
           const gapLimit = last && (seed.source === 'rbnMicro' || last.source === 'rbnMicro')
             ? meta.rbnMicroActiveRunGapQsos
             : meta.activeRunGapQsos;
-          if (last && start - last.end <= gapLimit) {
+          const gapStartTs = last ? Number(ordered[last.end]?.q?.ts) : null;
+          const gapEndTs = Number(ordered[start]?.q?.ts);
+          const gapWithinTime = Number.isFinite(gapStartTs)
+            && Number.isFinite(gapEndTs)
+            && (gapEndTs - gapStartTs) <= meta.activeRunGapMaxMinutes * 60000;
+          if (last && start - last.end <= gapLimit && gapWithinTime) {
             last.end = Math.max(last.end, end);
             if (seed.source === 'rbnMicro') last.source = 'rbnMicro';
           } else {

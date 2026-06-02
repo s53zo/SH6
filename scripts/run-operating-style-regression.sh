@@ -62,7 +62,7 @@ function classify(freqs) {
 }
 
 function derive(entries, resources = {}) {
-  const qsos = entries.map((entry, idx) => makeQso(entry.freq, idx, idx + 1, entry.band || '20M', entry.mode || 'CW'));
+  const qsos = entries.map((entry, idx) => makeQso(entry.freq, entry.minute ?? idx, idx + 1, entry.band || '20M', entry.mode || 'CW'));
   const derived = core.buildDerived(qsos, {}, resources);
   return { qsos, derived };
 }
@@ -119,6 +119,36 @@ assert(
     && Math.round(activeRunScenario.derived.operatingStyle.totals.searchPct) === 15,
   'Visible table percentages use all classified QSOs as the denominator.',
   activeRunScenario.derived.operatingStyle.totals
+);
+
+const sparseLowBandScenario = derive([
+  { band: '80M', freq: 3.51, minute: 0 },
+  { band: '80M', freq: 3.51, minute: 20 },
+  { band: '80M', freq: 3.51, minute: 40 },
+  { band: '80M', freq: 3.51, minute: 60 },
+  { band: '80M', freq: 3.51, minute: 80 }
+]);
+assert(
+  sparseLowBandScenario.qsos.every((q) => q.operatingStyleRole === 'SEARCH'),
+  'Same-band frequency matches outside the 10-minute Cabrillo RUN window must not create a RUN cluster.',
+  { roles: sparseLowBandScenario.qsos.map((q) => ({ minute: new Date(q.ts).getUTCMinutes(), role: q.operatingStyleRole })) }
+);
+
+const separatedRunScenario = derive([
+  { band: '20M', freq: 14.02, minute: 0 },
+  { band: '20M', freq: 14.02, minute: 1 },
+  { band: '20M', freq: 14.02, minute: 2 },
+  { band: '20M', freq: 14.02, minute: 3 },
+  { band: '20M', freq: 14.031, minute: 15 },
+  { band: '20M', freq: 14.02, minute: 30 },
+  { band: '20M', freq: 14.02, minute: 31 },
+  { band: '20M', freq: 14.02, minute: 32 },
+  { band: '20M', freq: 14.02, minute: 33 }
+]);
+assert(
+  separatedRunScenario.qsos[4].operatingStyleRole === 'SEARCH',
+  'Active RUN ranges must not merge across a same-band gap longer than 10 minutes.',
+  { roles: separatedRunScenario.qsos.map((q) => ({ minute: new Date(q.ts).getUTCMinutes(), role: q.operatingStyleRole })) }
 );
 
 const spotAnchorEntries = [
@@ -250,6 +280,24 @@ assert(
   {
     roles: classicSpotAnchored.qsos.map((q) => ({ band: q.band, mode: q.mode, role: q.operatingStyleRole })),
     meta: classicSpotAnchored.derived.operatingStyle.meta
+  }
+);
+
+const distantSameBandSpotRadius = derive([
+  { band: '20M', freq: 14.031, mode: 'SSB', minute: 0 },
+  { band: '20M', freq: 14.037, mode: 'SSB', minute: 20 }
+], {
+  operatingStyleSpotAnchors: [
+    { direction: 'ofUs', source: 'spots', ts: spotAnchorTs, band: '20M', freqMHz: 14.031 }
+  ]
+});
+assert(
+  distantSameBandSpotRadius.qsos[0].operatingStyleRole === 'INBAND'
+    && distantSameBandSpotRadius.qsos[1].operatingStyleRole === 'SEARCH',
+  'Spot anchor radius must not sweep same-band QSOs more than 10 minutes away into INBAND.',
+  {
+    roles: distantSameBandSpotRadius.qsos.map((q) => ({ minute: new Date(q.ts).getUTCMinutes(), role: q.operatingStyleRole })),
+    meta: distantSameBandSpotRadius.derived.operatingStyle.meta
   }
 );
 

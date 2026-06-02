@@ -452,6 +452,7 @@
       inbandReturnRadiusQsos: 10,
       activeRunGapQsos: 40,
       activeRunGapMaxMinutes: 10,
+      activeRunSeedHaloMinutes: 10,
       spotAnchorRadiusQsos: 10,
       rbnAnchorRadiusQsos: 1,
       rbnMicroAnchorRadiusQsos: 1,
@@ -631,6 +632,7 @@
       itemsByBand.get(entry.band).push(entry);
     });
     const activeRunRangesByBand = new Map();
+    const activeRunSeedTimesByBand = new Map();
     itemsByBand.forEach((items, band) => {
       const ordered = items.slice().sort((a, b) => (
         (a.q.ts - b.q.ts)
@@ -807,14 +809,35 @@
           }
         });
       activeRunRangesByBand.set(band, ranges);
+      activeRunSeedTimesByBand.set(
+        band,
+        seedPositions
+          .map((seed) => Number(ordered[seed.pos]?.q?.ts))
+          .filter(Number.isFinite)
+          .sort((a, b) => a - b)
+      );
     });
     const isActiveRunPosition = (entry) => {
       const ranges = activeRunRangesByBand.get(entry.band) || [];
       return ranges.some((range) => entry.bandPosition >= range.start && entry.bandPosition <= range.end);
     };
+    const hasActiveRunSeedWithinHalo = (entry) => {
+      const seedTimes = activeRunSeedTimesByBand.get(entry.band) || [];
+      const ts = Number(entry.q?.ts);
+      if (!seedTimes.length || !Number.isFinite(ts)) return false;
+      const maxDelta = meta.activeRunSeedHaloMinutes * 60000;
+      let lo = 0;
+      let hi = seedTimes.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (seedTimes[mid] < ts) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo > 0 && (ts - seedTimes[lo - 1]) <= maxDelta;
+    };
 
     allOperatingItems.forEach((entry) => {
-      const role = entry.preliminaryRun ? 'RUN' : (isActiveRunPosition(entry) ? 'INBAND' : 'SEARCH');
+      const role = entry.preliminaryRun ? 'RUN' : ((isActiveRunPosition(entry) || hasActiveRunSeedWithinHalo(entry)) ? 'INBAND' : 'SEARCH');
       const q = entry.q;
       const { bandEntry, modeEntry, modeRunFreqs } = entry;
       q.operatingStyleRole = role;
@@ -1275,7 +1298,7 @@
   }
 
   function parseCabrillo(text) {
-    const lines = String(text || '').split(/\r?\n/);
+    const lines = String(text || '').split(/\r\n|\n|\r/);
     const header = {};
     const qsos = [];
     const parseQsoTokens = (tokens, isQtc) => {

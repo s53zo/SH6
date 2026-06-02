@@ -75,10 +75,33 @@ function assert(condition, message, payload) {
   process.exit(1);
 }
 
-const noReturnRoles = classify([14.02, 14.02, 14.02, 14.02, 14.03]);
+const crOnlyCabrillo = [
+  'START-OF-LOG: 3.0',
+  'CALLSIGN: TK0C',
+  'CONTEST: CQ-WW-CW',
+  'QSO:  7026 CW 2015-11-28 0000 TK0C 599 15 HA1BC 599 15 0',
+  'QSO:  1838 CW 2015-11-28 0000 TK0C 599 15 LY2SA 599 15 1',
+  'END-OF-LOG:'
+].join('\r');
+const crOnlyParsed = core.parseLogFile(crOnlyCabrillo, 'TK0C.log');
+assert(
+  crOnlyParsed.qsos.length === 2
+    && crOnlyParsed.qsos[0].call === 'HA1BC'
+    && crOnlyParsed.qsos[1].call === 'LY2SA',
+  'Cabrillo parser must handle legacy CR-only line endings.',
+  { qsoCount: crOnlyParsed.qsos.length, qsos: crOnlyParsed.qsos.map((q) => ({ call: q.call, band: q.band, freq: q.freq })) }
+);
+
+const noReturnRoles = derive([
+  { band: '20M', freq: 14.02, minute: 0 },
+  { band: '20M', freq: 14.02, minute: 1 },
+  { band: '20M', freq: 14.02, minute: 2 },
+  { band: '20M', freq: 14.02, minute: 3 },
+  { band: '20M', freq: 14.03, minute: 14 }
+]).qsos.map((q) => q.operatingStyleRole);
 assert(
   noReturnRoles[4] === 'SEARCH',
-  'Off-run QSO without a return to the run frequency must stay SEARCH, not INBAND.',
+  'Same-band off-run QSO outside the active RUN seed halo must stay SEARCH, not INBAND.',
   { roles: noReturnRoles }
 );
 
@@ -119,6 +142,21 @@ assert(
     && Math.round(activeRunScenario.derived.operatingStyle.totals.searchPct) === 15,
   'Visible table percentages use all classified QSOs as the denominator.',
   activeRunScenario.derived.operatingStyle.totals
+);
+
+const activeRunHaloScenario = derive([
+  { band: '20M', freq: 14.02, minute: 0 },
+  { band: '20M', freq: 14.02, minute: 1 },
+  { band: '20M', freq: 14.02, minute: 2 },
+  { band: '20M', freq: 14.02, minute: 3 },
+  { band: '20M', freq: 14.031, minute: 8 },
+  { band: '15M', freq: 21.021, minute: 8 }
+]);
+assert(
+  activeRunHaloScenario.qsos[4].operatingStyleRole === 'INBAND'
+    && activeRunHaloScenario.qsos[5].operatingStyleRole === 'SEARCH',
+  'The active RUN seed halo should classify only same-band S&P within 10 minutes as INBAND.',
+  { roles: activeRunHaloScenario.qsos.map((q) => ({ band: q.band, minute: new Date(q.ts).getUTCMinutes(), role: q.operatingStyleRole })) }
 );
 
 const sparseLowBandScenario = derive([

@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.17 (2026-06-17)
+- Competitor coach: infer exact CQ categories from station callsign plus Cabrillo `CATEGORY-*` fields before falling back to broad `MULTI-OP` or `SINGLE-OP` labels.
+- Competitor coach: ignore operator-linked CQ API rows when determining the loaded station's current category, so `OPERATOR`/operators fields do not override the station category.
+- Regression coverage: add S53M, S58A, K1LZ, AA3B, and E7DX category cases, including a guard for operator-linked score rows.
+- Version bump to `v6.3.17` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.3.16 (2026-06-17)
 - Competitor coach: tighten Same category filtering so exact resolved categories such as CQ WPX `MSH` do not include other multi-op classes like `MSL`, `M2`, `MM`, or `MD`.
 - Competitor coach: keep broad `MULTI-OP` and `SINGLE-OP` fallback matching only when the current station's exact category is unknown.

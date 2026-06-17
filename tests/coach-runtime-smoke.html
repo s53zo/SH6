@@ -372,6 +372,43 @@
           JSON.stringify(request)
         );
 
+        const s58aRequest = runtime.buildCqApiRequest({
+          derived: {
+            contestMeta: {
+              contestId: 'CQ-WPX-CW',
+              stationCallsign: 'S58A',
+              category: 'MULTI-OP',
+              categoryOperator: 'MULTI-OP',
+              categoryPower: 'HIGH',
+              categoryBand: 'ALL',
+              categoryTransmitter: 'ONE'
+            },
+            timeRange: {
+              minTs: Date.UTC(2026, 4, 30, 0, 0, 0)
+            }
+          },
+          qsoData: {
+            qsos: [{
+              raw: {
+                'CATEGORY-OPERATOR': 'MULTI-OP',
+                'CATEGORY-POWER': 'HIGH',
+                'CATEGORY-BAND': 'ALL',
+                'CATEGORY-TRANSMITTER': 'ONE'
+              }
+            }]
+          },
+          logFile: {
+            path: 'CQWPX/cw/2026/s58a.log'
+          }
+        });
+        add(
+          'buildCqApiRequest infers exact CQ category before broad Cabrillo category',
+          s58aRequest?.contestId === 'CQWPX'
+            && s58aRequest.categories[0] === 'MSH'
+            && s58aRequest.categories.includes('MULTI-OP'),
+          JSON.stringify(s58aRequest)
+        );
+
         const clientA = await runtime.ensureCqApiClient();
         const clientB = await runtime.ensureCqApiClient();
         add(

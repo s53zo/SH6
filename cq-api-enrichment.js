@@ -627,7 +627,9 @@
 
         // Raw endpoint can return HTTP 400 ("No results found") and pollute browser consoles.
         // Only call it when we actually need it as a fallback for missing current score.
-        let currentScore = currentRes.ok ? (currentRes.rows[0] || null) : null;
+        const isStationScoreRow = (row) => sanitizeCallsign(row?.callsign || row?.call || '') === callsign;
+        const stationCurrentRows = currentRes.ok ? (currentRes.rows || []).filter(isStationScoreRow) : [];
+        let currentScore = stationCurrentRows[0] || null;
         let currentScoreSource = currentScore ? 'final' : null;
         const shouldTryRawFallback = !currentScore && Number.isFinite(selectedYear);
         const rawRes = shouldTryRawFallback
@@ -669,7 +671,11 @@
           }
           return pickTopScore(candidates);
         };
-        const fallbackCategory = normalizeCategoryLabel(history[0]?.category || '');
+        const stationHistory = history.filter(isStationScoreRow);
+        const selectedHistory = Number.isFinite(selectedYear)
+          ? stationHistory.find((row) => Number(row?.year) === selectedYear)
+          : stationHistory[0];
+        const fallbackCategory = normalizeCategoryLabel(selectedHistory?.category || '');
         if (shouldTryRawFallback && rawRes.ok) {
           const rawCurrent = pickRawCandidate(selectedYear, fallbackCategory) || pickRawCandidate(selectedYear, '');
           if (rawCurrent) {

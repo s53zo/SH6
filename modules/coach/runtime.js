@@ -15,7 +15,6 @@ export function createCoachRuntime(deps = {}) {
     deriveStationCallsign,
     inferApiMode,
     dedupeValues,
-    parseOperatorsList,
     lookupPrefix,
     baseCall,
     normalizeContinent,
@@ -64,11 +63,6 @@ export function createCoachRuntime(deps = {}) {
       out.push(key);
     });
     return out;
-  }
-
-  function parseOperatorsListSafe(value) {
-    if (typeof parseOperatorsList === 'function') return parseOperatorsList(value);
-    return String(value || '').split(/\s+/).map((entry) => normalizeCallSafe(entry)).filter(Boolean);
   }
 
   function lookupPrefixSafe(value) {
@@ -153,6 +147,7 @@ export function createCoachRuntime(deps = {}) {
     const out = [];
     const metaCategory = String(slot?.derived?.contestMeta?.category || '').trim();
     const firstRaw = slot?.qsoData?.qsos?.[0]?.raw || {};
+    out.push(...inferExactApiCategoriesFromCabrillo(slot, contestId));
     const parts = [
       metaCategory,
       firstRaw.CATEGORY,
@@ -204,6 +199,70 @@ export function createCoachRuntime(deps = {}) {
       .replace(/\s+/g, ' ')
       .trim()
       .toUpperCase();
+  }
+
+  function normalizeCoachBandCategory(value) {
+    const key = String(value || '').trim().toUpperCase();
+    if (!key || key === 'ALL' || key === 'AB' || key === 'ALL-BAND' || key === 'ALL BAND') return 'ALL';
+    const match = key.match(/^(160|80|40|20|15|10)M?$/);
+    return match ? `${match[1]}M` : 'ALL';
+  }
+
+  function inferExactApiCategoriesFromCabrillo(slot, contestId) {
+    const firstRaw = slot?.qsoData?.qsos?.[0]?.raw || {};
+    const meta = slot?.derived?.contestMeta || {};
+    const operator = normalizeCoachCategory(firstRaw['CATEGORY-OPERATOR'] || meta.categoryOperator || meta.category || '');
+    const power = normalizeCoachCategory(firstRaw['CATEGORY-POWER'] || meta.categoryPower || '');
+    const band = normalizeCoachBandCategory(firstRaw['CATEGORY-BAND'] || meta.categoryBand || '');
+    const assisted = normalizeCoachCategory(firstRaw['CATEGORY-ASSISTED'] || meta.categoryAssisted || '');
+    const transmitter = normalizeCoachCategory(firstRaw['CATEGORY-TRANSMITTER'] || meta.categoryTransmitter || '');
+    const station = normalizeCoachCategory(firstRaw['CATEGORY-STATION'] || meta.categoryStation || '');
+    const out = [];
+
+    if (operator.includes('MULTI')) {
+      if (station.includes('DISTRIBUTED') || transmitter.includes('DISTRIBUTED')) out.push('MD');
+      else if (transmitter.includes('TWO') || transmitter === '2') out.push('M2');
+      else if (transmitter.includes('MULTI') || transmitter === 'UNLIMITED') out.push('MM');
+      else out.push(power.includes('LOW') ? 'MSL' : 'MSH');
+      return out;
+    }
+
+    if (operator.includes('SINGLE') || operator === 'SINGLE-OP' || /^SO\b/.test(operator) || /^SINGLE\b/.test(operator)) {
+      const powerCode = power.includes('LOW') ? 'L' : (power.includes('QRP') ? 'Q' : 'H');
+      const assistedCode = contestId === 'CQWW' || contestId === 'CQWWRTTY'
+        ? (assisted.includes('ASSISTED') && !assisted.includes('NON') ? 'A' : 'S')
+        : 'S';
+      out.push(`${assistedCode}${powerCode} ${band}`);
+    }
+
+    return out;
+  }
+
+  function sameStationCategory(row, callsign) {
+    const stationCall = normalizeCallSafe(callsign || '');
+    if (!row) return '';
+    if (stationCall && normalizeCallSafe(row.callsign || row.call || '') !== stationCall) return '';
+    return normalizeCoachCategory(row.category || row.cat || '');
+  }
+
+  function findSameYearCategory(rows, year, callsign) {
+    const yearNum = Number(year);
+    if (!Number.isFinite(yearNum)) return '';
+    const stationCall = normalizeCallSafe(callsign || '');
+    const hit = (rows || []).find((row) => (
+      Number(row?.year ?? row?.yr) === yearNum
+      && (!stationCall || normalizeCallSafe(row.callsign || row.call || '') === stationCall)
+    ));
+    return normalizeCoachCategory(hit?.category || hit?.cat || '');
+  }
+
+  function resolveCoachCategoryFromApiData(apiData, fallbackCategory, year, stationCall) {
+    return normalizeCoachCategory(
+      sameStationCategory(apiData?.currentScore, stationCall)
+      || apiData?.matchedCategory
+      || findSameYearCategory(apiData?.history || [], year, stationCall)
+      || fallbackCategory
+    );
   }
 
   function normalizeCoachScopeType(value) {
@@ -278,7 +337,7 @@ export function createCoachRuntime(deps = {}) {
     const description = String(entry?.description || '').toUpperCase();
     if (!category && !description) return false;
     if (description.includes('MULTI')) return true;
-    return /^M(?:M|2|S|L|O|ULTI|$)/.test(category);
+    return /^M(?:M|2|S|L|D|O|ULTI|$)/.test(category);
   }
 
   function isCoachSingleCategory(entry) {
@@ -613,18 +672,12 @@ export function createCoachRuntime(deps = {}) {
       itu_zone: Number.isFinite(stationPrefix?.ituZone) ? String(stationPrefix.ituZone) : ''
     };
 
-    const targetCategory = normalizeCoachCategory(
-      state.apiEnrichment?.data?.currentScore?.category
-      || state.apiEnrichment?.data?.history?.[0]?.category
-      || state.apiEnrichment?.data?.matchedCategory
-      || state.derived.contestMeta?.category
-    );
-
-    const operatorCalls = dedupeValuesSafe([
-      ...parseOperatorsListSafe(state.derived?.contestMeta?.operators || ''),
-      ...(state.derived?.operatorsSummary || []).map((item) => normalizeCallSafe(item?.op || '')),
+    const targetCategory = resolveCoachCategoryFromApiData(
+      state.apiEnrichment?.data,
+      state.derived.contestMeta?.category,
+      year,
       callsign
-    ].filter(Boolean)).map((value) => normalizeCallSafe(value));
+    );
 
     return {
       ok: true,
@@ -633,8 +686,7 @@ export function createCoachRuntime(deps = {}) {
       year,
       callsign,
       scopeValues,
-      targetCategory,
-      operatorCalls
+      targetCategory
     };
   }
 
@@ -744,11 +796,11 @@ export function createCoachRuntime(deps = {}) {
       let sourceKind = 'official';
       let rawSource = '';
 
-      const selfRawCategory = normalizeCoachCategory(
-        state.apiEnrichment?.data?.currentScore?.category
-        || state.apiEnrichment?.data?.history?.[0]?.category
-        || state.apiEnrichment?.data?.matchedCategory
-        || state.derived?.contestMeta?.category
+      const selfRawCategory = resolveCoachCategoryFromApiData(
+        state.apiEnrichment?.data,
+        state.derived?.contestMeta?.category,
+        context.year,
+        context.callsign
       );
       const effectiveTargetCategory = normalizeCoachCategory(
         selfRawCategory
@@ -813,7 +865,6 @@ export function createCoachRuntime(deps = {}) {
         categoryMode,
         targetCategory: effectiveTargetCategory,
         stationCall: context.callsign,
-        operatorCalls: context.operatorCalls,
         fallbackCurrent: state.apiEnrichment?.data?.currentScore || null,
         resolveCallMeta,
         limit: 60

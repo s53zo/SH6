@@ -62,15 +62,6 @@
     return text.toUpperCase();
   }
 
-  function parseOperators(raw) {
-    if (!raw) return [];
-    return safeString(raw)
-      .split(/[,;]+/)
-      .flatMap((chunk) => chunk.split(/\s+/))
-      .map((token) => token.trim().toUpperCase())
-      .filter(Boolean);
-  }
-
   function sumMultipliers(row) {
     if (!row || typeof row !== 'object') return null;
     const map = row.multBreakdown || {};
@@ -160,19 +151,21 @@
     return Array.from(byKey.values());
   }
 
-  function selectCurrentRow(rows, stationCall, operatorCalls) {
+  function selectCurrentRow(rows, stationCall, preferredCategory = '') {
     const call = safeString(stationCall).trim().toUpperCase();
-    const opSet = new Set((operatorCalls || []).map((item) => safeString(item).trim().toUpperCase()).filter(Boolean));
+    const pickPreferred = (candidates) => {
+      const list = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+      if (!list.length) return null;
+      const target = normalizeCategoryKey(preferredCategory);
+      if (target) {
+        const categoryHit = list.find((row) => isCategoryMatch(target, row.category));
+        if (categoryHit) return categoryHit;
+      }
+      return list[0];
+    };
     if (call) {
-      const callHit = (rows || []).find((row) => safeString(row.callsign).trim().toUpperCase() === call);
+      const callHit = pickPreferred((rows || []).filter((row) => safeString(row.callsign).trim().toUpperCase() === call));
       if (callHit) return callHit;
-    }
-    if (opSet.size) {
-      const opHit = (rows || []).find((row) => {
-        const operators = parseOperators(row.operators);
-        return operators.some((op) => opSet.has(op));
-      });
-      if (opHit) return opHit;
     }
     return null;
   }
@@ -340,14 +333,13 @@
       ? options.resolveCallMeta
       : () => ({ dxcc: '', continent: '', cqZone: '', ituZone: '' });
     const stationCall = safeString(options.stationCall).trim().toUpperCase();
-    const operatorCalls = Array.isArray(options.operatorCalls) ? options.operatorCalls : [];
     const limit = Math.max(1, Math.min(200, Number(options.limit) || 60));
 
     const rows = dedupeRows((options.rows || [])
       .map((row) => normalizeRow(row))
       .filter(Boolean));
 
-    const callMatched = selectCurrentRow(rows, stationCall, operatorCalls);
+    const callMatched = selectCurrentRow(rows, stationCall, targetCategory);
     if (categoryMode === 'same' && (!targetCategory || targetCategory.includes('MULTI') || targetCategory.includes('SINGLE'))) {
       const callCategory = normalizeCategoryKey(callMatched?.category || '');
       if (callCategory) targetCategory = callCategory;
@@ -378,7 +370,7 @@
       return safeString(a.callsign).localeCompare(safeString(b.callsign));
     });
 
-    let currentRow = selectCurrentRow(filtered, stationCall, operatorCalls);
+    let currentRow = selectCurrentRow(filtered, stationCall, targetCategory);
     if (!currentRow && options.fallbackCurrent) {
       const fallback = normalizeRow(options.fallbackCurrent);
       if (fallback) {

@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.18 (2026-06-17)
+- RUN vs S&P vs INBAND: keep each compare panel's QSO audit log in a bounded scroll area so four-log comparisons show A/B and C/D without an enormous page scroll.
+- Regression coverage: make the DXer/Contester smoke test wait for RUN vs S&P rendering and verify the operating-style audit table keeps its tall scroll wrapper.
+- Version bump to `v6.3.18` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.3.17 (2026-06-17)
 - Competitor coach: infer exact CQ categories from station callsign plus Cabrillo `CATEGORY-*` fields before falling back to broad `MULTI-OP` or `SINGLE-OP` labels.
 - Competitor coach: ignore operator-linked CQ API rows when determining the loaded station's current category, so `OPERATOR`/operators fields do not override the station category.

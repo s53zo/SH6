@@ -175,16 +175,26 @@ sleep 6
 run_ab --session "${SESSION}" eval "(() => { document.querySelector('#viewReportsBtn')?.click(); return 'view'; })()" >/dev/null
 sleep 2
 run_ab --session "${SESSION}" eval "(() => { const item = Array.from(document.querySelectorAll('#navList [data-index]')).find((el) => (el.textContent || '').trim() === 'RUN vs S&P vs INBAND'); if (item) item.click(); return item ? item.dataset.index : 'missing'; })()" >/dev/null
-sleep 3
+deadline=$((SECONDS + 30))
+while (( SECONDS < deadline )); do
+  ready_raw="$(run_ab --json --session "${SESSION}" eval "(() => document.querySelector('#viewContainer')?.getAttribute('aria-busy') === 'false' && !!document.querySelector('#viewContainer .operating-style-qso-log'))()" 2>/dev/null || true)"
+  ready="$(echo "${ready_raw}" | jq -r '.data.result // false' 2>/dev/null || true)"
+  if [[ "${ready}" == "true" ]]; then
+    break
+  fi
+  sleep 1
+done
 
 report_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
 (() => {
   const headers = Array.from(document.querySelectorAll('#viewContainer th')).map((el) => (el.textContent || '').trim());
   const notes = Array.from(document.querySelectorAll('#viewContainer .export-note')).map((el) => (el.textContent || '').trim());
+  const auditTable = document.querySelector('#viewContainer .operating-style-qso-log');
   return {
     title: document.querySelector('#viewTitle')?.textContent || '',
     busy: document.querySelector('#viewContainer')?.getAttribute('aria-busy') || '',
     hasTable: !!document.querySelector('#viewContainer table'),
+    hasTallAuditWrap: !!auditTable?.closest('.table-wrap--tall'),
     hasRunHeader: headers.indexOf('RUN') !== -1,
     hasInbandHeader: headers.indexOf('INBAND') !== -1,
     hasOffbandHeader: headers.indexOf('Off-band S&P') !== -1,
@@ -208,6 +218,7 @@ report_ok="$(echo "${report_payload}" | jq -r '
   (($r | .title) == "RUN vs S&P vs INBAND") and
   (($r | .busy) == "false") and
   ($r | .hasTable) and
+  ($r | .hasTallAuditWrap) and
   ($r | .hasRunHeader) and
   ($r | .hasInbandHeader) and
   ($r | .hasOffbandHeader) and
@@ -224,7 +235,15 @@ if [[ "${report_ok}" != "true" ]]; then
 fi
 
 run_ab --session "${SESSION}" eval "(() => { const link = document.querySelector('#viewContainer .operating-style-drilldown[data-role=\"RUN\"]'); if (link) link.click(); return Boolean(link); })()" >/dev/null
-sleep 1
+deadline=$((SECONDS + 30))
+while (( SECONDS < deadline )); do
+  drill_ready_raw="$(run_ab --json --session "${SESSION}" eval "(() => ((document.querySelector('#viewTitle')?.textContent || '') === 'Log') && /Operating style/i.test(document.querySelector('#viewContainer .log-filter-note')?.textContent || '') && !!document.querySelector('#viewContainer [data-virtual-body=\"log\"], #viewContainer .log-table'))()" 2>/dev/null || true)"
+  drill_ready="$(echo "${drill_ready_raw}" | jq -r '.data.result // false' 2>/dev/null || true)"
+  if [[ "${drill_ready}" == "true" ]]; then
+    break
+  fi
+  sleep 1
+done
 drill_eval_raw="$(run_ab --json --session "${SESSION}" eval "$(cat <<'JS'
 (() => ({
   title: document.querySelector('#viewTitle')?.textContent || '',

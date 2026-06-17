@@ -20,6 +20,29 @@
       .toUpperCase();
   }
 
+  function compactCategoryKey(value) {
+    return normalizeCategoryKey(value).replace(/[^A-Z0-9]/g, '');
+  }
+
+  function canonicalCategoryKey(value) {
+    const compact = compactCategoryKey(value);
+    if (!compact) return '';
+    if (/^(MSH|MULTISINGLEHIGH|MULTISINGLEHIGHPOWER)$/.test(compact)) return 'MSH';
+    if (/^(MSL|MULTISINGLELOW|MULTISINGLELOWPOWER)$/.test(compact)) return 'MSL';
+    if (/^(M2|MULTITWO|MULTIOPTWO|MULTITRANSMITTER|MULTITWOTRANSMITTER|MULTIOPTWOTRANSMITTER)$/.test(compact)) return 'M2';
+    if (/^(MM|MULTIMULTI|MULTIOPMULTI|MULTIMULTITRANSMITTER|MULTIOPMULTITRANSMITTER)$/.test(compact)) return 'MM';
+    if (/^(MD|MULTIDISTRIBUTED|MULTIOPDISTRIBUTED)$/.test(compact)) return 'MD';
+    return compact;
+  }
+
+  function isBroadMultiCategory(category) {
+    return /^(M|MULTI|MULTIOP|MULTIOPERATOR)$/.test(canonicalCategoryKey(category));
+  }
+
+  function isBroadSingleCategory(category) {
+    return /^(S|SO|SINGLE|SINGLEOP|SINGLEOPERATOR)$/.test(canonicalCategoryKey(category));
+  }
+
   function normalizeScopeType(value) {
     const key = safeString(value).trim().toLowerCase();
     if (key === 'dxcc') return 'dxcc';
@@ -88,8 +111,10 @@
   function isMultiCategory(category) {
     const key = normalizeCategoryKey(category);
     if (!key) return false;
+    const canonical = canonicalCategoryKey(key);
+    if (['MSH', 'MSL', 'M2', 'MM', 'MD'].includes(canonical)) return true;
     if (key.includes('MULTI')) return true;
-    return /^M(?:M|2|S|L|O|ULTI|$)/.test(key);
+    return /^M(?:M|2|S|L|D|O|ULTI|$)/.test(key);
   }
 
   function isSingleCategory(category) {
@@ -110,9 +135,9 @@
     const row = normalizeCategoryKey(rowCategory);
     if (!target) return true;
     if (!row) return false;
-    if (target === row) return true;
-    if (isMultiCategory(target) && isMultiCategory(row)) return true;
-    if (isSingleCategory(target) && isSingleCategory(row)) return true;
+    if (canonicalCategoryKey(target) === canonicalCategoryKey(row)) return true;
+    if (isBroadMultiCategory(target) && isMultiCategory(row)) return true;
+    if (isBroadSingleCategory(target) && isSingleCategory(row)) return true;
     if (isCheckCategory(target) && isCheckCategory(row)) return true;
     return false;
   }

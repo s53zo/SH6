@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.16 (2026-06-17)
+- Competitor coach: tighten Same category filtering so exact resolved categories such as CQ WPX `MSH` do not include other multi-op classes like `MSL`, `M2`, `MM`, or `MD`.
+- Competitor coach: keep broad `MULTI-OP` and `SINGLE-OP` fallback matching only when the current station's exact category is unknown.
+- Regression coverage: add a competitor-coach category filter regression and make the coach runtime smoke resilient to cache-buster version changes.
+- Version bump to `v6.3.16` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.2.44 (2026-06-01)
 - Operating style: show Spots and RBN status rows when RUN vs S&P vs INBAND loads spot-anchor data.
 - Regression coverage: lock status-row visibility for the operating-style report's spot/RBN loader path.

@@ -146,7 +146,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.18';
+  const APP_VERSION = 'v6.3.19';
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -192,34 +192,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.18';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.18';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.18';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.18';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.18';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.18';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.18';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.18';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.18';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.18';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.18';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.18';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.18';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.18';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.18';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.18';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.18';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.18';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.18';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.18';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.18';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.18';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.18';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.18';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.18';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.18';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.18';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.18';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.19';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.19';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.19';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.19';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.19';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.19';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.19';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.19';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.19';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.19';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.19';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.19';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.19';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.19';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.19';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.19';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.19';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.19';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.19';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.19';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.19';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.19';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.19';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.19';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.19';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.19';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.19';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.19';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1301,6 +1301,8 @@
     compareLogFallbackTimer: null,
     compareLogWindowStart: 0,
     compareLogWindowSize: 1000,
+    operatingStyleCompareWindowStart: 0,
+    operatingStyleCompareWindowSize: 1000,
     renderPerf: {
       last: null,
       byReport: {}
@@ -3250,6 +3252,7 @@
       state.compareLogFallbackTimer = null;
     }
     state.compareLogWindowStart = 0;
+    state.operatingStyleCompareWindowStart = 0;
   }
 
   function updateBandRibbon() {
@@ -8637,6 +8640,8 @@
         return `<td class="${bandClass(q.band)}">${escapeHtml(formatFrequency(q.freq))}</td>`;
       case 'call':
         return `<td class="tl">${escapeCall(q.call || '')}</td>`;
+      case 'style':
+        return `<td>${escapeHtml(formatOperatingStyleRoleLabel(q.operatingStyleRole))}</td>`;
       case 'rstS':
         return `<td>${formatNumberHtmlSh6(q.rstSent || '')}</td>`;
       case 'rstR':
@@ -12328,7 +12333,7 @@
     `;
   }
 
-  function renderOperatingStyleReportForDerived(derived, qsos = []) {
+  function renderOperatingStyleReportForDerived(derived, qsos = [], options = {}) {
     const operatingStyle = derived?.operatingStyle || null;
     const bands = Array.isArray(operatingStyle?.bands) ? operatingStyle.bands : [];
     if (!bands.length) {
@@ -12375,8 +12380,131 @@
       <div class="export-actions export-note"><b>Definition</b>: INBAND means an S&amp;P QSO on a band where SH6 infers an active RUN stream. S&amp;P = INBAND + Off-band S&amp;P; visible percentages are computed over all classified QSOs.</div>
       ${excludedNote}
       ${renderOperatingStyleTable(operatingStyle)}
-      ${renderOperatingStyleQsoLog(qsos)}
+      ${options.showAudit === false ? '' : renderOperatingStyleQsoLog(qsos)}
     `;
+  }
+
+  function buildOperatingStyleCompareData(slotEntries) {
+    const lists = (slotEntries || []).map((entry) => entry.slot?.qsoData?.qsos || []);
+    const bucketMaps = lists.map((qsos) => buildTenMinuteBuckets(qsos));
+    const orderedKeys = buildCompareBucketOrder(bucketMaps, lists);
+    const buckets = orderedKeys.map((key) => ({
+      key,
+      lists: bucketMaps.map((map) => map.get(key) || [])
+    }));
+    const totalRows = buckets.reduce((sum, bucket) => {
+      const lengths = bucket.lists.map((list) => list.length);
+      return sum + Math.max(1, ...lengths);
+    }, 0);
+    return {
+      totalRows,
+      buckets
+    };
+  }
+
+  function renderOperatingStyleCompareRows(buckets, start, end, slotEntries, columns, options) {
+    let rows = '';
+    let globalIndex = 0;
+    for (const bucket of buckets || []) {
+      const lists = bucket.lists || [];
+      const max = Math.max(1, ...lists.map((list) => list.length));
+      const bucketStart = globalIndex;
+      const bucketEnd = globalIndex + max;
+      if (bucketEnd <= start) {
+        globalIndex = bucketEnd;
+        continue;
+      }
+      if (bucketStart >= end) break;
+      const key = bucket.key;
+      const bucketLabel = key === 'unknown'
+        ? 'Unknown time bucket'
+        : (() => {
+          const [dayStr, slotStr] = String(key).split('-');
+          const day = Number(dayStr);
+          const slot = Number(slotStr);
+          const dayLabel = WEEKDAY_LABELS[Number.isFinite(day) ? day : 0] || '';
+          return `${dayLabel} ${formatTimeOfDay(slot * 10)} - ${formatTimeOfDay(slot * 10 + 9)}`;
+        })();
+      rows += `<tr class="compare-bucket" data-compare-row-key="bucket-${escapeAttr(String(key))}"><td colspan="${columns.length * slotEntries.length}">${escapeHtml(bucketLabel)}</td></tr>`;
+      const from = Math.max(0, start - bucketStart);
+      const to = Math.min(max, end - bucketStart);
+      for (let i = from; i < to; i += 1) {
+        const rowIndex = bucketStart + i + 1;
+        const cls = rowIndex % 2 === 0 ? 'td1' : 'td0';
+        const rowCells = slotEntries.map((entry, slotIdx) => {
+          const list = lists[slotIdx] || [];
+          const qIdx = list[i];
+          const q = (qIdx != null && entry.slot?.qsoData?.qsos) ? entry.slot.qsoData.qsos[qIdx] : null;
+          return renderLogCells(q, columns, options);
+        }).join('');
+        rows += `<tr class="${cls}">${rowCells}</tr>`;
+      }
+      globalIndex = bucketEnd;
+    }
+    return rows;
+  }
+
+  function renderOperatingStyleCompareAligned() {
+    const slots = getActiveCompareSnapshots();
+    const slotEntries = getActiveCompareSlots();
+    const anyLoaded = slotEntries.some((entry) => entry.slot?.qsoData);
+    if (!anyLoaded) return '<p>No logs loaded for comparison yet.</p>';
+
+    const summaryBlocks = slots.map((entry) => (
+      entry.ready
+        ? renderOperatingStyleReportForDerived(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [], { showAudit: false })
+        : `<p>No ${entry.label} loaded.</p>`
+    ));
+    const summaryHtml = renderComparePanels(slots, summaryBlocks, 'run_sp_inband', { hideToolbar: false });
+    const compareData = buildOperatingStyleCompareData(slotEntries);
+    const totalRows = compareData.totalRows || 0;
+    const windowSize = state.operatingStyleCompareWindowSize || 1000;
+    const maxStart = Math.max(0, totalRows - windowSize);
+    const start = Math.min(Math.max(0, state.operatingStyleCompareWindowStart || 0), maxStart);
+    const end = Math.min(totalRows, start + windowSize);
+    state.operatingStyleCompareWindowStart = start;
+    const columns = ['num', 'time', 'band', 'mode', 'freq', 'call', 'style'];
+    const columnConfig = { columns, timeOnly: slotEntries.length >= 3 };
+    const rows = renderOperatingStyleCompareRows(compareData.buckets, start, end, slotEntries, columns, columnConfig);
+    const prevDisabled = start <= 0;
+    const nextDisabled = end >= totalRows;
+    const windowNote = totalRows > 0
+      ? `
+      <div class="compare-window-controls operating-style-compare-window">
+        <div class="compare-window-text">
+          Showing aligned audit rows ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(totalRows)} (10-minute buckets, window ${formatNumberSh6(windowSize)}).
+        </div>
+        <div class="compare-window-actions">
+          <button type="button" class="compare-window-btn" data-dir="prev" ${prevDisabled ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(windowSize)}</button>
+          <button type="button" class="compare-window-btn" data-dir="next" ${nextDisabled ? 'disabled' : ''}>Next ${formatNumberSh6(windowSize)} &#9654;</button>
+        </div>
+      </div>
+      `
+      : '';
+    const table = `
+      <div class="export-actions export-note"><b>Aligned QSO audit</b>: QSOs are grouped into shared 10-minute contest-time buckets so each loaded log can be compared by similar time.</div>
+      ${windowNote}
+      <div class="compare-log-wrap operating-style-compare-audit">
+        <table class="mtc log-table compare-log-table operating-style-qso-log operating-style-compare-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
+          <tr class="thc">
+            ${slotEntries.map((entry) => {
+              const call = escapeHtml(entry.slot?.derived?.contestMeta?.stationCallsign || 'N/A');
+              return `<th colspan="${columns.length}">${escapeHtml(entry.label)}: ${call}</th>`;
+            }).join('')}
+          </tr>
+          <tr class="thc">
+            ${slotEntries.map(() => columns.map((colId) => {
+              if (colId === 'style') return '<th>Style</th>';
+              const def = LOG_COMPARE_COLUMNS.find((c) => c.id === colId);
+              return `<th>${escapeHtml(def ? def.label : '')}</th>`;
+            }).join('')).join('')}
+          </tr>
+          ${rows || ''}
+        </table>
+      </div>
+      ${windowNote}
+    `;
+    return `${summaryHtml}${table}`;
   }
 
   function renderOperatingStyleReport() {
@@ -15492,6 +15620,9 @@
     if (report.id === 'points_rates') {
       return renderPointsRatesCompareAligned();
     }
+    if (report.id === 'run_sp_inband') {
+      return renderOperatingStyleCompareAligned();
+    }
     if (report.id === 'spot_hunter') {
       return renderSpotHunterCompare();
     }
@@ -15920,6 +16051,23 @@
             state.compareLogWindowStart = Math.max(0, (state.compareLogWindowStart || 0) - size);
           } else {
             state.compareLogWindowStart = (state.compareLogWindowStart || 0) + size;
+          }
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      });
+    }
+    if (reportId === 'run_sp_inband') {
+      const compareButtons = document.querySelectorAll('.compare-window-btn');
+      compareButtons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          if (btn.disabled) return;
+          const size = state.operatingStyleCompareWindowSize || 1000;
+          const dir = btn.dataset.dir || '';
+          if (dir === 'prev') {
+            state.operatingStyleCompareWindowStart = Math.max(0, (state.operatingStyleCompareWindowStart || 0) - size);
+          } else {
+            state.operatingStyleCompareWindowStart = (state.operatingStyleCompareWindowStart || 0) + size;
           }
           renderReportWithLoading(reports[state.activeIndex]);
         });

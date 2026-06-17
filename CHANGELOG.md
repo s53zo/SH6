@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.19 (2026-06-17)
+- RUN vs S&P vs INBAND compare: replace per-panel audit scrolling with one shared QSO audit grouped into common 10-minute contest-time buckets across loaded logs.
+- Compare audit: add the detected operating style column to the aligned rows so each log can be compared by number, time, band, mode, frequency, call, and style.
+- Version bump to `v6.3.19` and refresh cache-busting references in `index.html`, `main.js`.
+
 ## v6.3.18 (2026-06-17)
 - RUN vs S&P vs INBAND: keep each compare panel's QSO audit log in a bounded scroll area so four-log comparisons show A/B and C/D without an enormous page scroll.
 - Regression coverage: make the DXer/Contester smoke test wait for RUN vs S&P rendering and verify the operating-style audit table keeps its tall scroll wrapper.

@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PORT="${DXER_MODE_SMOKE_PORT:-8780}"
 URL="http://127.0.0.1:${PORT}/tests/dxer-mode-smoke.html"
+FIXTURE_LOG="${ROOT_DIR}/tests/fixtures/operating-style-demo.log"
 SESSION="sh6-dxer-mode-smoke-${RANDOM}-${RANDOM}"
 SERVER_LOG="${DXER_MODE_SMOKE_SERVER_LOG:-/tmp/sh6-dxer-mode-smoke-server.log}"
 AGENT_BROWSER_TOOL_DIR="${AGENT_BROWSER_TOOL_DIR:-/tmp/sh6-agent-browser-tool}"
@@ -170,8 +171,20 @@ fi
 
 run_ab --session "${SESSION}" eval "(() => { const radio = document.querySelector('.analysis-mode-option[value=\"contester\"]'); if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); } return 'contester'; })()" >/dev/null
 sleep 1
-run_ab --session "${SESSION}" eval "(() => { document.querySelector('.demo-log-btn[data-slot=\"A\"]')?.click(); return 'demo'; })()" >/dev/null
-sleep 6
+run_ab --session "${SESSION}" upload '#fileInput' "${FIXTURE_LOG}" >/dev/null
+deadline=$((SECONDS + 60))
+while (( SECONDS < deadline )); do
+  loaded_raw="$(run_ab --json --session "${SESSION}" eval "(() => /parsed/i.test(document.querySelector('#fileStatus')?.textContent || '') && !document.querySelector('#viewReportsBtn')?.disabled)()" 2>/dev/null || true)"
+  loaded="$(echo "${loaded_raw}" | jq -r '.data.result // false' 2>/dev/null || true)"
+  if [[ "${loaded}" == "true" ]]; then
+    break
+  fi
+  sleep 0.5
+done
+if [[ "${loaded:-false}" != "true" ]]; then
+  echo "[dxer-mode-smoke] Local fixture did not finish loading." >&2
+  exit 1
+fi
 run_ab --session "${SESSION}" eval "(() => { document.querySelector('#viewReportsBtn')?.click(); return 'view'; })()" >/dev/null
 sleep 2
 run_ab --session "${SESSION}" eval "(() => { const item = Array.from(document.querySelectorAll('#navList [data-index]')).find((el) => (el.textContent || '').trim() === 'RUN vs S&P vs INBAND'); if (item) item.click(); return item ? item.dataset.index : 'missing'; })()" >/dev/null

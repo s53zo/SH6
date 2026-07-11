@@ -135,11 +135,15 @@
   const WPX_IGNORE_SUFFIXES = new Set(['A', 'E', 'J', 'P', 'M', 'MM', 'AM', 'QRP', 'QRPP']);
 
   const scoringIndexCache = new WeakMap();
+  const ctyPrefixIndexCache = new WeakMap();
+  const masterSetCache = new WeakMap();
+  const callsignGridMapCache = new WeakMap();
   let activeAnalysisEnv = null;
 
   function makeEmptyAnalysisEnv() {
     return {
       ctyTable: [],
+      ctyPrefixIndex: null,
       prefixCache: new Map(),
       countryPrefixMap: null,
       masterSet: null,
@@ -1827,14 +1831,24 @@
 
   function findPrefixEntry(key) {
     if (!activeAnalysisEnv?.ctyTable || !key) return null;
-    for (const entry of activeAnalysisEnv.ctyTable) {
-      if (entry.exact) {
-        if (key === entry.prefix) return entry;
-      } else if (key.startsWith(entry.prefix)) {
-        return entry;
+    const index = activeAnalysisEnv.ctyPrefixIndex;
+    if (!(index?.exact instanceof Map) || !(index?.prefix instanceof Map)) {
+      for (const entry of activeAnalysisEnv.ctyTable) {
+        if (entry.exact) {
+          if (key === entry.prefix) return entry;
+        } else if (key.startsWith(entry.prefix)) {
+          return entry;
+        }
       }
+      return null;
     }
-    return null;
+
+    let match = index.exact.get(key) || null;
+    for (let length = 1; length <= key.length; length += 1) {
+      const candidate = index.prefix.get(key.slice(0, length));
+      if (candidate && (!match || candidate.order < match.order)) match = candidate;
+    }
+    return match?.entry || null;
   }
 
   function getUnitedStatesEntry() {
@@ -3438,25 +3452,52 @@
 
   function toCallsignGridMap(resources = {}) {
     if (resources.callsignGridCache instanceof Map) {
-      return new Map(resources.callsignGridCache);
+      return resources.callsignGridCache;
     }
-    const map = new Map();
     const entries = Array.isArray(resources.callsignGridEntries) ? resources.callsignGridEntries : [];
+    const cached = callsignGridMapCache.get(entries);
+    if (cached) return cached;
+    const map = new Map();
     entries.forEach((entry) => {
       if (!Array.isArray(entry) || entry.length < 2) return;
       const key = normalizeCall(entry[0]);
       if (!key) return;
       map.set(key, normalizeLookupGrid(entry[1]));
     });
+    callsignGridMapCache.set(entries, map);
     return map;
+  }
+
+  function toMasterSet(resources = {}) {
+    if (resources.masterSet instanceof Set) return resources.masterSet;
+    const calls = Array.isArray(resources.masterCalls) ? resources.masterCalls : [];
+    const cached = masterSetCache.get(calls);
+    if (cached) return cached;
+    const set = new Set(calls.map((call) => normalizeCall(call)).filter(Boolean));
+    masterSetCache.set(calls, set);
+    return set;
+  }
+
+  function buildCtyPrefixIndex(ctyTable) {
+    if (!Array.isArray(ctyTable) || ctyTable.length === 0) return null;
+    const cached = ctyPrefixIndexCache.get(ctyTable);
+    if (cached) return cached;
+    const index = { exact: new Map(), prefix: new Map() };
+    ctyTable.forEach((entry, order) => {
+      const prefix = String(entry?.prefix || '');
+      if (!prefix) return;
+      const target = entry.exact ? index.exact : index.prefix;
+      if (!target.has(prefix)) target.set(prefix, { entry, order });
+    });
+    ctyPrefixIndexCache.set(ctyTable, index);
+    return index;
   }
 
   function buildAnalysisEnv(resources = {}) {
     const env = makeEmptyAnalysisEnv();
     env.ctyTable = Array.isArray(resources.ctyTable) ? resources.ctyTable : [];
-    env.masterSet = resources.masterSet instanceof Set
-      ? new Set(resources.masterSet)
-      : new Set(Array.isArray(resources.masterCalls) ? resources.masterCalls.map((call) => normalizeCall(call)).filter(Boolean) : []);
+    env.ctyPrefixIndex = buildCtyPrefixIndex(env.ctyTable);
+    env.masterSet = toMasterSet(resources);
     env.analysisMode = normalizeAnalysisMode(resources.analysisMode || ANALYSIS_MODE_DEFAULT);
     env.scoringSpec = resources.scoringSpec && typeof resources.scoringSpec === 'object' ? resources.scoringSpec : null;
     env.scoringSource = String(resources.scoringSource || '');
@@ -3532,6 +3573,7 @@
     const station = deriveStation(qsos);
     const contestMeta = deriveContestMeta(qsos);
     const countryPrefixMap = buildCountryPrefixMap();
+    const callMetaCache = new Map();
 
     qsos.forEach((q) => {
       if (q.call) calls.add(q.call);
@@ -3539,7 +3581,9 @@
         if (minTs === null || q.ts < minTs) minTs = q.ts;
         if (maxTs === null || q.ts > maxTs) maxTs = q.ts;
       }
-      const bandKey = normalizeBand(q.band, Number.isFinite(q.freq) ? q.freq : null) || 'unknown';
+      const bandKey = (SUPPORTED_BANDS.has(q.band)
+        ? q.band
+        : normalizeBand(q.band, Number.isFinite(q.freq) ? q.freq : null)) || 'unknown';
       if (bandKey && bandKey !== q.band) q.band = bandKey;
       if (!bands.has(bandKey)) {
         bands.set(bandKey, { qsos: 0, uniques: new Set(), dupes: 0 });
@@ -3564,8 +3608,21 @@
       if (loggedCq != null) q.cqZone = loggedCq;
       if (loggedItu != null) q.ituZone = loggedItu;
 
-      const prefix = lookupPrefix(q.call);
-      const wpx = wpxPrefix(q.call);
+      let callMeta = q.call ? callMetaCache.get(q.call) : null;
+      if (!callMeta && q.call) {
+        if (callMetaCache.size >= 25000) callMetaCache.clear();
+        const callKey = normalizeCall(q.call);
+        callMeta = {
+          base: baseCall(callKey),
+          callKey,
+          prefix: lookupPrefix(q.call),
+          structure: classifyCallStructure(q.call),
+          wpx: wpxPrefix(q.call)
+        };
+        callMetaCache.set(q.call, callMeta);
+      }
+      const prefix = callMeta?.prefix || null;
+      const wpx = callMeta?.wpx || '';
       if (wpx) q.wpxPrefix = wpx;
       if (prefix) {
         const cont = normalizeContinent(prefix.continent);
@@ -3637,8 +3694,8 @@
       }
 
       if (activeAnalysisEnv?.masterSet && activeAnalysisEnv.masterSet.size > 0) {
-        const callKey = normalizeCall(q.call);
-        const base = baseCall(callKey);
+        const callKey = callMeta?.callKey || '';
+        const base = callMeta?.base || '';
         q.inMaster = (callKey && activeAnalysisEnv.masterSet.has(callKey)) || (base && activeAnalysisEnv.masterSet.has(base));
         if (!q.inMaster && q.call) {
           if (!notInMasterCalls.has(q.call)) notInMasterCalls.set(q.call, { qsos: 0, firstTs: q.ts, lastTs: q.ts });
@@ -3722,7 +3779,7 @@
         const lenEntry = callsignLengths.get(len);
         lenEntry.qsos += 1;
         lenEntry.callsigns.add(q.call);
-        const struct = classifyCallStructure(q.call);
+        const struct = callMeta?.structure || classifyCallStructure(q.call);
         if (!structures.has(struct)) structures.set(struct, { callsigns: new Set(), qsos: 0, example: q.call });
         const structEntry = structures.get(struct);
         structEntry.qsos += 1;
@@ -3791,7 +3848,7 @@
 
       const freqBand = Number.isFinite(q.freq) ? parseBandFromFreq(q.freq) : null;
       if (!q.call) possibleErrors.push({ reason: 'Missing callsign', q });
-      else if (classifyCallStructure(q.call) === 'other') possibleErrors.push({ reason: 'Unrecognized callsign pattern', q });
+      else if ((callMeta?.structure || classifyCallStructure(q.call)) === 'other') possibleErrors.push({ reason: 'Unrecognized callsign pattern', q });
       if (!prefix) possibleErrors.push({ reason: 'Prefix not found in cty.dat', q });
       if (q.ts == null) possibleErrors.push({ reason: 'Invalid/missing time', q });
       if (q.band && !SUPPORTED_BANDS.has(q.band)) {

@@ -146,7 +146,63 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.19';
+  const APP_VERSION = 'v6.3.20';
+  const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
+  const performanceTimeline = {
+    events: [],
+    longTasks: [],
+    scriptStartMs: typeof performance !== 'undefined' ? performance.now() : 0
+  };
+  let startInteractiveRecorded = false;
+
+  function performanceNow() {
+    return typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+  }
+
+  function recordPerformanceEvent(name, details = {}) {
+    performanceTimeline.events.push({ name, atMs: performanceNow(), ...details });
+    if (performanceTimeline.events.length > 240) performanceTimeline.events.shift();
+  }
+
+  function getPerformanceSummary() {
+    const navigation = typeof performance !== 'undefined'
+      ? performance.getEntriesByType?.('navigation')?.[0]
+      : null;
+    return {
+      appVersion: APP_VERSION,
+      scriptStartMs: performanceTimeline.scriptStartMs,
+      navigation: navigation ? {
+        domContentLoadedMs: navigation.domContentLoadedEventEnd,
+        loadEventMs: navigation.loadEventEnd,
+        transferSize: navigation.transferSize,
+        decodedBodySize: navigation.decodedBodySize
+      } : null,
+      events: performanceTimeline.events.map((entry) => ({ ...entry })),
+      longTasks: performanceTimeline.longTasks.map((entry) => ({ ...entry })),
+      render: getRenderPerfSummary(),
+      compareLogWindow: {
+        requestedSize: Number(state?.compareLogWindowSize) || 1000,
+        renderedSize: Number(document?.querySelector?.('.compare-window-btn')?.dataset?.windowSize) || null
+      }
+    };
+  }
+
+  if (typeof PerformanceObserver === 'function') {
+    try {
+      const longTaskObserver = new PerformanceObserver((list) => {
+        list.getEntries().forEach((entry) => {
+          performanceTimeline.longTasks.push({ startMs: entry.startTime, durationMs: entry.duration });
+          if (performanceTimeline.longTasks.length > 120) performanceTimeline.longTasks.shift();
+        });
+      });
+      longTaskObserver.observe({ type: 'longtask', buffered: true });
+    } catch (err) {
+      // Long-task observation is optional and unsupported in some browsers.
+    }
+  }
+  recordPerformanceEvent('script_start');
   const UI_THEME_NT = 'nt';
   const CHART_MODE_ABSOLUTE = 'absolute';
   const CHART_MODE_NORMALIZED = 'normalized';
@@ -192,34 +248,34 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.19';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.19';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.19';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.19';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.19';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.19';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.19';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.19';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.19';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.19';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.19';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.19';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.19';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.19';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.19';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.19';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.19';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.19';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.19';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.19';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.19';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.19';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.19';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.19';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.19';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.19';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.19';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.19';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.20';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.20';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.20';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.20';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.20';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.20';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.20';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.20';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.20';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.20';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.20';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.20';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.20';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.20';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.20';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.20';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.20';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.20';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.20';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.20';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.20';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.20';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.20';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.20';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.20';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.20';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.20';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.20';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -485,6 +541,7 @@
 
   function createEmptyCompareSlot() {
     return {
+      analysisSeq: 0,
       logFile: null,
       skipped: false,
       qsoData: null,
@@ -518,10 +575,12 @@
     state.fullDerived = null;
     state.bandDerivedCache = new Map();
     state.logVersion = (state.logVersion || 0) + 1;
+    state.analysisSeq = (state.analysisSeq || 0) + 1;
     state.spotsState = createSpotsState();
     state.rbnState = createRbnState();
     state.apiEnrichment = createApiEnrichmentState();
     state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
+    clearEngineCompareSlots(['A']);
     clearAnalysisModeSuggestion();
     scheduleAutosaveSession();
   }
@@ -529,7 +588,11 @@
   function resetCompareSlot(slotId) {
     const idx = COMPARE_SLOT_IDS.indexOf(String(slotId || '').toUpperCase());
     if (idx < 0) return;
+    if (state.compareSlots[idx]) {
+      state.compareSlots[idx].analysisSeq = (state.compareSlots[idx].analysisSeq || 0) + 1;
+    }
     state.compareSlots[idx] = createEmptyCompareSlot();
+    clearEngineCompareSlots([String(slotId || '').toUpperCase()]);
     scheduleAutosaveSession();
   }
 
@@ -1294,7 +1357,6 @@
     uiTheme: UI_THEME_NT,
     navSearch: '',
     compareFocus: cloneCompareFocus(),
-    compareWorker: null,
     compareLogData: null,
     compareLogPendingKey: null,
     compareLogPendingSince: null,
@@ -1310,6 +1372,7 @@
     sessionNotice: [],
     renderSlotId: null,
     logVersion: 0,
+    analysisSeq: 0,
     cqApiClient: null,
     cqApiRequestToken: 0,
     apiEnrichment: createApiEnrichmentState(),
@@ -1388,7 +1451,15 @@
   let exportRuntime = null;
   let engineTaskWorker = null;
   let engineTaskSeq = 0;
+  let engineTaskWorkerStartMs = 0;
+  let engineTaskConfiguredAnalysis = null;
+  let engineTaskAnalysisSyncPromise = null;
+  let analysisResourcesCache = null;
+  let analysisResourcesVersion = 0;
+  let callsignGridResourceVersion = 0;
   let derivedRecomputeSeq = 0;
+  let derivedRecomputeCoordinator = null;
+  const derivedRecomputeReasons = new Set();
   const engineTaskResolvers = new Map();
 
   const base64UrlEncode = (value) => {
@@ -1537,6 +1608,16 @@
             isRetainedReport,
             escapeAttr,
             trackRenderPerf,
+            trackReportReady: (reportId, details = {}) => {
+              recordPerformanceEvent('report_ready', {
+                reportId: String(reportId || ''),
+                durationMs: Number(details?.durationMs) || 0
+              });
+              if (reportId === 'load_logs' && !startInteractiveRecorded) {
+                startInteractiveRecorded = true;
+                recordPerformanceEvent('start_interactive');
+              }
+            },
             renderMapView,
             scheduleAutosaveSession,
             shouldPeriodFilterReport,
@@ -2595,9 +2676,17 @@
     if (engineTaskWorker) return engineTaskWorker;
     if (typeof Worker === 'undefined') return null;
     try {
-      engineTaskWorker = new Worker('./modules/engine/task-worker.js', { type: 'module' });
+      engineTaskWorkerStartMs = performanceNow();
+      engineTaskWorker = new Worker(`./modules/engine/task-worker.js?v=${encodeURIComponent(APP_VERSION)}`, { type: 'module' });
+      engineTaskConfiguredAnalysis = null;
       engineTaskWorker.onmessage = (event) => {
         const payload = event.data || {};
+        if (payload.type === 'workerReady') {
+          recordPerformanceEvent('worker_startup_ready', {
+            durationMs: performanceNow() - engineTaskWorkerStartMs
+          });
+          return;
+        }
         const resolver = engineTaskResolvers.get(payload.key);
         if (!resolver) return;
         engineTaskResolvers.delete(payload.key);
@@ -2612,11 +2701,15 @@
         engineTaskResolvers.clear();
         pending.forEach((entry) => entry.reject(event.error || new Error('Engine worker crashed.')));
         engineTaskWorker = null;
+        engineTaskConfiguredAnalysis = null;
+        engineTaskAnalysisSyncPromise = null;
       };
       return engineTaskWorker;
     } catch (err) {
       console.warn('Engine task worker failed to start:', err);
       engineTaskWorker = null;
+      engineTaskConfiguredAnalysis = null;
+      engineTaskAnalysisSyncPromise = null;
       return null;
     }
   }
@@ -2629,6 +2722,25 @@
       engineTaskResolvers.set(key, { resolve, reject });
       worker.postMessage({ type, key, ...payload });
     });
+  }
+
+  function syncEngineTaskAnalysis(analysis) {
+    if (engineTaskConfiguredAnalysis === analysis) return Promise.resolve();
+    const previous = engineTaskAnalysisSyncPromise || Promise.resolve();
+    const next = previous
+      .catch(() => {})
+      .then(async () => {
+        if (engineTaskConfiguredAnalysis === analysis) return;
+        const startedAt = performanceNow();
+        await runEngineTask('configureAnalysis', { analysis });
+        engineTaskConfiguredAnalysis = analysis;
+        recordPerformanceEvent('worker_resources_ready', { durationMs: performanceNow() - startedAt });
+      });
+    const tracked = next.finally(() => {
+      if (engineTaskAnalysisSyncPromise === tracked) engineTaskAnalysisSyncPromise = null;
+    });
+    engineTaskAnalysisSyncPromise = tracked;
+    return tracked;
   }
 
   const REQUIRED_ANALYSIS_CORE_METHODS = Object.freeze([
@@ -2703,42 +2815,118 @@
   }
 
   function buildAnalysisResourcesPayload(options = {}) {
-    const resources = {
-      ctyTable: Array.isArray(state.ctyTable) ? state.ctyTable : [],
-      masterCalls: state.masterSet instanceof Set ? Array.from(state.masterSet.values()) : [],
-      scoringSpec: state.scoringSpec || null,
-      scoringSource: state.scoringSource || '',
-      scoringStatus: state.scoringStatus || 'pending',
-      scoringError: state.scoringError || '',
-      analysisMode: state.analysisMode || ANALYSIS_MODE_DEFAULT,
-      callsignGridEntries: state.callsignGridCache instanceof Map ? Array.from(state.callsignGridCache.entries()) : []
-    };
     const anchorSlot = options?.operatingStyleSpotAnchorSlot || null;
-    if (anchorSlot) {
-      resources.operatingStyleSpotAnchors = collectOperatingStyleSpotAnchors(anchorSlot);
+    const ctyTable = Array.isArray(state.ctyTable) ? state.ctyTable : EMPTY_ANALYSIS_RESOURCE_LIST;
+    const masterSet = state.masterSet instanceof Set ? state.masterSet : null;
+    const scoringSpec = state.scoringSpec || null;
+    const scoringSource = state.scoringSource || '';
+    const scoringStatus = state.scoringStatus || 'pending';
+    const scoringError = state.scoringError || '';
+    const analysisMode = state.analysisMode || ANALYSIS_MODE_DEFAULT;
+    const callsignGridCache = state.callsignGridCache instanceof Map ? state.callsignGridCache : null;
+    const cached = analysisResourcesCache;
+    if (!cached
+      || cached.ctyTable !== ctyTable
+      || cached.masterSet !== masterSet
+      || cached.scoringSpec !== scoringSpec
+      || cached.scoringSource !== scoringSource
+      || cached.scoringStatus !== scoringStatus
+      || cached.scoringError !== scoringError
+      || cached.analysisMode !== analysisMode
+      || cached.callsignGridCache !== callsignGridCache
+      || cached.callsignGridResourceVersion !== callsignGridResourceVersion) {
+      analysisResourcesVersion += 1;
+      const payload = {
+        ctyTable,
+        masterCalls: masterSet ? Array.from(masterSet.values()) : [],
+        scoringSpec,
+        scoringSource,
+        scoringStatus,
+        scoringError,
+        analysisMode,
+        callsignGridEntries: callsignGridCache ? Array.from(callsignGridCache.entries()) : []
+      };
+      payload.__analysisResourceVersion = analysisResourcesVersion;
+      analysisResourcesCache = {
+        ctyTable,
+        masterSet,
+        scoringSpec,
+        scoringSource,
+        scoringStatus,
+        scoringError,
+        analysisMode,
+        callsignGridCache,
+        callsignGridResourceVersion,
+        __analysisResourceVersion: analysisResourcesVersion,
+        payload
+      };
     }
-    return resources;
+    if (!anchorSlot) return analysisResourcesCache.payload;
+    return {
+      ...analysisResourcesCache.payload,
+      __analysisResourceVersion: analysisResourcesCache.__analysisResourceVersion,
+      operatingStyleSpotAnchors: collectOperatingStyleSpotAnchors(anchorSlot)
+    };
   }
 
-  async function analyzeLogWithEngine(text, filename, context = {}) {
+  async function analyzeLogWithEngine(text, filename, context = {}, slotId = '') {
     const analysis = buildAnalysisResourcesPayload();
+    const analysisResourceVersion = Number.isFinite(analysis.__analysisResourceVersion) ? analysis.__analysisResourceVersion : null;
+    const startedAt = performanceNow();
     try {
-      return await runEngineTask('analyzeLog', { text, filename, context, analysis });
+      await syncEngineTaskAnalysis(analysis);
+      const result = await runEngineTask('analyzeLog', {
+        text,
+        filename,
+        context,
+        slotId,
+        slotLogVersion: Number.isFinite(context?.slotLogVersion) ? context.slotLogVersion : null
+      });
+      recordPerformanceEvent('worker_analysis_ready', {
+        durationMs: performanceNow() - startedAt,
+        inputBytes: String(text || '').length,
+        qsoCount: result?.qsoData?.qsos?.length || 0
+      });
+      if (analysisResourceVersion != null && result) result.__analysisResourceVersion = analysisResourceVersion;
+      if (result) result.__engineTaskSource = 'worker';
+      return result;
     } catch (err) {
       console.warn('Engine analyzeLog fallback:', err);
-      return getAnalysisCore().analyzeLogText(text, filename, context, analysis);
+      const result = getAnalysisCore().analyzeLogText(text, filename, context, analysis);
+      if (analysisResourceVersion != null && result) result.__analysisResourceVersion = analysisResourceVersion;
+      if (result) result.__engineTaskSource = 'fallback';
+      recordPerformanceEvent('main_thread_analysis_ready', {
+        durationMs: performanceNow() - startedAt,
+        inputBytes: String(text || '').length,
+        qsoCount: result?.qsoData?.qsos?.length || 0
+      });
+      return result;
     }
   }
 
   async function deriveSlotsWithEngine(slots) {
     const analysis = buildAnalysisResourcesPayload();
     const safeSlots = Array.isArray(slots) ? slots : [];
+    const startedAt = performanceNow();
     try {
-      const result = await runEngineTask('deriveSlots', { slots: safeSlots, analysis });
-      return Array.isArray(result?.slots) ? result.slots : [];
+      await syncEngineTaskAnalysis(analysis);
+      const result = await runEngineTask('deriveSlots', {
+        slots: safeSlots.map((entry) => ({
+          ...entry,
+          slotLogVersion: Number.isFinite(entry?.slotLogVersion) ? entry.slotLogVersion : null
+        }))
+      });
+      recordPerformanceEvent('worker_derive_ready', {
+        durationMs: performanceNow() - startedAt,
+        qsoCount: safeSlots.reduce((sum, entry) => sum + (entry?.qsoData?.qsos?.length || 0), 0),
+        slotCount: safeSlots.length
+      });
+      const slots = Array.isArray(result?.slots) ? result.slots : [];
+      slots.__engineTaskSource = 'worker';
+      return slots;
     } catch (err) {
       console.warn('Engine deriveSlots fallback:', err);
-      return safeSlots.map((entry) => {
+      const results = safeSlots.map((entry) => {
         const result = getAnalysisCore().deriveLog(entry?.qsoData || { type: 'unknown', qsos: [] }, entry?.context || {}, analysis);
         return {
           slotId: String(entry?.slotId || '').toUpperCase(),
@@ -2746,6 +2934,13 @@
           derived: result.derived
         };
       });
+      recordPerformanceEvent('main_thread_derive_ready', {
+        durationMs: performanceNow() - startedAt,
+        qsoCount: safeSlots.reduce((sum, entry) => sum + (entry?.qsoData?.qsos?.length || 0), 0),
+        slotCount: safeSlots.length
+      });
+      results.__engineTaskSource = 'fallback';
+      return results;
     }
   }
 
@@ -5062,14 +5257,26 @@
     return `s${count - 1}`;
   }
 
+  function getFiniteTimestampRange(qsoLists) {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const list of qsoLists || []) {
+      for (const qso of list || []) {
+        const value = qso?.ts;
+        if (!Number.isFinite(value)) continue;
+        if (value < min) min = value;
+        if (value > max) max = value;
+      }
+    }
+    return Number.isFinite(min) ? { min, max } : null;
+  }
+
   function hourRange(qsos) {
-    const times = qsos.map((q) => q.ts).filter((t) => typeof t === 'number');
-    if (!times.length) return { startHour: 0, endHour: -1 };
-    const min = Math.min(...times);
-    const max = Math.max(...times);
+    const range = getFiniteTimestampRange([qsos]);
+    if (!range) return { startHour: 0, endHour: -1 };
     return {
-      startHour: Math.floor(min / 3600000),
-      endHour: Math.floor(max / 3600000)
+      startHour: Math.floor(range.min / 3600000),
+      endHour: Math.floor(range.max / 3600000)
     };
   }
 
@@ -5941,7 +6148,14 @@
       return null;
     }
     try {
+      const startedAt = performanceNow();
+      recordPerformanceEvent('file_load_start', { inputBytes: Number(file.size) || 0, slotId: String(slotId || 'A') });
       const text = await file.text();
+      recordPerformanceEvent('file_read_ready', {
+        durationMs: performanceNow() - startedAt,
+        inputBytes: Number(file.size) || String(text || '').length,
+        slotId: String(slotId || 'A')
+      });
       const parsed = await applyLoadedLogToSlot(slotId, text, file.name, file.size, sourceLabel || 'Uploaded', statusEl);
       if (parsed && parsed.type === 'unknown') {
         showInvalidFileAlert('Invalid log file. The format could not be recognized.');
@@ -6018,6 +6232,7 @@
       grid: q.grid || '',
       band: q.band || '',
       mode: q.mode || '',
+      op: q.op || '',
       country: q.country || '',
       continent: q.continent || '',
       cqZone: q.cqZone,
@@ -6027,19 +6242,30 @@
       bearing: q.bearing,
       distance: q.distance,
       callCount: q.callCount,
+      isDupe: Boolean(q.isDupe),
       operatingStyleRole: q.operatingStyleRole || '',
       operatingStyleBand: q.operatingStyleBand || q.band || ''
     }));
   }
 
-  function ensureSlotQsoLite(slot) {
-    if (!slot || !slot.qsoData || !Array.isArray(slot.qsoData.qsos)) return;
-    if (!slot.qsoLite || slot.qsoLite.length !== slot.qsoData.qsos.length) {
-      slot.qsoLite = buildQsoLiteArray(slot.qsoData.qsos);
-    }
+  function clearEngineCompareSlots(slotIds) {
+    if (!engineTaskWorker) return;
+    runEngineTask('clearCompareSlots', { slotIds: Array.isArray(slotIds) ? slotIds : [] }).catch(() => {});
+  }
+
+function syncEngineCompareLogForSlot(slot) {
+    if (!slot?.qsoData || !Array.isArray(slot.qsoData.qsos)) return;
+    if (!ensureEngineTaskWorker()) return;
+    const compareIndex = state.compareSlots.indexOf(slot);
+    const slotId = slot === state ? 'A' : COMPARE_SLOT_IDS[compareIndex] || '';
+    if (!slotId) return;
+    const log = buildQsoLiteArray(slot.qsoData.qsos);
+    const slotLogVersion = Number.isFinite(slot.logVersion) ? slot.logVersion : null;
+    runEngineTask('setCompareLog', { slotId, log, slotLogVersion }).catch(() => {});
   }
 
   async function applyLoadedLogToSlot(slotId, text, filename, size, sourceLabel, statusEl, sourcePath, renderOptions = {}) {
+    const loadStartedAt = performanceNow();
     const safeSize = Number.isFinite(size) ? size : text.length;
     const slotKey = String(slotId || 'A').toUpperCase();
     const deferUiRefresh = renderOptions && renderOptions.deferUiRefresh === true;
@@ -6065,32 +6291,54 @@
       ? 'standard'
       : normalizeScoringRuleOverride(renderOptions?.scoringRuleOverride);
     const analysisSeq = (target.analysisSeq || 0) + 1;
+    const slotLogVersion = (target.logVersion || 0) + 1;
     target.analysisSeq = analysisSeq;
+    target.logVersion = slotLogVersion;
     if (statusTarget) statusTarget.textContent = `Analyzing ${filename} (${formatNumberSh6(safeSize)} bytes)...`;
     const analyzed = await analyzeLogWithEngine(text, filename, {
       logFile: target.logFile,
       sourcePath: target.logFile?.path || '',
       analysisMode: state.analysisMode,
-      scoringRuleOverride: target.scoringRuleOverride
-    });
+      scoringRuleOverride: target.scoringRuleOverride,
+      slotLogVersion
+    }, slotKey);
     if (target.analysisSeq !== analysisSeq) return null;
     target.qsoData = analyzed?.qsoData || { type: 'unknown', qsos: [] };
-    target.derived = analyzed?.derived || buildDerived(target.qsoData.qsos, {
+    const analyzedResourceVersion = Number.isFinite(analyzed?.__analysisResourceVersion)
+      ? analyzed.__analysisResourceVersion
+      : null;
+    const latestResourceVersion = Number.isFinite(buildAnalysisResourcesPayload().__analysisResourceVersion)
+      ? buildAnalysisResourcesPayload().__analysisResourceVersion
+      : null;
+    const derivedContext = {
       logFile: target.logFile,
       analysisMode: state.analysisMode,
       scoringRuleOverride: target.scoringRuleOverride
-    });
+    };
+    const rebuiltWithLatestResources = analyzedResourceVersion != null
+      && latestResourceVersion != null
+      && analyzedResourceVersion !== latestResourceVersion;
+    if (rebuiltWithLatestResources) {
+      target.derived = getAnalysisCore().buildDerived(target.qsoData.qsos, derivedContext, buildAnalysisResourcesPayload());
+    } else {
+      target.derived = analyzed?.derived || buildDerived(target.qsoData.qsos, derivedContext);
+    }
     queueCallsignGridLookup(target.qsoData.qsos);
     const suggestedMode = target === state || !state.qsoData ? resolveAnalysisModeSuggestion(target.qsoData, target.derived) : null;
     if (target === state || !state.qsoData) {
       setAnalysisModeSuggestion(suggestedMode);
     }
-    target.qsoLite = buildQsoLiteArray(target.qsoData.qsos);
+    // The compact compare-log projection is only needed by the large compare-log
+    // worker. Building it eagerly duplicates every QSO and can block the main
+    // thread for seconds on very large logs.
+    target.qsoLite = null;
     target.fullQsoData = target.qsoData;
     target.fullDerived = target.derived;
     target.bandDerivedCache = new Map();
     target.periodFilterCache = new Map();
-    target.logVersion = (target.logVersion || 0) + 1;
+    if (analyzed?.__engineTaskSource === 'fallback' || rebuiltWithLatestResources) {
+      syncEngineCompareLogForSlot(target);
+    }
     if (target === state) {
       if (state.kmzUrls) {
         Object.values(state.kmzUrls).forEach((url) => {
@@ -6129,6 +6377,12 @@
       setActiveReport(state.activeIndex);
       updateLoadSummary();
     }
+    recordPerformanceEvent('log_ready', {
+      durationMs: performanceNow() - loadStartedAt,
+      inputBytes: safeSize,
+      qsoCount: target.qsoData.qsos.length || 0,
+      slotId: slotKey
+    });
     maybePromptWrtcScoringForSlot(slotKey, target, { deferUiRefresh });
     if (Array.isArray(state.sessionNotice) && state.sessionNotice.length) {
       const tag = `slot ${String(slotId || '').toUpperCase()}`;
@@ -6381,48 +6635,67 @@
     }
   }
 
-  async function recomputeDerived(reason) {
+  async function recomputeDerivedNow(recomputeSeq, reasons) {
+    const startedAt = performanceNow();
     const slotRequests = [];
-    if (state.qsoData) {
+    const requestBySlot = new Map();
+    const addRequest = (slotId, slot, qsoData, context) => {
+      if (!slotId || !slot || !qsoData) return;
+      const normalizedSlotId = String(slotId).toUpperCase();
+      const logVersion = Number.isFinite(slot.logVersion) ? slot.logVersion : 0;
+      const analysisSeq = Number.isFinite(slot.analysisSeq) ? slot.analysisSeq : 0;
       slotRequests.push({
-        slotId: 'A',
-        qsoData: state.qsoData,
-        context: {
-          logFile: state.logFile,
-          sourcePath: state.logFile?.path || '',
-          analysisMode: state.analysisMode,
-          scoringRuleOverride: state.scoringRuleOverride || ''
-        }
+        slotId: normalizedSlotId,
+        qsoData,
+        slotLogVersion: logVersion,
+        analysisSeq,
+        context
+      });
+      requestBySlot.set(normalizedSlotId, {
+        slot,
+        logVersion,
+        analysisSeq,
+        qsoDataRef: qsoData
+      });
+    };
+    if (state.qsoData) {
+      addRequest('A', state, state.qsoData, {
+        logFile: state.logFile,
+        sourcePath: state.logFile?.path || '',
+        analysisMode: state.analysisMode,
+        scoringRuleOverride: state.scoringRuleOverride || ''
       });
     }
     state.compareSlots.forEach((slot, index) => {
       if (!slot || !slot.qsoData) return;
-      slotRequests.push({
-        slotId: String.fromCharCode('B'.charCodeAt(0) + index),
-        qsoData: slot.qsoData,
-        context: {
-          logFile: slot.logFile,
-          sourcePath: slot.logFile?.path || '',
-          analysisMode: state.analysisMode,
-          scoringRuleOverride: slot.scoringRuleOverride || ''
-        }
+      addRequest(String.fromCharCode('B'.charCodeAt(0) + index), slot, slot.qsoData, {
+        logFile: slot.logFile,
+        sourcePath: slot.logFile?.path || '',
+        analysisMode: state.analysisMode,
+        scoringRuleOverride: slot.scoringRuleOverride || ''
       });
     });
     if (!slotRequests.length) return;
-    const recomputeSeq = ++derivedRecomputeSeq;
     const results = await deriveSlotsWithEngine(slotRequests);
+    const derivedWithFallback = results.__engineTaskSource === 'fallback';
     if (recomputeSeq !== derivedRecomputeSeq) return;
     results.forEach((result) => {
-      const slot = getSlotById(result.slotId);
-      if (!slot) return;
+      const slotId = String(result.slotId || '').toUpperCase();
+      const slot = getSlotById(slotId);
+      const request = requestBySlot.get(slotId);
+      if (!slot || !request) return;
+      if (slot !== request.slot) return;
+      if (slot.analysisSeq !== request.analysisSeq) return;
+      if (slot.logVersion !== request.logVersion) return;
+      if (slot.qsoData !== request.qsoDataRef) return;
       slot.qsoData = result.qsoData;
       slot.derived = result.derived;
-      slot.qsoLite = buildQsoLiteArray(slot.qsoData?.qsos || []);
+      slot.qsoLite = null;
       slot.fullQsoData = slot.qsoData;
       slot.fullDerived = slot.derived;
       slot.bandDerivedCache = new Map();
       slot.periodFilterCache = new Map();
-      slot.logVersion = (slot.logVersion || 0) + 1;
+      if (derivedWithFallback) syncEngineCompareLogForSlot(slot);
     });
     state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
     invalidateCompareLogData();
@@ -6430,6 +6703,35 @@
     updateBandRibbon();
     rebuildReports();
     renderActiveReport();
+    recordPerformanceEvent('derived_recompute_ready', {
+      durationMs: performanceNow() - startedAt,
+      reasons,
+      slotCount: results.length
+    });
+    return;
+  }
+
+  function recomputeDerived(reason) {
+    derivedRecomputeSeq += 1;
+    if (reason) derivedRecomputeReasons.add(String(reason));
+    if (!derivedRecomputeCoordinator) {
+      derivedRecomputeCoordinator = (async () => {
+        // Reference fetches commonly settle together. Coalesce their updates so
+        // CTY, MASTER, scoring, and callsign data do not launch parallel re-derives.
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        while (true) {
+          const recomputeSeq = derivedRecomputeSeq;
+          const reasons = Array.from(derivedRecomputeReasons);
+          derivedRecomputeReasons.clear();
+          await recomputeDerivedNow(recomputeSeq, reasons);
+          if (recomputeSeq === derivedRecomputeSeq) break;
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+      })().finally(() => {
+        derivedRecomputeCoordinator = null;
+      });
+    }
+    return derivedRecomputeCoordinator;
   }
 
   function shouldBandFilterReport(reportId) {
@@ -6569,10 +6871,10 @@
     return out;
   }
 
-  async function fetchResource(url, onStatus) {
+  async function fetchResource(url, onStatus, options = {}) {
     try {
       onStatus('loading');
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await fetch(url, { cache: options.cache || 'no-store' });
       if (res.status === 429) {
         const retryAfterHeader = String(res.headers.get('retry-after') || '').trim();
         const retryAfterSeconds = retryAfterHeader && /^\d+$/.test(retryAfterHeader) ? Number(retryAfterHeader) : null;
@@ -6591,14 +6893,14 @@
     }
   }
 
-  async function fetchWithFallback(urls, onStatus) {
+  async function fetchWithFallback(urls, onStatus, options = {}) {
     let lastError = null;
     let lastRetryAfterMs = 0;
     for (const url of urls) {
       // Retry a single source a few times when the server asks us to slow down.
       for (let attempt = 1; attempt <= 4; attempt += 1) {
         // eslint-disable-next-line no-await-in-loop
-        const res = await fetchResource(url, (status) => onStatus(status, url));
+        const res = await fetchResource(url, (status) => onStatus(status, url), options);
         if (res && typeof res === 'object' && res.error) {
           lastError = res.error;
           lastRetryAfterMs = Number(res.retryAfterMs) || lastRetryAfterMs || 0;
@@ -6754,29 +7056,43 @@
 
   function setCallsignGridMissing(calls) {
     const cache = getCallsignGridCache();
+    let changed = false;
     (calls || []).forEach((call) => {
       const key = normalizeCall(call);
-      if (key) cache.set(key, null);
+      if (key && (!cache.has(key) || cache.get(key) !== null)) {
+        cache.set(key, null);
+        changed = true;
+      }
     });
+    if (changed) callsignGridResourceVersion += 1;
   }
 
   function applyCallsignLookupPayload(data) {
     const cache = getCallsignGridCache();
+    let changed = false;
     if (Array.isArray(data?.rows)) {
       data.rows.forEach((row) => {
         if (!row || row.length < 2) return;
         const call = normalizeCall(row[0]);
         const grid = normalizeLookupGrid(row[1]);
         if (!call) return;
-        cache.set(call, isMaidenheadGrid(grid) ? grid : null);
+        const next = isMaidenheadGrid(grid) ? grid : null;
+        if (!cache.has(call) || cache.get(call) !== next) {
+          cache.set(call, next);
+          changed = true;
+        }
       });
     }
     if (Array.isArray(data?.missing)) {
       data.missing.forEach((call) => {
         const key = normalizeCall(call);
-        if (key) cache.set(key, null);
+        if (key && (!cache.has(key) || cache.get(key) !== null)) {
+          cache.set(key, null);
+          changed = true;
+        }
       });
     }
+    if (changed) callsignGridResourceVersion += 1;
   }
 
   function partitionLookupCalls(calls) {
@@ -7254,7 +7570,7 @@
       if (status === 'loading') state.ctySource = url;
       if (status === 'qrx') state.ctySource = url;
       updateDataStatus();
-    }).then(async (res) => {
+    }, { cache: 'default' }).then(async (res) => {
       if (res.error) {
         state.ctyError = res.error;
         state.prefixCache = new Map();
@@ -7288,7 +7604,7 @@
       if (status === 'loading') state.masterSource = url;
       if (status === 'qrx') state.masterSource = url;
       updateDataStatus();
-    }).then(async (res) => {
+    }, { cache: 'default' }).then(async (res) => {
       if (res.error) {
         state.masterError = res.error;
         updateDataStatus();
@@ -7316,7 +7632,7 @@
     fetchWithFallback(scoringUrls, (status, url) => {
       state.scoringStatus = status;
       if (status === 'error' || status === 'loading' || status === 'qrx') state.scoringSource = url;
-    }).then(async (res) => {
+    }, { cache: 'default' }).then(async (res) => {
       if (res.error) {
         state.scoringError = res.error;
         state.scoringStatus = 'error';
@@ -7591,10 +7907,11 @@
     const resources = buildAnalysisResourcesPayload({ operatingStyleSpotAnchorSlot: target });
     target.derived = getAnalysisCore().buildDerived(target.qsoData.qsos, context, resources);
     target.fullDerived = target.derived;
-    target.qsoLite = buildQsoLiteArray(target.qsoData.qsos);
+    target.qsoLite = null;
     target.bandDerivedCache = new Map();
     target.periodFilterCache = new Map();
     target.logVersion = (target.logVersion || 0) + 1;
+    syncEngineCompareLogForSlot(target);
     return true;
   }
 
@@ -8794,9 +9111,9 @@
     });
     const numericKeys = Array.from(allKeys).filter((k) => k !== 'unknown');
     let startIndex = null;
-    const allWithTs = qsoLists.flat().filter((q) => Number.isFinite(q.ts));
-    if (allWithTs.length) {
-      const minTs = Math.min(...allWithTs.map((q) => q.ts));
+    const timestampRange = getFiniteTimestampRange(qsoLists);
+    if (timestampRange) {
+      const minTs = timestampRange.min;
       const d = new Date(minTs);
       const startDay = d.getUTCDay();
       const startSlot = Math.floor((d.getUTCHours() * 60 + d.getUTCMinutes()) / 10);
@@ -8855,50 +9172,6 @@
     ].join('|');
   }
 
-  function ensureCompareWorker() {
-    if (state.compareWorker) return true;
-    if (typeof Worker === 'undefined') return false;
-    try {
-      const worker = new Worker('worker.js', { type: 'module' });
-      worker.onmessage = (evt) => {
-        const payload = evt.data || {};
-        if (payload.type === 'compareBuckets') {
-          if (payload.key !== state.compareLogPendingKey) return;
-          state.compareLogPendingKey = null;
-          state.compareLogPendingSince = null;
-          if (state.compareLogFallbackTimer) {
-            clearTimeout(state.compareLogFallbackTimer);
-            state.compareLogFallbackTimer = null;
-          }
-          state.compareLogData = {
-            key: payload.key,
-            counts: payload.data?.counts || [],
-            totalRows: payload.data?.totalRows || 0,
-            buckets: payload.data?.buckets || []
-          };
-          state.compareLogWindowStart = 0;
-          renderActiveReport();
-          return;
-        }
-      };
-      worker.onerror = () => {
-        state.compareWorker = null;
-        state.compareLogPendingKey = null;
-        state.compareLogPendingSince = null;
-        if (state.compareLogFallbackTimer) {
-          clearTimeout(state.compareLogFallbackTimer);
-          state.compareLogFallbackTimer = null;
-        }
-      };
-      state.compareWorker = worker;
-      return true;
-    } catch (err) {
-      console.warn('Compare worker failed to start:', err);
-      state.compareWorker = null;
-      return false;
-    }
-  }
-
   function buildCompareLogDataSync(filters) {
     const slots = getActiveCompareSlots();
     const lists = slots.map((entry) => (entry.slot?.qsoData ? applyLogFilters(entry.slot.qsoData.qsos, filters) : []));
@@ -8920,18 +9193,6 @@
   }
 
   function requestCompareLogData(compareKey, filters) {
-    if (!ensureCompareWorker()) {
-      const data = buildCompareLogDataSync(filters);
-      state.compareLogData = { key: compareKey, ...data };
-      state.compareLogPendingKey = null;
-      state.compareLogPendingSince = null;
-      if (state.compareLogFallbackTimer) {
-        clearTimeout(state.compareLogFallbackTimer);
-        state.compareLogFallbackTimer = null;
-      }
-      state.compareLogWindowStart = 0;
-      return;
-    }
     if (state.compareLogPendingKey === compareKey) return;
     state.compareLogPendingKey = compareKey;
     state.compareLogPendingSince = Date.now();
@@ -8950,24 +9211,47 @@
       state.compareLogWindowStart = 0;
       return;
     }
-    slots.forEach((entry) => ensureSlotQsoLite(entry.slot));
-    const liteLists = slots.map((entry) => entry.slot?.qsoLite || []);
-    state.compareWorker.postMessage({
-      type: 'compareBuckets',
-      key: compareKey,
-      filters,
-      logs: liteLists
-    });
-    if (state.compareLogFallbackTimer) clearTimeout(state.compareLogFallbackTimer);
-    state.compareLogFallbackTimer = setTimeout(() => {
-      if (state.compareLogPendingKey !== compareKey) return;
-      const fallback = buildCompareLogDataSync(filters);
-      state.compareLogData = { key: compareKey, ...fallback };
+    const startedAt = performanceNow();
+    const finish = (data, source) => {
+      if (state.compareLogPendingKey !== compareKey) return false;
+      state.compareLogData = { key: compareKey, ...(data || {}) };
       state.compareLogPendingKey = null;
       state.compareLogPendingSince = null;
-      state.compareLogFallbackTimer = null;
-      renderActiveReport();
-    }, 2500);
+      if (state.compareLogFallbackTimer) {
+        clearTimeout(state.compareLogFallbackTimer);
+        state.compareLogFallbackTimer = null;
+      }
+      state.compareLogWindowStart = 0;
+      recordPerformanceEvent(source, {
+        durationMs: performanceNow() - startedAt,
+        qsoCount: totalLoadedQsos,
+        slotCount: slots.length
+      });
+      return true;
+    };
+    const slotIds = slots.map((entry) => entry.id);
+    const loadedSlotIds = slots
+      .filter((entry) => Array.isArray(entry.slot?.qsoData?.qsos))
+      .map((entry) => entry.id);
+    const slotVersions = slots.reduce((acc, entry) => {
+      const slotId = entry.id;
+      const slot = entry.slot;
+      if (!slotId || !slot || !slot.qsoData) return acc;
+      acc[slotId] = {
+        slotLogVersion: Number.isFinite(slot.logVersion) ? slot.logVersion : 0
+      };
+      return acc;
+    }, {});
+    runEngineTask('compareBuckets', { slotIds, loadedSlotIds, filters, slotVersions })
+      .then((data) => {
+        if (finish(data, 'worker_compare_ready')) renderActiveReport();
+      })
+      .catch((err) => {
+        console.warn('Compare worker task fallback:', err);
+        if (state.compareLogPendingKey !== compareKey) return;
+        const fallback = buildCompareLogDataSync(filters);
+        if (finish(fallback, 'main_thread_compare_ready')) renderActiveReport();
+      });
   }
 
   function renderCompareLogRows(buckets, start, end, slotEntries, columns, options) {
@@ -9031,22 +9315,15 @@
       state.compareLogData = { key: compareKey, ...fallback };
       compareData = state.compareLogData;
     }
-    if (!compareData && state.compareLogPendingKey === compareKey && state.compareLogPendingSince) {
-      const elapsed = Date.now() - state.compareLogPendingSince;
-      if (elapsed > 2500) {
-        const fallback = buildCompareLogDataSync(filters);
-        state.compareLogData = { key: compareKey, ...fallback };
-        state.compareLogPendingKey = null;
-        state.compareLogPendingSince = null;
-        compareData = state.compareLogData;
-      }
-    }
     const counts = compareData ? (compareData.counts || []) : qsoTotals;
     const totalRows = compareData ? compareData.totalRows : 0;
-    const windowSize = state.compareLogWindowSize || 1000;
-    const maxStart = Math.max(0, totalRows - windowSize);
+    const requestedWindowSize = Math.max(1, Number(state.compareLogWindowSize) || 1000);
+    const responsiveWindowCap = slotEntries.length >= 4 ? 100 : (slotEntries.length === 3 ? 150 : 250);
+    // Keep the stored preference intact; the adaptive cap applies to this render only.
+    const compareWindowSize = Math.min(requestedWindowSize, responsiveWindowCap);
+    const maxStart = Math.max(0, totalRows - compareWindowSize);
     const start = Math.min(Math.max(0, state.compareLogWindowStart || 0), maxStart);
-    const end = Math.min(totalRows, start + windowSize);
+    const end = Math.min(totalRows, start + compareWindowSize);
     state.compareLogWindowStart = start;
     const columnConfig = getLogCompareColumnConfig(slotEntries.length);
     const columns = columnConfig.columns;
@@ -9089,11 +9366,11 @@
       ? `
       <div class="compare-window-controls">
         <div class="compare-window-text">
-          Showing rows ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(totalRows)} (window ${formatNumberSh6(windowSize)}).
+          Showing rows ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(totalRows)} (window ${formatNumberSh6(compareWindowSize)}).
         </div>
         <div class="compare-window-actions">
-          <button type="button" class="compare-window-btn" data-dir="prev" ${prevDisabled ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(windowSize)}</button>
-          <button type="button" class="compare-window-btn" data-dir="next" ${nextDisabled ? 'disabled' : ''}>Next ${formatNumberSh6(windowSize)} &#9654;</button>
+          <button type="button" class="compare-window-btn" data-dir="prev" data-window-size="${formatNumberHtmlSh6(compareWindowSize)}" ${prevDisabled ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(compareWindowSize)}</button>
+          <button type="button" class="compare-window-btn" data-dir="next" data-window-size="${formatNumberHtmlSh6(compareWindowSize)}" ${nextDisabled ? 'disabled' : ''}>Next ${formatNumberSh6(compareWindowSize)} &#9654;</button>
         </div>
       </div>
       `
@@ -11333,9 +11610,9 @@
     maps.forEach((map) => map.forEach((_, key) => allKeys.add(key)));
     const keys = Array.from(allKeys);
     let startIndex = null;
-    const allWithTs = qsoLists.flat().filter((q) => Number.isFinite(q.ts));
-    if (allWithTs.length) {
-      const minTs = Math.min(...allWithTs.map((q) => q.ts));
+    const timestampRange = getFiniteTimestampRange(qsoLists);
+    if (timestampRange) {
+      const minTs = timestampRange.min;
       const d = new Date(minTs);
       startIndex = d.getUTCDay() * 24 + d.getUTCHours();
     }
@@ -12034,12 +12311,14 @@
   }
 
   function getMinuteRangeFromMap(minutesMap) {
-    const allMinutes = Array.from(minutesMap.keys());
-    if (!allMinutes.length) return null;
-    return {
-      minMinute: Math.min(...allMinutes),
-      maxMinute: Math.max(...allMinutes)
-    };
+    let minMinute = Infinity;
+    let maxMinute = -Infinity;
+    minutesMap.forEach((_, minute) => {
+      if (!Number.isFinite(minute)) return;
+      if (minute < minMinute) minMinute = minute;
+      if (minute > maxMinute) maxMinute = minute;
+    });
+    return Number.isFinite(minMinute) ? { minMinute, maxMinute } : null;
   }
 
   function renderQsByMinuteTable(minutesMap, startHour, endHour) {
@@ -12458,7 +12737,8 @@
     const summaryHtml = renderComparePanels(slots, summaryBlocks, 'run_sp_inband', { hideToolbar: false });
     const compareData = buildOperatingStyleCompareData(slotEntries);
     const totalRows = compareData.totalRows || 0;
-    const windowSize = state.operatingStyleCompareWindowSize || 1000;
+    const windowSize = Math.min(Math.max(1, Number(state.operatingStyleCompareWindowSize) || 100), 100);
+    state.operatingStyleCompareWindowSize = windowSize;
     const maxStart = Math.max(0, totalRows - windowSize);
     const start = Math.min(Math.max(0, state.operatingStyleCompareWindowStart || 0), maxStart);
     const end = Math.min(totalRows, start + windowSize);
@@ -13881,10 +14161,84 @@
     bindReportInteractions('map_view');
   }
 
+  let leafletLoadPromise = null;
+
+  function ensureLeafletLoaded() {
+    if (window.L) return Promise.resolve(window.L);
+    if (leafletLoadPromise) return leafletLoadPromise;
+
+    const cssPromise = new Promise((resolve, reject) => {
+      const existing = document.getElementById('sh6-leaflet-css');
+      if (existing) {
+        if (existing.sheet) resolve();
+        else {
+          existing.addEventListener('load', resolve, { once: true });
+          existing.addEventListener('error', reject, { once: true });
+        }
+        return;
+      }
+      const link = document.createElement('link');
+      link.id = 'sh6-leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', () => reject(new Error('Leaflet stylesheet failed to load.')), { once: true });
+      document.head.appendChild(link);
+    });
+
+    const scriptPromise = new Promise((resolve, reject) => {
+      const existing = document.getElementById('sh6-leaflet-js');
+      if (existing) {
+        if (window.L) resolve(window.L);
+        else {
+          existing.addEventListener('load', () => resolve(window.L), { once: true });
+          existing.addEventListener('error', reject, { once: true });
+        }
+        return;
+      }
+      const script = document.createElement('script');
+      script.id = 'sh6-leaflet-js';
+      script.async = true;
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.addEventListener('load', () => resolve(window.L), { once: true });
+      script.addEventListener('error', () => reject(new Error('Leaflet script failed to load.')), { once: true });
+      document.head.appendChild(script);
+    });
+
+    leafletLoadPromise = Promise.all([cssPromise, scriptPromise])
+      .then(() => {
+        if (!window.L) throw new Error('Leaflet loaded without exposing its API.');
+        return window.L;
+      })
+      .catch((err) => {
+        window.SH6LeafletFailed = true;
+        throw err;
+      });
+    return leafletLoadPromise;
+  }
+
   function initLeafletMap(ctx) {
-    if (!window.L) return;
     const mapEl = document.getElementById('map');
     if (!mapEl) return;
+    if (!window.L) {
+      if (window.SH6LeafletFailed) {
+        mapEl.innerHTML = '<div class="state-card state-error"><p>Map library could not be loaded. Check the network connection, then reload SH6.</p></div>';
+        return;
+      }
+      mapEl.innerHTML = '<div class="state-card"><p>Loading map library…</p></div>';
+      ensureLeafletLoaded()
+        .then(() => {
+          if (mapEl.isConnected && document.getElementById('map') === mapEl && state.mapViewActive) {
+            initLeafletMap(ctx);
+          }
+        })
+        .catch(() => {
+          if (mapEl.isConnected && document.getElementById('map') === mapEl) {
+            mapEl.innerHTML = '<div class="state-card state-error"><p>Map library could not be loaded. Check the network connection, then reload SH6.</p></div>';
+          }
+        });
+      return;
+    }
     if (state.leafletMap) {
       state.leafletMap.remove();
       state.leafletMap = null;
@@ -16045,7 +16399,8 @@
         btn.addEventListener('click', (evt) => {
           evt.preventDefault();
           if (btn.disabled) return;
-          const size = state.compareLogWindowSize || 1000;
+          const parsedSize = Number(btn.dataset.windowSize);
+          const size = Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 1000;
           const dir = btn.dataset.dir || '';
           if (dir === 'prev') {
             state.compareLogWindowStart = Math.max(0, (state.compareLogWindowStart || 0) - size);
@@ -16062,7 +16417,7 @@
         btn.addEventListener('click', (evt) => {
           evt.preventDefault();
           if (btn.disabled) return;
-          const size = state.operatingStyleCompareWindowSize || 1000;
+          const size = state.operatingStyleCompareWindowSize || 100;
           const dir = btn.dataset.dir || '';
           if (dir === 'prev') {
             state.operatingStyleCompareWindowStart = Math.max(0, (state.operatingStyleCompareWindowStart || 0) - size);
@@ -17234,6 +17589,7 @@
   }
 
   async function init() {
+    recordPerformanceEvent('init_start');
     if (dom.appVersion) dom.appVersion.textContent = APP_VERSION;
     if (dom.viewTitle) dom.viewTitle.setAttribute('aria-live', 'polite');
     if (dom.viewContainer) dom.viewContainer.setAttribute('aria-busy', 'false');
@@ -17419,6 +17775,7 @@
     if (initRuntimeWarnings.length) {
       console.warn('SH6 loaded with limited features due to runtime preload failures:', initRuntimeWarnings);
     }
+    recordPerformanceEvent('init_complete', { warningCount: initRuntimeWarnings.length });
   }
 
   window.SH6 = Object.assign(window.SH6 || {}, {
@@ -17434,6 +17791,7 @@
     bandClass,
     getSlotById,
     getRenderPerf: () => getRenderPerfSummary(),
+    getPerformance: () => getPerformanceSummary(),
     checkAnalysisCoreCapabilities,
     runDupeModeRegressionChecks,
     runScoringRegressionChecks,

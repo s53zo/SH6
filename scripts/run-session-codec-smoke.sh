@@ -185,6 +185,23 @@ const compact = codec.buildCompactSessionPayload(payload, true);
 add('Compact payload saves analysisMode', compact.am === 'dxer', compact);
 add('Compact payload keeps compare focus overrides', Array.isArray(compact.f?.r) && compact.f.r[1] === 'C', compact.f);
 
+const historicalCompact = { ...compact };
+delete historicalCompact.x;
+const historicalInflated = codec.inflateCompactSessionPayload(historicalCompact);
+add(
+  'Legacy compact payload without x restores the historical 1000-row compare window',
+  historicalInflated?.compareLogWindowSize === 1000,
+  historicalInflated?.compareLogWindowSize
+);
+
+const cappedRenderPreference = codec.inflateCompactSessionPayload({ ...compact, x: 500 });
+const adaptiveRenderSize = Math.min(cappedRenderPreference.compareLogWindowSize, 100);
+add(
+  'Adaptive compare rendering leaves the persisted user window preference unchanged',
+  adaptiveRenderSize === 100 && cappedRenderPreference.compareLogWindowSize === 500,
+  { adaptiveRenderSize, persistedWindowSize: cappedRenderPreference.compareLogWindowSize }
+);
+
 const encoded = codec.encodePermalinkState(payload);
 add('Permalink encoding prefers compact v2 prefix', encoded.startsWith('v2.'), encoded.slice(0, 8));
 

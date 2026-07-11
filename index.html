@@ -4,11 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SH6 Hamradio Log Report</title>
-  <link rel="stylesheet" href="style.css?v=6.3.19">
+  <link rel="stylesheet" href="style.css?v=6.3.20">
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" href="favicon-32x32.png" sizes="32x32">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="ui-theme-nt">
   <table class="app-topbar-shell" cellpadding="0" cellspacing="0" border="0" style="border-bottom:1px dotted #cccccc;" width="100%">
@@ -362,17 +361,20 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js"></script>
   <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-N11FPFQNJG"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-N11FPFQNJG');
+    window.addEventListener('load', function loadAnalytics() {
+      var script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://www.googletagmanager.com/gtag/js?id=G-N11FPFQNJG';
+      document.head.appendChild(script);
+    }, { once: true });
   </script>
-  <script src="modules/analysis/core.js?v=6.3.19"></script>
-  <script src="main.js?v=6.3.19"></script>
+  <script src="modules/analysis/core.js?v=6.3.20"></script>
+  <script src="main.js?v=6.3.20"></script>
 </body>
 </html>

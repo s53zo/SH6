@@ -35,6 +35,19 @@ SH6 is a static HTML/JS app that parses contest logs in your browser, fetches `c
 ## Running locally
 Serve the repository over HTTP/HTTPS and open `index.html`.
 
+## Performance diagnostics
+
+Run deterministic parsing, analysis, worker-payload, and four-log benchmarks:
+
+```sh
+node scripts/run-performance-benchmark.js
+node scripts/run-performance-benchmark.js --real-log /path/to/large-log.adi
+bash scripts/run-browser-performance-benchmark.sh /path/to/log.adi
+bash scripts/run-browser-performance-benchmark.sh --four-log 20000
+```
+
+In the browser, `window.SH6.getPerformance()` returns startup, worker, report-ready, render, and long-task timings. The v6.3.20 baseline and results are documented in [`docs/performance/SH6-v6.3.20-performance.md`](docs/performance/SH6-v6.3.20-performance.md).
+
 ## Privacy / network
 - Log parsing happens locally in your browser (files are not uploaded by default)
 - Optional network fetches are used for:

@@ -13,6 +13,7 @@ export function createNavigationRuntime(deps = {}) {
     isRetainedReport,
     escapeAttr,
     trackRenderPerf,
+    trackReportReady,
     renderMapView,
     scheduleAutosaveSession,
     shouldPeriodFilterReport,
@@ -245,6 +246,9 @@ export function createNavigationRuntime(deps = {}) {
     const state = getStateSafe();
     const seq = ++renderSeq;
     const title = report?.title || 'report';
+    const reportStartedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+      ? performance.now()
+      : Date.now();
     showLoadingState(`Preparing ${title}...`);
     requestAnimationFrame(() => {
       setTimeout(() => {
@@ -310,6 +314,17 @@ export function createNavigationRuntime(deps = {}) {
         } finally {
           if (seq === renderSeq) {
             clearLoadingState();
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                if (seq !== renderSeq) return;
+                const reportFinishedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+                  ? performance.now()
+                  : Date.now();
+                trackReportReady?.(report?.id || '', {
+                  durationMs: reportFinishedAt - reportStartedAt
+                });
+              });
+            });
           }
         }
       }, 0);

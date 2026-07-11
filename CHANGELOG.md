@@ -2,6 +2,16 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.20 (2026-07-11)
+- Performance: index CTY prefix resolution and reuse immutable analysis indexes across worker tasks, cutting large-log derive time substantially without changing prefix precedence.
+- Responsiveness: configure static worker resources only when they change instead of cloning them with every analysis task.
+- Compare responsiveness: retain compact slot projections in the analysis worker, send only filters for repeated comparisons, cap rendered compare windows adaptively, and handle 160,000+ QSO time ordering without argument-limit failures.
+- Recompute scheduling: coalesce CTY, MASTER, scoring, and callsign updates so only the latest requested derived state is applied.
+- Startup: allow normal browser caching for unchanged CTY, MASTER, and scoring resources while retaining network fallbacks.
+- Startup: remove optional Leaflet, SQL, and analytics downloads from the START critical path; load them only after startup or when their feature is used.
+- Diagnostics: expose startup, file-read, worker, compare, next-paint report, render, and long-task timings through `SH6.getPerformance()` and add reproducible benchmarks plus analysis/compare regression coverage.
+- Version bump to `v6.3.20` and refresh cache-busting references in `index.html`, `main.js`, and the analysis worker.
+
 ## v6.3.19 (2026-06-17)
 - RUN vs S&P vs INBAND compare: replace per-panel audit scrolling with one shared QSO audit grouped into common 10-minute contest-time buckets across loaded logs.
 - Compare audit: add the detected operating style column to the aligned rows so each log can be compared by number, time, band, mode, frequency, call, and style.

@@ -84,7 +84,7 @@
           import('../modules/ui/navigation-runtime.js')
         ]);
 
-        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.2.21';"));
+        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.20';"));
         add('Main.js loads navigation runtime before nav setup', mainSource.includes('const navigationRuntimeReady = loadNavigationRuntimeModule();') && mainSource.includes('await navigationRuntimeReady;'));
         add('Main.js delegates initNavigation to the navigation runtime', mainSource.includes('return getNavigationRuntime().initNavigation();'));
         add('Main.js delegates setActiveReport to the navigation runtime', mainSource.includes('return getNavigationRuntime().setActiveReport(idx);'));
@@ -138,6 +138,7 @@
         const trackEvents = [];
         const bindCalls = [];
         const perfCalls = [];
+        const readyCalls = [];
         let destroyCount = 0;
         let autosaveCount = 0;
         let periodRibbonCount = 0;
@@ -164,6 +165,7 @@
           isRetainedReport: () => false,
           escapeAttr: (value) => String(value == null ? '' : value).replace(/"/g, '&quot;'),
           trackRenderPerf: (reportId, elapsedMs, htmlLength) => perfCalls.push({ reportId, elapsedMs, htmlLength }),
+          trackReportReady: (reportId, details) => readyCalls.push({ reportId, details }),
           renderMapView: () => '<div class="map-mode">Map content</div>',
           scheduleAutosaveSession: () => { autosaveCount += 1; },
           shouldPeriodFilterReport: (reportId) => reportId === 'main',
@@ -217,8 +219,9 @@
             && bindCalls.includes('main')
             && destroyCount >= 1
             && autosaveCount >= 1
-            && perfCalls.some((entry) => entry.reportId === 'main'),
-          JSON.stringify({ activeIndex: state.activeIndex, title: dom.viewTitle.textContent, bindCalls, destroyCount, autosaveCount, perfCalls })
+            && perfCalls.some((entry) => entry.reportId === 'main')
+            && readyCalls.some((entry) => entry.reportId === 'main' && Number.isFinite(entry.details?.durationMs)),
+          JSON.stringify({ activeIndex: state.activeIndex, title: dom.viewTitle.textContent, bindCalls, destroyCount, autosaveCount, perfCalls, readyCalls })
         );
 
         add(
@@ -243,6 +246,7 @@
           trackEvents,
           bindCalls,
           perfCalls,
+          readyCalls,
           destroyCount,
           autosaveCount,
           periodRibbonCount

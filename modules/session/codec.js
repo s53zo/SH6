@@ -1,4 +1,5 @@
 export function createSessionCodec(deps = {}) {
+  const historicalCompareLogWindowSize = 1000;
   const {
     getState,
     getSlotById,
@@ -435,7 +436,8 @@ export function createSessionCodec(deps = {}) {
     const logPageSize = Number(compact.z);
     const logPage = Number(compact.n);
     const compareStart = Number(compact.w);
-    const compareSize = Number(compact.x);
+    const hasCompareSize = Object.prototype.hasOwnProperty.call(compact, 'x');
+    const compareSize = hasCompareSize ? Number(compact.x) : historicalCompareLogWindowSize;
     return {
       version: sessionVersion,
       createdAt: Date.now(),
@@ -455,7 +457,9 @@ export function createSessionCodec(deps = {}) {
       logPageSize: Number.isFinite(logPageSize) ? logPageSize : 1000,
       logPage: Number.isFinite(logPage) ? logPage : 0,
       compareLogWindowStart: Number.isFinite(compareStart) ? compareStart : 0,
-      compareLogWindowSize: Number.isFinite(compareSize) ? compareSize : 1000,
+      compareLogWindowSize: Number.isFinite(compareSize) && compareSize > 0
+        ? compareSize
+        : historicalCompareLogWindowSize,
       wpxColumnMode: typeof normalizeWpxColumnMode === 'function'
         ? normalizeWpxColumnMode(compact.wp)
         : compact.wp,

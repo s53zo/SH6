@@ -69,10 +69,16 @@
       }
 
       try {
-        const source = await fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
-          if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
-          return res.text();
-        });
+        const [source, indexSource] = await Promise.all([
+          fetch('../main.js', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read main.js (${res.status})`);
+            return res.text();
+          }),
+          fetch('../index.html', { cache: 'no-store' }).then(async (res) => {
+            if (!res.ok) throw new Error(`Unable to read index.html (${res.status})`);
+            return res.text();
+          })
+        ]);
 
         const initStartIdx = source.indexOf('async function init() {');
         const startupHookIdx = source.indexOf("document.addEventListener('DOMContentLoaded'", initStartIdx);
@@ -115,6 +121,16 @@
           source.includes("document.addEventListener('DOMContentLoaded', () => {")
             && source.includes('init().catch((err) => {')
             && source.includes("title: 'Startup partially failed'")
+        );
+
+        add(
+          'Optional external libraries stay off the START critical path',
+          !indexSource.includes('<script src="https://unpkg.com/leaflet')
+            && !indexSource.includes('<script src="https://cdn.jsdelivr.net/npm/sql.js')
+            && indexSource.includes("window.addEventListener('load', function loadAnalytics()")
+            && source.includes('function ensureLeafletLoaded()')
+            && source.includes("script.id = 'sh6-leaflet-js';")
+            && source.includes("link.id = 'sh6-leaflet-css';")
         );
 
         const ok = checks.every((entry) => entry.ok);

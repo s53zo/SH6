@@ -82,8 +82,8 @@
           import('../modules/storage/runtime.js')
         ]);
 
-        add('Main.js imports the storage runtime module', mainSource.includes("const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.2.21';"));
-        add('Main.js preloads storage runtime during init', mainSource.includes('const storageRuntimeReady = loadStorageRuntimeModule();') && mainSource.includes('await storageRuntimeReady;'));
+        add('Main.js imports the storage runtime module', mainSource.includes("const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.20';"));
+        add('Main.js preloads storage runtime during init', mainSource.includes('const storageRuntimeReady = loadStorageRuntimeModule();') && mainSource.includes("const storageRuntimeLoaded = await awaitInitRuntime('storage runtime', storageRuntimeReady);"));
         add('Main.js delegates durable storage readiness to the runtime', mainSource.includes('return getStorageRuntime().ensureDurableStorageReady();'));
         add('Main.js delegates autosave scheduling to the runtime', mainSource.includes('return getStorageRuntime().scheduleAutosaveSession();'));
         add('Storage runtime module exports the factory', moduleSource.includes('export function createStorageRuntime'));

@@ -135,9 +135,13 @@
 
     const numericKeys = Array.from(allKeys).filter((key) => key !== 'unknown');
     let startIndex = null;
-    const allWithTs = (qsoLists || []).flat().filter((q) => Number.isFinite(q?.ts));
-    if (allWithTs.length) {
-      const minTs = Math.min(...allWithTs.map((q) => q.ts));
+    let minTs = Infinity;
+    for (const list of qsoLists || []) {
+      for (const qso of list || []) {
+        if (Number.isFinite(qso?.ts) && qso.ts < minTs) minTs = qso.ts;
+      }
+    }
+    if (Number.isFinite(minTs)) {
       const date = new Date(minTs);
       startIndex = date.getUTCDay() * 144 + Math.floor((date.getUTCHours() * 60 + date.getUTCMinutes()) / 10);
     }

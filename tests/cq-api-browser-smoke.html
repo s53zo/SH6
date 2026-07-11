@@ -35,6 +35,60 @@
   <div id="status" class="status">RUNNING</div>
   <pre id="result">Waiting for test result...</pre>
 
+  <script>
+    (() => {
+      const nativeFetch = window.fetch.bind(window);
+      const jsonResponse = (payload) => new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+      window.fetch = (input, options) => {
+        const url = String(input instanceof Request ? input.url : input || '');
+        if (!url.startsWith('https://azure.s53m.com/cors/cqapi/cqww/')) {
+          return nativeFetch(input, options);
+        }
+        const endpoint = decodeURIComponent(url.split('/cqww/')[1] || '');
+        if (endpoint === 'geolist') {
+          return Promise.resolve(jsonResponse({ status: 200, S5: 'Slovenia', EUR: 'Europe', WORLD: 'World' }));
+        }
+        if (endpoint === 'catlist') {
+          return Promise.resolve(jsonResponse({ status: 200, data: [{ category: 'AH ALL', description: 'Assisted high power' }] }));
+        }
+        if (endpoint === 'score/cw/2024/S53ZO') {
+          return Promise.resolve(jsonResponse({
+            status: 200,
+            data: [{ yr: 2024, callsign: 'S50A', operators: 'S53ZO S50A', cat: 'AH ALL', score: 1234567, q: 2200, cty: 'S5' }]
+          }));
+        }
+        if (endpoint === 'score/cw/*/S53ZO') {
+          return Promise.resolve(jsonResponse({
+            status: 200,
+            data: [
+              { yr: 2023, callsign: 'S53ZO', operators: 'S53ZO', cat: 'AH ALL', score: 1100000, q: 2100, cty: 'S5' },
+              { yr: 2022, callsign: 'S53ZO', operators: 'S53ZO', cat: 'AH ALL', score: 980000, q: 1950, cty: 'S5' }
+            ]
+          }));
+        }
+        if (endpoint === 'raw/cw/callsign/S53ZO') {
+          return Promise.resolve(jsonResponse({ status: 200, data: [] }));
+        }
+        if (endpoint.startsWith('record/cw/')) {
+          const [, , category = '*', geo = 'WORLD'] = endpoint.split('/');
+          return Promise.resolve(jsonResponse({
+            status: 200,
+            category,
+            geo,
+            year: 2023,
+            call: 'S50A',
+            score: 1500000,
+            qsos: 2400,
+            operators: 'S50A'
+          }));
+        }
+        return Promise.resolve(jsonResponse({ status: 404, data: [] }));
+      };
+    })();
+  </script>
   <script src="../cq-api-enrichment.js"></script>
   <script>
     (async () => {
@@ -98,10 +152,10 @@
           if (!mainSource.includes('function renderSpots(')) checks.push('Spots renderer missing in main.js');
           if (!mainSource.includes('chart-mode-btn')) checks.push('Chart metric mode controls missing in main.js');
           if (!mainSource.includes("{ id: 'export', title: 'EXPORT PDF, HTML, CBR' }")) checks.push('Export menu label mismatch');
-          if (!mainSource.includes("const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.19';")) {
+          if (!mainSource.includes("const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.20';")) {
             checks.push('Compare workspace module import missing in main.js');
           }
-          if (!mainSource.includes("const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.19';")) {
+          if (!mainSource.includes("const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.20';")) {
             checks.push('Archive client module import missing in main.js');
           }
           if (!mainSource.includes('function loadArchiveClientModule()')) {

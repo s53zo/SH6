@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PORT="${LOG_REPORT_SMOKE_PORT:-8826}"
 URL="http://127.0.0.1:${PORT}/"
+FIXTURE_LOG="${ROOT_DIR}/tests/fixtures/operating-style-demo.log"
 SERVER_LOG="${LOG_REPORT_SMOKE_SERVER_LOG:-/tmp/sh6-log-report-smoke-server.log}"
 NPM_CACHE_DIR="${NPM_CACHE_DIR:-/tmp/sh6-npm-cache}"
 AGENT_BROWSER_TOOL_DIR="${AGENT_BROWSER_TOOL_DIR:-/tmp/sh6-agent-browser-tool}"
@@ -48,8 +49,22 @@ run_case() {
     run_ab --session "${session}" eval "(() => { const input = document.querySelector('input[name=\"analysisModeLoad\"][value=\"dxer\"]'); if (input) { input.checked = true; input.dispatchEvent(new Event('change', { bubbles: true })); } return 'dxer'; })()" >/dev/null
     sleep 2
   fi
-  run_ab --session "${session}" eval "(() => { document.querySelector('.demo-log-btn[data-slot=\"A\"]')?.click(); return 'demo'; })()" >/dev/null
-  sleep 6
+  run_ab --session "${session}" upload '#fileInput' "${FIXTURE_LOG}" >/dev/null
+  local deadline=$((SECONDS + 60))
+  local loaded="false"
+  while (( SECONDS < deadline )); do
+    local loaded_raw
+    loaded_raw="$(run_ab --json --session "${session}" eval "(() => /parsed/i.test(document.querySelector('#fileStatus')?.textContent || '') && !document.querySelector('#viewReportsBtn')?.disabled)()" 2>/dev/null || true)"
+    loaded="$(echo "${loaded_raw}" | jq -r '.data.result // false' 2>/dev/null || true)"
+    if [[ "${loaded}" == "true" ]]; then
+      break
+    fi
+    sleep 0.5
+  done
+  if [[ "${loaded}" != "true" ]]; then
+    echo "[log-report-smoke] Local fixture did not finish loading in ${mode} mode." >&2
+    exit 1
+  fi
   run_ab --session "${session}" eval "(() => { document.querySelector('#viewReportsBtn')?.click(); return 'view'; })()" >/dev/null
   sleep 2
   run_ab --session "${session}" eval "(() => { const item = Array.from(document.querySelectorAll('#navList [data-index]')).find((el) => (el.textContent || '').trim() === 'Log'); if (item) item.click(); return item ? item.dataset.index : 'missing'; })()" >/dev/null

@@ -1,4 +1,8 @@
-import '../analysis/core.js';
+import '../analysis/core.js?v=6.3.20';
+import '../compare/compare-core.js?v=6.3.20';
+
+let analysisResources = {};
+const compareLogsBySlot = new Map();
 
 function normalizeBandToken(value) {
   return String(value || '').trim().toUpperCase();
@@ -14,6 +18,93 @@ function getAnalysisCore() {
     throw new Error('SH6 analysis core is unavailable in engine worker.');
   }
   return core;
+}
+
+function getCompareCore() {
+  const core = globalThis.SH6CompareCore;
+  if (!core || typeof core.buildCompareBucketPayload !== 'function') {
+    throw new Error('SH6 compare core is unavailable in engine worker.');
+  }
+  return core;
+}
+
+function buildCompareLog(qsos) {
+  return (qsos || []).map((q, index) => ({
+    i: index,
+    call: q.call || '',
+    grid: q.grid || '',
+    band: q.band || '',
+    mode: q.mode || '',
+    op: q.op || '',
+    country: q.country || '',
+    continent: q.continent || '',
+    cqZone: q.cqZone,
+    ituZone: q.ituZone,
+    qsoNumber: q.qsoNumber,
+    ts: q.ts,
+    bearing: q.bearing,
+    distance: q.distance,
+    callCount: q.callCount,
+    isDupe: Boolean(q.isDupe),
+    operatingStyleRole: q.operatingStyleRole || '',
+    operatingStyleBand: q.operatingStyleBand || q.band || ''
+  }));
+}
+
+function normalizeCompareLogVersion(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function buildCompareLogRecord(slotId, log, slotLogVersion) {
+  const key = String(slotId || '').trim().toUpperCase();
+  if (!key) return null;
+  return {
+    slotId: key,
+    log: Array.isArray(log) ? log : [],
+    slotLogVersion: normalizeCompareLogVersion(slotLogVersion)
+  };
+}
+
+function retainCompareLog(slotId, qsoData, slotLogVersion) {
+  const key = String(slotId || '').trim().toUpperCase();
+  if (!key) return;
+  const record = buildCompareLogRecord(key, buildCompareLog(qsoData?.qsos || []), slotLogVersion);
+  if (!record) return;
+  compareLogsBySlot.set(key, record);
+}
+
+function setCompareLogSlot(slotId, log, slotLogVersion) {
+  const key = String(slotId || '').trim().toUpperCase();
+  if (!key) return;
+  const record = {
+    slotId: key,
+    log: Array.isArray(log) ? log : [],
+    slotLogVersion: normalizeCompareLogVersion(slotLogVersion)
+  };
+  if (!record) return;
+  compareLogsBySlot.set(key, record);
+}
+
+function buildCompareLogsFromPayload(slotIds, loadedSlotIds) {
+  return slotIds.map((slotId) => {
+    if (!loadedSlotIds.has(slotId)) return [];
+    const entry = compareLogsBySlot.get(slotId);
+    if (!entry || !Array.isArray(entry.log)) return [];
+    return entry.log;
+  });
+}
+
+function normalizeSlotVersions(slotVersions) {
+  const normalized = {};
+  Object.entries(slotVersions || {}).forEach(([slotId, value]) => {
+    const normalizedSlotId = String(slotId || '').trim().toUpperCase();
+    if (!normalizedSlotId) return;
+    normalized[normalizedSlotId] = {
+      slotLogVersion: normalizeCompareLogVersion(value?.slotLogVersion)
+    };
+  });
+  return normalized;
 }
 
 function buildSpotIndexes(qsos) {
@@ -67,6 +158,51 @@ self.onmessage = async (event) => {
   const payload = event.data || {};
   const key = payload.key;
   try {
+    if (payload.type === 'configureAnalysis') {
+      analysisResources = payload.analysis && typeof payload.analysis === 'object'
+        ? payload.analysis
+        : {};
+      self.postMessage({ type: 'taskResult', key, data: { configured: true } });
+      return;
+    }
+    if (payload.type === 'setCompareLog') {
+      const slotId = String(payload.slotId || '').trim().toUpperCase();
+      if (slotId) setCompareLogSlot(slotId, payload.log, payload.slotLogVersion);
+      self.postMessage({ type: 'taskResult', key, data: { configured: Boolean(slotId) } });
+      return;
+    }
+    if (payload.type === 'clearCompareSlots') {
+      (Array.isArray(payload.slotIds) ? payload.slotIds : []).forEach((slotId) => {
+        compareLogsBySlot.delete(String(slotId || '').trim().toUpperCase());
+      });
+      self.postMessage({ type: 'taskResult', key, data: { cleared: true } });
+      return;
+    }
+    if (payload.type === 'compareBuckets') {
+      const slotIds = Array.isArray(payload.slotIds)
+        ? payload.slotIds.map((slotId) => String(slotId || '').trim().toUpperCase())
+        : [];
+      const loadedSlotIds = new Set(
+        (Array.isArray(payload.loadedSlotIds) ? payload.loadedSlotIds : [])
+          .map((slotId) => String(slotId || '').trim().toUpperCase())
+      );
+      const slotVersions = normalizeSlotVersions(payload.slotVersions);
+      const mismatched = slotIds.filter((slotId) => {
+        if (!loadedSlotIds.has(slotId)) return false;
+        const expected = slotVersions[slotId];
+        const entry = compareLogsBySlot.get(slotId);
+        if (!entry) return true;
+        if (!expected || expected.slotLogVersion == null) return false;
+        return entry.slotLogVersion !== expected.slotLogVersion;
+      });
+      const missing = slotIds.filter((slotId) => loadedSlotIds.has(slotId) && !compareLogsBySlot.has(slotId));
+      const invalid = [...new Set(mismatched.concat(missing))];
+      if (invalid.length) throw new Error(`Compare log data unavailable for: ${invalid.join(', ')}`);
+      const logs = buildCompareLogsFromPayload(slotIds, loadedSlotIds);
+      const data = getCompareCore().buildCompareBucketPayload(logs, payload.filters || {});
+      self.postMessage({ type: 'taskResult', key, data });
+      return;
+    }
     if (payload.type === 'spotIndexes') {
       const data = buildSpotIndexes(payload.qsos || []);
       self.postMessage({ type: 'taskResult', key, data });
@@ -82,25 +218,30 @@ self.onmessage = async (event) => {
         payload.text || '',
         payload.filename || '',
         payload.context || {},
-        payload.analysis || {}
+        payload.analysis || analysisResources
       );
       self.postMessage({ type: 'taskResult', key, data });
+      retainCompareLog(payload.slotId, data.qsoData, payload.slotLogVersion);
       return;
     }
     if (payload.type === 'deriveSlots') {
       const slots = Array.isArray(payload.slots) ? payload.slots : [];
-      const analysis = payload.analysis || {};
-      const data = {
-        slots: slots.map((entry) => {
-          const result = getAnalysisCore().deriveLog(entry?.qsoData || { type: 'unknown', qsos: [] }, entry?.context || {}, analysis);
-          return {
-            slotId: String(entry?.slotId || '').toUpperCase(),
-            qsoData: result.qsoData,
-            derived: result.derived
-          };
-        })
-      };
+      const analysis = payload.analysis || analysisResources;
+      const derivedSlots = slots.map((entry) => {
+        const result = getAnalysisCore().deriveLog(entry?.qsoData || { type: 'unknown', qsos: [] }, entry?.context || {}, analysis);
+        const slotId = String(entry?.slotId || '').toUpperCase();
+        return {
+          slotId,
+          qsoData: result.qsoData,
+          derived: result.derived
+        };
+      });
+      const data = { slots: derivedSlots };
       self.postMessage({ type: 'taskResult', key, data });
+      derivedSlots.forEach((entry) => {
+        const match = slots.find((slot) => String(slot?.slotId || '').toUpperCase() === entry.slotId);
+        retainCompareLog(entry.slotId, entry.qsoData, match?.slotLogVersion);
+      });
       return;
     }
     throw new Error(`Unsupported task type: ${payload.type || 'unknown'}`);
@@ -112,3 +253,5 @@ self.onmessage = async (event) => {
     });
   }
 };
+
+self.postMessage({ type: 'workerReady' });

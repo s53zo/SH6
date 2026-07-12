@@ -1570,7 +1570,21 @@ body.analysis-mode-dxer .load-tip-badge {
 
 .compare-insight-chip {
   flex: 1 1 260px;
+  min-width: 0;
+  max-width: 100%;
   text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.compare-workspace-slot,
+.compare-workspace-jump,
+.compare-ui-toggle {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .compare-insight-chip:disabled {
@@ -5288,6 +5302,7 @@ table.mtc.countries-month-heatmap-table {
   display: grid;
   gap: 1rem;
   min-width: 0;
+  max-width: 100%;
 }
 
 .compare-insights-hero {
@@ -5298,6 +5313,15 @@ table.mtc.countries-month-heatmap-table {
   border: 1px solid var(--border-strong, #9aa9b7);
   border-radius: var(--radius-lg, 0.75rem);
   background: linear-gradient(135deg, var(--surface-raised, #fff), var(--surface-muted, #eef5f8));
+  min-width: 0;
+  max-width: 100%;
+}
+
+.compare-insights-hero > *,
+.compare-insights-section-head > *,
+.compare-insights-slot-head > *,
+.compare-insight-card-meta > * {
+  min-width: 0;
 }
 
 .compare-insights-hero h2,
@@ -5327,6 +5351,7 @@ table.mtc.countries-month-heatmap-table {
 }
 
 .compare-insights-reference select {
+  width: 100%;
   min-height: 2.75rem;
   max-width: 100%;
 }
@@ -5348,10 +5373,27 @@ table.mtc.countries-month-heatmap-table {
 .compare-insights-slot,
 .compare-insight-card {
   min-width: 0;
+  max-width: 100%;
   padding: 0.875rem;
   border: 1px solid var(--border, #c4ced6);
   border-radius: var(--radius-md, 0.5rem);
   background: var(--surface-raised, #fff);
+}
+
+.compare-insights-hero h2,
+.compare-insights-hero p,
+.compare-insights-filter-context,
+.compare-insights-slot-head,
+.compare-insights-slot dt,
+.compare-insights-slot dd,
+.compare-insights-provenance,
+.compare-insight-card h4,
+.compare-insight-card p,
+.compare-insights-limitations,
+.compare-insights-limitations li {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .compare-insights-slot-head,
@@ -5433,8 +5475,16 @@ table.mtc.countries-month-heatmap-table {
 
 .compare-insight-action,
 .compare-insights-hour {
+  max-width: 100%;
   min-height: 2.75rem;
   margin-top: 0.75rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.compare-insight-action {
+  width: 100%;
 }
 
 .compare-insight-action:focus-visible,

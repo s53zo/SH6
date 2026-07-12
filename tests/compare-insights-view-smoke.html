@@ -38,6 +38,7 @@
     const H00 = hour('2026-06-12T00:00:00Z');
     const H01 = hour('2026-06-12T01:00:00Z');
     const H02 = hour('2026-06-12T02:00:00Z');
+    const stressToken = `S53${'VERY-LONG-UNBROKEN-CONTENT'.repeat(8)}`;
 
     function slot(id, index) {
       const scale = 4 - index;
@@ -100,7 +101,14 @@
 
     function renderSlots(count) {
       const model = buildCompareInsightsModel(slots.slice(0, count), { maxInsights: 8 });
-      viewContainer.innerHTML = renderer.render(model, { activeFilterText: 'Band 20M · CW · all operators' });
+      model.slots[0].call = stressToken;
+      if (model.insights[0]) {
+        model.insights[0].title = stressToken;
+        model.insights[0].why = stressToken;
+        model.insights[0].targetReport = stressToken;
+        model.insights[0].drilldownFilters = null;
+      }
+      viewContainer.innerHTML = renderer.render(model, { activeFilterText: stressToken });
       runtime.bindWorkspaceInteractions('compare_insights');
       return model;
     }
@@ -148,7 +156,10 @@
         const viewportWidth = document.documentElement.clientWidth;
         const fits = documentWidth <= viewportWidth + 1;
         check(`no horizontal page overflow at ${expectedWidth}px`, fits && Math.abs(viewportWidth - expectedWidth) <= 1, JSON.stringify({ documentWidth, viewportWidth }));
-        return { expectedWidth, documentWidth, viewportWidth, fits };
+        const boundedBoxes = Array.from(viewContainer.querySelectorAll('.compare-insights-hero, .compare-insights-filter-context, .compare-insights-slot, .compare-insight-card, .compare-insight-action'));
+        const overflowingBoxes = boundedBoxes.filter((node) => node.scrollWidth > node.clientWidth + 1).map((node) => ({ className: node.className, clientWidth: node.clientWidth, scrollWidth: node.scrollWidth }));
+        check(`long text stays inside Compare Insights boxes at ${expectedWidth}px`, overflowingBoxes.length === 0, JSON.stringify(overflowingBoxes));
+        return { expectedWidth, documentWidth, viewportWidth, fits, overflowingBoxes };
       };
       window.finishCompareInsightsViewSmoke = () => {
         const passed = checks.every((entry) => entry.pass);

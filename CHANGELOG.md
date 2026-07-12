@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.22 (2026-07-12)
+- Compare Insights formatting: keep long callsigns, insight titles, explanations, filter context, provenance, and action labels wrapped inside their cards and header boxes.
+- Compare workspace formatting: allow long slot summaries, insight chips, jumps, and toggles to wrap without forcing their containers wider.
+- Responsive regression coverage: stress unbroken long text and verify every cockpit box remains bounded at 375/768/1024/1440px.
+- Version bump to `v6.3.22` and refresh cache-busting references so browsers receive the updated stylesheet.
+
 ## v6.3.21 (2026-07-12)
 - Compare Insights: add a compare-only cockpit for 2-4 logs that ranks score, rate, hourly points, band, break, operating-style, and potential multiplier differences.
 - Drilldowns: link actionable gaps to preserved-filter Log views or the relevant detailed report, with a selectable benchmark log and synchronized UTC-hour rows.

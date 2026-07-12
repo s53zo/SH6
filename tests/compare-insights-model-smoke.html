@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compare Insights Model Smoke</title>
+  <style>
+    body { font: 14px ui-monospace, monospace; margin: 1.25rem; background: #f8fafc; color: #0f172a; }
+    #status { font-weight: 700; } .pass { color: #166534; } .fail { color: #b91c1c; }
+    pre { padding: .75rem; border: 1px solid #cbd5e1; background: white; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Compare Insights Model Smoke</h1>
+  <p id="status">RUNNING</p>
+  <pre id="result">Waiting...</pre>
+  <script type="module">
+    import { buildCompareInsightsModel } from '../modules/compare/insights-model.js';
+
+    const status = document.getElementById('status');
+    const result = document.getElementById('result');
+    const checks = [];
+    const check = (name, condition, detail = '') => checks.push({ name, pass: Boolean(condition), detail });
+    const hour = (iso) => Date.parse(iso) / 3600000;
+    const H23 = hour('2026-06-11T23:00:00Z');
+    const H00 = hour('2026-06-12T00:00:00Z');
+    const H01 = hour('2026-06-12T01:00:00Z');
+
+    function slot(id, values = {}) {
+      const q = values.q || [];
+      const p = values.p || [];
+      const minHour = Math.min(...q.map(([h]) => h), ...p.map(([h]) => h));
+      const maxHour = Math.max(...q.map(([h]) => h), ...p.map(([h]) => h));
+      return {
+        id,
+        ready: values.ready !== false,
+        label: `Log ${id}`,
+        snapshot: {
+          id,
+          derived: {
+            contestMeta: { contestId: 'CQ-WW-CW', stationCallsign: `S5${id}`, claimedScore: values.claimed },
+            timeRange: Number.isFinite(minHour) ? { minTs: minHour * 3600000, maxTs: (maxHour + 1) * 3600000 - 1 } : null,
+            hourSeries: q.map(([h, qsos]) => ({ hour: h, qsos })),
+            hourPointSeries: p.map(([h, points]) => ({ hour: h, points })),
+            minuteSeries: (values.minutes || []).map(([minute, qsos]) => ({ minute, qsos })),
+            scoring: {
+              computedScore: values.score,
+              computedMultiplierTotal: values.mult,
+              loggedPointsTotal: values.logged,
+              confidence: 'high',
+              ruleName: 'fixture'
+            },
+            bandModeSummary: values.bands || [],
+            countrySummary: values.countries || [],
+            cqZoneSummary: [], ituZoneSummary: [], prefixSummary: [],
+            operatingStyle: values.style ? { totals: values.style } : {},
+            breakSummary: { totalBreakMin: values.breakMinutes || 0, breaks: values.breaks || [] }
+          }
+        }
+      };
+    }
+
+    try {
+      const a = slot('A', {
+        q: [[H23, 10], [H00, 20]], p: [[H23, 20], [H00, 80]],
+        score: 1000, claimed: '1,200', logged: 100, mult: 10,
+        bands: [{ band: '20M', all: 30, points: 100 }],
+        countries: [{ country: 'SI', qsos: 5 }, { country: 'JA', qsos: 3 }],
+        style: { runQsos: 20, spQsos: 10, inbandQsos: 0 }
+      });
+      const b = slot('B', {
+        q: [[H00, 5], [H01, 10]], p: [[H00, 10], [H01, 20]],
+        score: 300, claimed: 350, logged: 30, mult: 5,
+        bands: [{ band: '20M', all: 15, points: 30 }],
+        countries: [{ country: 'SI', qsos: 2 }],
+        style: { runQsos: 5, spQsos: 10, inbandQsos: 0 }
+      });
+      const c = slot('C', { q: [[H00, 2]], p: [[H00, 4]], score: 40, mult: 2 });
+      const d = slot('D', { q: [[H01, 1]], p: [[H01, 2]], score: 20, mult: 1 });
+
+      [[], [a], [slot('X', { ready: false })]].forEach((entries, index) => {
+        const model = buildCompareInsightsModel(entries);
+        check(`hidden with insufficient ready logs ${index}`, !model.visible && model.status === 'insufficient-logs' && model.timeline.length === 0);
+      });
+
+      [2, 3, 4].forEach((count) => {
+        const model = buildCompareInsightsModel([a, b, c, d].slice(0, count));
+        check(`visible with ${count} ready logs`, model.visible && model.slots.length === count);
+      });
+
+      const model = buildCompareInsightsModel([a, { ...slot('EMPTY', {}), ready: false }, b], { maxInsights: 6 });
+      check('empty slots are ignored', model.slots.map((entry) => entry.id).join(',') === 'A,B');
+      check('UTC timeline is the sorted union across midnight',
+        JSON.stringify(model.timeline.map((entry) => entry.hour)) === JSON.stringify([H23, H00, H01])
+          && model.axis.mode === 'utc' && model.axis.startTs === H23 * 3600000
+          && model.axis.endTs === (H01 + 1) * 3600000 - 1);
+
+      const timelineSnapshot = model.timeline.map((entry) => ({
+        hour: entry.hour,
+        A: entry.bySlot.A,
+        B: entry.bySlot.B
+      }));
+      const expectedTimeline = [
+        { hour: H23, A: { qsos: 10, points: 20, cumulativeQsos: 10, cumulativePoints: 20, scoreProgress: 200, scoreProgressKind: 'inference', scoreProgressBasis: 'effective-points' }, B: { qsos: 0, points: 0, cumulativeQsos: 0, cumulativePoints: 0, scoreProgress: 0, scoreProgressKind: 'inference', scoreProgressBasis: 'effective-points' } },
+        { hour: H00, A: { qsos: 20, points: 80, cumulativeQsos: 30, cumulativePoints: 100, scoreProgress: 1000, scoreProgressKind: 'inference', scoreProgressBasis: 'effective-points' }, B: { qsos: 5, points: 10, cumulativeQsos: 5, cumulativePoints: 10, scoreProgress: 100, scoreProgressKind: 'inference', scoreProgressBasis: 'effective-points' } },
+        { hour: H01, A: { qsos: 0, points: 0, cumulativeQsos: 30, cumulativePoints: 100, scoreProgress: 1000, scoreProgressKind: 'inference', scoreProgressBasis: 'effective-points' }, B: { qsos: 10, points: 20, cumulativeQsos: 15, cumulativePoints: 30, scoreProgress: 300, scoreProgressKind: 'inference', scoreProgressBasis: 'effective-points' } }
+      ];
+      check('rate, points, cumulative totals, and inferred score progress match snapshot', JSON.stringify(timelineSnapshot) === JSON.stringify(expectedTimeline), JSON.stringify(timelineSnapshot));
+      check('computed score provenance is explicit', model.slots[0].score === 1000 && model.slots[0].scoreProvenance === 'computed' && model.slots[0].multiplierProvenance === 'computed');
+      const claimed = buildCompareInsightsModel([a, b], { scoreMode: 'claimed' });
+      const logged = buildCompareInsightsModel([a, b], { scoreMode: 'logged' });
+      check('claimed and logged score provenance is explicit', claimed.slots[0].score === 1200 && claimed.slots[0].scoreProvenance === 'claimed' && logged.slots[0].score === 100 && logged.slots[0].scoreProvenance === 'logged-points');
+
+      const repeat = buildCompareInsightsModel([a, b], { maxInsights: 6 });
+      check('ranking is deterministic and bounded', model.insights.length <= 6 && JSON.stringify(model.insights) === JSON.stringify(repeat.insights));
+      check('ranked categories are capped at two', Object.values(model.insights.reduce((counts, insight) => ({ ...counts, [insight.category]: (counts[insight.category] || 0) + 1 }), {})).every((count) => count <= 2));
+      const potential = model.insights.find((entry) => entry.category === 'potential-missed-multiplier');
+      check('potential multiplier is labeled as inference', potential?.kind === 'inference' && /leads only/i.test(potential.why) && potential.evidence?.candidateCount === 1);
+      const timed = model.insights.find((entry) => entry.category === 'lost-rate');
+      check('actionable insight has why, target report, and UTC time drilldown', Boolean(timed?.why && timed?.targetReport && Number.isFinite(timed?.drilldownFilters?.timeRange?.startTs) && Number.isFinite(timed?.drilldownFilters?.timeRange?.endTs)));
+      const ranged = buildCompareInsightsModel([a, b], {
+        timeRange: { startTs: H00 * 3600000, endTs: (H01 + 1) * 3600000 - 1 },
+        maxTimelineBuckets: 1
+      });
+      check('shared UTC range and row cap bound timeline output',
+        ranged.timeline.length === 1
+          && ranged.timeline[0].hour === H00
+          && ranged.axis.truncated === true
+          && ranged.axis.totalBucketCount === 2
+          && ranged.axis.warnings.some((warning) => /bounded/i.test(warning)));
+      const sparseA = slot('A', { q: [[H23, 1], [H01, 1]], p: [[H23, 1], [H01, 1]], score: 2 });
+      const sparseB = slot('B', { q: [[H23, 1], [H01, 1]], p: [[H23, 1], [H01, 1]], score: 2 });
+      const continuous = buildCompareInsightsModel([sparseA, sparseB]);
+      check('UTC timeline fills shared zero-activity hours',
+        JSON.stringify(continuous.timeline.map((entry) => entry.hour)) === JSON.stringify([H23, H00, H01])
+          && continuous.timeline[1].bySlot.A.qsos === 0
+          && continuous.timeline[1].bySlot.B.qsos === 0);
+
+      const breakStart = H00 * 60 + 55;
+      const breakEnd = H01 * 60 + 5;
+      const breakSubject = slot('A', {
+        q: [[H00, 1], [H01, 1]], p: [[H00, 1], [H01, 1]], score: 2,
+        breaks: [{ start: breakStart, end: breakEnd, minutes: 11 }], breakMinutes: 11
+      });
+      const breakTarget = slot('B', {
+        q: [[H00, 50], [H01, 50]], p: [[H00, 50], [H01, 50]], score: 100,
+        minutes: [[breakStart + 2, 1], [breakEnd - 2, 1]]
+      });
+      const breakModel = buildCompareInsightsModel([breakSubject, breakTarget], { referenceSlotId: 'B', breakThresholdMinutes: 10 });
+      const breakInsight = breakModel.insights.find((entry) => entry.category === 'unusual-break');
+      check('break opportunity counts only reference QSOs inside exact break minutes',
+        breakInsight?.drilldownFilters?.timeRange?.startTs === breakStart * 60000
+          && /about 2 QSOs/.test(breakInsight?.why || ''),
+        breakInsight?.why || 'missing');
+      const multiYearEnd = breakStart + 5 * 365 * 24 * 60;
+      const longBreakSubject = slot('A', {
+        q: [[H00, 1], [H01, 1]], p: [[H00, 1], [H01, 1]], score: 2,
+        breaks: [{ start: breakStart, end: multiYearEnd, minutes: multiYearEnd - breakStart + 1 }],
+        breakMinutes: multiYearEnd - breakStart + 1
+      });
+      const longBreakTarget = slot('B', {
+        q: [[H00, 2], [H01, 1]], p: [[H00, 2], [H01, 1]], score: 3,
+        minutes: [[breakStart + 1, 1], [breakStart + 1000, 1]]
+      });
+      const longBreakStarted = performance.now();
+      const longBreakModel = buildCompareInsightsModel([longBreakSubject, longBreakTarget], { referenceSlotId: 'B', breakThresholdMinutes: 10 });
+      const longBreakElapsed = performance.now() - longBreakStarted;
+      const longBreakInsight = longBreakModel.insights.find((entry) => entry.category === 'unusual-break');
+      check('multi-year break lookup stays bounded by minute summary entries',
+        longBreakElapsed < 100 && /about 2 QSOs/.test(longBreakInsight?.why || ''),
+        `${longBreakElapsed.toFixed(2)} ms · ${longBreakInsight?.why || 'missing'}`);
+
+      const directionA = slot('A', { q: [[H00, 1]], p: [[H00, 1]], score: 100 });
+      const directionB = slot('B', { q: [[H00, 2]], p: [[H00, 2]], score: 300 });
+      const direction = buildCompareInsightsModel([directionA, directionB], { referenceSlotId: 'B' });
+      check('benchmark direction ranks the analyzed log trailing the selected reference',
+        direction.referenceSlotId === 'B'
+          && direction.insights.some((entry) => entry.id === 'score-A-vs-B-computed'));
+
+      const passed = checks.every((entry) => entry.pass);
+      status.textContent = passed ? 'PASS' : 'FAIL';
+      status.className = passed ? 'pass' : 'fail';
+      result.textContent = JSON.stringify({ checks, snapshot: { timeline: timelineSnapshot, insights: model.insights } }, null, 2);
+    } catch (error) {
+      status.textContent = 'FAIL'; status.className = 'fail';
+      result.textContent = JSON.stringify({ checks, error: error?.stack || String(error) }, null, 2);
+    }
+  </script>
+</body>
+</html>

@@ -20,6 +20,7 @@ SH6 is a static HTML/JS app that parses contest logs in your browser, fetches `c
 ## Current highlights
 - Single + compare mode (up to 4 slots)
 - Compare workspace toolbar with sync/sticky toggles and quick insight jumps
+- Compare Insights cockpit for score, rate, multiplier, band, operating-style, and break gaps with direct QSO drilldowns
 - CQ API enrichment (scores/history/records + competitor coach)
 - Competitor coach priority cards with severity badges and direct rival-load actions
 - Spots + RBN spots with interactive drilldown by band/hour and filters (continent, CQ zone, ITU zone)

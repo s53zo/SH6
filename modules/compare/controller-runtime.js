@@ -13,6 +13,9 @@ export function createCompareControllerRuntime(deps = {}) {
     showOverlayNotice,
     renderCurrentReportWithLoading,
     setActiveReportById,
+    onCompareInsightAction,
+    onCompareInsightsReferenceChange,
+    onCompareInsightsHourAction,
     escapeHtml,
     escapeAttr
   } = deps;
@@ -261,6 +264,35 @@ export function createCompareControllerRuntime(deps = {}) {
         setActiveReportById?.(targetId, { silent: true });
       });
     });
+
+    const insightButtons = dom.viewContainer.querySelectorAll('[data-compare-insight-id]');
+    insightButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const insightId = String(btn.dataset.compareInsightId || '').trim();
+        if (insightId) onCompareInsightAction?.(insightId);
+      });
+    });
+
+    const insightHourButtons = dom.viewContainer.querySelectorAll('[data-compare-insights-hour-start][data-compare-insights-hour-end]');
+    insightHourButtons.forEach((btn) => {
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const startTs = Number(btn.dataset.compareInsightsHourStart);
+        const endTs = Number(btn.dataset.compareInsightsHourEnd);
+        if (Number.isFinite(startTs) && Number.isFinite(endTs)) {
+          onCompareInsightsHourAction?.({ startTs, endTs });
+        }
+      });
+    });
+
+    const insightReference = dom.viewContainer.querySelector('[data-compare-insights-reference]');
+    if (insightReference instanceof HTMLSelectElement) {
+      insightReference.addEventListener('change', () => {
+        const slotId = String(insightReference.value || '').trim().toUpperCase();
+        if (slotId) onCompareInsightsReferenceChange?.(slotId);
+      });
+    }
 
     const compareFocusButtons = dom.viewContainer.querySelectorAll('[data-compare-focus-cell-key]');
     compareFocusButtons.forEach((btn) => {

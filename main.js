@@ -2,6 +2,7 @@
   const BASE_REPORTS = [
     { id: 'load_logs', title: 'Start' },
     { id: 'main', title: 'Main' },
+    { id: 'compare_insights', title: 'Compare Insights' },
     { id: 'competitor_coach', title: 'Competitor coach' },
     { id: 'summary', title: 'Summary' },
     { id: 'log', title: 'Log' },
@@ -80,6 +81,7 @@
   const NAV_SECTION_BY_REPORT = Object.freeze({
     load_logs: 'load_core',
     main: 'load_core',
+    compare_insights: 'load_core',
     summary: 'load_core',
     log: 'load_core',
     raw_log: 'load_core',
@@ -146,7 +148,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.20';
+  const APP_VERSION = 'v6.3.21';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -248,34 +250,36 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.20';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.20';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.20';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.20';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.20';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.20';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.20';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.20';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.20';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.20';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.20';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.20';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.20';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.20';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.20';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.20';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.20';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.20';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.20';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.20';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.20';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.20';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.20';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.20';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.20';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.20';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.20';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.20';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.21';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.21';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.21';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.21';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.21';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.21';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.21';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.21';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.21';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.21';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.21';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.21';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.21';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.21';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.21';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.21';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.21';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.21';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.21';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.21';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.21';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.21';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.21';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.21';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.21';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.21';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.21';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.21';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.21';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.21';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1348,6 +1352,7 @@
     analysisModeSuggestion: null,
     compareCount: 1,
     compareScoreMode: COMPARE_SCORE_MODE_COMPUTED,
+    compareInsightsReferenceSlotId: 'B',
     compareCountBeforeDxer: 1,
     compareSyncEnabled: true,
     compareStickyEnabled: true,
@@ -1403,6 +1408,10 @@
   let compareWorkspaceRenderer = null;
   let compareControllerRuntimeModulePromise = null;
   let compareControllerRuntime = null;
+  let compareInsightsModulePromise = null;
+  let compareInsightsModelBuilder = null;
+  let compareInsightsRenderer = null;
+  let compareInsightsModelCache = null;
   let archiveClientModulePromise = null;
   let archiveClient = null;
   let archiveSearchRuntimeModulePromise = null;
@@ -1741,6 +1750,9 @@
             showOverlayNotice,
             renderCurrentReportWithLoading: () => renderReportWithLoading(reports[state.activeIndex]),
             setActiveReportById,
+            onCompareInsightAction: applyCompareInsightAction,
+            onCompareInsightsReferenceChange: setCompareInsightsReference,
+            onCompareInsightsHourAction: openCompareInsightsHour,
             escapeHtml,
             escapeAttr
           });
@@ -1762,6 +1774,38 @@
       throw new Error('compare workspace renderer not loaded');
     }
     return compareWorkspaceRenderer;
+  }
+
+  function loadCompareInsightsModule() {
+    if (!compareInsightsModulePromise) {
+      compareInsightsModulePromise = Promise.all([
+        import(COMPARE_INSIGHTS_MODEL_MODULE_URL),
+        import(COMPARE_INSIGHTS_UI_MODULE_URL)
+      ]).then(([modelModule, uiModule]) => {
+        if (!modelModule || typeof modelModule.buildCompareInsightsModel !== 'function') {
+          throw new Error('compare insights model unavailable');
+        }
+        if (!uiModule || typeof uiModule.createCompareInsightsRenderer !== 'function') {
+          throw new Error('compare insights renderer unavailable');
+        }
+        compareInsightsModelBuilder = modelModule.buildCompareInsightsModel;
+        compareInsightsRenderer = uiModule.createCompareInsightsRenderer({
+          escapeHtml,
+          escapeAttr,
+          formatNumber: formatNumberSh6,
+          formatDate: formatDateSh6
+        });
+        return compareInsightsRenderer;
+      });
+    }
+    return compareInsightsModulePromise;
+  }
+
+  function getCompareInsightsRenderer() {
+    if (!compareInsightsRenderer || typeof compareInsightsModelBuilder !== 'function') {
+      throw new Error('compare insights runtime not loaded');
+    }
+    return compareInsightsRenderer;
   }
 
   function loadRetainedRuntimeModule() {
@@ -3968,6 +4012,7 @@
       if (state.analysisMode === ANALYSIS_MODE_DXER && DXER_HIDDEN_REPORTS.has(r.id)) return;
       if (state.analysisMode === ANALYSIS_MODE_CONTESTER && CONTESTER_HIDDEN_REPORTS.has(r.id)) return;
       if (r.id === 'wpx_by_hour_sheet' && !showWpxHourSheet) return;
+      if (r.id === 'compare_insights' && getLoadedCompareSlots().length < 2) return;
       list.push(r);
     });
     return list;
@@ -15168,6 +15213,7 @@ function syncEngineCompareLogForSlot(slot) {
       switch (report.id) {
         case 'load_logs': return renderLoadLogs();
         case 'main': return renderMain();
+        case 'compare_insights': return '';
         case 'competitor_coach': return renderCompetitorCoach();
         case 'agent_briefing': return renderAgentBriefing();
         case 'summary': return renderSummary();
@@ -15347,6 +15393,98 @@ function syncEngineCompareLogForSlot(slot) {
 
   function renderComparePanels(slotEntries, htmlBlocks, reportId, options = {}) {
     return getCompareWorkspaceRenderer().renderComparePanels(slotEntries, htmlBlocks, reportId, options, { state, reports });
+  }
+
+  function buildCompareInsightsCacheKey(slotEntries) {
+    const slotKey = (slotEntries || []).map((entry) => {
+      const slot = getSlotById(entry.id);
+      return `${entry.id}:${Number(slot?.logVersion || 0)}`;
+    }).join('|');
+    const range = cloneTsRange(state.compareTimeRangeLock) || cloneTsRange(state.logTimeRange);
+    return JSON.stringify({
+      slotKey,
+      reference: state.compareInsightsReferenceSlotId || 'B',
+      scoreMode: state.compareScoreMode,
+      breakThreshold: state.breakThreshold,
+      derivedRecomputeSeq,
+      analysisResourcesVersion,
+      range
+    });
+  }
+
+  function getCompareInsightsModel() {
+    const slots = getActiveCompareSnapshots().filter((entry) => entry.ready);
+    if (slots.length < 2) return { visible: false, status: 'insufficient-logs', slots: [], timeline: [], insights: [] };
+    const key = buildCompareInsightsCacheKey(slots);
+    if (compareInsightsModelCache?.key === key) return compareInsightsModelCache.model;
+    const model = compareInsightsModelBuilder(slots, {
+      referenceSlotId: state.compareInsightsReferenceSlotId || 'B',
+      scoreMode: state.compareScoreMode,
+      breakThresholdMinutes: state.breakThreshold || 15,
+      timeRange: cloneTsRange(state.compareTimeRangeLock) || cloneTsRange(state.logTimeRange),
+      maxInsights: 8,
+      maxTimelineBuckets: 96
+    });
+    compareInsightsModelCache = { key, model };
+    return model;
+  }
+
+  function formatCompareInsightsFilterContext() {
+    const filters = getLogFilters();
+    const parts = [];
+    if (filters.bandFilter) parts.push(`band ${filters.bandFilter}`);
+    if (filters.modeFilter && filters.modeFilter !== 'All') parts.push(`mode ${filters.modeFilter}`);
+    if (filters.opFilter) parts.push(`operator ${filters.opFilter}`);
+    if (filters.search) parts.push(`call ${filters.search}`);
+    if (filters.operatingStyleFilter?.role) parts.push(`style ${filters.operatingStyleFilter.role}`);
+    if (filters.timeRange) parts.push(`${formatCompareTimeRangeLabel(filters.timeRange)}`);
+    return parts.join(' · ');
+  }
+
+  function renderCompareInsights() {
+    const model = getCompareInsightsModel();
+    if (!model.visible) return '';
+    return getCompareInsightsRenderer().render(model, {
+      activeFilterText: formatCompareInsightsFilterContext()
+    });
+  }
+
+  function applyCompareInsightFilterPatch(patch = {}) {
+    if (Object.prototype.hasOwnProperty.call(patch, 'timeRange')) state.logTimeRange = cloneTsRange(patch.timeRange);
+    if (Object.prototype.hasOwnProperty.call(patch, 'bandFilter')) state.logBandFilter = String(patch.bandFilter || '').trim().toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(patch, 'modeFilter')) state.logModeFilter = String(patch.modeFilter || '').trim();
+    if (Object.prototype.hasOwnProperty.call(patch, 'opFilter')) state.logOpFilter = String(patch.opFilter || '').trim().toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(patch, 'operatingStyleFilter')) state.logOperatingStyleFilter = patch.operatingStyleFilter || null;
+    if (patch.timeRange) state.compareTimeRangeLock = cloneTsRange(patch.timeRange);
+    invalidateCompareLogData();
+    compareInsightsModelCache = null;
+  }
+
+  function applyCompareInsightAction(insightId) {
+    const model = getCompareInsightsModel();
+    const insight = (model.insights || []).find((entry) => entry.id === insightId);
+    if (!insight) {
+      showOverlayNotice('That comparison insight is no longer available.', 2400);
+      return;
+    }
+    const patch = insight.drilldownFilters || null;
+    if (patch) applyCompareInsightFilterPatch(patch);
+    setActiveReportById(patch ? 'log' : insight.targetReport, { silent: true });
+  }
+
+  function openCompareInsightsHour(range) {
+    const safe = cloneTsRange(range);
+    if (!safe) return;
+    applyCompareInsightFilterPatch({ timeRange: safe });
+    setActiveReportById('log', { silent: true });
+  }
+
+  function setCompareInsightsReference(slotId) {
+    const key = String(slotId || '').trim().toUpperCase();
+    if (!getLoadedCompareSlots().some((entry) => entry.id === key)) return;
+    state.compareInsightsReferenceSlotId = key;
+    compareInsightsModelCache = null;
+    renderReportWithLoading(reports[state.activeIndex]);
   }
 
   function alignSpotsCompareSections(reportId) {
@@ -15926,6 +16064,9 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   function renderReportCompare(report) {
+    if (report.id === 'compare_insights') {
+      return renderCompareInsights();
+    }
     if (report.parentId === 'graphs_qs_by_hour') {
       return renderGraphsQsByHourCompare(report.band || null);
     }
@@ -17623,6 +17764,7 @@ function syncEngineCompareLogForSlot(slot) {
     const loadPanelRuntimeReady = loadLoadPanelRuntimeModule();
     const analysisControlsRuntimeReady = loadAnalysisControlsRuntimeModule();
     const compareWorkspaceReady = loadCompareWorkspaceModule();
+    const compareInsightsReady = loadCompareInsightsModule();
     const coachRuntimeReady = loadCoachRuntimeModule();
     const canvasZoomRuntimeReady = loadCanvasZoomRuntimeModule();
     const rbnSignalExportRuntimeReady = loadRbnSignalExportRuntimeModule();
@@ -17748,12 +17890,14 @@ function syncEngineCompareLogForSlot(slot) {
     }
     // Export actions are handled in the Export report page.
     const compareWorkspaceLoaded = await awaitInitRuntime('compare workspace module', compareWorkspaceReady);
+    const compareInsightsLoaded = await awaitInitRuntime('compare insights module', compareInsightsReady, { critical: true });
     const investigationWorkspaceLoaded = await awaitInitRuntime('investigation workspace module', investigationWorkspaceReady);
     const sessionCodecLoaded = await awaitInitRuntime('session codec module', sessionCodecReady);
     const comparePerspectiveLoaded = await awaitInitRuntime('compare perspective module', comparePerspectiveReady);
     const exportRuntimeLoaded = await awaitInitRuntime('export runtime module', exportRuntimeReady);
     const storageRuntimeLoaded = await awaitInitRuntime('storage runtime', storageRuntimeReady);
     void compareWorkspaceLoaded;
+    void compareInsightsLoaded;
     void investigationWorkspaceLoaded;
     void comparePerspectiveLoaded;
     void exportRuntimeLoaded;

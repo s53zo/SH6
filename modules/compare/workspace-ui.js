@@ -149,6 +149,7 @@ export function createCompareWorkspaceRenderer(deps = {}) {
     const largestDeltaChip = buildCompareLargestDeltaChip(slotEntries, currentReportId);
     const jumpButtons = `
       <div class="compare-insight-jumps">
+        <button type="button" class="compare-workspace-jump" data-compare-jump="compare_insights">Compare Insights</button>
         <button type="button" class="compare-workspace-jump" data-compare-jump="${escapeAttr(currentReportId === 'main' ? 'summary' : 'main')}">${currentReportId === 'main' ? 'Jump to summary' : 'Jump to main'}</button>
         <button type="button" class="compare-workspace-jump" data-compare-jump="summary">Scoring summary</button>
       </div>

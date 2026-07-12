@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compare Insights View Smoke</title>
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f8fafc; color: #0f172a; }
+    .smoke-shell { width: 100%; max-width: 100%; padding: 12px; }
+    #status { font: 700 14px ui-monospace, monospace; }
+    #result { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px ui-monospace, monospace; }
+    .pass { color: #166534; } .fail { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <main class="smoke-shell">
+    <h1>Compare Insights View Smoke</h1>
+    <p id="status">RUNNING</p>
+    <div id="viewContainer"></div>
+    <pre id="result">Waiting for viewport checks...</pre>
+  </main>
+
+  <script type="module">
+    import { buildCompareInsightsModel } from '../modules/compare/insights-model.js';
+    import { createCompareInsightsRenderer } from '../modules/compare/insights-ui.js';
+    import { createCompareControllerRuntime } from '../modules/compare/controller-runtime.js';
+
+    const status = document.getElementById('status');
+    const result = document.getElementById('result');
+    const viewContainer = document.getElementById('viewContainer');
+    const checks = [];
+    const callbacks = { insights: [], hours: [], references: [] };
+    const renderedKindLabels = new Set();
+    const check = (name, condition, detail = '') => checks.push({ name, pass: Boolean(condition), detail });
+    const hour = (iso) => Date.parse(iso) / 3600000;
+    const H00 = hour('2026-06-12T00:00:00Z');
+    const H01 = hour('2026-06-12T01:00:00Z');
+    const H02 = hour('2026-06-12T02:00:00Z');
+
+    function slot(id, index) {
+      const scale = 4 - index;
+      const q = [[H00, 8 * scale], [H01, index === 1 ? 1 : 5 * scale], [H02, 3 * scale]];
+      const p = q.map(([bucket, qsos]) => [bucket, qsos * (index + 2)]);
+      return {
+        id,
+        ready: true,
+        label: `Log ${id}`,
+        snapshot: {
+          id,
+          derived: {
+            contestMeta: {
+              contestId: 'CQ-WW-CW',
+              stationCallsign: `S5${id}`,
+              claimedScore: 12000 - index * 2400
+            },
+            timeRange: { minTs: H00 * 3600000, maxTs: (H02 + 1) * 3600000 - 1 },
+            hourSeries: q.map(([bucket, qsos]) => ({ hour: bucket, qsos })),
+            hourPointSeries: p.map(([bucket, points]) => ({ hour: bucket, points })),
+            minuteSeries: index === 0 ? [{ minute: H01 * 60 + 5, qsos: 2 }] : [],
+            scoring: {
+              computedScore: 10000 - index * 2200,
+              computedMultiplierTotal: 40 - index * 6,
+              loggedPointsTotal: 6000 - index * 1200,
+              confidence: 'high',
+              ruleName: 'deterministic fixture'
+            },
+            bandModeSummary: [
+              { band: '20M', all: 30 - index * 5, points: 90 - index * 15 },
+              { band: '40M', all: 20 - index * 3, points: 60 - index * 9 }
+            ],
+            countrySummary: index === 0
+              ? [{ country: 'SI', qsos: 4 }, { country: 'JA', qsos: 3 }, { country: 'PY', qsos: 2 }]
+              : [{ country: 'SI', qsos: 2 }],
+            cqZoneSummary: [], ituZoneSummary: [], prefixSummary: [],
+            operatingStyle: { totals: { runQsos: 30 - index * 5, spQsos: 8 + index * 3, inbandQsos: index } },
+            breakSummary: index === 1
+              ? { totalBreakMin: 95, breaks: [{ start: H01 * 60, end: H02 * 60 + 34, minutes: 95 }] }
+              : { totalBreakMin: 0, breaks: [] }
+          }
+        }
+      };
+    }
+
+    const slots = ['A', 'B', 'C', 'D'].map(slot);
+    const renderer = createCompareInsightsRenderer();
+    const state = { activeIndex: 0, compareEnabled: true };
+    const runtime = createCompareControllerRuntime({
+      getDom: () => ({ viewContainer }),
+      getState: () => state,
+      getReports: () => [{ id: 'compare_insights' }],
+      getBaseReportId: (id) => id,
+      compareScrollSyncReports: new Set(),
+      compareCrossHighlightReports: new Set(),
+      onCompareInsightAction: (id) => callbacks.insights.push(id),
+      onCompareInsightsHourAction: (range) => callbacks.hours.push(range),
+      onCompareInsightsReferenceChange: (id) => callbacks.references.push(id)
+    });
+
+    function renderSlots(count) {
+      const model = buildCompareInsightsModel(slots.slice(0, count), { maxInsights: 8 });
+      viewContainer.innerHTML = renderer.render(model, { activeFilterText: 'Band 20M · CW · all operators' });
+      runtime.bindWorkspaceInteractions('compare_insights');
+      return model;
+    }
+
+    try {
+      [2, 3, 4].forEach((count) => {
+        const model = renderSlots(count);
+        viewContainer.querySelectorAll('.compare-insight-kind').forEach((node) => renderedKindLabels.add(node.textContent.trim()));
+        check(`${count}-slot cockpit renders`, viewContainer.querySelectorAll('.compare-insights-slot').length === count);
+        check(`${count}-slot timeline stays synchronized`, viewContainer.querySelectorAll('.compare-insights-timeline tbody tr').length === model.timeline.length);
+      });
+
+      const model = renderSlots(4);
+      const cockpit = viewContainer.querySelector('section.compare-insights-cockpit');
+      const heading = cockpit?.querySelector('h2#compareInsightsTitle');
+      const cards = Array.from(cockpit?.querySelectorAll('.compare-insight-card') || []);
+      const labels = cards.map((card) => card.querySelector('.compare-insight-kind')?.textContent.trim());
+      const provenance = Array.from(cockpit?.querySelectorAll('.compare-insights-provenance') || []).map((node) => node.textContent.trim());
+      const actionButtons = Array.from(cockpit?.querySelectorAll('[data-compare-insight-id]') || []);
+      const hourButtons = Array.from(cockpit?.querySelectorAll('[data-compare-insights-hour-start]') || []);
+      const reference = cockpit?.querySelector('[data-compare-insights-reference]');
+
+      check('cockpit is a semantic labelled section', cockpit instanceof HTMLElement && cockpit.getAttribute('aria-labelledby') === heading?.id);
+      check('cockpit heading asks the contester question', heading?.textContent.trim() === 'Where did I lose points?');
+      check('insight cards are bounded to eight', cards.length > 0 && cards.length <= 8, String(cards.length));
+      check('fact and inference cards are explicitly labelled across deterministic renders', renderedKindLabels.has('Fact') && renderedKindLabels.has('Inference'), JSON.stringify(Array.from(renderedKindLabels)));
+      check('every score card exposes provenance', provenance.length === 4 && provenance.every((text) => /^(Computed score|Claimed score|Logged points|Score unavailable)/.test(text)), JSON.stringify(provenance));
+      check('timeline exposes one row and clickable action per UTC bucket', hourButtons.length === model.timeline.length && hourButtons.every((button) => button.type === 'button'));
+      check('every insight exposes a clickable action', actionButtons.length === cards.length && actionButtons.every((button) => button.type === 'button'));
+      check('reference selector lists all loaded slots', reference instanceof HTMLSelectElement && reference.options.length === 4 && reference.value === model.referenceSlotId);
+      check('interactive controls are keyboard focusable', [...actionButtons, ...hourButtons, reference].every((control) => control instanceof HTMLElement && control.tabIndex >= 0));
+
+      actionButtons[0]?.click();
+      hourButtons[0]?.click();
+      if (reference instanceof HTMLSelectElement) {
+        reference.value = 'B';
+        reference.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      check('controller routes insight actions', callbacks.insights.length === 1 && callbacks.insights[0] === actionButtons[0]?.dataset.compareInsightId, JSON.stringify(callbacks.insights));
+      check('controller routes UTC-hour actions', callbacks.hours.length === 1 && Number.isFinite(callbacks.hours[0]?.startTs) && callbacks.hours[0]?.endTs > callbacks.hours[0]?.startTs, JSON.stringify(callbacks.hours));
+      check('controller routes reference changes', callbacks.references.length === 1 && callbacks.references[0] === 'B', JSON.stringify(callbacks.references));
+
+      window.recordCompareInsightsViewport = (expectedWidth) => {
+        const documentWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+        const viewportWidth = document.documentElement.clientWidth;
+        const fits = documentWidth <= viewportWidth + 1;
+        check(`no horizontal page overflow at ${expectedWidth}px`, fits && Math.abs(viewportWidth - expectedWidth) <= 1, JSON.stringify({ documentWidth, viewportWidth }));
+        return { expectedWidth, documentWidth, viewportWidth, fits };
+      };
+      window.finishCompareInsightsViewSmoke = () => {
+        const passed = checks.every((entry) => entry.pass);
+        status.textContent = passed ? 'PASS' : 'FAIL';
+        status.className = passed ? 'pass' : 'fail';
+        result.textContent = JSON.stringify({ checks, callbacks }, null, 2);
+        return passed;
+      };
+      result.textContent = JSON.stringify({ checks, callbacks }, null, 2);
+    } catch (error) {
+      status.textContent = 'FAIL'; status.className = 'fail';
+      result.textContent = JSON.stringify({ checks, error: error?.stack || String(error) }, null, 2);
+    }
+  </script>
+</body>
+</html>

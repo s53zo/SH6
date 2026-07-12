@@ -206,6 +206,7 @@
         const reports = [
           { id: 'load_logs', title: 'Load logs' },
           { id: 'summary', title: 'Summary' },
+          { id: 'compare_insights', title: 'Compare Insights' },
           { id: 'log', title: 'Log' },
           { id: 'map_view', title: 'Map' },
           { id: 'export', title: 'Export' }
@@ -221,7 +222,9 @@
           ],
           withBandContext: (_reportId, fn) => fn(),
           withStaticVirtualTableRender: (fn) => fn(),
-          renderReport: (report) => `<section><a href="#${report.id}" title="nav">${escape(report.title)}</a></section>`,
+          renderReport: (report) => report.id === 'compare_insights'
+            ? '<section class="compare-insights-cockpit"><p>Computed score</p><p>Potential multiplier leads are inferences.</p><details><summary>How SH6 calculated these insights</summary></details><a href="#log">Open supporting QSOs</a></section>'
+            : `<section><a href="#${report.id}" title="nav">${escape(report.title)}</a></section>`,
           renderPlaceholder: ({ title }) => `<p>${escape(title)}</p>`,
           showOverlayNotice: (message) => notices.push(String(message || '')),
           trackEvent: (name, payload) => events.push({ name, payload }),
@@ -242,6 +245,16 @@
 
         const reportHtml = runtime.renderReportExport({ id: 'summary', title: 'Summary' });
         add('renderReportExport strips links from exported report HTML', reportHtml.includes('<span') && !reportHtml.includes('<a '), reportHtml);
+        const compareInsightsHtml = runtime.renderReportExport({ id: 'compare_insights', title: 'Compare Insights' });
+        add(
+          'Compare Insights exports bounded static provenance and limitations',
+          compareInsightsHtml.includes('compare-insights-cockpit')
+            && compareInsightsHtml.includes('Computed score')
+            && compareInsightsHtml.includes('inferences')
+            && compareInsightsHtml.includes('How SH6 calculated these insights')
+            && !compareInsightsHtml.includes('<a '),
+          compareInsightsHtml
+        );
 
         const logHtml = runtime.renderLogExport();
         add('renderLogExport builds the log export table', logHtml.includes('<table') && logHtml.includes('S55OO'), logHtml.slice(0, 120));
@@ -276,7 +289,7 @@
         const optionIds = Array.from(overlay?.querySelectorAll('input[data-report-id]') || []).map((node) => node.dataset.reportId);
         add(
           'Export dialog excludes load/export pseudo-reports',
-          optionIds.includes('summary') && optionIds.includes('log') && !optionIds.includes('load_logs') && !optionIds.includes('export'),
+          optionIds.includes('summary') && optionIds.includes('compare_insights') && optionIds.includes('log') && !optionIds.includes('load_logs') && !optionIds.includes('export'),
           optionIds.join(', ')
         );
 

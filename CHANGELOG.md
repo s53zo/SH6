@@ -2,6 +2,15 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.21 (2026-07-12)
+- Compare Insights: add a compare-only cockpit for 2-4 logs that ranks score, rate, hourly points, band, break, operating-style, and potential multiplier differences.
+- Drilldowns: link actionable gaps to preserved-filter Log views or the relevant detailed report, with a selectable benchmark log and synchronized UTC-hour rows.
+- Trust: label computed, claimed, and logged totals explicitly; distinguish facts from operating-style, score-pacing, break-opportunity, and multiplier-candidate inferences.
+- Accessibility/responsiveness: use semantic sections, keyboard-operable actions, visible focus rings, 44px controls, bounded tables/cards, and mobile-first layouts verified at 375/768/1024/1440px.
+- Export: include Compare Insights as a selectable PDF/HTML report section with static provenance and limitations.
+- Regression coverage: add deterministic model and view/controller smokes for 2/3/4-log behavior, timeline alignment, ranking, provenance, drilldowns, keyboard access, and responsive overflow.
+- Version bump to `v6.3.21` and refresh cache-busting references in `index.html`, `main.js`, workers, and runtime smoke contracts.
+
 ## v6.3.20 (2026-07-11)
 - Performance: index CTY prefix resolution and reuse immutable analysis indexes across worker tasks, cutting large-log derive time substantially without changing prefix precedence.
 - Responsiveness: configure static worker resources only when they change instead of cloning them with every analysis task.

@@ -1,4 +1,4 @@
-import '../analysis/core.js?v=6.3.22';
+import '../analysis/core.js?v=6.3.23';
 import '../compare/compare-core.js?v=6.3.22';
 
 let analysisResources = {};

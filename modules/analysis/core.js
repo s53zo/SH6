@@ -1305,7 +1305,8 @@
     const lines = String(text || '').split(/\r\n|\n|\r/);
     const header = {};
     const qsos = [];
-    const parseQsoTokens = (tokens, isQtc) => {
+    const qtcs = [];
+    const parseQsoTokens = (tokens, lineIndex, rawLine) => {
       if (tokens.length < 8) return;
       const freqInfo = parseCabrilloFreqToken(tokens[0]);
       const freqMHz = freqInfo.freqMHz;
@@ -1345,7 +1346,10 @@
           MY_GRIDSQUARE: sentGrid,
           GRIDSQUARE: rcvdGrid,
           OPERATOR: myCall,
-          IS_QTC: isQtc,
+          IS_QTC: false,
+          EVENT_TYPE: 'QSO',
+          LINE_INDEX: lineIndex,
+          RAW_LINE: rawLine,
           TX_ID: txId
         });
         return;
@@ -1377,7 +1381,10 @@
           MY_GRIDSQUARE: '',
           GRIDSQUARE: rcvdGrid,
           OPERATOR: myCall,
-          IS_QTC: isQtc,
+          IS_QTC: false,
+          EVENT_TYPE: 'QSO',
+          LINE_INDEX: lineIndex,
+          RAW_LINE: rawLine,
           TX_ID: txId
         });
         return;
@@ -1420,18 +1427,65 @@
         MY_GRIDSQUARE: sentGrid,
         GRIDSQUARE: rcvdGrid,
         OPERATOR: myCall,
-        IS_QTC: isQtc,
+        IS_QTC: false,
+        EVENT_TYPE: 'QSO',
+        LINE_INDEX: lineIndex,
+        RAW_LINE: rawLine,
         TX_ID: txId
       });
     };
 
-    lines.forEach((line) => {
+    const parseQtcTokens = (tokens, lineIndex, rawLine) => {
+      const freqInfo = parseCabrilloFreqToken(tokens[0]);
+      const groupRaw = String(tokens[5] || '').trim();
+      const groupMatch = groupRaw.match(/^(\d+)\/(\d+)$/);
+      const receiver = normalizeCall(tokens[4]);
+      const transmitter = normalizeCall(tokens[6]);
+      const reportedCall = normalizeCall(tokens[8]);
+      const required = [tokens[0], tokens[1], tokens[2], tokens[3], receiver, groupRaw, transmitter, tokens[7], reportedCall, tokens[9]];
+      const parseErrors = [];
+      if (required.some((value) => !String(value || '').trim())) parseErrors.push('missing_required_field');
+      if (!groupMatch) parseErrors.push('invalid_qtc_group');
+      const seriesNumber = groupMatch ? parseInt(groupMatch[1], 10) : null;
+      const seriesSize = groupMatch ? parseInt(groupMatch[2], 10) : null;
+      if (groupMatch && (!Number.isFinite(seriesNumber) || seriesNumber < 1 || !Number.isFinite(seriesSize) || seriesSize < 1 || seriesSize > 10)) {
+        parseErrors.push('invalid_qtc_group_range');
+      }
+      const date = String(tokens[2] || '').trim();
+      const mode = normalizeCabrilloMode(tokens[1]);
+      const band = freqInfo.band || (freqInfo.freqMHz ? parseBandFromFreq(freqInfo.freqMHz) : '');
+      const seriesId = [mode, receiver, transmitter, groupRaw].join('|');
+      qtcs.push({
+        QSO_DATE: date,
+        TIME_ON: String(tokens[3] || '').trim(),
+        BAND: band,
+        MODE: mode,
+        FREQ: freqInfo.freqMHz,
+        RECEIVER: receiver,
+        TRANSMITTER: transmitter,
+        QTC_GROUP: groupRaw,
+        QTC_SERIES_NUMBER: seriesNumber,
+        QTC_SERIES_SIZE: seriesSize,
+        REPORTED_TIME: String(tokens[7] || '').trim(),
+        REPORTED_CALL: reportedCall,
+        REPORTED_SERIAL: String(tokens[9] || '').trim(),
+        SERIES_ID: seriesId,
+        PARSE_STATUS: parseErrors.length ? 'malformed' : 'valid',
+        PARSE_ERRORS: parseErrors,
+        IS_QTC: true,
+        EVENT_TYPE: 'QTC',
+        LINE_INDEX: lineIndex,
+        RAW_LINE: rawLine
+      });
+    };
+
+    lines.forEach((line, lineIndex) => {
       const trimmed = line.trim();
       if (!trimmed) return;
       if (/^QSO:/i.test(trimmed)) {
-        parseQsoTokens(trimmed.replace(/^QSO:\s*/i, '').split(/\s+/), false);
+        parseQsoTokens(trimmed.replace(/^QSO:\s*/i, '').split(/\s+/), lineIndex, trimmed);
       } else if (/^QTC:/i.test(trimmed)) {
-        parseQsoTokens(trimmed.replace(/^QTC:\s*/i, '').split(/\s+/), true);
+        parseQtcTokens(trimmed.replace(/^QTC:\s*/i, '').split(/\s+/), lineIndex, trimmed);
       } else {
         const idx = trimmed.indexOf(':');
         if (idx === -1) return;
@@ -1444,7 +1498,7 @@
       }
     });
 
-    return { header, qsos };
+    return { header, qsos, qtcs };
   }
 
   function parseAdif(text) {
@@ -1553,10 +1607,59 @@
         points: parseInt(firstNonNull(r.POINTS), 10),
         srx: firstNonNull(r.SRX_STRING, r.SRX),
         stx: firstNonNull(r.STX_STRING, r.STX),
-        isQtc: Boolean(r.IS_QTC),
+        isQtc: false,
+        eventType: 'QSO',
+        lineIndex: Number.isFinite(r.LINE_INDEX) ? r.LINE_INDEX : null,
+        rawLine: r.RAW_LINE || '',
         raw: Object.assign({}, sharedRaw, r)
       }));
-      return { type: 'CABRILLO', qsos };
+      const stationCall = normalizeCall(sharedRaw.STATION_CALLSIGN);
+      const qtcs = (cab.qtcs || []).map((r, idx) => {
+        const receiver = normalizeCall(r.RECEIVER);
+        const transmitter = normalizeCall(r.TRANSMITTER);
+        const direction = stationCall && receiver === stationCall
+          ? 'received'
+          : (stationCall && transmitter === stationCall ? 'sent' : 'ambiguous');
+        const partner = direction === 'received'
+          ? transmitter
+          : (direction === 'sent' ? receiver : (transmitter || receiver));
+        return {
+          id: `qtc-${idx}`,
+          qtcNumber: idx + 1,
+          call: partner,
+          partner,
+          receiver,
+          transmitter,
+          direction,
+          seriesGroup: r.QTC_GROUP || '',
+          seriesNumber: Number.isFinite(r.QTC_SERIES_NUMBER) ? r.QTC_SERIES_NUMBER : null,
+          seriesSize: Number.isFinite(r.QTC_SERIES_SIZE) ? r.QTC_SERIES_SIZE : null,
+          seriesId: r.SERIES_ID || '',
+          reportedTime: r.REPORTED_TIME || '',
+          reportedCall: normalizeCall(r.REPORTED_CALL),
+          reportedSerial: r.REPORTED_SERIAL || '',
+          parseStatus: r.PARSE_STATUS || 'malformed',
+          parseErrors: Array.isArray(r.PARSE_ERRORS) ? r.PARSE_ERRORS.slice() : [],
+          validationWarnings: [],
+          band: normalizeBand(r.BAND, r.FREQ),
+          mode: normalizeMode(r.MODE),
+          freq: r.FREQ ? parseFloat(r.FREQ) : null,
+          time: `${(r.QSO_DATE || '').trim()} ${(r.TIME_ON || '').trim()}`,
+          ts: parseDateTime(r.QSO_DATE, r.TIME_ON),
+          op: stationCall,
+          isQtc: true,
+          eventType: 'QTC',
+          lineIndex: Number.isFinite(r.LINE_INDEX) ? r.LINE_INDEX : null,
+          rawLine: r.RAW_LINE || '',
+          raw: Object.assign({}, sharedRaw, r)
+        };
+      });
+      const events = [...qsos, ...qtcs].sort((a, b) => {
+        const lineA = Number.isFinite(a?.lineIndex) ? a.lineIndex : Number.MAX_SAFE_INTEGER;
+        const lineB = Number.isFinite(b?.lineIndex) ? b.lineIndex : Number.MAX_SAFE_INTEGER;
+        return lineA - lineB;
+      });
+      return { type: 'CABRILLO', qsos, qtcs, events };
     }
     if (lower.endsWith('.adi') || lower.endsWith('.adif') || /<eoh>/i.test(text) || /<eor>/i.test(text)) {
       const adifRecords = parseAdif(text);
@@ -1581,7 +1684,7 @@
         comment: r.COMMENT || r.NOTES,
         raw: r
       }));
-      return { type: 'ADIF', qsos };
+      return { type: 'ADIF', qsos, qtcs: [], events: qsos.slice() };
     }
     if (lower.endsWith('.cbf')) {
       const cbfRecords = parseCbf(text);
@@ -1606,7 +1709,7 @@
         comment: r.COMMENT || r.NOTES,
         raw: r
       }));
-      return { type: 'CBF', qsos };
+      return { type: 'CBF', qsos, qtcs: [], events: qsos.slice() };
     }
     const adifRecords = parseAdif(text);
     if (adifRecords.length) {
@@ -1627,9 +1730,9 @@
         points: parseInt(firstNonNull(r.APP_N1MM_POINTS, r.QSO_PTS, r.QSO_POINTS, r.POINTS), 10),
         raw: r
       }));
-      return { type: 'ADIF', qsos };
+      return { type: 'ADIF', qsos, qtcs: [], events: qsos.slice() };
     }
-    return { type: 'unknown', qsos: [] };
+    return { type: 'unknown', qsos: [], qtcs: [], events: [] };
   }
 
   function parseCtyDat(text) {
@@ -2778,7 +2881,9 @@
         return;
       }
       let points = null;
-      if (handledTableModels.has(model)) {
+      if (facts.isQtc && model !== 'qso_and_qtc_units') {
+        points = 0;
+      } else if (handledTableModels.has(model)) {
         points = pointsFromConditionRules(rule?.qso_points?.rules, facts, runtime, assumptions);
       } else if (model === 'table_by_geography_and_band_group') {
         const groups = rule?.qso_points?.band_groups || {};
@@ -2809,8 +2914,8 @@
       } else if (model === 'fixed') {
         points = Number(rule?.qso_points?.rules?.[0]?.points);
       } else if (model === 'qso_and_qtc_units') {
-        points = facts.validQso ? 1 : 0;
-        if (facts.isQtc) qtcCount += 1;
+        points = facts.validQso && q?.isScoringEligible !== false ? 1 : 0;
+        if (facts.isQtc && points > 0) qtcCount += 1;
       } else if (model === 'zone_matrix_plus_bonuses') {
         const base = facts.validQso ? (facts.differentContinent && facts.differentCqZone ? 2 : 1) : 0;
         points = base;
@@ -2970,6 +3075,7 @@
 
     (qsos || []).forEach((q, idx) => {
       const facts = buildQsoScoringFacts(q, station, runtime);
+      if (facts.isQtc) return;
       const pointValue = Number(pointState?.pointsByIndex?.[idx]);
       const eligible = multiplierCreditPolicy === 'valid_qso_allow_zero_points'
         ? (!q?.isDupe && facts.validQso && (!Number.isFinite(pointValue) || pointValue >= 0))
@@ -3439,6 +3545,8 @@
       multiplierCreditPolicy,
       claimedScoreHeader,
       loggedPointsTotal,
+      computedQsoCount: Number(scored.pointState.qsoCount || 0),
+      computedQtcCount: Number(scored.pointState.qtcCount || 0),
       computedQsoPointsTotal: Math.round(scored.pointState.qsoPointsTotal || 0),
       computedMultiplierTotal: Number(scored.multState.total || 0),
       computedScore,
@@ -3528,8 +3636,221 @@
     }
   }
 
+  function isWaeContestMeta(contestMeta) {
+    return /(?:^|[^A-Z])WAE(?:DC)?(?:[^A-Z]|$)|WORKED\s+ALL\s+EUROPE/i.test(String(contestMeta?.contestId || ''));
+  }
+
+  function isWaeRttyContestMeta(contestMeta) {
+    const text = `${contestMeta?.contestId || ''} ${contestMeta?.mode || ''}`.toUpperCase();
+    return isWaeContestMeta(contestMeta) && /RTTY|DIGI|RY/.test(text);
+  }
+
+  function qtcContinentForCall(call) {
+    const prefix = call ? lookupPrefix(call) : null;
+    return normalizeContinent(prefix?.continent || '');
+  }
+
+  function buildQtcAnalysis(qtcs, qsos, contestMeta) {
+    const items = Array.isArray(qtcs) ? qtcs : [];
+    const seriesMap = new Map();
+    const pairMap = new Map();
+    const partnerMap = new Map();
+    const payloadMap = new Map();
+    const hourMap = new Map();
+    const bandMap = new Map();
+    const modeMap = new Map();
+    const warningCounts = new Map();
+    const wae = isWaeContestMeta(contestMeta);
+    const rtty = isWaeRttyContestMeta(contestMeta);
+    const addWarning = (item, code) => {
+      if (item.validationWarnings.includes(code)) return;
+      item.validationWarnings.push(code);
+      warningCounts.set(code, (warningCounts.get(code) || 0) + 1);
+    };
+
+    items.forEach((item) => {
+      item.validationWarnings = Array.from(new Set(Array.isArray(item.parseErrors) ? item.parseErrors : []));
+      item.validationWarnings.forEach((code) => {
+        warningCounts.set(code, (warningCounts.get(code) || 0) + 1);
+      });
+      item.receiverContinent = qtcContinentForCall(item.receiver);
+      item.transmitterContinent = qtcContinentForCall(item.transmitter);
+      item.reportedContinent = qtcContinentForCall(item.reportedCall);
+      item.isScoringEligible = item.parseStatus === 'valid';
+      if (item.direction === 'ambiguous') addWarning(item, 'ambiguous_direction');
+      if (item.receiver && item.reportedCall && item.receiver === item.reportedCall) addWarning(item, 'returned_to_reported_station');
+      if (wae && rtty && item.receiverContinent && item.transmitterContinent && item.receiverContinent === item.transmitterContinent) {
+        addWarning(item, 'rtty_same_continent');
+      }
+      if (wae && !rtty && item.receiverContinent && item.transmitterContinent
+        && (item.receiverContinent !== 'EU' || item.transmitterContinent === 'EU')) {
+        addWarning(item, 'cw_ssb_invalid_direction');
+      }
+
+      const seriesId = item.seriesId || `unidentified|${item.id}`;
+      if (!seriesMap.has(seriesId)) {
+        seriesMap.set(seriesId, {
+          seriesId,
+          receiver: item.receiver,
+          transmitter: item.transmitter,
+          partner: item.partner,
+          direction: item.direction,
+          seriesGroup: item.seriesGroup,
+          seriesNumber: item.seriesNumber,
+          announcedSize: item.seriesSize,
+          band: item.band,
+          mode: item.mode,
+          firstTs: item.ts,
+          lastTs: item.ts,
+          items: [],
+          warnings: []
+        });
+      }
+      const series = seriesMap.get(seriesId);
+      series.items.push(item);
+      if (Number.isFinite(item.ts)) {
+        if (!Number.isFinite(series.firstTs) || item.ts < series.firstTs) series.firstTs = item.ts;
+        if (!Number.isFinite(series.lastTs) || item.ts > series.lastTs) series.lastTs = item.ts;
+      }
+
+      const pairKey = [item.receiver, item.transmitter].filter(Boolean).sort().join('|') || 'unknown';
+      pairMap.set(pairKey, (pairMap.get(pairKey) || 0) + 1);
+      const partnerKey = item.partner || 'Unknown';
+      if (!partnerMap.has(partnerKey)) {
+        partnerMap.set(partnerKey, {
+          partner: partnerKey,
+          directions: new Set(),
+          series: new Set(),
+          units: 0,
+          bands: new Set(),
+          firstTs: item.ts,
+          lastTs: item.ts,
+          warningCount: 0
+        });
+      }
+      const partner = partnerMap.get(partnerKey);
+      partner.directions.add(item.direction || 'ambiguous');
+      partner.series.add(seriesId);
+      partner.units += 1;
+      if (item.band) partner.bands.add(item.band);
+      if (Number.isFinite(item.ts)) {
+        if (!Number.isFinite(partner.firstTs) || item.ts < partner.firstTs) partner.firstTs = item.ts;
+        if (!Number.isFinite(partner.lastTs) || item.ts > partner.lastTs) partner.lastTs = item.ts;
+      }
+
+      const payloadKey = [item.transmitter, item.raw?.QSO_DATE || '', item.reportedTime, item.reportedCall, item.reportedSerial].join('|');
+      if (payloadMap.has(payloadKey)) {
+        addWarning(item, 'duplicate_reported_qso');
+        const first = payloadMap.get(payloadKey);
+        addWarning(first, 'duplicate_reported_qso');
+      } else {
+        payloadMap.set(payloadKey, item);
+      }
+
+      if (Number.isFinite(item.ts)) {
+        const hour = Math.floor(item.ts / 3600000);
+        if (!hourMap.has(hour)) hourMap.set(hour, { hour, units: 0, series: new Set(), sent: 0, received: 0 });
+        const bucket = hourMap.get(hour);
+        bucket.units += 1;
+        bucket.series.add(seriesId);
+        if (item.direction === 'sent') bucket.sent += 1;
+        if (item.direction === 'received') bucket.received += 1;
+      }
+      if (item.band) bandMap.set(item.band, (bandMap.get(item.band) || 0) + 1);
+      if (item.mode) modeMap.set(item.mode, (modeMap.get(item.mode) || 0) + 1);
+    });
+
+    const series = Array.from(seriesMap.values()).map((entry) => {
+      entry.observedSize = entry.items.length;
+      if (Number.isFinite(entry.announcedSize) && entry.announcedSize !== entry.observedSize) {
+        entry.warnings.push('announced_size_mismatch');
+        entry.items.forEach((item) => addWarning(item, 'announced_size_mismatch'));
+      }
+      entry.items.forEach((item) => {
+        entry.warnings.push(...item.validationWarnings);
+      });
+      entry.warnings = Array.from(new Set(entry.warnings));
+      return entry;
+    }).sort((a, b) => (a.firstTs || 0) - (b.firstTs || 0) || a.seriesId.localeCompare(b.seriesId));
+
+    pairMap.forEach((count, pairKey) => {
+      if (count <= 10) return;
+      items.filter((item) => [item.receiver, item.transmitter].filter(Boolean).sort().join('|') === pairKey)
+        .forEach((item) => addWarning(item, 'pair_quota_exceeded'));
+    });
+    series.forEach((entry) => {
+      entry.warnings = Array.from(new Set(entry.items.flatMap((item) => item.validationWarnings)));
+    });
+    partnerMap.forEach((partner) => {
+      partner.warningCount = items.filter((item) => item.partner === partner.partner && item.validationWarnings.length).length;
+    });
+
+    const validUnits = items.filter((item) => item.isScoringEligible).length;
+    const validQsoUnits = (Array.isArray(qsos) ? qsos : []).filter((qso) => !qso?.isDupe && qso?.call).length;
+    const sent = items.filter((item) => item.direction === 'sent').length;
+    const received = items.filter((item) => item.direction === 'received').length;
+    const fullSeries = series.filter((entry) => entry.observedSize === 10 && entry.announcedSize === 10).length;
+    const sortedSizes = series.map((entry) => entry.observedSize).sort((a, b) => a - b);
+    const medianSeriesSize = sortedSizes.length
+      ? (sortedSizes.length % 2
+        ? sortedSizes[Math.floor(sortedSizes.length / 2)]
+        : (sortedSizes[(sortedSizes.length / 2) - 1] + sortedSizes[sortedSizes.length / 2]) / 2)
+      : 0;
+    const activeMinutes = new Set(items.filter((item) => Number.isFinite(item.ts)).map((item) => Math.floor(item.ts / 60000))).size;
+    return {
+      supported: wae,
+      isRtty: rtty,
+      items,
+      series,
+      partners: Array.from(partnerMap.values()).map((entry) => ({
+        partner: entry.partner,
+        direction: Array.from(entry.directions).sort().join(' / '),
+        seriesCount: entry.series.size,
+        units: entry.units,
+        averageSeriesSize: entry.series.size ? entry.units / entry.series.size : 0,
+        bands: sortBands(Array.from(entry.bands)),
+        firstTs: entry.firstTs,
+        lastTs: entry.lastTs,
+        quotaUsed: entry.units,
+        warningCount: entry.warningCount
+      })).sort((a, b) => b.units - a.units || a.partner.localeCompare(b.partner)),
+      timeline: Array.from(hourMap.values()).sort((a, b) => a.hour - b.hour).map((entry) => ({
+        hour: entry.hour,
+        units: entry.units,
+        series: entry.series.size,
+        sent: entry.sent,
+        received: entry.received
+      })),
+      bandSummary: Array.from(bandMap.entries()).map(([band, units]) => ({ band, units })).sort((a, b) => bandOrderIndex(a.band) - bandOrderIndex(b.band)),
+      modeSummary: Array.from(modeMap.entries()).map(([mode, units]) => ({ mode, units })).sort((a, b) => a.mode.localeCompare(b.mode)),
+      warnings: Array.from(warningCounts.entries()).map(([code, count]) => ({ code, count })).sort((a, b) => b.count - a.count || a.code.localeCompare(b.code)),
+      overview: {
+        units: items.length,
+        validUnits,
+        malformedUnits: items.length - validUnits,
+        sent,
+        received,
+        seriesCount: series.length,
+        qtcPoints: validUnits,
+        qsoCount: Array.isArray(qsos) ? qsos.length : 0,
+        qtcToQsoRatio: qsos?.length ? items.length / qsos.length : 0,
+        pointUnitShare: (validUnits + validQsoUnits) ? validUnits / (validUnits + validQsoUnits) : 0,
+        uniquePartners: partnerMap.size,
+        averageSeriesSize: series.length ? items.length / series.length : 0,
+        medianSeriesSize,
+        fullSeries,
+        fullSeriesPct: series.length ? fullSeries / series.length : 0,
+        warningUnits: items.filter((item) => item.validationWarnings.length).length,
+        activeMinutes,
+        unitsPerActiveMinute: activeMinutes ? items.length / activeMinutes : 0
+      }
+    };
+  }
+
   function buildDerivedInternal(qsos, context = {}) {
     if (!qsos) return null;
+    const qtcs = Array.isArray(context?.qtcs) ? context.qtcs : [];
+    const activityEvents = Array.isArray(context?.events) ? context.events : [...qsos, ...qtcs];
     const dupes = markDupes(qsos, context.analysisMode || activeAnalysisEnv?.analysisMode || ANALYSIS_MODE_DEFAULT);
     const calls = new Set();
     const bands = new Map();
@@ -3572,6 +3893,7 @@
 
     const station = deriveStation(qsos);
     const contestMeta = deriveContestMeta(qsos);
+    const qtc = buildQtcAnalysis(qtcs, qsos, contestMeta);
     const countryPrefixMap = buildCountryPrefixMap();
     const callMetaCache = new Map();
 
@@ -3966,7 +4288,22 @@
     });
 
     const minuteSeries = Array.from(minutes.entries()).sort((a, b) => a[0] - b[0]).map(([minute, v]) => ({ minute, qsos: v.qsos }));
-    const breakSummary = computeBreakSummary(minutes, 60);
+    const activityMinutes = new Map();
+    let activityMinTs = minTs;
+    let activityMaxTs = maxTs;
+    activityEvents.forEach((event) => {
+      if (!Number.isFinite(event?.ts)) return;
+      if (!Number.isFinite(activityMinTs) || event.ts < activityMinTs) activityMinTs = event.ts;
+      if (!Number.isFinite(activityMaxTs) || event.ts > activityMaxTs) activityMaxTs = event.ts;
+      const minute = Math.floor(event.ts / 60000);
+      if (!activityMinutes.has(minute)) activityMinutes.set(minute, { qsos: 0, qtcs: 0, events: 0 });
+      const bucket = activityMinutes.get(minute);
+      bucket.events += 1;
+      if (event.isQtc) bucket.qtcs += 1;
+      else bucket.qsos += 1;
+    });
+    const activityMinuteSeries = Array.from(activityMinutes.entries()).sort((a, b) => a[0] - b[0]).map(([minute, value]) => ({ minute, ...value }));
+    const breakSummary = computeBreakSummary(activityMinutes, 60);
     const tenMinuteSeries = Array.from(tenMinutes.entries()).sort((a, b) => a[0] - b[0]).map(([bucket, v]) => ({ bucket, qsos: v.qsos }));
 
     const prefixSummary = [];
@@ -4068,16 +4405,19 @@
     const fieldsSummary = Array.from(fields.entries()).map(([field, count]) => ({ field, count }))
       .sort((a, b) => b.count - a.count || a.field.localeCompare(b.field));
 
-    const scoring = computeContestScoringSummary(qsos, contestMeta, {
+    const scoringEvents = activityEvents.length ? activityEvents : qsos;
+    const scoring = computeContestScoringSummary(scoringEvents, contestMeta, {
       logFile: context?.logFile || null,
       sourcePath: context?.sourcePath || '',
       scoringRuleOverride: context?.scoringRuleOverride || ''
     });
-    const effectivePointsByIndex = (scoring?.effectivePointsSource === 'computed'
-      && Array.isArray(scoring.computedPointsByIndex)
-      && scoring.computedPointsByIndex.length === qsos.length)
-      ? scoring.computedPointsByIndex
-      : qsos.map((q) => (Number.isFinite(q?.points) ? q.points : 0));
+    const computedPointByEvent = new Map();
+    if (scoring?.effectivePointsSource === 'computed' && Array.isArray(scoring.computedPointsByIndex)) {
+      scoringEvents.forEach((event, idx) => computedPointByEvent.set(event, Number(scoring.computedPointsByIndex[idx]) || 0));
+    }
+    const effectivePointsByIndex = qsos.map((q) => (
+      computedPointByEvent.has(q) ? computedPointByEvent.get(q) : (Number.isFinite(q?.points) ? q.points : 0)
+    ));
     const hourPoints = new Map();
     const minutePoints = new Map();
     qsos.forEach((q, idx) => {
@@ -4126,6 +4466,7 @@
       ituZoneSummary,
       hourSeries,
       minuteSeries,
+      activityMinuteSeries,
       hourPointSeries,
       minutePointSeries,
       tenMinuteSeries,
@@ -4155,10 +4496,11 @@
       station,
       contestMeta,
       scoring,
+      qtc,
       hasPerQsoOperator,
       comments: Array.from(comments),
       possibleErrors,
-      timeRange: { minTs, maxTs },
+      timeRange: { minTs: activityMinTs, maxTs: activityMaxTs },
       breakSummary,
       operatingStyle,
       totalPoints,
@@ -4173,7 +4515,11 @@
   function analyzeLogText(text, filename, context = {}, resources = {}) {
     return withAnalysisEnv(resources, () => {
       const qsoData = parseLogFile(text, filename);
-      const derived = buildDerivedInternal(qsoData.qsos, context);
+      const derived = buildDerivedInternal(qsoData.qsos, {
+        ...context,
+        qtcs: qsoData.qtcs,
+        events: qsoData.events
+      });
       return { qsoData, derived };
     });
   }
@@ -4181,9 +4527,17 @@
   function deriveLog(qsoData, context = {}, resources = {}) {
     return withAnalysisEnv(resources, () => {
       const safeData = qsoData && typeof qsoData === 'object'
-        ? Object.assign({}, qsoData, { qsos: Array.isArray(qsoData.qsos) ? qsoData.qsos : [] })
-        : { type: 'unknown', qsos: [] };
-      const derived = buildDerivedInternal(safeData.qsos, context);
+        ? Object.assign({}, qsoData, {
+          qsos: Array.isArray(qsoData.qsos) ? qsoData.qsos : [],
+          qtcs: Array.isArray(qsoData.qtcs) ? qsoData.qtcs : [],
+          events: Array.isArray(qsoData.events) ? qsoData.events : []
+        })
+        : { type: 'unknown', qsos: [], qtcs: [], events: [] };
+      const derived = buildDerivedInternal(safeData.qsos, {
+        ...context,
+        qtcs: safeData.qtcs,
+        events: safeData.events.length ? safeData.events : [...safeData.qsos, ...safeData.qtcs]
+      });
       return { qsoData: safeData, derived };
     });
   }
@@ -4213,6 +4567,9 @@
     ),
     computeContestScoringSummary: (qsos, contestMeta, context = {}, resources = {}) => (
       withAnalysisEnv(resources, () => computeContestScoringSummary(qsos, contestMeta, context))
+    ),
+    buildQtcAnalysis: (qtcs, qsos, contestMeta, resources = {}) => (
+      withAnalysisEnv(resources, () => buildQtcAnalysis(qtcs, qsos, contestMeta))
     ),
     buildDerived,
     analyzeLogText,

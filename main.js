@@ -28,6 +28,13 @@
     { id: 'prefixes', title: 'Prefixes' },
     { id: 'distance', title: 'Distance' },
     { id: 'breaks', title: 'Break time' },
+    { id: 'qtc_overview', title: 'Overview' },
+    { id: 'qtc_timeline', title: 'Timeline' },
+    { id: 'qtc_efficiency', title: 'Efficiency' },
+    { id: 'qtc_partners', title: 'Partners' },
+    { id: 'qtc_series', title: 'Series' },
+    { id: 'qtc_quality', title: 'Quality' },
+    { id: 'qtc_export', title: 'Export' },
     { id: 'run_sp_inband', title: 'RUN vs S&P vs INBAND' },
     { id: 'continents', title: 'Continents' },
     { id: 'kmz_files', title: 'KMZ files' },
@@ -71,6 +78,7 @@
   const NAV_SECTIONS = [
     { id: 'load_core', title: 'Load & Core', openByDefault: true },
     { id: 'rate_time', title: 'Rates & Time', openByDefault: true },
+    { id: 'qtc_performance', title: 'QTC Performance', openByDefault: true },
     { id: 'geo_analysis', title: 'Geography', openByDefault: true },
     { id: 'quality_review', title: 'Quality & Review', openByDefault: false },
     { id: 'maps_charts', title: 'Maps & Charts', openByDefault: false },
@@ -100,6 +108,14 @@
     one_minute_point_rates: 'rate_time',
     run_sp_inband: 'rate_time',
     breaks: 'rate_time',
+
+    qtc_overview: 'qtc_performance',
+    qtc_timeline: 'qtc_performance',
+    qtc_efficiency: 'qtc_performance',
+    qtc_partners: 'qtc_performance',
+    qtc_series: 'qtc_performance',
+    qtc_quality: 'qtc_performance',
+    qtc_export: 'qtc_performance',
 
     countries: 'geo_analysis',
     countries_by_time: 'geo_analysis',
@@ -148,7 +164,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.22';
+  const APP_VERSION = 'v6.3.23';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -280,6 +296,7 @@
   const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.22';
   const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.22';
   const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.22';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.23';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -430,6 +447,15 @@
     'zones_itu_by_year'
   ]);
   const CQ_WPX_REPORT_IDS = new Set(['CQWPX', 'CQWPXRTTY']);
+  const QTC_REPORT_IDS = new Set([
+    'qtc_overview',
+    'qtc_timeline',
+    'qtc_efficiency',
+    'qtc_partners',
+    'qtc_series',
+    'qtc_quality',
+    'qtc_export'
+  ]);
 
   function cloneCompareFocus(source = DEFAULT_COMPARE_FOCUS) {
     return {
@@ -1458,6 +1484,8 @@
   let comparePerspectiveStore = null;
   let exportRuntimeModulePromise = null;
   let exportRuntime = null;
+  let qtcRuntimeModulePromise = null;
+  let qtcRuntime = null;
   let engineTaskWorker = null;
   let engineTaskSeq = 0;
   let engineTaskWorkerStartMs = 0;
@@ -2700,6 +2728,31 @@
     return exportRuntime;
   }
 
+  function loadQtcRuntimeModule() {
+    if (!qtcRuntimeModulePromise) {
+      qtcRuntimeModulePromise = import(QTC_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.createQtcRuntime !== 'function') {
+            throw new Error('QTC runtime module unavailable');
+          }
+          qtcRuntime = mod.createQtcRuntime({
+            escapeHtml,
+            escapeAttr,
+            formatNumber: formatNumberSh6,
+            formatBand: formatBandLabel,
+            formatDate: formatDateSh6
+          });
+          return qtcRuntime;
+        });
+    }
+    return qtcRuntimeModulePromise;
+  }
+
+  function getQtcRuntime() {
+    if (!qtcRuntime) throw new Error('QTC runtime not loaded');
+    return qtcRuntime;
+  }
+
   async function ensureDurableStorageReady() {
     return getStorageRuntime().ensureDurableStorageReady();
   }
@@ -3894,10 +3947,16 @@
   function getAvailableBands(includeCompare = false) {
     const bands = new Set();
     getBandsFromDerived(state.fullDerived || state.derived).forEach((b) => bands.add(b));
+    (state.fullDerived?.qtc?.bandSummary || state.derived?.qtc?.bandSummary || []).forEach((row) => {
+      if (row?.band && String(row.band).toLowerCase() !== 'unknown') bands.add(row.band);
+    });
     if (includeCompare || state.compareCount > 1) {
       getActiveCompareSlots().forEach((entry) => {
         if (!entry.slot || entry.id === 'A') return;
         getBandsFromDerived(entry.slot.fullDerived || entry.slot.derived).forEach((b) => bands.add(b));
+        (entry.slot.fullDerived?.qtc?.bandSummary || entry.slot.derived?.qtc?.bandSummary || []).forEach((row) => {
+          if (row?.band && String(row.band).toLowerCase() !== 'unknown') bands.add(row.band);
+        });
       });
     }
     return sortBands(Array.from(bands));
@@ -4005,14 +4064,27 @@
     return contestId.startsWith('CQWPX');
   }
 
+  function slotSupportsQtcReports(slot) {
+    if (slot?.qsoData?.qtcs?.length) return true;
+    const contest = String(slot?.derived?.contestMeta?.contestId || '');
+    const sourcePath = String(slot?.logFile?.path || '');
+    return /(?:^|[^A-Z])WAE(?:DC)?(?:[^A-Z]|$)|WORKED\s+ALL\s+EUROPE/i.test(`${contest} ${sourcePath}`);
+  }
+
+  function shouldShowQtcReports() {
+    return getActiveCompareSlots().some((entry) => slotSupportsQtcReports(entry.slot));
+  }
+
   function buildReportsList() {
     const list = [];
     const showWpxHourSheet = isCqWpxContest();
+    const showQtcReports = shouldShowQtcReports();
     BASE_REPORTS.forEach((r) => {
       if (state.analysisMode === ANALYSIS_MODE_DXER && DXER_HIDDEN_REPORTS.has(r.id)) return;
       if (state.analysisMode === ANALYSIS_MODE_CONTESTER && CONTESTER_HIDDEN_REPORTS.has(r.id)) return;
       if (r.id === 'wpx_by_hour_sheet' && !showWpxHourSheet) return;
       if (r.id === 'compare_insights' && getLoadedCompareSlots().length < 2) return;
+      if (QTC_REPORT_IDS.has(r.id) && !showQtcReports) return;
       list.push(r);
     });
     return list;
@@ -6358,7 +6430,9 @@ function syncEngineCompareLogForSlot(slot) {
     const derivedContext = {
       logFile: target.logFile,
       analysisMode: state.analysisMode,
-      scoringRuleOverride: target.scoringRuleOverride
+      scoringRuleOverride: target.scoringRuleOverride,
+      qtcs: target.qsoData.qtcs || [],
+      events: target.qsoData.events || target.qsoData.qsos || []
     };
     const rebuiltWithLatestResources = analyzedResourceVersion != null
       && latestResourceVersion != null
@@ -6397,9 +6471,16 @@ function syncEngineCompareLogForSlot(slot) {
       state.kmzUrls = {};
     }
     if (!target.qsoData.qsos.length) {
-      if (statusTarget) statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs. Check file format.`;
+      const qtcCount = target.qsoData.qtcs?.length || 0;
+      if (statusTarget) {
+        statusTarget.textContent = qtcCount
+          ? `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs and ${formatNumberSh6(qtcCount)} QTCs as ${target.qsoData.type}`
+          : `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed 0 QSOs. Check file format.`;
+      }
     } else if (statusTarget) {
-      statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(target.qsoData.qsos.length)} QSOs as ${target.qsoData.type}`;
+      const qtcCount = target.qsoData.qtcs?.length || 0;
+      const qtcSuffix = qtcCount ? ` and ${formatNumberSh6(qtcCount)} QTCs` : '';
+      statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(target.qsoData.qsos.length)} QSOs${qtcSuffix} as ${target.qsoData.type}`;
     }
     updateSlotStatus(slotId);
     if (sourceLabel === 'Archive') {
@@ -6850,24 +6931,33 @@ function syncEngineCompareLogForSlot(slot) {
     const months = normalizePeriodMonths(state.globalMonthsFilter);
     if (!years.length && !months.length) return fn();
     const baseQsos = state.qsoData?.qsos || [];
+    const baseQtcs = state.qsoData?.qtcs || [];
     const cache = state.periodFilterCache || new Map();
     if (!state.periodFilterCache) state.periodFilterCache = cache;
     const cacheKey = buildPeriodFilterCacheKey(years, months, state.globalBandFilter);
     let cached = cache.get(cacheKey);
     let filteredQsos = cached && Array.isArray(cached.qsos) ? cached.qsos : null;
+    let filteredQtcs = cached && Array.isArray(cached.qtcs) ? cached.qtcs : null;
     let periodDerived = cached && cached.derived ? cached.derived : null;
-    if (!filteredQsos || !periodDerived) {
+    if (!filteredQsos || !filteredQtcs || !periodDerived) {
       filteredQsos = getPeriodFilteredQsosFromList(baseQsos, years, months);
+      filteredQtcs = getPeriodFilteredQsosFromList(baseQtcs, years, months);
+      const filteredEvents = [...filteredQsos, ...filteredQtcs].sort((a, b) => (a?.ts || 0) - (b?.ts || 0));
       periodDerived = buildDerived(filteredQsos, {
         logFile: state.logFile,
         sourcePath: state.logFile?.path || '',
-        analysisMode: state.analysisMode
+        analysisMode: state.analysisMode,
+        qtcs: filteredQtcs,
+        events: filteredEvents
       });
-      cache.set(cacheKey, { qsos: filteredQsos, derived: periodDerived });
+      cache.set(cacheKey, { qsos: filteredQsos, qtcs: filteredQtcs, events: filteredEvents, derived: periodDerived });
     }
     const prevQsoData = state.qsoData;
     const prevDerived = state.derived;
-    state.qsoData = { ...(state.fullQsoData || prevQsoData), qsos: filteredQsos };
+    const filteredEvents = cached && Array.isArray(cached.events)
+      ? cached.events
+      : [...filteredQsos, ...filteredQtcs].sort((a, b) => (a?.ts || 0) - (b?.ts || 0));
+    state.qsoData = { ...(state.fullQsoData || prevQsoData), qsos: filteredQsos, qtcs: filteredQtcs, events: filteredEvents };
     state.derived = periodDerived;
     const out = fn();
     state.qsoData = prevQsoData;
@@ -6878,6 +6968,11 @@ function syncEngineCompareLogForSlot(slot) {
   function getBandFilteredQsos(band) {
     const source = state.fullQsoData?.qsos || state.qsoData?.qsos || [];
     return source.filter((q) => q.band && q.band.toUpperCase() === band);
+  }
+
+  function getBandFilteredQtcs(band) {
+    const source = state.fullQsoData?.qtcs || state.qsoData?.qtcs || [];
+    return source.filter((qtc) => qtc.band && qtc.band.toUpperCase() === band);
   }
 
   function getBandFilteredQsosFrom(qsos, band) {
@@ -6895,20 +6990,31 @@ function syncEngineCompareLogForSlot(slot) {
     if (!state.bandDerivedCache) state.bandDerivedCache = cache;
     let derived = cache.get(band);
     let qsos;
+    let qtcs;
     if (!derived) {
       qsos = getBandFilteredQsos(band);
+      qtcs = getBandFilteredQtcs(band);
+      const events = [...qsos, ...qtcs].sort((a, b) => (a?.ts || 0) - (b?.ts || 0));
       derived = buildDerived(qsos, {
         logFile: state.logFile,
         sourcePath: state.logFile?.path || '',
-        analysisMode: state.analysisMode
+        analysisMode: state.analysisMode,
+        qtcs,
+        events
       });
       cache.set(band, derived);
     } else {
       qsos = getBandFilteredQsos(band);
+      qtcs = getBandFilteredQtcs(band);
     }
     const prevQso = state.qsoData;
     const prevDerived = state.derived;
-    state.qsoData = { ...(state.fullQsoData || prevQso), qsos };
+    state.qsoData = {
+      ...(state.fullQsoData || prevQso),
+      qsos,
+      qtcs,
+      events: [...qsos, ...qtcs].sort((a, b) => (a?.ts || 0) - (b?.ts || 0))
+    };
     state.derived = derived;
     const out = withPeriodContext(reportId, () => fn());
     state.qsoData = prevQso;
@@ -7947,7 +8053,9 @@ function syncEngineCompareLogForSlot(slot) {
       logFile: target.logFile || null,
       sourcePath: target.logFile?.path || '',
       analysisMode: state.analysisMode,
-      scoringRuleOverride: target.scoringRuleOverride || ''
+      scoringRuleOverride: target.scoringRuleOverride || '',
+      qtcs: target.qsoData.qtcs || [],
+      events: target.qsoData.events || target.qsoData.qsos || []
     };
     const resources = buildAnalysisResourcesPayload({ operatingStyleSpotAnchorSlot: target });
     target.derived = getAnalysisCore().buildDerived(target.qsoData.qsos, context, resources);
@@ -8461,6 +8569,7 @@ function syncEngineCompareLogForSlot(slot) {
   function renderMain() {
     if (!state.qsoData || !state.derived) return renderPlaceholder({ id: 'main', title: 'Main' });
     const totalQsos = state.qsoData.qsos.length;
+    const totalQtcs = state.qsoData.qtcs?.length || 0;
     const dupes = state.derived.dupes.length;
     const uniques = state.derived.uniqueCallsCount;
     const duration = (state.derived.timeRange.maxTs && state.derived.timeRange.minTs)
@@ -8540,6 +8649,11 @@ function syncEngineCompareLogForSlot(slot) {
       ['Break time', breakTime],
       ['Operating time', operatingTime],
       ['QSOs', `<strong>${formatNumberSh6(totalQsos)}</strong>`],
+      ...(totalQtcs ? [
+        ['QTC units', `<strong>${formatNumberSh6(totalQtcs)}</strong>`],
+        ['Computed QSO count', formatNumberSh6(scoring.computedQsoCount ?? totalQsos)],
+        ['Computed QTC count', formatNumberSh6(scoring.computedQtcCount ?? totalQtcs)]
+      ] : []),
       ['Dupes', formatNumberSh6(dupes)],
       ['Unique callsigns', formatNumberSh6(uniques)],
       ['QSOs per station', qsosPerStation],
@@ -8551,7 +8665,7 @@ function syncEngineCompareLogForSlot(slot) {
       ['Computed score (rules)', `<strong>${computedScore}</strong>`],
       ['Score delta', deltaDisplay],
       ['Logged points total', loggedPointsDisplay],
-      ['Computed QSO points', computedPointsDisplay],
+      [totalQtcs ? 'Computed point units (QSO + QTC)' : 'Computed QSO points', computedPointsDisplay],
       ['Computed multipliers', multiplierDisplay],
       ['Scoring rule', scoringRule],
       ['Scoring detection', scoringDetection],
@@ -15323,7 +15437,10 @@ function syncEngineCompareLogForSlot(slot) {
     'run_sp_inband',
     'countries_by_time',
     'spots',
-    'rbn_spots'
+    'rbn_spots',
+    'qtc_timeline',
+    'qtc_partners',
+    'qtc_series'
   ]);
   const COMPARE_CROSS_HIGHLIGHT_REPORTS = new Set([
     'qs_by_hour_sheet',
@@ -15369,6 +15486,13 @@ function syncEngineCompareLogForSlot(slot) {
       case 'comments': return derived.comments?.length || 0;
       case 'fields_map': return derived.fieldsSummary?.length || 0;
       case 'kmz_files': return 6;
+      case 'qtc_overview': return derived.qtc?.bandSummary?.length || 0;
+      case 'qtc_timeline': return derived.qtc?.timeline?.length || 0;
+      case 'qtc_efficiency': return 6;
+      case 'qtc_partners': return derived.qtc?.partners?.length || 0;
+      case 'qtc_series': return derived.qtc?.series?.length || 0;
+      case 'qtc_quality': return derived.qtc?.warnings?.length || 0;
+      case 'qtc_export': return 2;
       default: return 1000;
     }
   }
@@ -15393,6 +15517,30 @@ function syncEngineCompareLogForSlot(slot) {
 
   function renderComparePanels(slotEntries, htmlBlocks, reportId, options = {}) {
     return getCompareWorkspaceRenderer().renderComparePanels(slotEntries, htmlBlocks, reportId, options, { state, reports });
+  }
+
+  function renderQtcReport(report) {
+    const runtime = getQtcRuntime();
+    const slots = getActiveCompareSnapshots();
+    const filteredEntries = [];
+    const htmlBlocks = slots.map((entry) => {
+      if (!entry.ready) {
+        filteredEntries.push(entry);
+        return `<p>No ${entry.label} loaded.</p>`;
+      }
+      let filteredSnapshot = entry.snapshot;
+      const html = withSlotState(entry.snapshot, () => withBandContext(report.id, () => {
+        filteredSnapshot = buildSlotSnapshot(state);
+        return runtime.renderSlotReport(report.id, filteredSnapshot, entry.id);
+      }), { slotId: entry.id });
+      filteredEntries.push({ ...entry, snapshot: filteredSnapshot });
+      return html;
+    });
+    const summary = report.id === 'qtc_overview'
+      ? runtime.renderComparisonSummary(filteredEntries)
+      : '';
+    if (slots.length > 1) return `${summary}${renderComparePanels(filteredEntries, htmlBlocks, report.id)}`;
+    return `${summary}${htmlBlocks[0] || '<p>No WAE log loaded.</p>'}`;
   }
 
   function buildCompareInsightsCacheKey(slotEntries) {
@@ -16196,6 +16344,7 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   function renderReport(report) {
+    if (QTC_REPORT_IDS.has(report.id)) return renderQtcReport(report);
     if (SINGLE_INSTANCE_REPORT_IDS.has(report.id)) return renderReportSingle(report);
     if (state.compareEnabled) {
       return renderReportCompare(report);
@@ -16297,6 +16446,49 @@ function syncEngineCompareLogForSlot(slot) {
             const slotId = btn.dataset.slot || 'A';
             exportCbrForSlot(slotId);
           }
+        });
+      });
+    }
+    if (reportId === 'qtc_export') {
+      const buttons = dom.viewContainer.querySelectorAll('.qtc-export-btn');
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const slotId = String(btn.dataset.slot || 'A').toUpperCase();
+          const slot = getSlotById(slotId);
+          let qtc = null;
+          if (slot?.qsoData) {
+            withSlotState(buildSlotSnapshot(slot), () => withBandContext('qtc_export', () => {
+              qtc = state.derived?.qtc || null;
+            }), { slotId });
+          }
+          if (!qtc?.items?.length) return;
+          const exportType = btn.dataset.qtcExport === 'series' ? 'series' : 'items';
+          const csv = exportType === 'series'
+            ? getQtcRuntime().buildQtcSeriesCsv(qtc.series || [])
+            : getQtcRuntime().buildQtcItemsCsv(qtc.items || []);
+          const station = slot.derived?.contestMeta?.stationCallsign || slotId;
+          const contest = slot.derived?.contestMeta?.contestId || 'wae';
+          const filename = `${sanitizeFilenameToken(station)}_${sanitizeFilenameToken(contest)}_qtc_${exportType}.csv`;
+          downloadBlobFile(new Blob([csv], { type: 'text/csv;charset=utf-8' }), filename);
+          trackEvent('download_qtc_csv', {
+            slot: slotId,
+            export_type: exportType,
+            qtc_count: qtc.items.length,
+            compare: state.compareCount > 1 ? 'yes' : 'no',
+            compare_count: Number(state.compareCount) || 1
+          });
+        });
+      });
+    }
+    if (reportId === 'qtc_partners') {
+      dom.viewContainer.querySelectorAll('.qtc-partner-search').forEach((input) => {
+        input.addEventListener('input', () => {
+          const panel = input.closest('.compare-panel') || dom.viewContainer;
+          const term = String(input.value || '').trim().toUpperCase();
+          panel.querySelectorAll('[data-qtc-partner-row]').forEach((row) => {
+            row.hidden = Boolean(term) && !String(row.dataset.qtcPartner || '').toUpperCase().includes(term);
+          });
         });
       });
     }
@@ -17784,6 +17976,7 @@ function syncEngineCompareLogForSlot(slot) {
     const sessionCodecReady = loadSessionCodecModule();
     const comparePerspectiveReady = loadComparePerspectiveModule();
     const exportRuntimeReady = loadExportRuntimeModule();
+    const qtcRuntimeReady = loadQtcRuntimeModule();
     const storageRuntimeReady = loadStorageRuntimeModule();
 
     await awaitInitRuntime('retained runtime', retainedRuntimeReady, { critical: true });
@@ -17806,6 +17999,7 @@ function syncEngineCompareLogForSlot(slot) {
     await awaitInitRuntime('rbn compare model runtime', rbnCompareModelRuntimeReady);
     await awaitInitRuntime('rbn compare runtime', rbnCompareRuntimeReady);
     await awaitInitRuntime('investigation actions runtime', investigationActionsRuntimeReady);
+    await awaitInitRuntime('QTC runtime', qtcRuntimeReady, { critical: true });
 
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');

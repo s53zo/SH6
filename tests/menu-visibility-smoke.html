@@ -79,6 +79,9 @@
         add('Agent briefing is absent from the generated report menu', !baseReportsBlock.includes("id: 'agent_briefing'"), baseReportsBlock);
         add('Geography Beam heading is absent from the generated report menu', !baseReportsBlock.includes("id: 'beam_heading'"), baseReportsBlock);
         add('Charts Beam heading remains available', baseReportsBlock.includes("id: 'charts_beam_heading'"), baseReportsBlock);
+        const qtcIds = ['qtc_overview', 'qtc_timeline', 'qtc_efficiency', 'qtc_partners', 'qtc_series', 'qtc_quality', 'qtc_export'];
+        add('All dedicated QTC reports are registered', qtcIds.every((id) => baseReportsBlock.includes(`id: '${id}'`)), baseReportsBlock);
+        add('QTC reports use conditional WAE visibility', mainSource.includes('QTC_REPORT_IDS.has(r.id) && !showQtcReports'), '');
         add(
           'Removed reports are not assigned to visible nav sections',
           !/(^|\n)\s*agent_briefing\s*:/.test(navMapBlock)
@@ -133,6 +136,7 @@
           navSections: [
             { id: 'load_core', title: 'Load & Core', openByDefault: true },
             { id: 'rate_time', title: 'Rates & Time', openByDefault: true },
+            { id: 'qtc_performance', title: 'QTC Performance', openByDefault: true },
             { id: 'geo_analysis', title: 'Geography', openByDefault: true },
             { id: 'quality_review', title: 'Quality & Review', openByDefault: false },
             { id: 'maps_charts', title: 'Maps & Charts', openByDefault: true },
@@ -156,15 +160,22 @@
         });
         runtime.initNavigation();
         const navItems = Array.from(appRoot.querySelectorAll('#navList [data-index]')).map((el) => ({
+          id: reports[Number(el.dataset.index)]?.id || '',
           text: (el.textContent || '').trim(),
           section: el.closest('.nav-section-item')?.querySelector('summary')?.textContent.trim() || ''
         }));
         const beamItems = navItems.filter((item) => item.text === 'Beam heading');
+        const qtcItems = navItems.filter((item) => qtcIds.includes(item.id));
         add('Generated nav omits Agent briefing', !navItems.some((item) => item.text === 'Agent briefing'), JSON.stringify(navItems));
         add(
           'Generated nav keeps only Maps & Charts Beam heading',
           beamItems.length === 1 && beamItems[0].section === 'Maps & Charts',
           JSON.stringify(beamItems)
+        );
+        add(
+          'Generated nav groups all QTC reports under QTC Performance',
+          qtcItems.length === qtcIds.length && qtcItems.every((item) => item.section === 'QTC Performance'),
+          JSON.stringify(qtcItems)
         );
 
         const failed = checks.filter((entry) => !entry.ok);

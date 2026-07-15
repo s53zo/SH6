@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.23 (2026-07-15)
+- Separate WAE QTC traffic from QSO reporting across analysis, scoring, filters, comparison, and exports.
+- Add conditional QTC Overview, Timeline, Efficiency, Partners, Series, Quality, and CSV Export reports.
+- Add WAE CW, SSB, and RTTY fixtures plus QTC parsing, rules, scoring, off-time, and UI regressions.
+
 ## v6.3.22 (2026-07-12)
 - Compare Insights formatting: keep long callsigns, insight titles, explanations, filter context, provenance, and action labels wrapped inside their cards and header boxes.
 - Compare workspace formatting: allow long slot summaries, insight chips, jumps, and toggles to wrap without forcing their containers wider.

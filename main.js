@@ -166,7 +166,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.24';
+  const APP_VERSION = 'v6.3.25';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -287,7 +287,7 @@
   const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.22';
   const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.22';
   const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.22';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.24';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.25';
   const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.22';
   const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.22';
   const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.22';
@@ -295,12 +295,12 @@
   const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.22';
   const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.22';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.22';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.24';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.25';
   const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.22';
   const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.22';
   const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.23';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.24';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.24';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.25';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.25';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -15792,6 +15792,7 @@ function syncEngineCompareLogForSlot(slot) {
     });
     if (multiplierOpportunitiesModelCache?.key === key) return multiplierOpportunitiesModelCache.model;
     const range = referenceSlot?.fullDerived?.timeRange || referenceSlot?.derived?.timeRange || {};
+    const dxccPrefixByCountry = buildCountryPrefixMap();
     const model = multiplierOpportunitiesModelBuilder({
       slots,
       referenceSlotId,
@@ -15800,7 +15801,11 @@ function syncEngineCompareLogForSlot(slot) {
       contestEndTs: range.maxTs,
       clusterSpots,
       rbnSpots,
-      resolveContinent: (call) => normalizeContinent(lookupPrefix(call)?.continent || '')
+      resolveContinent: (call) => normalizeContinent(lookupPrefix(call)?.continent || ''),
+      resolveDxccPrefix: (call) => {
+        const entry = lookupPrefix(call);
+        return String(dxccPrefixByCountry.get(entry?.country) || entry?.prefix || '');
+      }
     });
     multiplierOpportunitiesModelCache = { key, model };
     return model;
@@ -16692,12 +16697,9 @@ function syncEngineCompareLogForSlot(slot) {
       const filterBindings = [
         ['#mult-op-search', 'search', 'input'],
         ['#mult-op-comparison', 'comparison', 'change'],
-        ['#mult-op-group', 'group', 'change'],
         ['#mult-op-band', 'band', 'change'],
-        ['#mult-op-mode', 'mode', 'change'],
         ['#mult-op-confidence', 'confidence', 'change'],
-        ['#mult-op-evidence', 'evidence', 'change'],
-        ['#mult-op-status', 'status', 'change']
+        ['#mult-op-evidence', 'evidence', 'change']
       ];
       referenceSelect?.addEventListener('change', () => {
         state.multiplierOpportunitiesReferenceSlotId = String(referenceSelect.value || 'A').toUpperCase();

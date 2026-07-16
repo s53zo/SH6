@@ -8,6 +8,10 @@ export function createMultiplierOpportunitiesView(deps = {}) {
     return `<option value="${escapeAttr(value)}"${value === selected ? ' selected' : ''}>${escapeHtml(label)}</option>`;
   }
 
+  function displayMultiplier(row) {
+    return row?.dxccPrefix || row?.entityLabel || row?.entityKey || 'N/A';
+  }
+
   function renderSummary(model) {
     const counts = model.confidenceCounts || {};
     const weightedValue = (model.candidates || []).filter((row) => row.confidence !== 'No evidence')
@@ -32,19 +36,19 @@ export function createMultiplierOpportunitiesView(deps = {}) {
     const map = new Map();
     (bandModeGaps || []).forEach((gap) => {
       const key = `${gap.band || 'UNKNOWN'}|${gap.mode || 'ALL'}`;
-      map.set(key, { band: gap.band || 'UNKNOWN', mode: gap.mode || 'ALL', raw: gap.rawGap, weighted: gap.weightedGap, High: 0, Medium: 0, Low: 0, referenceQsos: gap.referenceQsos, operatingHours: gap.operatingHours, sameBandEvidence: gap.sameBandEvidence, strongestOpportunity: gap.strongestOpportunity });
+      map.set(key, { band: gap.band || 'UNKNOWN', mode: gap.mode || 'ALL', raw: gap.rawGap, weighted: gap.weightedGap, High: 0, Medium: 0, Low: 0, referenceQsos: gap.referenceQsos, loadedQsos: gap.loadedQsos, operatingHours: gap.operatingHours, sameBandEvidence: gap.sameBandEvidence, strongestOpportunity: gap.strongestOpportunity });
     });
     candidates.forEach((row) => {
       const key = `${row.band || 'UNKNOWN'}|${row.mode || 'ALL'}`;
-      const item = map.get(key) || { band: row.band || 'UNKNOWN', mode: row.mode || 'ALL', raw: 0, weighted: 0, High: 0, Medium: 0, Low: 0 };
+      const item = map.get(key) || Array.from(map.values()).find((candidate) => candidate.band === row.band);
+      if (!item) return;
       if (Object.prototype.hasOwnProperty.call(item, row.confidence)) item[row.confidence] += 1;
-      map.set(key, item);
     });
     const rows = Array.from(map.values()).sort((a, b) => a.band.localeCompare(b.band) || a.mode.localeCompare(b.mode));
     return `<section class="mult-op-section" aria-labelledby="mult-op-band-title">
       <div class="mult-op-section-head"><h2 id="mult-op-band-title">Band and mode breakdown</h2></div>
-      <div class="table-wrap"><table class="sticky-head"><thead><tr><th>Band</th><th>Mode</th><th>Raw gap</th><th>Weighted gap</th><th>High</th><th>Medium</th><th>Low</th><th>Reference QSOs</th><th>Operating span</th><th>Same-band evidence</th><th>Strongest opportunity</th></tr></thead><tbody>
-        ${rows.map((row) => `<tr><td>${escapeHtml(row.band)}</td><td>${escapeHtml(row.mode)}</td><td>${formatNumber(row.raw)}</td><td>${formatNumber(row.weighted)}</td><td>${formatNumber(row.High)}</td><td>${formatNumber(row.Medium)}</td><td>${formatNumber(row.Low)}</td><td>${formatNumber(row.referenceQsos || 0)}</td><td>${Number(row.operatingHours || 0).toFixed(1)} h</td><td>${formatNumber(row.sameBandEvidence || 0)}</td><td>${escapeHtml(row.strongestOpportunity || 'N/A')}</td></tr>`).join('') || '<tr><td colspan="11">No candidate entities.</td></tr>'}
+      <div class="table-wrap"><table class="sticky-head"><thead><tr><th>Band</th><th>Mode</th><th>Raw gap</th><th>Weighted gap</th><th>High</th><th>Medium</th><th>Low</th><th>QSOs ref / all</th><th>Operating span</th><th>Same-band evidence</th><th>Strongest opportunity</th></tr></thead><tbody>
+        ${rows.map((row) => `<tr><td>${escapeHtml(row.band)}</td><td>${escapeHtml(row.mode)}</td><td>${formatNumber(row.raw)}</td><td>${formatNumber(row.weighted)}</td><td>${formatNumber(row.High)}</td><td>${formatNumber(row.Medium)}</td><td>${formatNumber(row.Low)}</td><td>${formatNumber(row.referenceQsos || 0)} / ${formatNumber(row.loadedQsos || 0)}</td><td>${Number(row.operatingHours || 0).toFixed(1)} h</td><td>${formatNumber(row.sameBandEvidence || 0)}</td><td>${escapeHtml(row.strongestOpportunity || 'N/A')}</td></tr>`).join('') || '<tr><td colspan="11">No QSOs were made on the active bands.</td></tr>'}
       </tbody></table></div>
     </section>`;
   }
@@ -54,14 +58,13 @@ export function createMultiplierOpportunitiesView(deps = {}) {
     return `<section class="mult-op-section" aria-labelledby="mult-op-table-title">
       <div class="mult-op-section-head"><h2 id="mult-op-table-title">Opportunity table</h2><p>${formatNumber(candidates.length)} entities${candidates.length > visible.length ? `; first ${formatNumber(visible.length)} shown` : ''}</p></div>
       <div class="table-wrap table-wrap--tall"><table class="sticky-head"><thead><tr>
-        <th>Entity</th><th>Group</th><th>Band</th><th>Mode</th><th>Scope</th><th>Status</th><th>Credited logs</th><th>Raw</th><th>Weighted</th><th>Calls</th><th>Evidence</th><th>Receivers</th><th>First evidence</th><th>Last evidence</th><th>Same-band activity</th><th>Confidence</th><th>Explanation</th><th>Details</th>
+        <th>DXCC / multiplier</th><th>Band</th><th>Value</th><th>Found by</th><th>Candidate calls</th><th>Evidence</th><th>Reference activity</th><th>Confidence</th><th>Details</th>
       </tr></thead><tbody>${visible.map((row) => `<tr>
-        <td>${escapeHtml(row.entityLabel)}</td><td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.band)}</td><td>${escapeHtml(row.mode || 'ALL')}</td><td>${escapeHtml(row.countingScope)}</td><td>${escapeHtml(row.status)}</td>
-        <td>${escapeHtml(row.creditedSlots.join(', ') || 'None')}</td><td>${formatNumber(row.rawValue)}</td><td>${formatNumber(row.weightedValue)}</td><td>${escapeHtml(row.representativeCallsigns.slice(0, 4).join(', '))}</td>
-        <td>${escapeHtml(row.strongestEvidenceSource)}</td><td>${formatNumber((row.factors?.distinctRbnSkimmers || 0) + (row.factors?.distinctClusterSpotters || 0))}</td><td>${row.firstEvidenceTs == null ? 'N/A' : escapeHtml(formatDate(row.firstEvidenceTs))}</td><td>${row.lastEvidenceTs == null ? 'N/A' : escapeHtml(formatDate(row.lastEvidenceTs))}</td><td>${row.factors?.sameBandActivity ? 'Yes' : 'No'}</td>
-        <td><span class="mult-op-confidence mult-op-confidence--${escapeAttr(row.confidence.toLowerCase().replace(/\s+/g, '-'))}">${escapeHtml(row.confidence)}</span></td><td>${escapeHtml(row.explanation)}</td>
-        <td><button type="button" class="mult-op-inspect" data-candidate-key="${escapeAttr(row.key)}" aria-label="Inspect ${escapeAttr(row.entityLabel)}">View</button></td>
-      </tr>`).join('') || '<tr><td colspan="18">No opportunities match the active filters.</td></tr>'}</tbody></table></div>
+        <td title="${escapeAttr(row.entityLabel)}">${escapeHtml(displayMultiplier(row))}</td><td>${escapeHtml(row.band)}</td><td>${formatNumber(row.weightedValue)}</td><td>${escapeHtml(row.creditedSlots.join(', ') || 'Spots')}</td><td>${escapeHtml(row.representativeCallsigns.slice(0, 3).join(', ') || 'N/A')}</td>
+        <td>${escapeHtml(row.strongestEvidenceSource)}${row.strongestEvidenceSource !== 'None' ? ` · ${formatNumber((row.factors?.distinctRbnSkimmers || 0) + (row.factors?.distinctClusterSpotters || 0))} rx` : ''}</td><td>${row.factors?.sameBandActivity ? 'Same band' : (row.factors?.referenceActive ? 'Other band' : 'Off time')}</td>
+        <td><span class="mult-op-confidence mult-op-confidence--${escapeAttr(row.confidence.toLowerCase().replace(/\s+/g, '-'))}">${escapeHtml(row.confidence)}</span></td>
+        <td><button type="button" class="mult-op-inspect" data-candidate-key="${escapeAttr(row.key)}" aria-label="Inspect ${escapeAttr(displayMultiplier(row))}">View</button></td>
+      </tr>`).join('') || '<tr><td colspan="9">No opportunities match the active filters.</td></tr>'}</tbody></table></div>
     </section>`;
   }
 
@@ -69,7 +72,7 @@ export function createMultiplierOpportunitiesView(deps = {}) {
     if (!candidate) return `<section class="mult-op-section" aria-labelledby="mult-op-detail-title"><div class="mult-op-section-head"><h2 id="mult-op-detail-title">Evidence drilldown</h2><p>Select an entity from the opportunity table.</p></div></section>`;
     const events = candidate.evidence || [];
     return `<section class="mult-op-section" aria-labelledby="mult-op-detail-title">
-      <div class="mult-op-section-head"><h2 id="mult-op-detail-title">${escapeHtml(candidate.entityLabel)}</h2><p>${escapeHtml(candidate.explanation)}</p></div>
+      <div class="mult-op-section-head"><h2 id="mult-op-detail-title">${escapeHtml(displayMultiplier(candidate))}${candidate.dxccPrefix && candidate.entityLabel !== candidate.dxccPrefix ? ` · ${escapeHtml(candidate.entityLabel)}` : ''}</h2><p>${escapeHtml(candidate.explanation)}</p></div>
       <dl class="mult-op-detail-facts">
         <div><dt>Multiplier group</dt><dd>${escapeHtml(candidate.group)}</dd></div><div><dt>Scope</dt><dd>${escapeHtml(candidate.countingScope)} / ${escapeHtml(candidate.scopeKey)}</dd></div>
         <div><dt>Comparison credits</dt><dd>${formatNumber(candidate.comparisonCredits.length)}</dd></div><div><dt>Rejected reference credits</dt><dd>${formatNumber(candidate.rejectedCredits.length)}</dd></div>
@@ -105,19 +108,13 @@ export function createMultiplierOpportunitiesView(deps = {}) {
     if (!model?.supported) return `<div class="report-empty"><h2>Multiplier Opportunities</h2><p>${escapeHtml(model?.reason || 'Multiplier analysis is unavailable.')}</p></div>`;
     const filters = options.filters || {};
     const slots = options.slots || [];
-    const groups = Array.from(new Set(model.candidates.map((row) => row.group))).sort();
     const bands = Array.from(new Set(model.candidates.map((row) => row.band))).sort();
-    const modes = Array.from(new Set(model.candidates.map((row) => row.mode).filter(Boolean))).sort();
-    const statuses = Array.from(new Set(model.candidates.map((row) => row.status).filter(Boolean))).sort();
     const candidates = model.candidates.filter((row) => {
-      if (filters.search && !`${row.entityLabel} ${row.entityKey} ${row.representativeCallsigns.join(' ')}`.toUpperCase().includes(filters.search.toUpperCase())) return false;
+      if (filters.search && !`${row.dxccPrefix || ''} ${row.entityLabel} ${row.entityKey} ${row.representativeCallsigns.join(' ')}`.toUpperCase().includes(filters.search.toUpperCase())) return false;
       if (filters.comparison && !row.creditedSlots.includes(filters.comparison)) return false;
-      if (filters.group && row.group !== filters.group) return false;
       if (filters.band && row.band !== filters.band) return false;
-      if (filters.mode && row.mode !== filters.mode) return false;
       if (filters.confidence && row.confidence !== filters.confidence) return false;
       if (filters.evidence && row.strongestEvidenceSource !== filters.evidence) return false;
-      if (filters.status && row.status !== filters.status) return false;
       return true;
     });
     const selected = model.candidates.find((row) => row.key === options.selectedCandidateKey) || candidates[0] || null;
@@ -135,14 +132,11 @@ export function createMultiplierOpportunitiesView(deps = {}) {
       ${renderSummary(model)}
       ${renderBreakdown(candidates, (model.bandModeGaps || []).filter((row) => !filters.band || row.band === filters.band))}
       <section class="mult-op-section mult-op-filters" aria-label="Opportunity filters">
-        <label>Search<input id="mult-op-search" type="search" value="${escapeAttr(filters.search || '')}" placeholder="Entity or callsign"></label>
+        <label>Search<input id="mult-op-search" type="search" value="${escapeAttr(filters.search || '')}" placeholder="DXCC prefix or callsign"></label>
         <label>Comparison log<select id="mult-op-comparison">${option('', 'All comparison logs', filters.comparison || '')}${slots.filter((slot) => slot.id !== model.referenceSlotId).map((slot) => option(slot.id, `${slot.id}: ${slot.callsign || slot.label}`, filters.comparison || '')).join('')}</select></label>
-        <label>Group<select id="mult-op-group">${option('', 'All groups', filters.group || '')}${groups.map((value) => option(value, value, filters.group || '')).join('')}</select></label>
         <label>Band<select id="mult-op-band">${option('', 'All bands', filters.band || '')}${bands.map((value) => option(value, value, filters.band || '')).join('')}</select></label>
-        <label>Mode<select id="mult-op-mode">${option('', 'All modes', filters.mode || '')}${modes.map((value) => option(value, value, filters.mode || '')).join('')}</select></label>
         <label>Confidence<select id="mult-op-confidence">${option('', 'All confidence', filters.confidence || '')}${['High', 'Medium', 'Low', 'No evidence'].map((value) => option(value, value, filters.confidence || '')).join('')}</select></label>
         <label>Evidence source<select id="mult-op-evidence">${option('', 'All evidence', filters.evidence || '')}${['RBN + cluster', 'RBN', 'Cluster', 'None'].map((value) => option(value, value, filters.evidence || '')).join('')}</select></label>
-        <label>Status<select id="mult-op-status">${option('', 'All statuses', filters.status || '')}${statuses.map((value) => option(value, value, filters.status || '')).join('')}</select></label>
       </section>
       ${renderTable(candidates)}
       ${renderDrilldown(selected)}

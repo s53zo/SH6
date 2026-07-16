@@ -21,6 +21,11 @@ function normalizeMode(value) {
   return mode;
 }
 
+function isCountryMultiplierGroup(group) {
+  const value = String(group || '').toLowerCase();
+  return value.includes('country') || value.includes('dxcc') || value.includes('wae_');
+}
+
 function eventFitsCandidate(event, candidate) {
   const ts = finiteTimestamp(event?.ts ?? event?.timestamp);
   if (ts == null) return false;
@@ -114,6 +119,7 @@ export function buildMultiplierOpportunities(options = {}) {
   const candidates = new Map();
   const contestStartTs = finiteTimestamp(options.contestStartTs);
   const contestEndTs = finiteTimestamp(options.contestEndTs);
+  const resolveDxccPrefix = typeof options.resolveDxccPrefix === 'function' ? options.resolveDxccPrefix : () => '';
 
   for (const slot of comparisons) {
     for (const credit of (slot.scoring?.multiplierCredits || [])) {
@@ -167,6 +173,7 @@ export function buildMultiplierOpportunities(options = {}) {
       if (!candidate) {
         candidate = {
           key, group: entity.group, entityKey: entity.entityKey, entityLabel: entity.entityLabel,
+          dxccPrefix: entity.dxccPrefix || '',
           countingScope: entity.countingScope, scopeKey: entity.scopeKey || 'ALL',
           band: String(entity.band || event.band || 'UNKNOWN').toUpperCase(), mode: normalizeMode(entity.mode || event.mode),
           rawValue: Number(entity.rawValue || 1), weightedValue: Number(entity.weightedValue || entity.rawValue || 1),
@@ -236,6 +243,9 @@ export function buildMultiplierOpportunities(options = {}) {
     factors.confidence = classifyConfidence(factors);
     return {
       ...candidate,
+      dxccPrefix: isCountryMultiplierGroup(candidate.group)
+        ? String(candidate.dxccPrefix || candidate.representativeCallsigns.map(resolveDxccPrefix).find(Boolean) || '').toUpperCase()
+        : '',
       evidence,
       firstEvidenceTs: evidence[0]?.ts ?? null,
       lastEvidenceTs: evidence[evidence.length - 1]?.ts ?? null,
@@ -263,8 +273,10 @@ export function buildMultiplierOpportunities(options = {}) {
   const aggregateCredits = (credits) => {
     const map = new Map();
     (credits || []).forEach((credit) => {
-      const key = `${credit.band || 'UNKNOWN'}|${credit.mode || 'ALL'}`;
-      const row = map.get(key) || { band: credit.band || 'UNKNOWN', mode: credit.mode || 'ALL', raw: 0, weighted: 0 };
+      const band = String(credit.band || 'UNKNOWN').toUpperCase();
+      const mode = normalizeMode(credit.mode) || 'ALL';
+      const key = `${band}|${mode}`;
+      const row = map.get(key) || { band, mode, raw: 0, weighted: 0 };
       row.raw += Number(credit.rawCredit || 0);
       row.weighted += Number(credit.weightedCredit || credit.rawCredit || 0);
       map.set(key, row);
@@ -273,31 +285,66 @@ export function buildMultiplierOpportunities(options = {}) {
   };
   const referenceByBandMode = aggregateCredits(reference.scoring?.multiplierCredits);
   const leaderByBandMode = aggregateCredits(comparisonLeader?.scoring?.multiplierCredits);
-  const bandModeGaps = Array.from(new Set([...referenceByBandMode.keys(), ...leaderByBandMode.keys()])).map((key) => {
+  const activeSlots = [reference, ...comparisons];
+  const activityByBandMode = new Map();
+  activeSlots.forEach((slot) => {
+    const creditModesByBand = new Map();
+    (slot.scoring?.multiplierCredits || []).forEach((credit) => {
+      const band = String(credit?.band || '').toUpperCase();
+      const mode = normalizeMode(credit?.mode);
+      if (!band || !mode) return;
+      const modes = creditModesByBand.get(band) || new Set();
+      modes.add(mode);
+      creditModesByBand.set(band, modes);
+    });
+    (slot.qsos || []).filter((qso) => !qso?.isQtc).forEach((qso) => {
+      const band = String(qso?.band || '').toUpperCase();
+      if (!band || band === 'UNKNOWN') return;
+      const creditModes = Array.from(creditModesByBand.get(band) || []);
+      const mode = normalizeMode(qso?.mode || qso?.txMode || qso?.submode) || (creditModes.length === 1 ? creditModes[0] : 'ALL');
+      const key = `${band}|${mode}`;
+      const row = activityByBandMode.get(key) || { band, mode, loadedQsos: 0, qsosBySlot: {}, timeBoundsBySlot: {} };
+      row.loadedQsos += 1;
+      row.qsosBySlot[slot.id] = Number(row.qsosBySlot[slot.id] || 0) + 1;
+      const ts = finiteTimestamp(qso?.ts ?? qso?.timestamp);
+      if (ts != null) {
+        const bounds = row.timeBoundsBySlot[slot.id] || { first: ts, last: ts };
+        bounds.first = Math.min(bounds.first, ts);
+        bounds.last = Math.max(bounds.last, ts);
+        row.timeBoundsBySlot[slot.id] = bounds;
+      }
+      activityByBandMode.set(key, row);
+    });
+  });
+  const bandModeGaps = Array.from(activityByBandMode.keys()).map((key) => {
+    const activity = activityByBandMode.get(key);
     const ref = referenceByBandMode.get(key) || { band: key.split('|')[0], mode: key.split('|')[1], raw: 0, weighted: 0 };
     const leader = leaderByBandMode.get(key) || { band: ref.band, mode: ref.mode, raw: 0, weighted: 0 };
     return {
-      band: leader.band,
-      mode: leader.mode,
+      band: activity.band,
+      mode: activity.mode,
       referenceRaw: ref.raw,
       referenceWeighted: ref.weighted,
       leaderRaw: leader.raw,
       leaderWeighted: leader.weighted,
       rawGap: leader.raw - ref.raw,
-      weightedGap: leader.weighted - ref.weighted
+      weightedGap: leader.weighted - ref.weighted,
+      loadedQsos: activity.loadedQsos,
+      qsosBySlot: activity.qsosBySlot,
+      timeBoundsBySlot: activity.timeBoundsBySlot
     };
   }).sort((a, b) => a.band.localeCompare(b.band) || a.mode.localeCompare(b.mode));
   bandModeGaps.forEach((gap) => {
-    const activity = referenceQsos.filter((qso) => String(qso?.band || '').toUpperCase() === gap.band && (!gap.mode || gap.mode === 'ALL' || normalizeMode(qso?.mode) === gap.mode));
-    const times = activity.map((qso) => finiteTimestamp(qso?.ts)).filter((ts) => ts != null);
-    const scopedCandidates = outputCandidates.filter((candidate) => candidate.band === gap.band && (!gap.mode || gap.mode === 'ALL' || candidate.mode === gap.mode));
-    gap.referenceQsos = activity.length;
-    gap.operatingHours = times.length > 1 ? (Math.max(...times) - Math.min(...times)) / 3600000 : 0;
+    const referenceBounds = gap.timeBoundsBySlot?.[reference.id];
+    const scopedCandidates = outputCandidates.filter((candidate) => candidate.band === gap.band && (!gap.mode || gap.mode === 'ALL' || !candidate.mode || candidate.mode === 'UNKNOWN' || candidate.mode === gap.mode));
+    gap.referenceQsos = Number(gap.qsosBySlot?.[reference.id] || 0);
+    gap.operatingHours = referenceBounds ? (referenceBounds.last - referenceBounds.first) / 3600000 : 0;
     gap.sameBandEvidence = scopedCandidates.reduce((sum, candidate) => sum + candidate.evidence.filter((event) => event.referenceActivity?.sameBand).length, 0);
-    gap.strongestOpportunity = scopedCandidates.slice().sort((a, b) => {
+    const strongest = scopedCandidates.slice().sort((a, b) => {
       const rank = { High: 3, Medium: 2, Low: 1, 'No evidence': 0 };
       return (rank[b.confidence] - rank[a.confidence]) || b.weightedValue - a.weightedValue;
-    })[0]?.entityLabel || '';
+    })[0];
+    gap.strongestOpportunity = strongest?.dxccPrefix || strongest?.entityLabel || '';
   });
   const timelineSlots = [reference, ...comparisons];
   const timelineHours = new Set();

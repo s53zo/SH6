@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.25 (2026-07-16)
+- Limit the Multiplier Opportunities band/mode breakdown to bands used for QSOs by a compatible loaded log.
+- Condense the opportunity table to decision-relevant columns while retaining full scoring and evidence diagnostics in the drilldown and CSV exports.
+- Show canonical DXCC prefixes for country multipliers and preserve native identifiers for zone, WPX, HQ, and exchange multipliers.
+- Remove Group, Mode, and Status filters that no longer correspond to the compact table.
+- Add regression coverage for active-band row selection, DXCC prefix display, and the reduced table surface.
+
 ## v6.3.23 (2026-07-15)
 - Separate WAE QTC traffic from QSO reporting across analysis, scoring, filters, comparison, and exports.
 - Add conditional QTC Overview, Timeline, Efficiency, Partners, Series, Quality, and CSV Export reports.

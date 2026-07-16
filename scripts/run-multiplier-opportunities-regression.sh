@@ -8,6 +8,8 @@ node --input-type=module <<'EOF'
 import fs from 'node:fs';
 const moduleSource = fs.readFileSync('./modules/multipliers/opportunities-model.js', 'utf8');
 const { buildMultiplierOpportunities, rowsToSafeCsv } = await import(`data:text/javascript;base64,${Buffer.from(moduleSource).toString('base64')}`);
+const viewSource = fs.readFileSync('./modules/multipliers/opportunities-view.js', 'utf8');
+const { createMultiplierOpportunitiesView } = await import(`data:text/javascript;base64,${Buffer.from(viewSource).toString('base64')}`);
 
 function assert(condition, message, details) {
   if (condition) return;
@@ -59,7 +61,8 @@ const model = buildMultiplierOpportunities({
     { dxCall: 'F1A', spotter: 'K1SK', spotterContinent: 'NA', band: '20M', mode: 'CW', ts: base + (15 * 60000) },
     { dxCall: 'F1A', spotter: 'DL0LATE', spotterContinent: 'EU', band: '20M', mode: 'CW', ts: base + 7200000 }
   ],
-  clusterSpots: [{ dxCall: 'F1A', spotter: 'S50X', spotterContinent: 'EU', band: '20M', ts: base + (10 * 60000) }]
+  clusterSpots: [{ dxCall: 'F1A', spotter: 'S50X', spotterContinent: 'EU', band: '20M', ts: base + (10 * 60000) }],
+  resolveDxccPrefix: (call) => call.startsWith('F') ? 'F' : ''
 });
 
 assert(model.supported, 'WAE model should be supported', model);
@@ -69,6 +72,17 @@ assert(model.candidates.length === 1, 'Comparison-only credit should create one 
 assert(model.candidates[0].confidence === 'High', 'Two same-continent RBN skimmers plus same-band activity should be High', model.candidates[0]);
 assert(model.candidates[0].factors.distinctRbnSkimmers === 2, 'Different-continent and out-of-period spots must be excluded', model.candidates[0]);
 assert(model.candidates[0].evidence.length === 3, 'Qualifying cluster and RBN events should be retained', model.candidates[0].evidence);
+assert(model.candidates[0].dxccPrefix === 'F', 'Country opportunities must expose the canonical DXCC prefix', model.candidates[0]);
+assert(model.bandModeGaps.some((row) => row.band === '40M' && row.loadedQsos === 1), 'Bands used by either loaded log must appear even without multiplier credits', model.bandModeGaps);
+assert(model.bandModeGaps.every((row) => row.loadedQsos > 0), 'Breakdown rows must require a QSO in a loaded log', model.bandModeGaps);
+
+const view = createMultiplierOpportunitiesView({
+  escapeHtml: (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
+  escapeAttr: (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('"', '&quot;')
+});
+const rendered = view.render(model, { slots });
+assert(rendered.includes('<th>DXCC / multiplier</th>') && rendered.includes('>F</td>'), 'Compact table must display DXCC prefixes', rendered.slice(0, 2000));
+assert(!rendered.includes('<th>Group</th>') && !rendered.includes('<th>Scope</th>') && !rendered.includes('<th>Status</th>'), 'Compact table must omit diagnostic columns', rendered.slice(0, 4000));
 
 const boundary = buildMultiplierOpportunities({
   slots, referenceSlotId: 'A', correlationWindowMinutes: 5, contestStartTs: base, contestEndTs: base + 3600000,

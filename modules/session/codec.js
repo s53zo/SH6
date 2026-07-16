@@ -78,6 +78,11 @@ export function createSessionCodec(deps = {}) {
       analysisMode: state.analysisMode,
       compareCount: state.compareCount,
       compareScoreMode: state.compareScoreMode,
+      multiplierOpportunities: {
+        referenceSlotId: state.multiplierOpportunitiesReferenceSlotId || 'A',
+        windowMinutes: Number(state.multiplierOpportunitiesWindowMinutes) || 15,
+        filters: { ...(state.multiplierOpportunitiesFilters || {}) }
+      },
       compareSyncEnabled: state.compareSyncEnabled,
       compareStickyEnabled: state.compareStickyEnabled,
       compareTimeRangeLock: cloneTsRange(state.compareTimeRangeLock),
@@ -384,6 +389,22 @@ export function createSessionCodec(deps = {}) {
     const compareCount = Number(payload.compareCount);
     if (Number.isFinite(compareCount) && compareCount !== 1) compact.c = compareCount;
     if (payload.compareScoreMode && payload.compareScoreMode !== compareScoreModeComputed) compact.cs = payload.compareScoreMode;
+    if (payload.multiplierOpportunities && typeof payload.multiplierOpportunities === 'object') {
+      const opportunity = payload.multiplierOpportunities;
+      const compactOpportunity = {};
+      if (opportunity.referenceSlotId && opportunity.referenceSlotId !== 'A') compactOpportunity.r = opportunity.referenceSlotId;
+      if (Number(opportunity.windowMinutes) && Number(opportunity.windowMinutes) !== 15) compactOpportunity.w = Number(opportunity.windowMinutes);
+      const filters = opportunity.filters || {};
+      if (filters.search) compactOpportunity.s = filters.search;
+      if (filters.comparison) compactOpportunity.p = filters.comparison;
+      if (filters.group) compactOpportunity.g = filters.group;
+      if (filters.band) compactOpportunity.b = filters.band;
+      if (filters.mode) compactOpportunity.m = filters.mode;
+      if (filters.confidence) compactOpportunity.c = filters.confidence;
+      if (filters.evidence) compactOpportunity.e = filters.evidence;
+      if (filters.status) compactOpportunity.t = filters.status;
+      if (Object.keys(compactOpportunity).length) compact.mo = compactOpportunity;
+    }
     if (payload.compareSyncEnabled === false) compact.sy = 0;
     if (payload.compareStickyEnabled === false) compact.sk = 0;
     const compareTimeRangeLock = compactRangeObject(payload.compareTimeRangeLock, 'startTs', 'endTs');
@@ -445,6 +466,20 @@ export function createSessionCodec(deps = {}) {
       analysisMode,
       compareCount,
       compareScoreMode,
+      multiplierOpportunities: {
+        referenceSlotId: slotIds.includes(String(compact.mo?.r || '').toUpperCase()) ? String(compact.mo.r).toUpperCase() : 'A',
+        windowMinutes: [5, 10, 15, 30, 60].includes(Number(compact.mo?.w)) ? Number(compact.mo.w) : 15,
+        filters: {
+          search: typeof compact.mo?.s === 'string' ? compact.mo.s : '',
+          comparison: typeof compact.mo?.p === 'string' ? compact.mo.p : '',
+          group: typeof compact.mo?.g === 'string' ? compact.mo.g : '',
+          band: typeof compact.mo?.b === 'string' ? compact.mo.b : '',
+          mode: typeof compact.mo?.m === 'string' ? compact.mo.m : '',
+          confidence: typeof compact.mo?.c === 'string' ? compact.mo.c : '',
+          evidence: typeof compact.mo?.e === 'string' ? compact.mo.e : '',
+          status: typeof compact.mo?.t === 'string' ? compact.mo.t : ''
+        }
+      },
       compareSyncEnabled,
       compareStickyEnabled,
       compareTimeRangeLock,

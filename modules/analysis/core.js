@@ -3039,6 +3039,39 @@
     }
   }
 
+  function multiplierEntityLabel(group, value, facts) {
+    if ([
+      'country', 'country_for_ru_entries', 'dxcc_country',
+      'dxcc_entities_for_french_entries', 'dl_station_uses_country_entities',
+      'wae_country_or_dxcc_set_by_station_region', 'dxcc_country_excluding_iaru_hq'
+    ].includes(group)) {
+      return String(facts?.qCountry || value || '');
+    }
+    if (group === 'cq_zone' || group === 'cq_zone_except_own') return `CQ zone ${value}`;
+    if (group === 'itu_zone') return `ITU zone ${value}`;
+    return String(value || '').replace(/\|/g, ' / ');
+  }
+
+  function multiplierPerspective(rule, station, model, effectiveGroups, effectiveScope) {
+    let stationPerspective = 'common';
+    if (rule?.id === 'darc_wag') stationPerspective = station?.stationIsDl ? 'dl' : 'non_dl';
+    else if (rule?.id === 'ref') stationPerspective = station?.stationIsFrench ? 'french' : 'non_french';
+    else if (rule?.id === 'rda') stationPerspective = station?.stationIsRu ? 'ru' : 'non_ru';
+    else if (rule?.id === 'ok_om_dx') {
+      if (station?.stationCountryKey === 'CZECH REPUBLIC') stationPerspective = 'ok';
+      else if (station?.stationCountryKey === 'SLOVAK REPUBLIC') stationPerspective = 'om';
+      else stationPerspective = 'dx';
+    }
+    return {
+      ruleId: String(rule?.id || ''),
+      model,
+      countingScope: effectiveScope,
+      groups: effectiveGroups.slice(),
+      stationPerspective,
+      compatibilityKey: [rule?.id || '', model, effectiveScope, stationPerspective, effectiveGroups.join(',')].join('|')
+    };
+  }
+
   function computeRuleMultipliers(rule, qsos, station, pointState, assumptions) {
     const model = String(rule?.multipliers?.model || '');
     const configuredGroups = Array.isArray(rule?.multipliers?.groups) ? rule.multipliers.groups : [];
@@ -3071,6 +3104,8 @@
     const groupCounts = {};
     const bandMultiplierCounts = {};
     let weightedTotal = 0;
+    const credits = [];
+    const rejections = [];
     const modeMultiplierSets = { CW: new Set(), SSB: new Set(), DIG: new Set() };
 
     (qsos || []).forEach((q, idx) => {
@@ -3081,6 +3116,24 @@
         ? (!q?.isDupe && facts.validQso && (!Number.isFinite(pointValue) || pointValue >= 0))
         : (!q?.isDupe && Number.isFinite(pointValue) && pointValue > 0);
       if (!eligible) {
+        let reason = 'ineligible_qso';
+        if (q?.isDupe) reason = 'duplicate_qso';
+        else if (!facts.validQso) reason = 'invalid_qso';
+        else if (Number.isFinite(pointValue) && pointValue <= 0) reason = 'non_positive_points';
+        effectiveGroups.forEach((group) => {
+          const value = getMultiplierValue(group, facts, station, runtime, assumptions);
+          if (!value) return;
+          rejections.push({
+            ruleId: String(rule?.id || ''), group, entityKey: value,
+            entityLabel: multiplierEntityLabel(group, value, facts),
+            countingScope: effectiveScope, band: facts.bandNorm || 'UNKNOWN',
+            mode: facts.modeKey || 'UNKNOWN', qsoIndex: idx,
+            qsoNumber: Number(q?.qsoNumber || idx + 1), callsign: facts.call || '',
+            timestamp: Number.isFinite(Number(q?.ts)) ? Number(q.ts) : null, validQso: Boolean(facts.validQso),
+            duplicate: Boolean(q?.isDupe), pointValue: Number.isFinite(pointValue) ? pointValue : null,
+            exchangeValue: value, reason, source: 'scoring_engine'
+          });
+        });
         markScoringRuntime(facts, runtime);
         return;
       }
@@ -3094,7 +3147,19 @@
         if (effectiveScope === 'per_hf_band_group') scopeKey = hfBandGroupKey(facts.bandNorm);
         const uniqueKey = `${scopeKey}|${value}`;
         const set = perGroup.get(group) || new Set();
-        if (set.has(uniqueKey)) return;
+        if (set.has(uniqueKey)) {
+          rejections.push({
+            ruleId: String(rule?.id || ''), group, entityKey: value,
+            entityLabel: multiplierEntityLabel(group, value, facts),
+            countingScope: effectiveScope, scopeKey,
+            band: facts.bandNorm || 'UNKNOWN', mode: facts.modeKey || 'UNKNOWN',
+            qsoIndex: idx, qsoNumber: Number(q?.qsoNumber || idx + 1), callsign: facts.call || '',
+            timestamp: Number.isFinite(Number(q?.ts)) ? Number(q.ts) : null, validQso: Boolean(facts.validQso),
+            duplicate: Boolean(q?.isDupe), pointValue: Number.isFinite(pointValue) ? pointValue : null,
+            exchangeValue: value, reason: 'already_credited', source: 'scoring_engine'
+          });
+          return;
+        }
         set.add(uniqueKey);
         perGroup.set(group, set);
         groupCounts[group] = (groupCounts[group] || 0) + 1;
@@ -3102,10 +3167,22 @@
           bandMultiplierCounts[scopeKey] = (bandMultiplierCounts[scopeKey] || 0) + 1;
         }
         modeMultiplierSets[facts.modeKey].add(uniqueKey);
-        if (model === 'weighted_mults' && effectiveScope === 'per_band') {
-          const w = lookupBandCoefficient(bandWeights, facts.bandNorm);
-          weightedTotal += Number.isFinite(w) ? w : 1;
-        }
+        const configuredWeight = model === 'weighted_mults' && effectiveScope === 'per_band'
+          ? lookupBandCoefficient(bandWeights, facts.bandNorm)
+          : 1;
+        const weight = Number.isFinite(configuredWeight) ? configuredWeight : 1;
+        weightedTotal += weight;
+        credits.push({
+          ruleId: String(rule?.id || ''), group, entityKey: value,
+          entityLabel: multiplierEntityLabel(group, value, facts),
+          countingScope: effectiveScope, scopeKey,
+          band: facts.bandNorm || 'UNKNOWN', mode: facts.modeKey || 'UNKNOWN',
+          rawCredit: 1, weight, weightedCredit: weight,
+          qsoIndex: idx, qsoNumber: Number(q?.qsoNumber || idx + 1), callsign: facts.call || '',
+          timestamp: Number.isFinite(Number(q?.ts)) ? Number(q.ts) : null, validQso: Boolean(facts.validQso),
+          duplicate: Boolean(q?.isDupe), isQtc: false, exchangeValue: value,
+          source: 'scoring_engine', multiplierCreditPolicy
+        });
       });
       markScoringRuntime(facts, runtime);
     });
@@ -3118,9 +3195,14 @@
 
     return {
       groupCounts,
+      rawTotal: total,
       total: multiplierTotal,
       weightedTotal: weightedTotal > 0 ? weightedTotal : multiplierTotal,
       bandMultiplierCounts,
+      credits,
+      rejections,
+      perspective: multiplierPerspective(rule, station, model, effectiveGroups, effectiveScope),
+      supported: model !== 'none_multiplicative' && effectiveGroups.length > 0,
       modeCounts: {
         CW: modeMultiplierSets.CW.size,
         SSB: modeMultiplierSets.SSB.size,
@@ -3439,6 +3521,11 @@
         multiplierCreditPolicy,
         computedQsoPointsTotal: null,
         computedMultiplierTotal: null,
+        computedRawMultiplierTotal: null,
+        multiplierModelSupported: false,
+        multiplierCredits: [],
+        multiplierRejections: [],
+        multiplierPerspective: null,
         computedScore: null,
         scoreDeltaAbs: null,
         scoreDeltaPct: null,
@@ -3481,6 +3568,11 @@
         loggedPointsTotal,
         computedQsoPointsTotal: Number.isFinite(bundleScore?.qsoPointsTotal) ? Math.round(bundleScore.qsoPointsTotal) : null,
         computedMultiplierTotal: Number.isFinite(bundleScore?.multiplierTotal) ? Number(bundleScore.multiplierTotal) : null,
+        computedRawMultiplierTotal: null,
+        multiplierModelSupported: false,
+        multiplierCredits: [],
+        multiplierRejections: [],
+        multiplierPerspective: null,
         computedScore,
         scoreDeltaAbs: deltaAbs,
         scoreDeltaPct: deltaPct,
@@ -3513,6 +3605,11 @@
         loggedPointsTotal,
         computedQsoPointsTotal: null,
         computedMultiplierTotal: null,
+        computedRawMultiplierTotal: null,
+        multiplierModelSupported: false,
+        multiplierCredits: [],
+        multiplierRejections: [],
+        multiplierPerspective: null,
         computedScore: null,
         scoreDeltaAbs: null,
         scoreDeltaPct: null,
@@ -3549,6 +3646,11 @@
       computedQtcCount: Number(scored.pointState.qtcCount || 0),
       computedQsoPointsTotal: Math.round(scored.pointState.qsoPointsTotal || 0),
       computedMultiplierTotal: Number(scored.multState.total || 0),
+      computedRawMultiplierTotal: Number(scored.multState.rawTotal || 0),
+      multiplierModelSupported: Boolean(scored.multState.supported),
+      multiplierCredits: Array.isArray(scored.multState.credits) ? scored.multState.credits : [],
+      multiplierRejections: Array.isArray(scored.multState.rejections) ? scored.multState.rejections : [],
+      multiplierPerspective: scored.multState.perspective || null,
       computedScore,
       scoreDeltaAbs: deltaAbs,
       scoreDeltaPct: deltaPct,

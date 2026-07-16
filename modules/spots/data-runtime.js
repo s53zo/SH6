@@ -4,6 +4,8 @@ export function createSpotsDataRuntime(deps = {}) {
     createSpotsState,
     createRbnState,
     getLoadedCompareSlots,
+    getMultiplierCandidateCalls,
+    mapSpotMultiplierEntities,
     normalizeBandToken,
     parseBandFromFreq,
     normalizeCall,
@@ -40,6 +42,7 @@ export function createSpotsDataRuntime(deps = {}) {
       stats: null,
       lastWindowKey: null,
       lastCall: null,
+      lastCandidateKey: null,
       lastDaysKey: null,
       lastErrorKey: null,
       lastErrorAt: 0,
@@ -565,7 +568,12 @@ export function createSpotsDataRuntime(deps = {}) {
     }
     const win = getWindowSafe();
     const windowKey = buildSpotWindowKey(minTs, maxTs);
-    const attemptKey = `${call}|${windowKey}`;
+    const candidateCalls = typeof getMultiplierCandidateCalls === 'function'
+      ? Array.from(getMultiplierCandidateCalls()).map(normalizeCallSafe).filter(Boolean).sort()
+      : [];
+    const candidateCallSet = new Set(candidateCalls);
+    const candidateKey = candidateCalls.join(',');
+    const attemptKey = `${call}|${windowKey}|${candidateKey}`;
     const now = Date.now();
     const minRetryDelayMs = (spotsState.lastErrorStatus === 429)
       ? Math.max(3000, Math.min(60000, Number(spotsState.retryAfterMs) || 15000))
@@ -584,7 +592,7 @@ export function createSpotsDataRuntime(deps = {}) {
     ) {
       return;
     }
-    if (spotsState.status === 'ready' && spotsState.lastWindowKey === windowKey && spotsState.lastCall === call) {
+    if (spotsState.status === 'ready' && spotsState.lastWindowKey === windowKey && spotsState.lastCall === call && spotsState.lastCandidateKey === candidateKey) {
       renderActiveReportSafe();
       return;
     }
@@ -624,6 +632,7 @@ export function createSpotsDataRuntime(deps = {}) {
         let total = 0;
         const ofUsSpots = [];
         const byUsSpots = [];
+        const candidateSpots = [];
         for (const entry of urls) {
           let text = null;
           let lastErr = null;
@@ -637,7 +646,8 @@ export function createSpotsDataRuntime(deps = {}) {
           }
           if (text == null) throw lastErr || new Error('Spot file missing');
           const lines = text.split(/\r?\n/);
-          for (const line of lines) {
+          for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+            const line = lines[lineIndex];
             if (!line) continue;
             const spot = parseSpotLine(line);
             if (!spot) continue;
@@ -648,17 +658,26 @@ export function createSpotsDataRuntime(deps = {}) {
             if (spot.spotter === call) {
               byUsSpots.push(spot);
             }
+            const multiplierEntities = typeof mapSpotMultiplierEntities === 'function'
+              ? mapSpotMultiplierEntities(spot, target)
+              : [];
+            if (multiplierEntities.length) candidateSpots.push({ ...spot, multiplierEntities });
+            else if (candidateCallSet.has(spot.dxCall)) candidateSpots.push(spot);
+            if (lineIndex > 0 && lineIndex % 10000 === 0) {
+              await new Promise((resolve) => win.setTimeout(resolve, 0));
+            }
           }
         }
-        return { total, ofUsSpots, byUsSpots };
+        return { total, ofUsSpots, byUsSpots, candidateSpots };
       })();
       const data = await spotsState.inflightPromise;
       spotsState.status = 'ready';
       spotsState.error = null;
       spotsState.lastWindowKey = windowKey;
       spotsState.lastCall = call;
+      spotsState.lastCandidateKey = candidateKey;
       spotsState.totalScanned = data.total;
-      spotsState.raw = { ofUsSpots: data.ofUsSpots, byUsSpots: data.byUsSpots };
+      spotsState.raw = { ofUsSpots: data.ofUsSpots, byUsSpots: data.byUsSpots, candidateSpots: data.candidateSpots };
       spotsState.totalOfUs = data.ofUsSpots.length;
       spotsState.totalByUs = data.byUsSpots.length;
       spotsState.capPerSide = null;

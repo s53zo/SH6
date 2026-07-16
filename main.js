@@ -3,6 +3,7 @@
     { id: 'load_logs', title: 'Start' },
     { id: 'main', title: 'Main' },
     { id: 'compare_insights', title: 'Compare Insights' },
+    { id: 'multiplier_opportunities', title: 'Multiplier Opportunities' },
     { id: 'competitor_coach', title: 'Competitor coach' },
     { id: 'summary', title: 'Summary' },
     { id: 'log', title: 'Log' },
@@ -90,6 +91,7 @@
     load_logs: 'load_core',
     main: 'load_core',
     compare_insights: 'load_core',
+    multiplier_opportunities: 'spots_coach',
     summary: 'load_core',
     log: 'load_core',
     raw_log: 'load_core',
@@ -164,7 +166,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.23';
+  const APP_VERSION = 'v6.3.24';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -285,7 +287,7 @@
   const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.22';
   const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.22';
   const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.22';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.22';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.24';
   const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.22';
   const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.22';
   const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.22';
@@ -293,10 +295,12 @@
   const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.22';
   const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.22';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.22';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.22';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.24';
   const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.22';
   const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.22';
   const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.23';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.24';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.24';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -399,7 +403,8 @@
     'qsl_labels',
     'competitor_coach',
     'agent_briefing',
-    'rbn_compare_signal'
+    'rbn_compare_signal',
+    'multiplier_opportunities'
   ]);
   const SESSION_VERSION = 1;
   const PERMALINK_COMPACT_PREFIX = 'v2.';
@@ -482,6 +487,7 @@
       stats: null,
       lastWindowKey: null,
       lastCall: null,
+      lastCandidateKey: null,
       lastDaysKey: null, // RBN only: selected day(s) key to validate cached data.
       lastErrorKey: null,
       lastErrorAt: 0,
@@ -609,6 +615,11 @@
     state.spotsState = createSpotsState();
     state.rbnState = createRbnState();
     state.apiEnrichment = createApiEnrichmentState();
+    state.multiplierOpportunitiesRbnSpots = [];
+    state.multiplierOpportunitiesRbnCalls = new Set();
+    state.multiplierOpportunitiesRbnStatus = 'idle';
+    state.multiplierOpportunitiesRbnError = '';
+    multiplierOpportunitiesModelCache = null;
     state.competitorCoach = createCompetitorCoachState(state.competitorCoach);
     clearEngineCompareSlots(['A']);
     clearAnalysisModeSuggestion();
@@ -622,6 +633,10 @@
       state.compareSlots[idx].analysisSeq = (state.compareSlots[idx].analysisSeq || 0) + 1;
     }
     state.compareSlots[idx] = createEmptyCompareSlot();
+    state.multiplierOpportunitiesRbnSpots = [];
+    state.multiplierOpportunitiesRbnCalls = new Set();
+    state.multiplierOpportunitiesRbnStatus = 'idle';
+    multiplierOpportunitiesModelCache = null;
     clearEngineCompareSlots([String(slotId || '').toUpperCase()]);
     scheduleAutosaveSession();
   }
@@ -1085,6 +1100,23 @@
     try {
       state.analysisMode = normalizeAnalysisMode(migrated.analysisMode) || ANALYSIS_MODE_DEFAULT;
       state.compareScoreMode = normalizeCompareScoreMode(migrated.compareScoreMode);
+      const opportunitySettings = migrated.multiplierOpportunities || {};
+      const opportunityReference = String(opportunitySettings.referenceSlotId || 'A').toUpperCase();
+      state.multiplierOpportunitiesReferenceSlotId = ['A', 'B', 'C', 'D'].includes(opportunityReference) ? opportunityReference : 'A';
+      state.multiplierOpportunitiesWindowMinutes = [5, 10, 15, 30, 60].includes(Number(opportunitySettings.windowMinutes))
+        ? Number(opportunitySettings.windowMinutes)
+        : 15;
+      state.multiplierOpportunitiesFilters = {
+        search: String(opportunitySettings.filters?.search || ''),
+        comparison: String(opportunitySettings.filters?.comparison || ''),
+        group: String(opportunitySettings.filters?.group || ''),
+        band: String(opportunitySettings.filters?.band || ''),
+        mode: String(opportunitySettings.filters?.mode || ''),
+        confidence: String(opportunitySettings.filters?.confidence || ''),
+        evidence: String(opportunitySettings.filters?.evidence || ''),
+        status: String(opportunitySettings.filters?.status || '')
+      };
+      multiplierOpportunitiesModelCache = null;
       state.compareSyncEnabled = migrated.compareSyncEnabled !== false;
       state.compareStickyEnabled = migrated.compareStickyEnabled !== false;
       state.compareTimeRangeLock = cloneTsRange(migrated.compareTimeRangeLock);
@@ -1379,6 +1411,14 @@
     compareCount: 1,
     compareScoreMode: COMPARE_SCORE_MODE_COMPUTED,
     compareInsightsReferenceSlotId: 'B',
+    multiplierOpportunitiesReferenceSlotId: 'A',
+    multiplierOpportunitiesWindowMinutes: 15,
+    multiplierOpportunitiesFilters: { search: '', comparison: '', group: '', band: '', mode: '', confidence: '', evidence: '', status: '' },
+    multiplierOpportunitiesSelectedKey: '',
+    multiplierOpportunitiesRbnSpots: [],
+    multiplierOpportunitiesRbnCalls: new Set(),
+    multiplierOpportunitiesRbnStatus: 'idle',
+    multiplierOpportunitiesRbnError: '',
     compareCountBeforeDxer: 1,
     compareSyncEnabled: true,
     compareStickyEnabled: true,
@@ -1438,6 +1478,12 @@
   let compareInsightsModelBuilder = null;
   let compareInsightsRenderer = null;
   let compareInsightsModelCache = null;
+  let multiplierOpportunitiesModulePromise = null;
+  let multiplierOpportunitiesModelBuilder = null;
+  let multiplierOpportunitiesCsvBuilder = null;
+  let multiplierOpportunitiesView = null;
+  let multiplierOpportunitiesModelCache = null;
+  const multiplierSpotCreditKeyCache = new WeakMap();
   let archiveClientModulePromise = null;
   let archiveClient = null;
   let archiveSearchRuntimeModulePromise = null;
@@ -1834,6 +1880,32 @@
       throw new Error('compare insights runtime not loaded');
     }
     return compareInsightsRenderer;
+  }
+
+  function loadMultiplierOpportunitiesModule() {
+    if (!multiplierOpportunitiesModulePromise) {
+      multiplierOpportunitiesModulePromise = Promise.all([
+        import(MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL),
+        import(MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL)
+      ]).then(([modelModule, viewModule]) => {
+        if (typeof modelModule?.buildMultiplierOpportunities !== 'function' || typeof modelModule?.rowsToSafeCsv !== 'function') {
+          throw new Error('multiplier opportunities model unavailable');
+        }
+        if (typeof viewModule?.createMultiplierOpportunitiesView !== 'function') {
+          throw new Error('multiplier opportunities view unavailable');
+        }
+        multiplierOpportunitiesModelBuilder = modelModule.buildMultiplierOpportunities;
+        multiplierOpportunitiesCsvBuilder = modelModule.rowsToSafeCsv;
+        multiplierOpportunitiesView = viewModule.createMultiplierOpportunitiesView({
+          escapeHtml,
+          escapeAttr,
+          formatNumber: formatNumberSh6,
+          formatDate: formatDateSh6
+        });
+        return multiplierOpportunitiesView;
+      });
+    }
+    return multiplierOpportunitiesModulePromise;
   }
 
   function loadRetainedRuntimeModule() {
@@ -2302,6 +2374,8 @@
             createSpotsState,
             createRbnState,
             getLoadedCompareSlots,
+            getMultiplierCandidateCalls,
+            mapSpotMultiplierEntities,
             normalizeBandToken,
             parseBandFromFreq,
             normalizeCall,
@@ -3224,6 +3298,80 @@
     return getActiveCompareSlots().filter((entry) => entry.slot && entry.slot.qsoData && !entry.slot.skipped);
   }
 
+  function getMultiplierCandidateCalls() {
+    const calls = new Set();
+    getLoadedCompareSlots().forEach((entry) => {
+      const scoring = entry.slot?.derived?.scoring;
+      [...(scoring?.multiplierCredits || []), ...(scoring?.multiplierRejections || [])].forEach((row) => {
+        const call = normalizeCall(row?.callsign || '');
+        if (call) calls.add(call);
+      });
+    });
+    return calls;
+  }
+
+  function mapSpotMultiplierEntities(spot, slot) {
+    const fullDerived = slot?.fullDerived || slot?.derived;
+    const scoring = fullDerived?.scoring;
+    const perspective = scoring?.multiplierPerspective;
+    if (!scoring?.multiplierModelSupported || !perspective || !spot?.dxCall) return [];
+    const prefix = lookupPrefix(spot.dxCall);
+    if (!prefix) return [];
+    const band = normalizeBandToken(spot.band || '') || 'UNKNOWN';
+    const mode = normalizeMode(spot.mode || '');
+    let scopeKey = 'ALL';
+    if (perspective.countingScope === 'per_band') scopeKey = band;
+    else if (perspective.countingScope === 'per_mode') {
+      if (!mode) return [];
+      scopeKey = mode;
+    } else if (perspective.countingScope === 'per_band_per_mode') {
+      if (!mode) return [];
+      scopeKey = `${band}|${mode}`;
+    } else if (perspective.countingScope === 'per_hf_band_group') {
+      scopeKey = ['160M', '80M', '40M'].includes(band) ? 'LOW_HF' : 'HIGH_HF';
+    }
+    const countryKey = normalizeCountryName(prefix.country || '');
+    const wpx = wpxPrefix(spot.dxCall);
+    const stationCall = fullDerived?.contestMeta?.stationCallsign || '';
+    const stationCqZone = lookupPrefix(stationCall)?.cqZone;
+    const valueForGroup = (group) => {
+      if (['country', 'country_for_ru_entries', 'dxcc_country', 'dxcc_entities_for_french_entries', 'dl_station_uses_country_entities', 'wae_country_or_dxcc_set_by_station_region'].includes(group)) return countryKey;
+      if (group === 'cq_zone') return prefix.cqZone != null ? String(prefix.cqZone) : '';
+      if (group === 'cq_zone_except_own') return prefix.cqZone != null && Number(prefix.cqZone) !== Number(stationCqZone) ? String(prefix.cqZone) : '';
+      if (group === 'itu_zone') return prefix.ituZone != null ? String(prefix.ituZone) : '';
+      if (group === 'wpx_prefix') return wpx;
+      if (group === 'prefix_within_zone') return wpx && prefix.cqZone != null ? `${wpx}|${prefix.cqZone}` : '';
+      if (group === 'unique_callsign') return normalizeCall(spot.dxCall);
+      return '';
+    };
+    let credited = multiplierSpotCreditKeyCache.get(scoring);
+    if (!credited) {
+      credited = new Set((scoring.multiplierCredits || []).map((row) => [row.group, row.countingScope, row.scopeKey || 'ALL', row.entityKey].join('|')));
+      multiplierSpotCreditKeyCache.set(scoring, credited);
+    }
+    return (perspective.groups || []).map((group) => {
+      const entityKey = valueForGroup(group);
+      if (!entityKey) return null;
+      const key = [group, perspective.countingScope, scopeKey, entityKey].join('|');
+      if (credited.has(key)) return null;
+      const sample = (scoring.multiplierCredits || []).find((row) => row.band === band);
+      return {
+        key,
+        group,
+        entityKey,
+        entityLabel: group.includes('country') || group.includes('dxcc') || group.includes('wae_') || group.includes('country_entities')
+          ? String(prefix.country || entityKey)
+          : entityKey,
+        countingScope: perspective.countingScope,
+        scopeKey,
+        band,
+        mode: mode || 'UNKNOWN',
+        rawValue: 1,
+        weightedValue: Number(sample?.weight || 1)
+      };
+    }).filter(Boolean);
+  }
+
   function getSlotPanel(slotId) {
     const key = String(slotId || 'A').toUpperCase();
     return document.querySelector(`.log-panel[data-slot="${key}"]`);
@@ -4075,6 +4223,10 @@
     return getActiveCompareSlots().some((entry) => slotSupportsQtcReports(entry.slot));
   }
 
+  function shouldShowMultiplierOpportunities() {
+    return getLoadedCompareSlots().some((entry) => entry.slot?.derived?.scoring?.multiplierModelSupported === true);
+  }
+
   function buildReportsList() {
     const list = [];
     const showWpxHourSheet = isCqWpxContest();
@@ -4084,6 +4236,7 @@
       if (state.analysisMode === ANALYSIS_MODE_CONTESTER && CONTESTER_HIDDEN_REPORTS.has(r.id)) return;
       if (r.id === 'wpx_by_hour_sheet' && !showWpxHourSheet) return;
       if (r.id === 'compare_insights' && getLoadedCompareSlots().length < 2) return;
+      if (r.id === 'multiplier_opportunities' && !shouldShowMultiplierOpportunities()) return;
       if (QTC_REPORT_IDS.has(r.id) && !showQtcReports) return;
       list.push(r);
     });
@@ -15328,6 +15481,7 @@ function syncEngineCompareLogForSlot(slot) {
         case 'load_logs': return renderLoadLogs();
         case 'main': return renderMain();
         case 'compare_insights': return '';
+        case 'multiplier_opportunities': return renderMultiplierOpportunities();
         case 'competitor_coach': return renderCompetitorCoach();
         case 'agent_briefing': return renderAgentBriefing();
         case 'summary': return renderSummary();
@@ -15595,6 +15749,179 @@ function syncEngineCompareLogForSlot(slot) {
     return getCompareInsightsRenderer().render(model, {
       activeFilterText: formatCompareInsightsFilterContext()
     });
+  }
+
+  function buildMultiplierOpportunitiesSlots() {
+    return getActiveCompareSnapshots().filter((entry) => entry.ready).map((entry) => {
+      const fullDerived = entry.snapshot.fullDerived || entry.snapshot.derived;
+      const fullQsoData = entry.snapshot.fullQsoData || entry.snapshot.qsoData;
+      const stationCallsign = fullDerived?.contestMeta?.stationCallsign || entry.snapshot.logFile?.name || entry.id;
+      const stationPrefix = lookupPrefix(stationCallsign);
+      return {
+        id: entry.id,
+        label: entry.label,
+        callsign: stationCallsign,
+        stationContinent: normalizeContinent(stationPrefix?.continent || ''),
+        scoring: fullDerived?.scoring || null,
+        qsos: fullQsoData?.qsos || []
+      };
+    });
+  }
+
+  function getMultiplierOpportunitiesModel() {
+    const slots = buildMultiplierOpportunitiesSlots();
+    const loadedIds = new Set(slots.map((slot) => slot.id));
+    let referenceSlotId = String(state.multiplierOpportunitiesReferenceSlotId || 'A').toUpperCase();
+    if (!loadedIds.has(referenceSlotId)) referenceSlotId = slots[0]?.id || 'A';
+    state.multiplierOpportunitiesReferenceSlotId = referenceSlotId;
+    const referenceSlot = getSlotById(referenceSlotId);
+    const spotState = referenceSlot?.spotsState;
+    const clusterSpots = spotState?.raw?.candidateSpots || [];
+    const rbnSpots = state.multiplierOpportunitiesRbnSpots || [];
+    const key = JSON.stringify({
+      slots: slots.map((slot) => [slot.id, getSlotById(slot.id)?.logVersion || 0, slot.scoring?.computedMultiplierTotal]),
+      referenceSlotId,
+      window: state.multiplierOpportunitiesWindowMinutes,
+      spotKey: [spotState?.lastWindowKey, spotState?.lastCandidateKey, clusterSpots.length],
+      rbnCount: rbnSpots.length,
+      band: state.globalBandFilter,
+      years: state.globalYearsFilter,
+      months: state.globalMonthsFilter,
+      derivedRecomputeSeq,
+      analysisResourcesVersion
+    });
+    if (multiplierOpportunitiesModelCache?.key === key) return multiplierOpportunitiesModelCache.model;
+    const range = referenceSlot?.fullDerived?.timeRange || referenceSlot?.derived?.timeRange || {};
+    const model = multiplierOpportunitiesModelBuilder({
+      slots,
+      referenceSlotId,
+      correlationWindowMinutes: state.multiplierOpportunitiesWindowMinutes,
+      contestStartTs: range.minTs,
+      contestEndTs: range.maxTs,
+      clusterSpots,
+      rbnSpots,
+      resolveContinent: (call) => normalizeContinent(lookupPrefix(call)?.continent || '')
+    });
+    multiplierOpportunitiesModelCache = { key, model };
+    return model;
+  }
+
+  function renderMultiplierOpportunities() {
+    const model = getMultiplierOpportunitiesModel();
+    const slots = buildMultiplierOpportunitiesSlots();
+    const referenceSlot = getSlotById(model.referenceSlotId);
+    let dataNotice = '';
+    if (referenceSlot?.spotsState?.status === 'loading') dataNotice = 'DX cluster candidate evidence is loading.';
+    else if (referenceSlot?.spotsState?.status !== 'ready') dataNotice = 'DX cluster evidence is not loaded.';
+    else dataNotice = 'Cluster evidence is loaded.';
+    if (state.multiplierOpportunitiesRbnStatus === 'ready') dataNotice += ` Candidate-specific RBN evidence was retrieved for ${state.multiplierOpportunitiesRbnCalls.size} calls.`;
+    else if (state.multiplierOpportunitiesRbnStatus === 'error') dataNotice += ` RBN retrieval is partial: ${state.multiplierOpportunitiesRbnError}`;
+    else dataNotice += ' RBN data is partial because the service is callsign-scoped; use Load candidate RBN to query the highest-value calls.';
+    return multiplierOpportunitiesView.render(model, {
+      slots,
+      filters: {
+        ...state.multiplierOpportunitiesFilters,
+        band: state.multiplierOpportunitiesFilters?.band || normalizeBandToken(state.globalBandFilter || '')
+      },
+      selectedCandidateKey: state.multiplierOpportunitiesSelectedKey,
+      dataNotice,
+      rbnStatus: state.multiplierOpportunitiesRbnStatus
+    });
+  }
+
+  async function loadMultiplierOpportunityRbnEvidence() {
+    if (state.multiplierOpportunitiesRbnStatus === 'loading') return;
+    const model = getMultiplierOpportunitiesModel();
+    const referenceSlot = getSlotById(model.referenceSlotId);
+    const range = referenceSlot?.fullDerived?.timeRange || referenceSlot?.derived?.timeRange || {};
+    const days = getSpotsDataRuntime().buildRbnDayList(range.minTs, range.maxTs).slice(0, 2);
+    const loadedCalls = state.multiplierOpportunitiesRbnCalls instanceof Set ? state.multiplierOpportunitiesRbnCalls : new Set();
+    state.multiplierOpportunitiesRbnCalls = loadedCalls;
+    const calls = [];
+    model.candidates.forEach((candidate) => candidate.representativeCallsigns.forEach((call) => {
+      const normalized = normalizeCall(call);
+      if (normalized && !loadedCalls.has(normalized) && !calls.includes(normalized) && calls.length < 20) calls.push(normalized);
+    }));
+    if (!calls.length) {
+      state.multiplierOpportunitiesRbnStatus = 'ready';
+      renderReportWithLoading(reports[state.activeIndex]);
+      return;
+    }
+    state.multiplierOpportunitiesRbnStatus = 'loading';
+    state.multiplierOpportunitiesRbnError = '';
+    renderReportWithLoading(reports[state.activeIndex]);
+    const collected = [];
+    const errors = [];
+    for (let index = 0; index < calls.length; index += 2) {
+      const batch = calls.slice(index, index + 2);
+      const results = await Promise.allSettled(batch.map((call) => getSpotsDataRuntime().fetchRbnSpots(call, days)));
+      results.forEach((result, offset) => {
+        const call = batch[offset];
+        if (result.status !== 'fulfilled') {
+          errors.push(`${call}: ${result.reason?.message || result.reason || 'unavailable'}`);
+          return;
+        }
+        loadedCalls.add(call);
+        (result.value?.ofUsSpots || []).forEach((raw) => {
+          const spot = getSpotsDataRuntime().normalizeRbnSpot(raw);
+          if (spot?.dxCall === call) collected.push(spot);
+        });
+      });
+      if (errors.some((message) => /429|rate limit/i.test(message))) break;
+    }
+    state.multiplierOpportunitiesRbnSpots = [...(state.multiplierOpportunitiesRbnSpots || []), ...collected];
+    state.multiplierOpportunitiesRbnStatus = errors.length ? 'error' : 'ready';
+    state.multiplierOpportunitiesRbnError = errors.slice(0, 3).join(' ');
+    multiplierOpportunitiesModelCache = null;
+    renderReportWithLoading(reports[state.activeIndex]);
+  }
+
+  function exportMultiplierOpportunities(kind) {
+    const model = getMultiplierOpportunitiesModel();
+    let headers = [];
+    let rows = [];
+    if (kind === 'ledger') {
+      headers = ['slotId', 'ruleId', 'group', 'entityKey', 'entityLabel', 'countingScope', 'scopeKey', 'band', 'mode', 'rawCredit', 'weight', 'weightedCredit', 'qsoIndex', 'qsoNumber', 'callsign', 'timestamp', 'exchangeValue', 'source'];
+      rows = buildMultiplierOpportunitiesSlots().flatMap((slot) => (slot.scoring?.multiplierCredits || []).map((credit) => ({ slotId: slot.id, ...credit })));
+    } else if (kind === 'evidence') {
+      headers = ['candidateKey', 'entityLabel', 'group', 'confidence', 'source', 'dxCall', 'receiverCall', 'receiverContinent', 'timestamp', 'band', 'mode', 'freqKHz', 'snr', 'speed', 'referenceActive', 'sameBandActivity', 'closestReferenceMs'];
+      rows = model.candidates.flatMap((candidate) => candidate.evidence.map((event) => ({
+        candidateKey: candidate.key, entityLabel: candidate.entityLabel, group: candidate.group, confidence: candidate.confidence,
+        source: event.source, dxCall: event.dxCall, receiverCall: event.receiverCall, receiverContinent: event.receiverContinent,
+        timestamp: event.ts, band: event.band, mode: event.mode || event.txMode, freqKHz: event.freqKHz, snr: event.snr, speed: event.speed,
+        referenceActive: event.referenceActivity?.anyBand, sameBandActivity: event.referenceActivity?.sameBand,
+        closestReferenceMs: event.referenceActivity?.closestMs
+      })));
+    } else if (kind === 'bands') {
+      headers = ['band', 'mode', 'rawGap', 'weightedGap', 'high', 'medium', 'low', 'noEvidence'];
+      const grouped = new Map();
+      (model.bandModeGaps || []).forEach((gap) => {
+        const key = `${gap.band}|${gap.mode || 'ALL'}`;
+        grouped.set(key, { band: gap.band, mode: gap.mode || 'ALL', rawGap: gap.rawGap, weightedGap: gap.weightedGap, high: 0, medium: 0, low: 0, noEvidence: 0 });
+      });
+      model.candidates.forEach((candidate) => {
+        const key = `${candidate.band}|${candidate.mode || 'ALL'}`;
+        const row = grouped.get(key) || { band: candidate.band, mode: candidate.mode || 'ALL', rawGap: 0, weightedGap: 0, high: 0, medium: 0, low: 0, noEvidence: 0 };
+        if (candidate.confidence === 'High') row.high += 1;
+        else if (candidate.confidence === 'Medium') row.medium += 1;
+        else if (candidate.confidence === 'Low') row.low += 1;
+        else row.noEvidence += 1;
+        grouped.set(key, row);
+      });
+      rows = Array.from(grouped.values());
+    } else {
+      headers = ['key', 'entityLabel', 'group', 'countingScope', 'scopeKey', 'band', 'mode', 'creditedSlots', 'rawValue', 'weightedValue', 'representativeCallsigns', 'strongestEvidenceSource', 'distinctRbnSkimmers', 'distinctClusterSpotters', 'firstEvidenceTs', 'lastEvidenceTs', 'confidence', 'status', 'explanation'];
+      rows = model.candidates.map((candidate) => ({
+        ...candidate,
+        creditedSlots: candidate.creditedSlots.join(' '),
+        representativeCallsigns: candidate.representativeCallsigns.join(' '),
+        distinctRbnSkimmers: candidate.factors.distinctRbnSkimmers,
+        distinctClusterSpotters: candidate.factors.distinctClusterSpotters
+      }));
+    }
+    const csv = multiplierOpportunitiesCsvBuilder(headers, rows);
+    const station = sanitizeFilenameToken(model.referenceCallsign || model.referenceSlotId || 'reference');
+    downloadBlobFile(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${station}_multiplier_opportunities_${kind}.csv`);
   }
 
   function applyCompareInsightFilterPatch(patch = {}) {
@@ -16359,6 +16686,66 @@ function syncEngineCompareLogForSlot(slot) {
     invokeOptionalRuntime('compare controller runtime', () => getCompareControllerRuntime().bindWorkspaceInteractions(reportId));
     attachLongReportJumpBar(dom.viewContainer, reportId);
     bindVirtualTable(reportId);
+    if (reportId === 'multiplier_opportunities') {
+      const referenceSelect = dom.viewContainer.querySelector('#mult-op-reference');
+      const windowSelect = dom.viewContainer.querySelector('#mult-op-window');
+      const filterBindings = [
+        ['#mult-op-search', 'search', 'input'],
+        ['#mult-op-comparison', 'comparison', 'change'],
+        ['#mult-op-group', 'group', 'change'],
+        ['#mult-op-band', 'band', 'change'],
+        ['#mult-op-mode', 'mode', 'change'],
+        ['#mult-op-confidence', 'confidence', 'change'],
+        ['#mult-op-evidence', 'evidence', 'change'],
+        ['#mult-op-status', 'status', 'change']
+      ];
+      referenceSelect?.addEventListener('change', () => {
+        state.multiplierOpportunitiesReferenceSlotId = String(referenceSelect.value || 'A').toUpperCase();
+        state.multiplierOpportunitiesSelectedKey = '';
+        multiplierOpportunitiesModelCache = null;
+        renderReportWithLoading(reports[state.activeIndex]);
+        scheduleAutosaveSession();
+      });
+      windowSelect?.addEventListener('change', () => {
+        state.multiplierOpportunitiesWindowMinutes = Number(windowSelect.value) || 15;
+        multiplierOpportunitiesModelCache = null;
+        renderReportWithLoading(reports[state.activeIndex]);
+        scheduleAutosaveSession();
+      });
+      filterBindings.forEach(([selector, key, eventName]) => {
+        const element = dom.viewContainer.querySelector(selector);
+        element?.addEventListener(eventName, () => {
+          state.multiplierOpportunitiesFilters = { ...state.multiplierOpportunitiesFilters, [key]: element.value || '' };
+          if (eventName === 'input') {
+            window.clearTimeout(element._multiplierFilterTimer);
+            element._multiplierFilterTimer = window.setTimeout(() => renderReportWithLoading(reports[state.activeIndex]), 180);
+          } else {
+            renderReportWithLoading(reports[state.activeIndex]);
+          }
+        });
+      });
+      dom.viewContainer.querySelectorAll('.mult-op-inspect').forEach((button) => button.addEventListener('click', () => {
+        state.multiplierOpportunitiesSelectedKey = String(button.dataset.candidateKey || '');
+        renderReportWithLoading(reports[state.activeIndex]);
+      }));
+      dom.viewContainer.querySelectorAll('[data-mult-op-export]').forEach((button) => button.addEventListener('click', () => {
+        exportMultiplierOpportunities(button.dataset.multOpExport || 'candidates');
+      }));
+      dom.viewContainer.querySelector('[data-mult-op-rbn]')?.addEventListener('click', () => {
+        loadMultiplierOpportunityRbnEvidence().catch((err) => {
+          state.multiplierOpportunitiesRbnStatus = 'error';
+          state.multiplierOpportunitiesRbnError = err?.message || String(err);
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      });
+      const referenceSlot = getSlotById(state.multiplierOpportunitiesReferenceSlotId);
+      if (referenceSlot?.qsoData && referenceSlot.spotsState?.status !== 'loading') {
+        const expectedKey = Array.from(getMultiplierCandidateCalls()).sort().join(',');
+        if (referenceSlot.spotsState?.status !== 'ready' || referenceSlot.spotsState.lastCandidateKey !== expectedKey) {
+          getSpotsDataRuntime().loadSpotsForCurrentLog(referenceSlot);
+        }
+      }
+    }
     const chartModeButtons = dom.viewContainer.querySelectorAll('.chart-mode-btn');
     chartModeButtons.forEach((btn) => {
       btn.addEventListener('click', (evt) => {
@@ -17957,6 +18344,7 @@ function syncEngineCompareLogForSlot(slot) {
     const analysisControlsRuntimeReady = loadAnalysisControlsRuntimeModule();
     const compareWorkspaceReady = loadCompareWorkspaceModule();
     const compareInsightsReady = loadCompareInsightsModule();
+    const multiplierOpportunitiesReady = loadMultiplierOpportunitiesModule();
     const coachRuntimeReady = loadCoachRuntimeModule();
     const canvasZoomRuntimeReady = loadCanvasZoomRuntimeModule();
     const rbnSignalExportRuntimeReady = loadRbnSignalExportRuntimeModule();
@@ -17984,6 +18372,7 @@ function syncEngineCompareLogForSlot(slot) {
     const loadPanelLoaded = await awaitInitRuntime('load panel runtime', loadPanelRuntimeReady);
     const analysisControlsLoaded = await awaitInitRuntime('analysis controls runtime', analysisControlsRuntimeReady);
     await awaitInitRuntime('compare controller runtime', compareControllerReady);
+    await awaitInitRuntime('multiplier opportunities runtime', multiplierOpportunitiesReady, { critical: true });
     await awaitInitRuntime('coach runtime', coachRuntimeReady);
     await awaitInitRuntime('canvas zoom runtime', canvasZoomRuntimeReady);
     await awaitInitRuntime('rbn signal export runtime', rbnSignalExportRuntimeReady);

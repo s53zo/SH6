@@ -82,6 +82,8 @@
         const qtcIds = ['qtc_overview', 'qtc_timeline', 'qtc_efficiency', 'qtc_partners', 'qtc_series', 'qtc_quality', 'qtc_export'];
         add('All dedicated QTC reports are registered', qtcIds.every((id) => baseReportsBlock.includes(`id: '${id}'`)), baseReportsBlock);
         add('QTC reports use conditional WAE visibility', mainSource.includes('QTC_REPORT_IDS.has(r.id) && !showQtcReports'), '');
+        add('Multiplier Opportunities is a separate registered report', baseReportsBlock.includes("id: 'multiplier_opportunities'"), baseReportsBlock);
+        add('Multiplier Opportunities uses conditional scoring-model visibility', mainSource.includes("r.id === 'multiplier_opportunities' && !shouldShowMultiplierOpportunities()"), '');
         add(
           'Removed reports are not assigned to visible nav sections',
           !/(^|\n)\s*agent_briefing\s*:/.test(navMapBlock)

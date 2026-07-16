@@ -155,6 +155,52 @@ assert(
   'QTC payloads must never add WAE multipliers',
   { withQtc: analyzedWae.derived.scoring, qsoOnly: analyzedWaeQsoOnly.derived.scoring }
 );
+const waeLedger = analyzedWae.derived.scoring.multiplierCredits || [];
+assert(waeLedger.length > 0, 'WAE scoring must expose multiplier credit provenance', analyzedWae.derived.scoring);
+assert(
+  waeLedger.reduce((sum, credit) => sum + Number(credit.weightedCredit || 0), 0) === analyzedWae.derived.scoring.computedMultiplierTotal,
+  'WAE multiplier ledger weighted credits must reconcile to the computed total',
+  { ledger: waeLedger, scoring: analyzedWae.derived.scoring }
+);
+assert(
+  waeLedger.every((credit) => credit.ruleId === 'wae' && credit.callsign && Number.isInteger(credit.qsoIndex)),
+  'Multiplier credits must include rule and QSO provenance',
+  waeLedger
+);
+assert(
+  waeLedger.every((credit) => credit.isQtc !== true && credit.callsign !== 'DK5PD' && credit.callsign !== 'MM2T'),
+  'QTC payload calls must never enter the multiplier credit ledger',
+  waeLedger
+);
+
+const ledgerRule = scoringSpec.rule_sets.find((rule) => rule.id === 'cqww');
+const ledgerQsos = [
+  { ...makeQso('K1ABC', 0), points: 3 },
+  { ...makeQso('K1DEF', 1), points: 3, isDupe: true },
+  { ...makeQso('K2ABC', 2), points: 0 }
+];
+core.buildDerived(ledgerQsos, {}, { ctyTable, masterCalls: [] });
+ledgerQsos[1].isDupe = true;
+const ledgerPoints = { pointsByIndex: [3, 3, 0] };
+const strictLedgerRule = { ...ledgerRule, multipliers: { ...ledgerRule.multipliers, credit_on_zero_point_valid_qso: false } };
+const ledgerState = core.computeRuleMultipliers(strictLedgerRule, ledgerQsos, {
+  call: 'S53M', stationCountryKey: 'SLOVENIA', stationContinent: 'EU'
+}, ledgerPoints, new Set(), { ctyTable, scoringSpec });
+assert(ledgerState.credits.length === ledgerState.rawTotal, 'Raw multiplier credits must reconcile to raw total', ledgerState);
+assert(ledgerState.rejections.some((row) => row.reason === 'duplicate_qso'), 'Duplicate multiplier rejection reason is required', ledgerState.rejections);
+assert(ledgerState.rejections.some((row) => row.reason === 'non_positive_points'), 'Zero-credit multiplier rejection reason is required', ledgerState.rejections);
+
+for (const rule of scoringSpec.rule_sets.filter((entry) => entry.bundle !== true)) {
+  const probe = { ...makeQso('K1ABC', 0), points: 3, raw: { exchangeRcvd: 'CA A01 MO01 001 25' } };
+  core.buildDerived([probe], {}, { ctyTable, masterCalls: [] });
+  const state = core.computeRuleMultipliers(rule, [probe], {
+    call: 'S53M', stationCountryKey: 'SLOVENIA', stationContinent: 'EU', stationCqZone: 15,
+    stationIsDl: false, stationIsFrench: false, stationIsRu: false, stationIsWVe: false
+  }, { pointsByIndex: [3] }, new Set(), { ctyTable, scoringSpec });
+  assert(Array.isArray(state.credits) && Array.isArray(state.rejections), `Rule ${rule.id} must expose ledger arrays`, state);
+  assert(state.rawTotal === state.credits.length, `Rule ${rule.id} raw credits must reconcile`, state);
+  assert(state.weightedTotal === state.credits.reduce((sum, row) => sum + Number(row.weightedCredit || 0), 0) || state.credits.length === 0, `Rule ${rule.id} weighted credits must reconcile`, state);
+}
 
 const breakQsoA = makeQso('K1AAA', 0);
 const breakQsoB = makeQso('K1BBB', 180);

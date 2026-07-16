@@ -73,6 +73,9 @@ const state = {
   analysisMode: 'dxer',
   compareCount: 4,
   compareScoreMode: 'logged',
+  multiplierOpportunitiesReferenceSlotId: 'B',
+  multiplierOpportunitiesWindowMinutes: 30,
+  multiplierOpportunitiesFilters: { search: 'France', comparison: 'B', group: 'country', band: '20M', mode: 'CW', confidence: 'High', evidence: 'RBN', status: 'Plausible opportunity' },
   compareSyncEnabled: false,
   compareStickyEnabled: true,
   compareTimeRangeLock: { startTs: 1700000000000, endTs: 1700003600000 },
@@ -177,6 +180,7 @@ const add = (name, passed, details = null) => checks.push({ name, passed: Boolea
 
 const payload = codec.buildSessionPayload(true);
 add('Session payload stores analysisMode', payload.analysisMode === 'dxer', payload.analysisMode);
+add('Session payload stores multiplier opportunity settings', payload.multiplierOpportunities?.referenceSlotId === 'B' && payload.multiplierOpportunities?.windowMinutes === 30, payload.multiplierOpportunities);
 add('Session payload includes raw slot text when requested', payload.slots[0].rawText === 'RAW-A', payload.slots[0].rawText);
 add('Session payload preserves WRTC 2022 scoring override', payload.slots[0].scoringRuleOverride === 'wrtc_2022', payload.slots[0]);
 add('Session payload preserves WRTC 2026 scoring override', payload.slots[1].scoringRuleOverride === 'wrtc_2026', payload.slots[1]);
@@ -208,6 +212,7 @@ add('Permalink encoding prefers compact v2 prefix', encoded.startsWith('v2.'), e
 const parsed = codec.parsePermalinkState(`?state=${encoded}`);
 add('Permalink parse restores analysisMode', parsed?.analysisMode === 'dxer', parsed?.analysisMode);
 add('Permalink parse restores compare count', parsed?.compareCount === 4, parsed?.compareCount);
+add('Permalink parse restores multiplier opportunity settings', parsed?.multiplierOpportunities?.referenceSlotId === 'B' && parsed?.multiplierOpportunities?.windowMinutes === 30 && parsed?.multiplierOpportunities?.filters?.confidence === 'High' && parsed?.multiplierOpportunities?.filters?.evidence === 'RBN' && parsed?.multiplierOpportunities?.filters?.status === 'Plausible opportunity', parsed?.multiplierOpportunities);
 add('Permalink parse restores slot archive path', parsed?.slots?.[0]?.archivePath === 'ZRS_KVP/2025/jesen/S55OO.log', parsed?.slots?.[0]);
 add('Permalink parse restores WRTC 2022 scoring override', parsed?.slots?.[0]?.scoringRuleOverride === 'wrtc_2022', parsed?.slots?.[0]);
 add('Permalink parse restores WRTC 2026 scoring override', parsed?.slots?.[1]?.scoringRuleOverride === 'wrtc_2026', parsed?.slots?.[1]);

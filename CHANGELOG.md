@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.26 (2026-07-17)
+- Remove the false `(unspecified)` archive level from mode-only paths such as `WAE/CW/2025` and `CQWW/SSB/2025`.
+- Preserve mode and detail labels from archive paths when optional shard metadata is absent.
+- Add WAE CW, SSB, and RTTY archive-tree regression coverage while retaining ARRL, DARC, URE, 9A HRS, weekly-contest, and reconstructed-log grouping.
+
 ## v6.3.25 (2026-07-16)
 - Limit the Multiplier Opportunities band/mode breakdown to bands used for QSOs by a compatible loaded log.
 - Condense the opportunity table to decision-relevant columns while retaining full scoring and evidence diagnostics in the drilldown and CSV exports.

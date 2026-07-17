@@ -166,7 +166,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.25';
+  const APP_VERSION = 'v6.3.26';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -276,7 +276,7 @@
   const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.22';
   const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.22';
   const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.22';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.22';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.26';
   const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.22';
   const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.22';
   const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.22';
@@ -287,7 +287,7 @@
   const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.22';
   const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.22';
   const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.22';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.25';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.26';
   const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.22';
   const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.22';
   const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.22';
@@ -295,12 +295,12 @@
   const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.22';
   const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.22';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.22';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.25';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.26';
   const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.22';
   const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.22';
   const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.23';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.25';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.25';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.26';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.26';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'

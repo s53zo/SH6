@@ -13,8 +13,6 @@ export function createArchiveSearchRuntime(deps = {}) {
   } = deps;
 
   const controllers = new Map();
-  const UNSPECIFIED_ARCHIVE_SUBCONTEST = '(unspecified)';
-
   function normalizeLabel(value) {
     return value == null ? '' : String(value).trim();
   }
@@ -66,7 +64,7 @@ export function createArchiveSearchRuntime(deps = {}) {
     const yearIndex = findArchiveYearIndex(parts, 1);
     if (yearIndex <= 1) return '';
     const subcontestParts = parts.slice(1, yearIndex).filter((part) => !isArchiveDetailSegment(part));
-    return subcontestParts.map(formatArchiveSlugLabel).filter(Boolean).join(' ') || UNSPECIFIED_ARCHIVE_SUBCONTEST;
+    return subcontestParts.map(formatArchiveSlugLabel).filter(Boolean).join(' ');
   }
 
   function formatArchiveSubcontestDetail(row) {
@@ -158,9 +156,7 @@ export function createArchiveSearchRuntime(deps = {}) {
       const band = parts[2] || '';
       return [event, band].filter(Boolean).join(' • ');
     }
-    const explicit = normalizeLabel(row?.detail);
-    if (explicit) return explicit.split('/').map(formatArchiveSlugLabel).filter(Boolean).join(' • ');
-    return [normalizeLabel(row?.mode), normalizeLabel(row?.season)].filter(Boolean).join(' • ');
+    return formatArchiveSubcontestDetail(row);
   }
 
   function getNumericYear(value) {

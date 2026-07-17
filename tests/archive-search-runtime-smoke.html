@@ -131,6 +131,9 @@
           { path: 'DARC/Fieldday/CW/2024/S53M.log', contest: 'DARC', subcontest: 'Fieldday', detail: 'CW', year: 2024, mode: 'CW', season: '' },
           { path: 'URE/EARTTY/2024/S53M.log', contest: 'URE', subcontest: 'EARTTY', year: 2024, mode: 'RTTY', season: '' },
           { path: 'CQWW/cw/2025/S53M.log', contest: 'CQWW', detail: 'cw', year: 2025, mode: 'CW', season: '' },
+          { path: 'WAE/CW/2025/S53M.log', contest: 'WAE', year: 2025, mode: 'CW', season: '' },
+          { path: 'WAE/SSB/2024/S53M.log', contest: 'WAE', year: 2024, mode: '', season: '' },
+          { path: 'WAE/RTTY/2023/S53M.log', contest: 'WAE', year: 2023, mode: 'RTTY', season: '' },
           { path: 'OK1WC_Memorial/2026-03-02/S53M.log', contest: 'OK1WC_Memorial', year: 2026, mode: '', season: 'Spring' },
           { path: 'RECONSTRUCTED_LOGS/CQWW/cw/2023/S53M.log', contest: 'CQWW', year: 2023, mode: 'CW', season: '' }
         ];
@@ -205,8 +208,21 @@
           'Reconstructed ARRL paths render under the real subcontest without an unspecified mode folder',
           dom.resultsEl.textContent.includes('10 Meter Contest')
             && !dom.resultsEl.textContent.includes('ARRL ARRL')
-            && !dom.resultsEl.textContent.includes('UNSPECIFIED'),
+            && !/\(unspecified\)/i.test(dom.resultsEl.textContent),
           dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
+        );
+        const waeCwButton = dom.resultsEl.querySelector('button[data-path="WAE/CW/2025/S53M.log"]');
+        const waeHierarchy = [];
+        for (let node = waeCwButton?.parentElement; node && node !== dom.resultsEl; node = node.parentElement) {
+          if (node.matches?.('details')) waeHierarchy.unshift(node.querySelector(':scope > summary')?.textContent.trim());
+        }
+        add(
+          'Mode-only WAE paths omit a false subcontest level and retain their mode',
+          JSON.stringify(waeHierarchy) === JSON.stringify(['WAE', '2025', 'CW'])
+            && dom.resultsEl.querySelector('button[data-path="WAE/SSB/2024/S53M.log"]')
+            && dom.resultsEl.textContent.includes('SSB')
+            && dom.resultsEl.querySelector('button[data-path="WAE/RTTY/2023/S53M.log"]'),
+          JSON.stringify({ waeHierarchy, text: dom.resultsEl.textContent.replace(/\s+/g, ' ').trim() })
         );
         add(
           '9A HRS archive paths render under their contest slug before year and mode',

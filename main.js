@@ -5796,6 +5796,10 @@
     return getAnalysisCore().computeRuleMultipliers(rule, qsos, station, pointState, assumptions, buildAnalysisResourcesPayload());
   }
 
+  function evaluateRuleFormula(rule, pointState, multState, station, assumptions) {
+    return getAnalysisCore().evaluateRuleFormula(rule, pointState, multState, station, assumptions, buildAnalysisResourcesPayload());
+  }
+
   function normalizeCountryName(value) {
     return getAnalysisCore().normalizeCountryName(value);
   }
@@ -8387,6 +8391,3086 @@ function syncEngineCompareLogForSlot(slot) {
       }
     });
 
+    const cqVhfRule = {
+      id: 'cq_vhf',
+      duplicate_policy: 'call_per_band_per_sent_grid',
+      qso_points: {
+        model: 'table_by_band',
+        band_points: { '6M': 1, '2M': 2 }
+      },
+      multipliers: {
+        model: 'single_group',
+        counting_scope: 'per_band',
+        groups: ['sent_received_grid_path4']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const cqVhfQsos = [
+      { call: 'S52AA', band: '6M', mode: 'CW', exchSent: 'JN76', exchRcvd: 'JN58', grid: 'JN58' },
+      { call: 'S53BB', band: '2M', mode: 'SSB', exchSent: 'JN76', exchRcvd: 'JN58', grid: 'JN58' },
+      { call: 'S54CC', band: '6M', mode: 'FM', exchSent: 'JN76', exchRcvd: 'JN58', grid: 'JN58' },
+      { call: 'S52AA', band: '6M', mode: 'SSB', exchSent: 'JN76', exchRcvd: 'JN58', grid: 'JN58' },
+      { call: 'S52AA', band: '6M', mode: 'CW', exchSent: 'JN77', exchRcvd: 'JN58', grid: 'JN58' }
+    ];
+    const cqVhfPoints = computeRuleQsoPoints(cqVhfRule, cqVhfQsos, makeStation(), new Set());
+    const cqVhfMults = computeRuleMultipliers(cqVhfRule, cqVhfQsos, makeStation(), cqVhfPoints, new Set());
+    checks.push({
+      name: 'CQ VHF 2026 scores bands, per-band grids, fixed duplicates, and rover grid changes',
+      passed: cqVhfPoints.qsoPointsTotal === 5
+        && cqVhfMults.total === 3
+        && cqVhfPoints.pointsByIndex.join(',') === '1,2,1,0,1'
+        && cqVhfPoints.duplicateByIndex.join(',') === 'false,false,false,true,false',
+      details: {
+        qsoPointsTotal: cqVhfPoints.qsoPointsTotal,
+        pointsByIndex: cqVhfPoints.pointsByIndex,
+        duplicateByIndex: cqVhfPoints.duplicateByIndex,
+        multiplierTotal: cqVhfMults.total,
+        groupCounts: cqVhfMults.groupCounts
+      }
+    });
+
+    const wwDigiRule = {
+      id: 'ww_digi',
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'distance_3000km_steps',
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['FT4', 'FT8']
+      },
+      multipliers: {
+        model: 'single_group',
+        counting_scope: 'per_band',
+        groups: ['grid_field2']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const wwDigiQsos = [
+      { call: 'S52AA', band: '20M', mode: 'FT4', exchRcvd: 'JN58', grid: 'JN58', distance: 0 },
+      { call: 'K1ABC', band: '20M', mode: 'FT8', exchRcvd: 'FN31', grid: 'FN31', distance: 5541 },
+      { call: 'S52AA', band: '20M', mode: 'FT8', exchRcvd: 'JN65', grid: 'JN65', distance: 800 },
+      { call: 'S52AA', band: '40M', mode: 'FT8', exchRcvd: 'JN65', grid: 'JN65', distance: 6000 },
+      { call: 'DL1AAA', band: '40M', mode: 'RTTY', exchRcvd: 'JO31', grid: 'JO31', distance: 700 }
+    ];
+    const wwDigiPoints = computeRuleQsoPoints(wwDigiRule, wwDigiQsos, makeStation(), new Set());
+    const wwDigiMults = computeRuleMultipliers(wwDigiRule, wwDigiQsos, makeStation(), wwDigiPoints, new Set());
+    checks.push({
+      name: 'WW Digi 2026 scores 3,000 km steps, once per band, and two-character fields per band',
+      passed: wwDigiPoints.qsoPointsTotal === 6
+        && wwDigiMults.total === 3
+        && wwDigiPoints.pointsByIndex.join(',') === '1,2,0,3,0'
+        && wwDigiPoints.duplicateByIndex.join(',') === 'false,false,true,false,false',
+      details: {
+        qsoPointsTotal: wwDigiPoints.qsoPointsTotal,
+        pointsByIndex: wwDigiPoints.pointsByIndex,
+        duplicateByIndex: wwDigiPoints.duplicateByIndex,
+        multiplierTotal: wwDigiMults.total,
+        groupCounts: wwDigiMults.groupCounts
+      }
+    });
+
+    const ft8DxRule = {
+      id: 'ft8_dx',
+      aliases: ['FT8-DX', 'FT8 DX', 'FT8DX'],
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'distance_3000km_steps',
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['FT8']
+      },
+      multipliers: {
+        model: 'single_group',
+        counting_scope: 'per_band',
+        groups: ['grid_field2']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const ft8DxQsos = [
+      { call: 'S52AA', band: '20M', mode: 'FT8', exchRcvd: 'JN58', grid: 'JN58', distance: 0 },
+      { call: 'K1ABC', band: '20M', mode: 'FT8', exchRcvd: 'FN31', grid: 'FN31', distance: 5541 },
+      { call: 'S52AA', band: '20M', mode: 'FT8', exchRcvd: 'JN65', grid: 'JN65', distance: 800 },
+      { call: 'S52AA', band: '40M', mode: 'FT8', exchRcvd: 'JN65', grid: 'JN65', distance: 6000 },
+      { call: 'DL1AAA', band: '40M', mode: 'FT4', exchRcvd: 'JO31', grid: 'JO31', distance: 700 },
+      { call: 'JA1AAA', band: '160M', mode: 'FT8', exchRcvd: 'PM95', grid: 'PM95', distance: 9000 }
+    ];
+    const ft8DxPoints = computeRuleQsoPoints(ft8DxRule, ft8DxQsos, makeStation(), new Set());
+    const ft8DxMults = computeRuleMultipliers(ft8DxRule, ft8DxQsos, makeStation(), ft8DxPoints, new Set());
+    checks.push({
+      name: 'FT8 DX 2026 uses distance steps, FT8-only five-band eligibility, per-band duplicates, and grid fields',
+      passed: ft8DxPoints.qsoPointsTotal === 6
+        && ft8DxMults.total === 3
+        && ft8DxPoints.pointsByIndex.join(',') === '1,2,0,3,0,0'
+        && ft8DxPoints.duplicateByIndex.join(',') === 'false,false,true,false,false,false',
+      details: {
+        qsoPointsTotal: ft8DxPoints.qsoPointsTotal,
+        pointsByIndex: ft8DxPoints.pointsByIndex,
+        duplicateByIndex: ft8DxPoints.duplicateByIndex,
+        multiplierTotal: ft8DxMults.total,
+        groupCounts: ft8DxMults.groupCounts
+      }
+    });
+
+    const ftChallengeRule = {
+      id: 'ft_challenge',
+      aliases: ['FT-CHALLENGE', 'FT CHALLENGE', 'INTERNATIONAL FT CHALLENGE'],
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'distance_3000km_steps',
+        scoring_time_policy: 'first_24_operating_hours_with_30_minute_breaks',
+        missing_grid_base_points: 1,
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['FT4', 'FT8']
+      },
+      multipliers: {
+        model: 'single_group',
+        counting_scope: 'per_band',
+        groups: ['grid_field2']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const ftChallengeStart = Date.UTC(2026, 11, 5, 18, 0, 0);
+    const ftChallengeQsos = [
+      { call: 'S52AA', band: '20M', mode: 'FT8', exchRcvd: 'JN58', grid: 'JN58', distance: 0, ts: ftChallengeStart },
+      { call: 'K1ABC', band: '20M', mode: 'FT4', exchRcvd: 'FN31', grid: 'FN31', distance: 5541, ts: ftChallengeStart + 60000 },
+      { call: 'S52AA', band: '20M', mode: 'FT4', exchRcvd: 'JN65', grid: 'JN65', distance: 800, ts: ftChallengeStart + 120000 },
+      { call: 'S52AA', band: '40M', mode: 'FT8', exchRcvd: 'JN65', grid: 'JN65', distance: 6000, ts: ftChallengeStart + 180000 },
+      { call: 'G1AAA', band: '40M', mode: 'FT8', exchRcvd: '', grid: '', distance: null, ts: ftChallengeStart + 240000 },
+      { call: 'DL1AAA', band: '40M', mode: 'RTTY', exchRcvd: 'JO31', grid: 'JO31', distance: 700, ts: ftChallengeStart + 300000 },
+      { call: 'JA1AAA', band: '160M', mode: 'FT8', exchRcvd: 'PM95', grid: 'PM95', distance: 9000, ts: ftChallengeStart + 360000 }
+    ];
+    const ftChallengePoints = computeRuleQsoPoints(ftChallengeRule, ftChallengeQsos, makeStation(), new Set());
+    const ftChallengeMults = computeRuleMultipliers(ftChallengeRule, ftChallengeQsos, makeStation(), ftChallengePoints, new Set());
+    checks.push({
+      name: 'International FT Challenge 2026 scores distance, missing grids, mode-independent band duplicates, eligible modes/bands, and grid fields',
+      passed: ftChallengePoints.qsoPointsTotal === 7
+        && ftChallengeMults.total === 3
+        && ftChallengePoints.pointsByIndex.join(',') === '1,2,0,3,1,0,0'
+        && ftChallengePoints.duplicateByIndex.join(',') === 'false,false,true,false,false,false,false',
+      details: {
+        qsoPointsTotal: ftChallengePoints.qsoPointsTotal,
+        pointsByIndex: ftChallengePoints.pointsByIndex,
+        duplicateByIndex: ftChallengePoints.duplicateByIndex,
+        multiplierTotal: ftChallengeMults.total,
+        groupCounts: ftChallengeMults.groupCounts
+      }
+    });
+    const ftChallengeTimeQsos = Array.from({ length: 52 }, (_, idx) => {
+      let minutes = idx * 29;
+      if (idx >= 50) minutes += 2;
+      if (idx >= 51) minutes -= 9;
+      return {
+        call: `T${String(idx).padStart(2, '0')}AA`, band: '20M', mode: 'FT8',
+        exchRcvd: 'JN58', grid: 'JN58', distance: 0, ts: ftChallengeStart + minutes * 60000
+      };
+    });
+    const ftChallengeTimePoints = computeRuleQsoPoints(ftChallengeRule, ftChallengeTimeQsos, makeStation(), new Set());
+    checks.push({
+      name: 'International FT Challenge counts only the first 24 operating hours and excludes 30-minute-or-longer breaks',
+      passed: ftChallengeTimePoints.qsoPointsTotal === 51
+        && ftChallengeTimePoints.pointsByIndex.slice(0, 51).every((value) => value === 1)
+        && ftChallengeTimePoints.pointsByIndex[51] === 0,
+      details: {
+        qsoPointsTotal: ftChallengeTimePoints.qsoPointsTotal,
+        finalThreePoints: ftChallengeTimePoints.pointsByIndex.slice(-3)
+      }
+    });
+
+    const jarlRttyRule = {
+      id: 'jarl_ww_rtty',
+      aliases: ['JARL-WW-RTTY', 'JARL WW RTTY', 'JARTS-WW-RTTY', 'JARTS WW RTTY'],
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'table_by_geography',
+        require_received_exchange: true,
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['RTTY', 'RY'],
+        rules: [
+          { when: 'maritime_mobile', points: 2 },
+          { when: 'same_continent', points: 2 },
+          { when: 'different_continent', points: 3 }
+        ]
+      },
+      multipliers: {
+        model: 'single_group',
+        counting_scope: 'per_band',
+        groups: ['jarl_rtty_entity_or_call_area']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const jarlRttyQsos = [
+      { call: 'JA1AAA', band: '20M', mode: 'RTTY', country: 'Japan', continent: 'AS', exchRcvd: '25' },
+      { call: 'JR4AAA/3', band: '20M', mode: 'RY', country: 'Japan', continent: 'AS', exchRcvd: '44' },
+      { call: 'K1AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '40' },
+      { call: 'W2AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '35' },
+      { call: 'JD1AAA', band: '20M', mode: 'RTTY', country: 'Ogasawara', continent: 'AS', exchRcvd: '30' },
+      { call: 'ZS1AAA/MM', band: '20M', mode: 'RTTY', country: 'South Africa', continent: 'AF', exchRcvd: '01' },
+      { call: 'S52AAA', band: '20M', mode: 'RTTY', country: 'Slovenia', continent: 'EU', exchRcvd: '50' },
+      { call: 'DL1AAA', band: '20M', mode: 'FT8', country: 'Germany', continent: 'EU', exchRcvd: '30' },
+      { call: 'F1AAA', band: '160M', mode: 'RTTY', country: 'France', continent: 'EU', exchRcvd: '45' },
+      { call: 'I1AAA', band: '20M', mode: 'RTTY', country: 'Italy', continent: 'EU', exchRcvd: '' },
+      { call: 'K1AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '40' },
+      { call: 'K1AAA', band: '40M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '40' }
+    ];
+    const jarlRttyPoints = computeRuleQsoPoints(jarlRttyRule, jarlRttyQsos, makeStation(), new Set());
+    const jarlRttyMults = computeRuleMultipliers(jarlRttyRule, jarlRttyQsos, makeStation(), jarlRttyPoints, new Set());
+    checks.push({
+      name: 'JARL WW RTTY 2026 covers geography, maritime mobile, exchanges, eligibility, portable call areas, entities, and per-band duplicates',
+      passed: jarlRttyPoints.qsoPointsTotal === 22
+        && jarlRttyMults.total === 7
+        && jarlRttyPoints.pointsByIndex.join(',') === '3,3,3,3,3,2,2,0,0,0,0,3'
+        && jarlRttyPoints.duplicateByIndex.join(',') === 'false,false,false,false,false,false,false,false,false,false,true,false'
+        && jarlRttyMults.groupCounts.jarl_rtty_entity_or_call_area === 7,
+      details: {
+        qsoPointsTotal: jarlRttyPoints.qsoPointsTotal,
+        pointsByIndex: jarlRttyPoints.pointsByIndex,
+        duplicateByIndex: jarlRttyPoints.duplicateByIndex,
+        multiplierTotal: jarlRttyMults.total,
+        multiplierCredits: jarlRttyMults.credits
+      }
+    });
+
+    const jidxCwRule = {
+      id: 'jidx_cw',
+      aliases: ['JIDX-CW', 'JIDX CW', 'JIDXCW'],
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'jidx_2025',
+        require_received_exchange: true,
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW'],
+        eligible_frequency_segments_mhz: {
+          '160M': [[1.8, 1.875], [1.9075, 1.9125]],
+          '80M': [[3.5, 3.58], [3.599, 3.612], [3.662, 3.687], [3.702, 3.716], [3.745, 3.77], [3.791, 3.805]]
+        }
+      },
+      multipliers: {
+        model: 'station_dependent_group', counting_scope: 'per_band',
+        groups: ['jidx_dxcc_for_ja', 'jidx_cq_zone_for_ja', 'jidx_prefecture_for_dx']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const jidxJaQsos = [
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '05' },
+      { call: 'K2AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '05' },
+      { call: 'F1AAA', band: '80M', mode: 'CW', freq: 3.55, country: 'France', continent: 'EU', exchRcvd: '14' },
+      { call: 'ZS1AAA/MM', band: '40M', mode: 'CW', country: 'South Africa', continent: 'AF', exchRcvd: '38' },
+      { call: 'JD1AAA', band: '20M', mode: 'CW', country: 'Ogasawara', continent: 'AS', exchRcvd: '27' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '05' },
+      { call: 'K1AAA', band: '40M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '05' },
+      { call: 'DL1AAA', band: '20M', mode: 'SSB', country: 'Germany', continent: 'EU', exchRcvd: '14' },
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: '99' },
+      { call: 'G1AAA', band: '80M', mode: 'CW', freq: 3.59, country: 'England', continent: 'EU', exchRcvd: '14' }
+    ];
+    const jidxJaStation = makeStation({
+      stationCall: 'JA1TEST', stationCountry: 'Japan', stationCountryKey: normalizeCountryName('Japan'),
+      stationContinent: 'AS', stationCqZone: 25, stationItuZone: 45, stationIsEu: false, stationIsJa: true, stationIsMaritime: false
+    });
+    const jidxJaPoints = computeRuleQsoPoints(jidxCwRule, jidxJaQsos, jidxJaStation, new Set());
+    const jidxJaMults = computeRuleMultipliers(jidxCwRule, jidxJaQsos, jidxJaStation, jidxJaPoints, new Set());
+    const jidxDxQsos = [
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '10' },
+      { call: 'JA2AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '11' },
+      { call: 'JD1AAA', band: '20M', mode: 'CW', country: 'Ogasawara', continent: 'AS', exchRcvd: '48' },
+      { call: 'JS6AAA', band: '80M', mode: 'CW', freq: 3.55, country: 'Japan', continent: 'AS', exchRcvd: '47' },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: '14' },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '10' },
+      { call: 'JA1AAA', band: '40M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '10' },
+      { call: 'JA3AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '51' },
+      { call: 'JA4AAA', band: '20M', mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: '22' }
+    ];
+    const jidxDxPoints = computeRuleQsoPoints(jidxCwRule, jidxDxQsos, makeStation({ stationIsJa: false, stationIsMaritime: false }), new Set());
+    const jidxDxMults = computeRuleMultipliers(jidxCwRule, jidxDxQsos, makeStation({ stationIsJa: false, stationIsMaritime: false }), jidxDxPoints, new Set());
+    checks.push({
+      name: 'JIDX CW 2026 covers reciprocal JA/DX points, band weights, exchanges, frequency segments, duplicates, and entrant-dependent multipliers',
+      passed: jidxJaPoints.qsoPointsTotal === 6
+        && jidxJaMults.total === 7
+        && jidxJaPoints.pointsByIndex.join(',') === '1,1,2,1,0,0,1,0,0,0'
+        && jidxDxPoints.qsoPointsTotal === 6
+        && jidxDxMults.total === 5
+        && jidxDxPoints.pointsByIndex.join(',') === '1,1,1,2,0,0,1,0,0',
+      details: {
+        jaEntrant: { points: jidxJaPoints.pointsByIndex, multipliers: jidxJaMults.groupCounts },
+        dxEntrant: { points: jidxDxPoints.pointsByIndex, multipliers: jidxDxMults.groupCounts }
+      }
+    });
+    const jidxSsbRule = Object.assign({}, jidxCwRule, {
+      id: 'jidx_ssb', aliases: ['JIDX-SSB', 'JIDX SSB', 'JIDX-PH', 'JIDX PHONE', 'JIDXSSB'],
+      qso_points: Object.assign({}, jidxCwRule.qso_points, { eligible_modes: ['SSB', 'PH', 'PHONE', 'USB', 'LSB'] })
+    });
+    const jidxSsbPoints = computeRuleQsoPoints(jidxSsbRule, [
+      { call: 'JA1AAA', band: '10M', mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: '10' },
+      { call: 'JA2AAA', band: '10M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '11' }
+    ], makeStation({ stationIsJa: false, stationIsMaritime: false }), new Set());
+    checks.push({
+      name: 'JIDX phone rule accepts phone modes and rejects CW while retaining official band weight',
+      passed: jidxSsbPoints.pointsByIndex.join(',') === '2,0',
+      details: { points: jidxSsbPoints.pointsByIndex }
+    });
+
+    const igRyRule = {
+      id: 'ig_ry_ww_rtty',
+      aliases: ['IG-RY', 'IG-RTTY', 'IG-RY-WW-RTTY', 'IG-RY WW RTTY', 'IG-WW-RY'],
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'fixed',
+        scoring_time_policy: 'single_op_first_24_operating_hours_with_60_minute_breaks',
+        require_received_exchange: true,
+        required_received_exchange_pattern: '^(19|20)\\d{2}$',
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['RTTY', 'RY'],
+        rules: [{ points: 1 }]
+      },
+      multipliers: {
+        model: 'single_group', counting_scope: 'per_band', groups: ['unique_year_number_exchange']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const igRyStart = Date.UTC(2026, 3, 11, 12, 0, 0);
+    const igRyQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'RTTY', exchRcvd: '1990', ts: igRyStart },
+      { call: 'F1AAA', band: '20M', mode: 'RY', exchRcvd: '2000', ts: igRyStart + 60000 },
+      { call: 'DL1AAA', band: '20M', mode: 'RY', exchRcvd: '1990', ts: igRyStart + 120000 },
+      { call: 'DL1AAA', band: '40M', mode: 'RTTY', exchRcvd: '1990', ts: igRyStart + 180000 },
+      { call: 'I1AAA', band: '20M', mode: 'FT8', exchRcvd: '1980', ts: igRyStart + 240000 },
+      { call: 'G1AAA', band: '20M', mode: 'RTTY', exchRcvd: '90', ts: igRyStart + 300000 },
+      { call: 'JA1AAA', band: '160M', mode: 'RTTY', exchRcvd: '1975', ts: igRyStart + 360000 }
+    ];
+    const igRySingleStation = makeStation({ stationIsMultiOperator: false, stationOperatorCategory: 'SINGLE-OP' });
+    const igRyPoints = computeRuleQsoPoints(igRyRule, igRyQsos, igRySingleStation, new Set());
+    const igRyMults = computeRuleMultipliers(igRyRule, igRyQsos, igRySingleStation, igRyPoints, new Set());
+    checks.push({
+      name: 'IG-RY WW RTTY 2026 validates license years, RTTY/five-band eligibility, per-band duplicates, and per-band year multipliers',
+      passed: igRyPoints.qsoPointsTotal === 3
+        && igRyMults.total === 3
+        && igRyPoints.pointsByIndex.join(',') === '1,1,0,1,0,0,0'
+        && igRyPoints.duplicateByIndex.join(',') === 'false,false,true,false,false,false,false',
+      details: {
+        points: igRyPoints.pointsByIndex,
+        duplicates: igRyPoints.duplicateByIndex,
+        multipliers: igRyMults.groupCounts
+      }
+    });
+    const igRyTimeQsos = Array.from({ length: 27 }, (_, idx) => {
+      let minutes = idx * 59;
+      if (idx === 25) minutes = (24 * 59) + 61;
+      if (idx === 26) minutes = (24 * 59) + 91;
+      return { call: `Y${String(idx).padStart(2, '0')}AA`, band: '20M', mode: 'RTTY', exchRcvd: '1990', ts: igRyStart + minutes * 60000 };
+    });
+    const igRySingleTimePoints = computeRuleQsoPoints(igRyRule, igRyTimeQsos, igRySingleStation, new Set());
+    const igRyMultiTimePoints = computeRuleQsoPoints(
+      igRyRule, igRyTimeQsos, makeStation({ stationIsMultiOperator: true, stationOperatorCategory: 'MULTI-OP' }), new Set()
+    );
+    checks.push({
+      name: 'IG-RY applies 24 operating hours with 60-minute breaks only to single operators',
+      passed: igRySingleTimePoints.qsoPointsTotal === 26
+        && igRySingleTimePoints.pointsByIndex[25] === 1
+        && igRySingleTimePoints.pointsByIndex[26] === 0
+        && igRyMultiTimePoints.qsoPointsTotal === 27,
+      details: {
+        singleTotal: igRySingleTimePoints.qsoPointsTotal,
+        singleFinalTwo: igRySingleTimePoints.pointsByIndex.slice(-2),
+        multiTotal: igRyMultiTimePoints.qsoPointsTotal
+      }
+    });
+
+    const oceaniaCwRule = {
+      id: 'oceania_dx_cw',
+      aliases: ['OCEANIA-DX-CW', 'OCEANIA DX CW', 'OCDX-CW', 'OCDX CW'],
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'oceania_dx_2026',
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW']
+      },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['wpx_prefix'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const oceaniaDxQsos = [
+      { call: 'VK3AAA', band: '20M', mode: 'CW', country: 'Australia', continent: 'OC', wpxPrefix: 'VK3' },
+      { call: 'ZL1AAA', band: '80M', mode: 'CW', country: 'New Zealand', continent: 'OC', wpxPrefix: 'ZL1' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', wpxPrefix: 'K1' },
+      { call: 'VK3AAA', band: '20M', mode: 'CW', country: 'Australia', continent: 'OC', wpxPrefix: 'VK3' },
+      { call: 'VK3AAA', band: '40M', mode: 'CW', country: 'Australia', continent: 'OC', wpxPrefix: 'VK3' },
+      { call: 'VK/JA1YRL', band: '20M', mode: 'CW', country: 'Australia', continent: 'OC' },
+      { call: 'VK4AAA', band: '15M', mode: 'SSB', country: 'Australia', continent: 'OC', wpxPrefix: 'VK4' }
+    ];
+    const oceaniaDxPoints = computeRuleQsoPoints(oceaniaCwRule, oceaniaDxQsos, makeStation({ stationIsOceania: false }), new Set());
+    const oceaniaDxMults = computeRuleMultipliers(
+      oceaniaCwRule, oceaniaDxQsos, makeStation({ stationIsOceania: false }), oceaniaDxPoints, new Set()
+    );
+    const oceaniaEntrantQsos = [
+      { call: 'K1AAA', band: '160M', mode: 'CW', country: 'United States', continent: 'NA', wpxPrefix: 'K1' },
+      { call: 'DL1AAA', band: '10M', mode: 'CW', country: 'Germany', continent: 'EU', wpxPrefix: 'DL1' },
+      { call: 'VK3AAA', band: '20M', mode: 'CW', country: 'Australia', continent: 'OC', wpxPrefix: 'VK3' },
+      { call: 'K1AAA', band: '160M', mode: 'CW', country: 'United States', continent: 'NA', wpxPrefix: 'K1' },
+      { call: 'F1AAA', band: '15M', mode: 'SSB', country: 'France', continent: 'EU', wpxPrefix: 'F1' }
+    ];
+    const oceaniaStation = makeStation({
+      stationCall: 'VK2TEST', stationCountry: 'Australia', stationCountryKey: normalizeCountryName('Australia'),
+      stationContinent: 'OC', stationIsEu: false, stationIsOceania: true
+    });
+    const oceaniaEntrantPoints = computeRuleQsoPoints(oceaniaCwRule, oceaniaEntrantQsos, oceaniaStation, new Set());
+    const oceaniaEntrantMults = computeRuleMultipliers(oceaniaCwRule, oceaniaEntrantQsos, oceaniaStation, oceaniaEntrantPoints, new Set());
+    checks.push({
+      name: 'Oceania DX CW 2026 covers reciprocal eligibility, all band weights, portable prefixes, per-band multipliers, duplicates, and mode exclusion',
+      passed: oceaniaDxPoints.qsoPointsTotal === 17
+        && oceaniaDxMults.total === 4
+        && oceaniaDxPoints.pointsByIndex.join(',') === '1,10,0,0,5,1,0'
+        && oceaniaEntrantPoints.qsoPointsTotal === 24
+        && oceaniaEntrantMults.total === 3
+        && oceaniaEntrantPoints.pointsByIndex.join(',') === '20,3,1,0,0',
+      details: {
+        dxEntrant: { points: oceaniaDxPoints.pointsByIndex, multipliers: oceaniaDxMults.credits },
+        oceaniaEntrant: { points: oceaniaEntrantPoints.pointsByIndex, multipliers: oceaniaEntrantMults.groupCounts }
+      }
+    });
+    const oceaniaSsbRule = Object.assign({}, oceaniaCwRule, {
+      id: 'oceania_dx_ssb',
+      aliases: ['OCEANIA-DX-SSB', 'OCEANIA DX SSB', 'OCEANIA-DX-PH', 'OCDX-SSB', 'OCDX PHONE'],
+      qso_points: Object.assign({}, oceaniaCwRule.qso_points, { eligible_modes: ['SSB', 'PH', 'PHONE', 'USB', 'LSB'] })
+    });
+    const oceaniaSsbQsos = [
+      { call: 'ZL1AAA', band: '15M', mode: 'SSB', country: 'New Zealand', continent: 'OC', wpxPrefix: 'ZL1' },
+      { call: 'VK3AAA', band: '15M', mode: 'CW', country: 'Australia', continent: 'OC', wpxPrefix: 'VK3' }
+    ];
+    const oceaniaSsbPoints = computeRuleQsoPoints(oceaniaSsbRule, oceaniaSsbQsos, makeStation({ stationIsOceania: false }), new Set());
+    checks.push({
+      name: 'Oceania DX phone rule accepts phone and rejects CW with the official band weight',
+      passed: oceaniaSsbPoints.pointsByIndex.join(',') === '2,0',
+      details: { points: oceaniaSsbPoints.pointsByIndex }
+    });
+
+    const gacwRule = {
+      id: 'gacw_wwsa_legacy',
+      aliases: ['GACW', 'WWSA', 'WWSA-CW', 'WWSA CW'],
+      duplicate_policy: 'none',
+      qso_points: {
+        model: 'gacw_wwsa_recovered',
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW']
+      },
+      multipliers: {
+        model: 'sum_of_groups', counting_scope: 'per_band', credit_on_zero_point_valid_qso: true,
+        groups: ['gacw_cq_zone', 'gacw_dxcc_entity']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const gacwQsos = [
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '15' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '14' },
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '05' },
+      { call: 'PY2AAA', band: '20M', mode: 'CW', country: 'Brazil', continent: 'SA', exchRcvd: '11' },
+      { call: 'PY2BBB', band: '40M', mode: 'CW', country: 'Brazil', continent: 'SA', exchRcvd: '11' },
+      { call: 'PY2CCC/M', band: '40M', mode: 'CW', country: 'Brazil', continent: 'SA', exchRcvd: '11' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '14' },
+      { call: 'VK3AAA', band: '20M', mode: 'SSB', country: 'Australia', continent: 'OC', exchRcvd: '30' },
+      { call: 'JA1AAA', band: '6M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '25' }
+    ];
+    const gacwStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'),
+      stationContinent: 'EU'
+    });
+    const gacwPoints = computeRuleQsoPoints(gacwRule, gacwQsos, gacwStation, new Set());
+    const gacwMults = computeRuleMultipliers(gacwRule, gacwQsos, gacwStation, gacwPoints, new Set());
+    checks.push({
+      name: 'GACW legacy scorer matches fixture-backed geography, zero-point multiplier, per-band, mobile, no-dupe, and eligibility behavior',
+      passed: gacwPoints.qsoPointsTotal === 20
+        && gacwMults.total === 10
+        && gacwPoints.pointsByIndex.join(',') === '0,1,3,5,5,5,1,0,0'
+        && gacwPoints.duplicateByIndex.every((value) => value === false)
+        && gacwMults.bandMultiplierCounts['20M'] === 8
+        && gacwMults.bandMultiplierCounts['40M'] === 2,
+      details: {
+        points: gacwPoints.pointsByIndex,
+        duplicates: gacwPoints.duplicateByIndex,
+        multipliers: gacwMults.groupCounts,
+        byBand: gacwMults.bandMultiplierCounts
+      }
+    });
+
+    const haDxRule = {
+      id: 'ha_dx_2026',
+      aliases: ['HA-DX', 'HA DX', 'HADX'],
+      duplicate_policy: 'call_per_band_category_mode',
+      qso_points: {
+        model: 'ha_dx_2026', require_received_exchange: true,
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW', 'SSB', 'PH', 'PHONE', 'USB', 'LSB']
+      },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['ha_dx_county_or_country'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const haDxQsos = [
+      { call: 'HA5AAA', band: '20M', mode: 'CW', country: 'Hungary', continent: 'EU', exchRcvd: 'ZA' },
+      { call: 'HA5AAA', band: '20M', mode: 'SSB', country: 'Hungary', continent: 'EU', exchRcvd: 'ZA' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001' },
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002' },
+      { call: 'ZS1AAA/MM', band: '20M', mode: 'CW', country: 'South Africa', continent: 'AF', exchRcvd: '003' },
+      { call: 'HG5BBB', band: '20M', mode: 'CW', country: 'Hungary', continent: 'EU', exchRcvd: 'XX' },
+      { call: 'HA6AAA', band: '40M', mode: 'SSB', country: 'Hungary', continent: 'EU', exchRcvd: 'GY' },
+      { call: 'F1AAA', band: '20M', mode: 'RTTY', country: 'France', continent: 'EU', exchRcvd: '004' },
+      { call: 'JA1AAA', band: '6M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '005' },
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: '' }
+    ];
+    const haDxStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'),
+      stationContinent: 'EU', stationCategoryMode: 'CW'
+    });
+    const haDxPoints = computeRuleQsoPoints(haDxRule, haDxQsos, haDxStation, new Set());
+    const haDxMults = computeRuleMultipliers(haDxRule, haDxQsos, haDxStation, haDxPoints, new Set());
+    const haDxMixedQsos = [
+      { call: 'HA5AAA', band: '20M', mode: 'CW', country: 'Hungary', continent: 'EU', exchRcvd: 'ZA' },
+      { call: 'HA5AAA', band: '20M', mode: 'SSB', country: 'Hungary', continent: 'EU', exchRcvd: 'ZA' },
+      { call: 'HA5AAA', band: '20M', mode: 'CW', country: 'Hungary', continent: 'EU', exchRcvd: 'ZA' }
+    ];
+    const haDxMixedStation = makeStation(Object.assign({}, haDxStation, { stationCategoryMode: 'MIXED' }));
+    const haDxMixedPoints = computeRuleQsoPoints(haDxRule, haDxMixedQsos, haDxMixedStation, new Set());
+    const haDxMixedMults = computeRuleMultipliers(haDxRule, haDxMixedQsos, haDxMixedStation, haDxMixedPoints, new Set());
+    checks.push({
+      name: 'HA-DX 2026 covers official geography/mobile points, exchanges, counties/countries, modes/bands, and category-dependent duplicates',
+      passed: haDxPoints.qsoPointsTotal === 39
+        && haDxMults.total === 4
+        && haDxPoints.pointsByIndex.join(',') === '10,0,2,5,2,10,10,0,0,0'
+        && haDxPoints.duplicateByIndex.join(',') === 'false,true,false,false,false,false,false,false,false,false'
+        && haDxMults.bandMultiplierCounts['20M'] === 3
+        && haDxMults.bandMultiplierCounts['40M'] === 1
+        && haDxMixedPoints.qsoPointsTotal === 20
+        && haDxMixedPoints.duplicateByIndex.join(',') === 'false,false,true'
+        && haDxMixedMults.total === 1,
+      details: {
+        singleMode: { points: haDxPoints.pointsByIndex, duplicates: haDxPoints.duplicateByIndex, multipliers: haDxMults.credits },
+        mixed: { points: haDxMixedPoints.pointsByIndex, duplicates: haDxMixedPoints.duplicateByIndex, multipliers: haDxMixedMults.groupCounts }
+      }
+    });
+
+    const helvetiaRule = {
+      id: 'helvetia_2026',
+      aliases: ['HELVETIA', 'HELVETIA-CONTEST', 'HELVETIA CONTEST'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'helvetia_2026',
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW', 'SSB', 'PH', 'PHONE', 'USB', 'LSB', 'RTTY', 'RY', 'PSK31', 'PSK63', 'FT4', 'FT8', 'DG']
+      },
+      multipliers: {
+        model: 'sum_of_groups', counting_scope: 'per_band',
+        groups: ['helvetia_canton', 'helvetia_dxcc_country']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const helvetiaQsos = [
+      { call: 'HB9AAA', band: '20M', mode: 'CW', country: 'Switzerland', continent: 'EU', exchRcvd: 'AG' },
+      { call: 'HB9AAA', band: '20M', mode: 'SSB', country: 'Switzerland', continent: 'EU', exchRcvd: 'AG' },
+      { call: 'HB9AAA', band: '20M', mode: 'FT8', country: 'Switzerland', continent: 'EU', exchRcvd: 'AG' },
+      { call: 'HB9AAA', band: '20M', mode: 'RTTY', country: 'Switzerland', continent: 'EU', exchRcvd: 'AG' },
+      { call: 'HB9BBB', band: '20M', mode: 'CW', country: 'Switzerland', continent: 'EU', exchRcvd: 'XX' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001' },
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002' },
+      { call: 'HB0AAA', band: '20M', mode: 'CW', country: 'Liechtenstein', continent: 'EU', exchRcvd: '003' },
+      { call: 'HE9AAA', band: '40M', mode: 'PSK31', country: 'Switzerland', continent: 'EU', exchRcvd: 'VD' },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: '02' },
+      { call: 'JA1AAA', band: '6M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '004' },
+      { call: 'I1AAA', band: '20M', mode: 'SSTV', country: 'Italy', continent: 'EU', exchRcvd: '005' }
+    ];
+    const helvetiaStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU'
+    });
+    const helvetiaPoints = computeRuleQsoPoints(helvetiaRule, helvetiaQsos, helvetiaStation, new Set());
+    const helvetiaMults = computeRuleMultipliers(helvetiaRule, helvetiaQsos, helvetiaStation, helvetiaPoints, new Set());
+    checks.push({
+      name: 'Helvetia 2026 covers exchanges, all point branches, dual Swiss multipliers, digital grouping, per-band scope, and eligibility',
+      passed: helvetiaPoints.qsoPointsTotal === 45
+        && helvetiaMults.total === 7
+        && helvetiaPoints.pointsByIndex.join(',') === '10,10,10,0,0,1,3,1,10,0,0,0'
+        && helvetiaPoints.duplicateByIndex.join(',') === 'false,false,false,true,false,false,false,false,false,false,false,false'
+        && helvetiaMults.bandMultiplierCounts['20M'] === 5
+        && helvetiaMults.bandMultiplierCounts['40M'] === 2
+        && helvetiaMults.groupCounts.helvetia_canton === 2
+        && helvetiaMults.groupCounts.helvetia_dxcc_country === 5,
+      details: {
+        points: helvetiaPoints.pointsByIndex,
+        duplicates: helvetiaPoints.duplicateByIndex,
+        multipliers: helvetiaMults.credits,
+        byBand: helvetiaMults.bandMultiplierCounts
+      }
+    });
+
+    const holylandRule = {
+      id: 'holyland_2025',
+      aliases: ['HOLYLAND', 'HOLYLAND-DX', 'HOLYLAND DX', 'WWHC'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'holyland_2025',
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW', 'SSB', 'PH', 'PHONE', 'USB', 'LSB']
+      },
+      multipliers: {
+        model: 'sum_of_groups', counting_scope: 'per_band',
+        groups: ['holyland_area', 'holyland_dxcc_country']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const holylandQsos = [
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '001' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '002' },
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '003' },
+      { call: '4X1AAA', band: '20M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H08HF' },
+      { call: '4Z1BBB', band: '20M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H08HF' },
+      { call: '4X2AAA', band: '20M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H09HF' },
+      { call: '4X1AAA', band: '20M', mode: 'SSB', country: 'Israel', continent: 'AS', exchRcvd: 'H08HF' },
+      { call: '4X1AAA', band: '20M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H08HF' },
+      { call: 'ZS1AAA/MM', band: '20M', mode: 'CW', country: 'South Africa', continent: 'AF', exchRcvd: '004' },
+      { call: '4X3AAA', band: '20M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'BAD' },
+      { call: '4X4AAA', band: '160M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H10TA' },
+      { call: '4X5AAA', band: '20M', mode: 'FT8', country: 'Israel', continent: 'AS', exchRcvd: 'H11TA' },
+      { call: '4X6AAA', band: '40M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H08HF' },
+      { call: '4X1AAA/1', band: '20M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H10TA' },
+      { call: '4X1AAA/2', band: '20M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H11TA' }
+    ];
+    const holylandStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU'
+    });
+    const holylandPoints = computeRuleQsoPoints(holylandRule, holylandQsos, holylandStation, new Set());
+    const holylandMults = computeRuleMultipliers(holylandRule, holylandQsos, holylandStation, holylandPoints, new Set());
+    const holylandIsraeliQsos = [
+      { call: '4Z1BBB', band: '20M', mode: 'CW', country: 'Israel', continent: 'AS', exchRcvd: 'H08HF' },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '001' },
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '002' },
+      { call: 'W1AAA/MM', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '003' }
+    ];
+    const holylandIsraeliStation = makeStation({
+      stationCall: '4X1TEST', stationCountry: 'Israel', stationCountryKey: normalizeCountryName('Israel'), stationContinent: 'AS'
+    });
+    const holylandIsraeliPoints = computeRuleQsoPoints(holylandRule, holylandIsraeliQsos, holylandIsraeliStation, new Set());
+    const holylandIsraeliMults = computeRuleMultipliers(
+      holylandRule, holylandIsraeliQsos, holylandIsraeliStation, holylandIsraeliPoints, new Set()
+    );
+    checks.push({
+      name: 'Holyland official scoring covers both entrant branches, exchanges, /MM, mobile areas, per-mode duplicates, eligibility, and per-band multipliers',
+      passed: holylandPoints.qsoPointsTotal === 67
+        && holylandMults.total === 10
+        && holylandPoints.pointsByIndex.join(',') === '1,2,4,8,8,8,8,0,4,0,0,0,8,8,8'
+        && holylandPoints.duplicateByIndex[7] === true
+        && holylandMults.bandMultiplierCounts['20M'] === 8
+        && holylandMults.bandMultiplierCounts['40M'] === 2
+        && holylandIsraeliPoints.pointsByIndex.join(',') === '1,2,8,4'
+        && holylandIsraeliPoints.qsoPointsTotal === 15
+        && holylandIsraeliMults.total === 4,
+      details: {
+        outside: { points: holylandPoints.pointsByIndex, duplicates: holylandPoints.duplicateByIndex, multipliers: holylandMults.credits },
+        israeli: { points: holylandIsraeliPoints.pointsByIndex, multipliers: holylandIsraeliMults.groupCounts }
+      }
+    });
+
+    const naqpCwRule = {
+      id: 'naqp_cw_2026', aliases: ['NAQP-CW', 'NAQP CW'], duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'naqp_2026', scoring_time_policy: 'single_op_first_10_operating_hours_with_31_minute_qso_gaps',
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'], eligible_modes: ['CW']
+      },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['naqp_location'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const naqpEventStart = Date.UTC(2026, 0, 10, 18, 0, 0);
+    const naqpQsos = [
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'AL CT' },
+      { call: 'W2AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'BOB MD' },
+      { call: 'W3AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'CAL DC' },
+      { call: 'KH6AAA', band: '20M', mode: 'CW', country: 'Hawaii', continent: 'OC', exchRcvd: 'DAN HI' },
+      { call: 'VE3AAA', band: '20M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'ED ON' },
+      { call: 'XE1AAA', band: '20M', mode: 'CW', country: 'Mexico', continent: 'NA', exchRcvd: 'FRED MEX' },
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: 'GREG' },
+      { call: 'W4AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'AL' },
+      { call: 'W5AAA/MM', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'HAL TX' },
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'AL CT' },
+      { call: 'W1AAA', band: '40M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'AL CT' }
+    ];
+    naqpQsos.forEach((qso, idx) => { qso.ts = naqpEventStart + idx * 60000; });
+    const naqpDxStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'),
+      stationContinent: 'EU', stationIsNaqpNa: false, stationCategoryPower: 'LOW', stationIsMultiOperator: false
+    });
+    const naqpPoints = computeRuleQsoPoints(naqpCwRule, naqpQsos, naqpDxStation, new Set());
+    const naqpMults = computeRuleMultipliers(naqpCwRule, naqpQsos, naqpDxStation, naqpPoints, new Set());
+    checks.push({
+      name: 'NAQP 2026 covers NA eligibility, complete exchanges, MD/DC/Hawaii, states/provinces/entities, /MM, duplicates, and per-band scope',
+      passed: naqpPoints.qsoPointsTotal === 8
+        && naqpMults.total === 7
+        && naqpPoints.pointsByIndex.join(',') === '1,1,1,1,1,1,0,0,1,0,1'
+        && naqpPoints.duplicateByIndex[9] === true
+        && naqpMults.bandMultiplierCounts['20M'] === 6
+        && naqpMults.bandMultiplierCounts['40M'] === 1
+        && naqpMults.credits.some((credit) => credit.exchangeValue === 'MD')
+        && naqpMults.credits.some((credit) => credit.exchangeValue === 'DC'),
+      details: { points: naqpPoints.pointsByIndex, duplicates: naqpPoints.duplicateByIndex, multipliers: naqpMults.credits }
+    });
+
+    const naqpStart = naqpEventStart;
+    const naqpTimeQsos = Array.from({ length: 23 }, (_, idx) => {
+      let minutes = idx * 30;
+      if (idx >= 20) minutes += 1;
+      return {
+        call: `K${idx + 1}AAA`, band: '20M', mode: 'CW', country: 'United States', continent: 'NA',
+        exchRcvd: `OP${idx} CT`, ts: naqpStart + minutes * 60000
+      };
+    });
+    const naqpTimePoints = computeRuleQsoPoints(naqpCwRule, naqpTimeQsos, naqpDxStation, new Set());
+    checks.push({
+      name: 'NAQP single operators score ten operating hours and treat a 31-minute QSO gap as qualifying off-time',
+      passed: naqpTimePoints.qsoPointsTotal === 22
+        && naqpTimePoints.pointsByIndex.slice(0, 22).every((value) => value === 1)
+        && naqpTimePoints.pointsByIndex[22] === 0,
+      details: { total: naqpTimePoints.qsoPointsTotal, finalFour: naqpTimePoints.pointsByIndex.slice(-4) }
+    });
+
+    const naqpM2Station = makeStation(Object.assign({}, naqpDxStation, {
+      stationOperatorCategory: 'MULTI-OP', stationIsMultiOperator: true
+    }));
+    const naqpM2Qsos = [
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'AL CT', ts: naqpStart, raw: { TX_ID: '0' } },
+      { call: 'W2AAA', band: '40M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'BOB MD', ts: naqpStart + 5 * 60000, raw: { TX_ID: '0' } },
+      { call: 'W3AAA', band: '40M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'CAL DC', ts: naqpStart + 10 * 60000, raw: { TX_ID: '0' } },
+      { call: 'VE3AAA', band: '15M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'ED ON', ts: naqpStart, raw: { TX_ID: '1' } }
+    ];
+    const naqpM2Points = computeRuleQsoPoints(naqpCwRule, naqpM2Qsos, naqpM2Station, new Set());
+    const naqpHighPoints = computeRuleQsoPoints(
+      naqpCwRule, [naqpM2Qsos[0]], makeStation(Object.assign({}, naqpDxStation, { stationCategoryPower: 'HIGH' })), new Set()
+    );
+    checks.push({
+      name: 'NAQP M2 enforces transmitter-specific ten-minute band locks and high-power entries score as checklogs',
+      passed: naqpM2Points.pointsByIndex.join(',') === '1,0,1,1' && naqpHighPoints.qsoPointsTotal === 0,
+      details: { m2: naqpM2Points.pointsByIndex, highPower: naqpHighPoints.pointsByIndex }
+    });
+
+    const naqpSsbRule = Object.assign({}, naqpCwRule, {
+      id: 'naqp_ssb_2026', aliases: ['NAQP-SSB', 'NAQP SSB', 'NAQP-PH', 'NAQP PHONE'],
+      qso_points: Object.assign({}, naqpCwRule.qso_points, { eligible_modes: ['SSB', 'PH', 'PHONE', 'USB', 'LSB'] })
+    });
+    const naqpRttyRule = Object.assign({}, naqpCwRule, {
+      id: 'naqp_rtty_2026', aliases: ['NAQP-RTTY', 'NAQP RTTY'],
+      qso_points: Object.assign({}, naqpCwRule.qso_points, {
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'], eligible_modes: ['RTTY', 'RY']
+      })
+    });
+    const naqpSsbPoints = computeRuleQsoPoints(naqpSsbRule, [
+      { call: 'W1AAA', band: '160M', mode: 'SSB', country: 'United States', continent: 'NA', exchRcvd: 'AL CT', ts: naqpEventStart },
+      { call: 'W2AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'BOB MD', ts: naqpEventStart + 60000 }
+    ], naqpDxStation, new Set());
+    const naqpRttyPoints = computeRuleQsoPoints(naqpRttyRule, [
+      { call: 'W1AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: 'AL CT', ts: naqpEventStart },
+      { call: 'W2AAA', band: '160M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: 'BOB MD', ts: naqpEventStart + 60000 },
+      { call: 'W3AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'CAL DC', ts: naqpEventStart + 120000 }
+    ], naqpDxStation, new Set());
+    checks.push({
+      name: 'NAQP mode-specific rules separate CW, phone, and RTTY and exclude 160 metres only for RTTY',
+      passed: naqpSsbPoints.pointsByIndex.join(',') === '1,0' && naqpRttyPoints.pointsByIndex.join(',') === '1,0,0',
+      details: { ssb: naqpSsbPoints.pointsByIndex, rtty: naqpRttyPoints.pointsByIndex }
+    });
+
+    const racRule = {
+      id: 'rac_canada_2026',
+      aliases: ['RAC-CANADA-DAY', 'RAC CANADA DAY', 'CANADA-DAY', 'CANADA DAY', 'RAC-CANADA-WINTER', 'RAC CANADA WINTER', 'CANADA-WINTER', 'CANADA WINTER'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'rac_canada_2026',
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M', '6M', '2M'],
+        eligible_modes: ['CW', 'SSB', 'PH', 'PHONE', 'USB', 'LSB', 'AM', 'FM']
+      },
+      multipliers: {
+        model: 'single_group', counting_scope: 'per_band_per_mode', minimum_total: 1,
+        groups: ['rac_canadian_province']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const racQsos = [
+      { call: 'VA3RAC', band: '20M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'ON' },
+      { call: 'VE3AAA', band: '20M', mode: 'PH', country: 'Canada', continent: 'NA', exchRcvd: 'ON' },
+      { call: 'VE3BBB', band: '20M', mode: 'FM', country: 'Canada', continent: 'NA', exchRcvd: 'ON' },
+      { call: 'VE3AAA', band: '20M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'ON' },
+      { call: 'VE3AAA', band: '20M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'ON' },
+      { call: 'VE3AAA', band: '40M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'ON' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001' },
+      { call: 'VE3CCC', band: '20M', mode: 'PH', country: 'Canada', continent: 'NA', exchRcvd: 'XX' },
+      { call: 'VO1RAC', band: '20M', mode: 'PH', country: 'Canada', continent: 'NA', exchRcvd: 'NL' },
+      { call: 'VE0AAA', band: '20M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: '005' },
+      { call: 'VE6AAA', band: '6M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'AB' },
+      { call: 'VE7AAA', band: '2M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'BC' },
+      { call: 'VE5AAA', band: '20M', mode: 'FT8', country: 'Canada', continent: 'NA', exchRcvd: 'SK' }
+    ];
+    const racStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'),
+      stationContinent: 'EU', stationIsMultiOperator: false, stationCategoryTransmitter: 'ONE'
+    });
+    const racPoints = computeRuleQsoPoints(racRule, racQsos, racStation, new Set());
+    const racMults = computeRuleMultipliers(racRule, racQsos, racStation, racPoints, new Set());
+    checks.push({
+      name: 'RAC 2026 covers official/Canadian/VE0/DX points, exchanges, CW/phone duplicates, eight bands, and per-band-per-mode provinces',
+      passed: racPoints.qsoPointsTotal === 112
+        && racMults.total === 6
+        && racPoints.pointsByIndex.join(',') === '20,10,10,10,0,10,2,0,20,10,10,10,0'
+        && racPoints.duplicateByIndex[4] === true
+        && racMults.groupCounts.rac_canadian_province === 6
+        && racMults.modeCounts.CW === 4
+        && racMults.modeCounts.SSB === 2,
+      details: { points: racPoints.pointsByIndex, duplicates: racPoints.duplicateByIndex, multipliers: racMults.credits }
+    });
+
+    const racDxOnlyQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001' }
+    ];
+    const racDxOnlyPoints = computeRuleQsoPoints(racRule, racDxOnlyQsos, racStation, new Set());
+    const racDxOnlyMults = computeRuleMultipliers(racRule, racDxOnlyQsos, racStation, racDxOnlyPoints, new Set());
+    checks.push({
+      name: 'RAC applies the official minimum multiplier of one when no Canadian region is worked',
+      passed: racDxOnlyPoints.qsoPointsTotal === 2 && racDxOnlyMults.rawTotal === 0 && racDxOnlyMults.total === 1,
+      details: { points: racDxOnlyPoints.qsoPointsTotal, rawMultipliers: racDxOnlyMults.rawTotal, effectiveMultipliers: racDxOnlyMults.total }
+    });
+
+    const racStart = Date.UTC(2026, 6, 1, 0, 0, 0);
+    const racMostStation = makeStation(Object.assign({}, racStation, {
+      stationOperatorCategory: 'MULTI-OP', stationIsMultiOperator: true, stationCategoryTransmitter: 'ONE'
+    }));
+    const racMostQsos = [
+      { call: 'VE3AAA', band: '20M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'ON', ts: racStart, raw: { TX_ID: '0' } },
+      { call: 'VE6AAA', band: '40M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'AB', ts: racStart + 5 * 60000, raw: { TX_ID: '0' } },
+      { call: 'VE6BBB', band: '40M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'AB', ts: racStart + 10 * 60000, raw: { TX_ID: '0' } },
+      { call: 'VE2AAA', band: '15M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'QC', ts: racStart, raw: { TX_ID: '1' } },
+      { call: 'VE2BBB', band: '15M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'QC', ts: racStart + 60000, raw: { TX_ID: '1' } },
+      { call: 'VE1AAA', band: '10M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'NS', ts: racStart + 5 * 60000, raw: { TX_ID: '1' } },
+      { call: 'VE1BBB', band: '10M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: 'NS', ts: racStart + 10 * 60000, raw: { TX_ID: '1' } }
+    ];
+    const racMostPoints = computeRuleQsoPoints(racRule, racMostQsos, racMostStation, new Set());
+    checks.push({
+      name: 'RAC MOST enforces ten-minute locks separately for run/multiplier signals and accepts only new multipliers on TX_ID 1',
+      passed: racMostPoints.pointsByIndex.join(',') === '10,0,10,10,0,0,10',
+      details: { points: racMostPoints.pointsByIndex }
+    });
+
+    const paccRule = {
+      id: 'pacc_2026',
+      aliases: ['PACC', 'PACC-CONTEST', 'PACC CONTEST'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'pacc_2026',
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW', 'SSB', 'PH', 'PHONE', 'USB', 'LSB']
+      },
+      multipliers: {
+        model: 'single_group', counting_scope: 'per_band_per_mode', groups: ['pacc_province_or_entity']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const paccDxQsos = [
+      { call: 'PA1AAA', band: '20M', mode: 'CW', country: 'Netherlands', continent: 'EU', exchRcvd: 'GR' },
+      { call: 'PA1AAA', band: '20M', mode: 'SSB', country: 'Netherlands', continent: 'EU', exchRcvd: 'GR' },
+      { call: 'PA1AAA', band: '20M', mode: 'CW', country: 'Netherlands', continent: 'EU', exchRcvd: 'GR' },
+      { call: 'PA2AAA', band: '40M', mode: 'CW', country: 'Netherlands', continent: 'EU', exchRcvd: 'GR' },
+      { call: 'PA3AAA', band: '20M', mode: 'CW', country: 'Netherlands', continent: 'EU', exchRcvd: 'XX' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001' },
+      { call: 'PA4AAA', band: '20M', mode: 'FT8', country: 'Netherlands', continent: 'EU', exchRcvd: 'FR' },
+      { call: 'PA5AAA', band: '6M', mode: 'CW', country: 'Netherlands', continent: 'EU', exchRcvd: 'ZH' }
+    ];
+    const paccDxStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'),
+      stationContinent: 'EU', stationIsPaccDutch: false
+    });
+    const paccDxPoints = computeRuleQsoPoints(paccRule, paccDxQsos, paccDxStation, new Set());
+    const paccDxMults = computeRuleMultipliers(paccRule, paccDxQsos, paccDxStation, paccDxPoints, new Set());
+    const paccPaQsos = [
+      { call: 'W3AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '001' },
+      { call: 'K5ZD/1', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002' },
+      { call: 'VE2AAA', band: '20M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: '003' },
+      { call: 'VO1AAA', band: '20M', mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: '004' },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '005' },
+      { call: 'JA1AAA', band: '20M', mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: '006' },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '007' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '008' },
+      { call: 'PA2AAA', band: '20M', mode: 'CW', country: 'Netherlands', continent: 'EU', exchRcvd: 'NH' },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'BAD' }
+    ];
+    const paccPaStation = makeStation({
+      stationCall: 'PA1TEST', stationCountry: 'Netherlands', stationCountryKey: normalizeCountryName('Netherlands'),
+      stationContinent: 'EU', stationIsPaccDutch: true
+    });
+    const paccPaPoints = computeRuleQsoPoints(paccRule, paccPaQsos, paccPaStation, new Set());
+    const paccPaMults = computeRuleMultipliers(paccRule, paccPaQsos, paccPaStation, paccPaPoints, new Set());
+    checks.push({
+      name: 'PACC 2026 covers reciprocal eligibility, exchanges, provinces, DXCC/call areas, modes, bands, duplicates, and per-band-per-mode scope',
+      passed: paccDxPoints.pointsByIndex.join(',') === '1,1,0,1,0,0,0,0'
+        && paccDxPoints.qsoPointsTotal === 3
+        && paccDxMults.total === 3
+        && paccPaPoints.pointsByIndex.join(',') === '1,1,1,1,1,1,0,1,1,0'
+        && paccPaPoints.qsoPointsTotal === 8
+        && paccPaMults.total === 8
+        && ['AREA:W3', 'AREA:W1', 'AREA:VE2', 'AREA:VO1', 'AREA:JA1', 'DXCC:GERMANY', 'DXCC:NETHERLANDS']
+          .every((value) => paccPaMults.credits.some((credit) => credit.exchangeValue === value)),
+      details: {
+        foreign: { points: paccDxPoints.pointsByIndex, duplicates: paccDxPoints.duplicateByIndex, multipliers: paccDxMults.credits },
+        dutch: { points: paccPaPoints.pointsByIndex, duplicates: paccPaPoints.duplicateByIndex, multipliers: paccPaMults.credits }
+      }
+    });
+
+    const ariDxRule = {
+      id: 'ari_dx_2026',
+      aliases: ['ARI-DX', 'ARI DX', 'ARI-INTERNATIONAL-DX', 'ARI INTERNATIONAL DX'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'ari_dx_2026',
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW', 'SSB', 'PH', 'PHONE', 'USB', 'LSB', 'RTTY', 'RY']
+      },
+      multipliers: {
+        model: 'single_group', counting_scope: 'per_band', credit_on_zero_point_valid_qso: true,
+        groups: ['ari_dx_province_or_country']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const ariDxOutsideQsos = [
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'AL' },
+      { call: 'I2AAA', band: '20M', mode: 'SSB', country: 'Italy', continent: 'EU', exchRcvd: 'AL' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002' },
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '003' },
+      { call: 'I3AAA', band: '40M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'SU' },
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'AL' },
+      { call: 'I1AAA', band: '20M', mode: 'RTTY', country: 'Italy', continent: 'EU', exchRcvd: 'AL' },
+      { call: 'I4AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'XX' },
+      { call: 'I5AAA', band: '160M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'FI' },
+      { call: 'I6AAA', band: '20M', mode: 'FT8', country: 'Italy', continent: 'EU', exchRcvd: 'AN' }
+    ];
+    const ariDxOutsideStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'),
+      stationContinent: 'EU', stationIsAriDxItalian: false
+    });
+    const ariDxOutsidePoints = computeRuleQsoPoints(ariDxRule, ariDxOutsideQsos, ariDxOutsideStation, new Set());
+    const ariDxOutsideMults = computeRuleMultipliers(ariDxRule, ariDxOutsideQsos, ariDxOutsideStation, ariDxOutsidePoints, new Set());
+    const ariDxItalianQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001' },
+      { call: 'I2AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'MI' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002' },
+      { call: 'IT9AAA', band: '20M', mode: 'CW', country: 'Sicily', continent: 'EU', exchRcvd: 'PA' },
+      { call: 'DL2AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '003' },
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '004' },
+      { call: 'IG9AAA', band: '20M', mode: 'CW', country: 'African Italy', continent: 'AF', exchRcvd: '005' },
+      { call: 'DL1AAA', band: '20M', mode: 'SSB', country: 'Germany', continent: 'EU', exchRcvd: '006' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '007' },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'BAD' }
+    ];
+    const ariDxItalianStation = makeStation({
+      stationCall: 'I1TEST', stationCountry: 'Italy', stationCountryKey: normalizeCountryName('Italy'),
+      stationContinent: 'EU', stationIsAriDxItalian: true
+    });
+    const ariDxItalianPoints = computeRuleQsoPoints(ariDxRule, ariDxItalianQsos, ariDxItalianStation, new Set());
+    const ariDxItalianMults = computeRuleMultipliers(ariDxRule, ariDxItalianQsos, ariDxItalianStation, ariDxItalianPoints, new Set());
+    checks.push({
+      name: 'ARI DX 2026 covers entrant branches, forbidden Italian QSOs, zero-point multipliers, SU, exchanges, duplicates, modes, and bands',
+      passed: ariDxOutsidePoints.pointsByIndex.join(',') === '10,10,1,3,0,10,0,10,0,0,0'
+        && ariDxOutsidePoints.qsoPointsTotal === 44
+        && ariDxOutsideMults.total === 5
+        && ariDxOutsideMults.credits.some((credit) => credit.exchangeValue === 'PROVINCE:SU')
+        && ariDxOutsideMults.credits.some((credit) => credit.exchangeValue === 'DXCC:SLOVENIA' && credit.qsoIndex === 4)
+        && ariDxItalianPoints.pointsByIndex.join(',') === '1,0,3,0,1,1,3,1,0,0'
+        && ariDxItalianPoints.qsoPointsTotal === 10
+        && ariDxItalianMults.total === 5,
+      details: {
+        outside: { points: ariDxOutsidePoints.pointsByIndex, duplicates: ariDxOutsidePoints.duplicateByIndex, multipliers: ariDxOutsideMults.credits },
+        italian: { points: ariDxItalianPoints.pointsByIndex, duplicates: ariDxItalianPoints.duplicateByIndex, multipliers: ariDxItalianMults.credits }
+      }
+    });
+
+    const aegeanRttyRule = {
+      id: 'aegean_rtty_legacy', aliases: ['AEGEAN-RTTY', 'AEGEAN RTTY'],
+      duplicate_policy: 'include_all_dupes',
+      qso_points: {
+        model: 'aegean_rtty_recovered', eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M']
+      },
+      multipliers: { model: 'none_multiplicative', groups: [] },
+      formula: 'score = qso_points_total + operator_qrp_bonus'
+    };
+    const aegeanRttyQsos = [
+      { call: 'DL1AAA', band: '80M', mode: 'RY', country: 'Germany', continent: 'EU' },
+      { call: 'K1ABC/QRP', band: '80M', mode: 'RY', country: 'United States', continent: 'NA' },
+      { call: 'SV9AAA', band: '20M', mode: 'RY', country: 'Crete', continent: 'EU' },
+      { call: 'K1BBB', band: '20M', mode: 'RY', country: 'United States', continent: 'NA' },
+      { call: 'K1CCC', band: '40M', mode: 'RY', country: 'United States', continent: 'NA' },
+      { call: 'DL2AAA', band: '160M', mode: 'RY', country: 'Germany', continent: 'EU' },
+      { call: 'K1DDD', band: '160M', mode: 'RY', country: 'United States', continent: 'NA' },
+      { call: 'SV9BBB/QRP', band: '20M', mode: 'RY', country: 'Crete', continent: 'EU' },
+      { call: 'DL1AAA', band: '80M', mode: 'RY', country: 'Germany', continent: 'EU', isDupe: true },
+      { call: 'QQQ', band: '20M', mode: 'RY', country: '', continent: '' },
+      { call: 'DL3AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU' }
+    ];
+    const aegeanRttyStation = makeStation({
+      stationCall: 'S53ZO/QRP', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU'
+    });
+    const aegeanRttyPoints = computeRuleQsoPoints(aegeanRttyRule, aegeanRttyQsos, aegeanRttyStation, new Set());
+    const aegeanRttyMults = computeRuleMultipliers(aegeanRttyRule, aegeanRttyQsos, aegeanRttyStation, aegeanRttyPoints, new Set());
+    checks.push({
+      name: 'Aegean RTTY legacy scorer covers recovered band, continent, QRP, island, unresolved-call, duplicate, and additive-bonus behavior',
+      passed: aegeanRttyPoints.pointsByIndex.join(',') === '3,12,3,2,6,3,0,6,3,0,1'
+        && aegeanRttyPoints.qsoPointsTotal === 39
+        && aegeanRttyPoints.duplicateByIndex.every((value) => value === false)
+        && aegeanRttyMults.total === 0,
+      details: { points: aegeanRttyPoints.pointsByIndex, duplicates: aegeanRttyPoints.duplicateByIndex }
+    });
+
+    const aegeanVhfRule = {
+      id: 'aegean_vhf_legacy', aliases: ['AEGEAN-VHF', 'AEGEAN VHF'],
+      duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'aegean_vhf_recovered' },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['aegean_vhf_grid4'] },
+      formula: 'score = aegean_vhf_bandwise_product'
+    };
+    const aegeanVhfQsos = [
+      { call: 'S52AA', band: '2M', mode: 'SSB', myGrid: 'JN76PB', grid: 'JN86AO', exchRcvd: 'JN86AO', distance: 83.1 },
+      { call: 'S52AA', band: '2M', mode: 'SSB', myGrid: 'JN76PB', grid: 'JN86AO', exchRcvd: 'JN86AO', distance: 83.1, isDupe: true },
+      { call: 'S53BB', band: '70CM', mode: 'FM', myGrid: 'JN76PB', grid: 'JN76PB', exchRcvd: 'JN76PB', distance: 0 },
+      { call: 'S54CC', band: '6M', mode: 'CW', myGrid: 'JN76PB', grid: '', exchRcvd: 'BAD', distance: null }
+    ];
+    const aegeanVhfStation = makeStation({
+      stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU'
+    });
+    const aegeanVhfPoints = computeRuleQsoPoints(aegeanVhfRule, aegeanVhfQsos, aegeanVhfStation, new Set());
+    const aegeanVhfMults = computeRuleMultipliers(aegeanVhfRule, aegeanVhfQsos, aegeanVhfStation, aegeanVhfPoints, new Set());
+    checks.push({
+      name: 'Aegean VHF legacy scorer covers recovered ceiling-distance, same-grid, band-wise, malformed-grid, and retained-duplicate behavior',
+      passed: aegeanVhfPoints.pointsByIndex.join(',') === '84,84,1,0'
+        && aegeanVhfPoints.duplicateByIndex.every((value) => value === false)
+        && aegeanVhfPoints.bandQsoCounts['2M'] === 2
+        && aegeanVhfPoints.bandQsoCounts['70CM'] === 1
+        && aegeanVhfPoints.bandQsoCounts['6M'] === 1
+        && aegeanVhfMults.total === 2
+        && aegeanVhfMults.bandMultiplierCounts['2M'] === 1
+        && aegeanVhfMults.bandMultiplierCounts['70CM'] === 1,
+      details: { points: aegeanVhfPoints.pointsByIndex, qsoCounts: aegeanVhfPoints.bandQsoCounts, multipliers: aegeanVhfMults.bandMultiplierCounts }
+    });
+
+    const africaDxRule = {
+      id: 'africa_all_mode_dx_2026', aliases: ['AF-ALL-MODE-DX', 'AFRICA-DX', 'AFRICA ALL MODE DX'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'fixed', rules: [{ points: 1 }], require_received_exchange: true, required_received_exchange_pattern: '^\\d+$',
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW', 'SSB', 'PH', 'PHONE', 'USB', 'LSB']
+      },
+      multipliers: { model: 'single_group', counting_scope: 'per_band_per_mode', groups: ['africa_dx_entity'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const africaDxQsos = [
+      { call: 'ZS6AAA', band: '20M', mode: 'CW', country: 'South Africa', continent: 'AF', exchRcvd: '001' },
+      { call: 'ZS6AAA', band: '20M', mode: 'CW', country: 'South Africa', continent: 'AF', exchRcvd: '002' },
+      { call: 'ZS6AAA', band: '20M', mode: 'SSB', country: 'South Africa', continent: 'AF', exchRcvd: '003' },
+      { call: 'ZS6AAA', band: '40M', mode: 'CW', country: 'South Africa', continent: 'AF', exchRcvd: '004' },
+      { call: 'V51AAA', band: '20M', mode: 'CW', country: 'Namibia', continent: 'AF', exchRcvd: '005' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '006' },
+      { call: '5H1AAA/MM', band: '20M', mode: 'CW', country: 'Tanzania', continent: 'AF', exchRcvd: '007' },
+      { call: '5H1BBB/AM', band: '20M', mode: 'CW', country: 'Tanzania', continent: 'AF', exchRcvd: '008' },
+      { call: '7Q1AAA', band: '20M', mode: 'RTTY', country: 'Malawi', continent: 'AF', exchRcvd: '009' },
+      { call: '7Q1BBB', band: '6M', mode: 'CW', country: 'Malawi', continent: 'AF', exchRcvd: '010' },
+      { call: '7Q1CCC', band: '20M', mode: 'CW', country: 'Malawi', continent: 'AF', exchRcvd: 'ABC' },
+      { call: '7Q1DDD', band: '20M', mode: 'CW', country: 'Malawi', continent: 'AF', exchRcvd: '011' }
+    ];
+    const africaDxPoints = computeRuleQsoPoints(africaDxRule, africaDxQsos, makeStation(), new Set());
+    const africaDxMults = computeRuleMultipliers(africaDxRule, africaDxQsos, makeStation(), africaDxPoints, new Set());
+    checks.push({
+      name: 'Africa All Mode DX 2026 covers official points, serial, bands, modes, duplicates, African entities, and ship/aeronautical exclusions',
+      passed: africaDxPoints.pointsByIndex.join(',') === '1,0,1,1,1,1,1,1,0,0,0,1'
+        && africaDxPoints.qsoPointsTotal === 8
+        && africaDxPoints.duplicateByIndex[1] === true
+        && africaDxMults.total === 5
+        && africaDxMults.credits.filter((credit) => credit.exchangeValue === 'SOUTH AFRICA').length === 3
+        && africaDxMults.credits.some((credit) => credit.exchangeValue === 'NAMIBIA')
+        && africaDxMults.credits.some((credit) => credit.exchangeValue === 'MALAWI')
+        && !africaDxMults.credits.some((credit) => /5H1/.test(credit.callsign || '')),
+      details: { points: africaDxPoints.pointsByIndex, duplicates: africaDxPoints.duplicateByIndex, multipliers: africaDxMults.credits }
+    });
+
+    const agbPartyRule = {
+      id: 'agb_party_latest', aliases: ['AGB-PARTY', 'AGB PARTY'],
+      duplicate_policy: 'call_per_band_exact_mode_15min',
+      qso_points: { model: 'agb_party_latest', eligible_bands: ['80M', '40M'] },
+      multipliers: { model: 'sum_groups', counting_scope: 'once_total', groups: ['country', 'agb_member_number'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const agbPeriod = Date.UTC(2025, 11, 19, 16, 0, 0);
+    const agbPartyQsos = [
+      { call: 'DL1AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001A265', ts: agbPeriod },
+      { call: 'DL2AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '002A265', ts: agbPeriod + 60000 },
+      { call: 'DL3AAA/P', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '003/063', ts: agbPeriod + 120000 },
+      { call: 'S51AAA', band: '80M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '004', ts: agbPeriod + 180000 },
+      { call: 'K1AAA', band: '80M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '005A999', ts: agbPeriod + 240000 },
+      { call: 'K1AAA', band: '80M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '006A999', ts: agbPeriod + 16 * 60000 },
+      { call: 'K1AAA', band: '80M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '007A999', ts: agbPeriod + 17 * 60000 },
+      { call: '4L1AAA', band: '80M', mode: 'SSB', country: 'Georgia', continent: 'AS', exchRcvd: '008', ts: agbPeriod + 300000 },
+      { call: 'DL4AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '009-A123', ts: agbPeriod + 360000 },
+      { call: 'DL5AAA', band: '40M', mode: 'FT8', country: 'Germany', continent: 'EU', exchRcvd: '', ts: agbPeriod + 420000 },
+      { call: 'DL5AAA', band: '40M', mode: 'FT8', country: 'Germany', continent: 'EU', exchRcvd: '', ts: agbPeriod + 480000 },
+      { call: 'DL5AAA', band: '40M', mode: 'FT8', country: 'Germany', continent: 'EU', exchRcvd: '', ts: agbPeriod + 16 * 60000 },
+      { call: 'DL6AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '010A777', ts: agbPeriod + 540000 },
+      { call: 'DL7AAA', band: '40M', mode: 'RTTY', country: 'Germany', continent: 'EU', exchRcvd: '', ts: agbPeriod + 600000 }
+    ];
+    const agbStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU' });
+    const agbPartyPoints = computeRuleQsoPoints(agbPartyRule, agbPartyQsos, agbStation, new Set());
+    const agbPartyMults = computeRuleMultipliers(agbPartyRule, agbPartyQsos, agbStation, agbPartyPoints, new Set());
+    checks.push({
+      name: 'AGB-PARTY latest organizer scorer covers member, geography, FT, exact-mode period repeats, exchanges, bands, and global multipliers',
+      passed: agbPartyPoints.pointsByIndex.join(',') === '5,5,5,1,5,5,0,3,5,1,0,1,0,0'
+        && agbPartyPoints.qsoPointsTotal === 36
+        && agbPartyPoints.duplicateByIndex[6] === true
+        && agbPartyPoints.duplicateByIndex[10] === true
+        && agbPartyMults.total === 8
+        && agbPartyMults.groupCounts.country === 4
+        && agbPartyMults.groupCounts.agb_member_number === 4,
+      details: { points: agbPartyPoints.pointsByIndex, duplicates: agbPartyPoints.duplicateByIndex, multipliers: agbPartyMults.credits }
+    });
+
+    const apSprintRule = {
+      id: 'ap_sprint_2026', aliases: ['AP-SPRINT', 'ASIA-PACIFIC-SPRINT', 'ASIA PACIFIC SPRINT'],
+      duplicate_policy: 'call_per_band',
+      qso_points: { model: 'ap_sprint_2026', require_received_exchange: true },
+      multipliers: { model: 'single_group', counting_scope: 'once_total', groups: ['ap_sprint_wpx'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const apFeb = Date.UTC(2026, 1, 14, 11, 0, 0);
+    const apJun = Date.UTC(2026, 5, 13, 11, 0, 0);
+    const apOct = Date.UTC(2026, 9, 18, 0, 0, 0);
+    const apStation = makeStation({ stationCall: 'YB1AAA', stationCountry: 'Indonesia', stationCountryKey: normalizeCountryName('Indonesia'), stationContinent: 'OC' });
+    const apEntrantQsos = [
+      { call: 'YB2ABC', band: '20M', mode: 'CW', country: 'Indonesia', continent: 'OC', exchRcvd: '001', wpxPrefix: 'YB2', ts: apFeb },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '002', wpxPrefix: 'DL1', ts: apFeb + 60000 },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '003', wpxPrefix: 'DL1', ts: apFeb + 120000 },
+      { call: 'DL2AAA', band: '15M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '004', wpxPrefix: 'DL2', ts: apFeb + 180000 },
+      { call: 'YB2ABC', band: '20M', mode: 'CW', country: 'Indonesia', continent: 'OC', exchRcvd: '005', wpxPrefix: 'YB2', ts: apFeb + 240000 },
+      { call: 'YB3ABC', band: '20M', mode: 'SSB', country: 'Indonesia', continent: 'OC', exchRcvd: '006', wpxPrefix: 'YB3', ts: apFeb + 300000 },
+      { call: 'YB4ABC', band: '20M', mode: 'CW', country: 'Indonesia', continent: 'OC', exchRcvd: 'ABC', wpxPrefix: 'YB4', ts: apFeb + 360000 }
+    ];
+    const apEntrantPoints = computeRuleQsoPoints(apSprintRule, apEntrantQsos, apStation, new Set());
+    const apEntrantMults = computeRuleMultipliers(apSprintRule, apEntrantQsos, apStation, apEntrantPoints, new Set());
+    const apSummerPoints = computeRuleQsoPoints(apSprintRule, [
+      { call: 'JA1AAA', band: '15M', mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: '001', ts: apJun },
+      { call: 'JA2AAA', band: '20M', mode: 'PH', country: 'Japan', continent: 'AS', exchRcvd: '002', ts: apJun + 60000 },
+      { call: 'JA3AAA', band: '15M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '003', ts: apJun + 120000 },
+      { call: 'JA4AAA', band: '40M', mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: '004', ts: apJun + 180000 }
+    ], apStation, new Set());
+    const apFallPoints = computeRuleQsoPoints(apSprintRule, [
+      { call: 'JA1AAA', band: '15M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '001', ts: apOct },
+      { call: 'JA2AAA', band: '15M', mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: '002', ts: apOct + 60000 },
+      { call: 'JA3AAA', band: '40M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '003', ts: apOct + 120000 }
+    ], apStation, new Set());
+    const apOutsideQsos = [
+      { call: 'YB2ABC', band: '20M', mode: 'CW', country: 'Indonesia', continent: 'OC', exchRcvd: '001', wpxPrefix: 'YB2', ts: apFeb },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '002', wpxPrefix: 'DL1', ts: apFeb + 60000 },
+      { call: 'UA0AAA', band: '40M', mode: 'CW', country: 'Russia', continent: 'AS', exchRcvd: '003', wpxPrefix: 'UA0', ts: apFeb + 120000 },
+      { call: 'UA9AAA', band: '40M', mode: 'CW', country: 'Russia', continent: 'AS', exchRcvd: '004', wpxPrefix: 'UA9', ts: apFeb + 180000 },
+      { call: 'VK2AAA', band: '20M', mode: 'CW', country: 'Australia', continent: 'OC', exchRcvd: '005', wpxPrefix: 'VK2', ts: apFeb + 240000 },
+      { call: 'VK9XAA', band: '20M', mode: 'CW', country: 'Christmas Island', continent: 'OC', exchRcvd: '006', wpxPrefix: 'VK9X', ts: apFeb + 300000 },
+      { call: 'ZL1AAA', band: '20M', mode: 'CW', country: 'New Zealand', continent: 'OC', exchRcvd: '007', wpxPrefix: 'ZL1', ts: apFeb + 360000 },
+      { call: 'ZL7AAA', band: '20M', mode: 'CW', country: 'Chatham Islands', continent: 'OC', exchRcvd: '008', wpxPrefix: 'ZL7', ts: apFeb + 420000 }
+    ];
+    const apOutsideStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU' });
+    const apOutsidePoints = computeRuleQsoPoints(apSprintRule, apOutsideQsos, apOutsideStation, new Set());
+    const apOutsideMults = computeRuleMultipliers(apSprintRule, apOutsideQsos, apOutsideStation, apOutsidePoints, new Set());
+    checks.push({
+      name: 'AP Sprint 2026 covers entrant eligibility, explicit AP inclusions/exclusions, all edition schedules, serials, duplicates, and global WPX prefixes',
+      passed: apEntrantPoints.pointsByIndex.join(',') === '1,1,1,0,0,0,0'
+        && apEntrantPoints.qsoPointsTotal === 3
+        && apEntrantMults.total === 2
+        && apSummerPoints.pointsByIndex.join(',') === '1,1,0,0'
+        && apFallPoints.pointsByIndex.join(',') === '1,0,0'
+        && apOutsidePoints.pointsByIndex.join(',') === '1,0,1,0,1,0,1,0'
+        && apOutsidePoints.qsoPointsTotal === 4
+        && apOutsideMults.total === 4,
+      details: { entrant: apEntrantPoints.pointsByIndex, summer: apSummerPoints.pointsByIndex, fall: apFallPoints.pointsByIndex, outside: apOutsidePoints.pointsByIndex, multipliers: apOutsideMults.credits }
+    });
+
+    const ariSectionsRule = {
+      id: 'ari_sections_2026', aliases: ['ARI-SEZ', 'ARI SEZ', 'CONTEST-SEZIONI-ARI', 'CONTEST SEZIONI ARI'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'ari_sections_2026', eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_mode_groups: ['CW', 'SSB', 'DIG'], required_received_exchange_pattern: '^[A-HJ-NP-Z][0-9]{2}$'
+      },
+      multipliers: { model: 'single_group', counting_scope: 'per_band_per_mode', groups: ['ari_section_asc'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const ariSectionsQsos = [
+      { call: 'IK2AAA', band: '160M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'A01' },
+      { call: 'IK2AAA', band: '160M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'A01' },
+      { call: 'IK2AAA', band: '160M', mode: 'SSB', country: 'Italy', continent: 'EU', exchRcvd: 'A01' },
+      { call: 'IK3BBB', band: '80M', mode: 'RY', country: 'Italy', continent: 'EU', exchRcvd: 'L01' },
+      { call: 'I4CCC', band: '40M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'E01' },
+      { call: 'IQ5AA', band: '20M', mode: 'SSB', country: 'Italy', continent: 'EU', exchRcvd: 'T01' },
+      { call: 'IU6DDD', band: '15M', mode: 'RTTY', country: 'Italy', continent: 'EU', exchRcvd: 'A02' },
+      { call: 'I7EEE', band: '10M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'J01' },
+      { call: 'II8FFF', band: '10M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'K01' },
+      { call: '9A/I2GGG', band: '20M', mode: 'CW', country: 'Croatia', continent: 'EU', exchRcvd: 'L02' },
+      { call: 'IZ9HHH', band: '20M', mode: 'FT8', country: 'Italy', continent: 'EU', exchRcvd: 'S01' },
+      { call: 'IZ9III', band: '160M', mode: 'RTTY', country: 'Italy', continent: 'EU', exchRcvd: 'S02' },
+      { call: 'IZ9JJJ', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: '1234' }
+    ];
+    const ariSectionsStation = makeStation({
+      stationCall: 'IZ1AAA', stationCountry: 'Italy', stationCountryKey: normalizeCountryName('Italy'), stationContinent: 'EU'
+    });
+    const ariSectionsPoints = computeRuleQsoPoints(ariSectionsRule, ariSectionsQsos, ariSectionsStation, new Set());
+    const ariSectionsMults = computeRuleMultipliers(ariSectionsRule, ariSectionsQsos, ariSectionsStation, ariSectionsPoints, new Set());
+    checks.push({
+      name: 'ARI Sections 2026 covers current bands, modes, ASC exchanges, special/foreign calls, duplicates, and per-band-per-mode sections',
+      passed: ariSectionsPoints.pointsByIndex.join(',') === '3,0,3,2,1,2,3,4,0,0,0,0,0'
+        && ariSectionsPoints.qsoPointsTotal === 18
+        && ariSectionsPoints.duplicateByIndex[1] === true
+        && ariSectionsMults.total === 7,
+      details: { points: ariSectionsPoints.pointsByIndex, duplicates: ariSectionsPoints.duplicateByIndex, multipliers: ariSectionsMults.credits }
+    });
+
+    const avhfcRule = {
+      id: 'avhfc_legacy', aliases: ['AVHFC', 'ARAUCARIA-VHF', 'ARAUCARIA VHF'],
+      duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'avhfc_recovered', eligible_bands: ['6M', '2M'] },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['avhfc_locator'] },
+      formula: 'score = avhfc_bandwise_grid_products + whole_kilometre_distance_bonuses'
+    };
+    const avhfcQsos = [
+      { call: 'S51AAA', band: '6M', mode: 'FM', myGrid: 'JN76', grid: 'JN76', exchRcvd: 'JN76', distance: 0 },
+      { call: 'S52AAA', band: '6M', mode: 'FM', myGrid: 'JN76PB', grid: 'JN86AO', exchRcvd: 'JN86AO', distance: 83.9, isDupe: true },
+      { call: 'S53AAA', band: '2M', mode: 'FM', myGrid: 'JN76PB99', grid: 'JN76PB77', exchRcvd: 'JN76PB77', distance: 0.2 },
+      { call: 'S54AAA', band: '70CM', mode: 'FM', myGrid: 'JN76PB', grid: 'JN86AO', exchRcvd: 'JN86AO', distance: 83.9 },
+      { call: 'S55AAA', band: '2M', mode: 'FM', myGrid: 'JN76PB', grid: '', exchRcvd: 'BAD', distance: null }
+    ];
+    const avhfcStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const avhfcPoints = computeRuleQsoPoints(avhfcRule, avhfcQsos, avhfcStation, new Set());
+    const avhfcMults = computeRuleMultipliers(avhfcRule, avhfcQsos, avhfcStation, avhfcPoints, new Set());
+    checks.push({
+      name: 'AVHFC legacy scorer matches recovered band points, locator normalization, distance bonuses, bandwise formula, and retained duplicates',
+      passed: avhfcPoints.pointsByIndex.join(',') === '1,1,2,0,2'
+        && avhfcPoints.qsoPointsTotal === 6
+        && avhfcPoints.duplicateByIndex.every((value) => value === false)
+        && avhfcPoints.avhfcDistanceBonus === 85
+        && avhfcMults.total === 3,
+      details: { points: avhfcPoints.pointsByIndex, bonuses: avhfcPoints.avhfcDistanceBonus, multipliers: avhfcMults.credits }
+    });
+
+    const balticRule = {
+      id: 'baltic_2026', aliases: ['BALTIC', 'BALTIC-CONTEST', 'BALTIC CONTEST'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'baltic_2026', eligible_bands: ['80M'], eligible_mode_groups: ['CW', 'SSB'],
+        eligible_frequency_segments_mhz: { '80M': [[3.51, 3.6], [3.6, 3.75]] }, require_received_exchange: true
+      },
+      multipliers: { model: 'none_multiplicative', groups: [] },
+      formula: 'score = qso_points_total'
+    };
+    const balticEuropeanQsos = [
+      { call: 'ES5ABC', band: '80M', mode: 'CW', freq: 3.55, country: 'Estonia', continent: 'EU', exchRcvd: '001' },
+      { call: 'K1ABC', band: '80M', mode: 'SSB', freq: 3.7, country: 'United States', continent: 'NA', exchRcvd: '002' },
+      { call: 'ES5ABC', band: '80M', mode: 'CW', freq: 3.55, country: 'Estonia', continent: 'EU', exchRcvd: '003' },
+      { call: 'ES5ABC', band: '80M', mode: 'SSB', freq: 3.7, country: 'Estonia', continent: 'EU', exchRcvd: '004' },
+      { call: 'UA1AAA', band: '80M', mode: 'CW', freq: 3.55, country: 'Russia', continent: 'EU', exchRcvd: '005' },
+      { call: 'YL2AAA', band: '80M', mode: 'CW', freq: 3.55, country: 'Latvia', continent: 'EU', exchRcvd: 'ABC' },
+      { call: 'LY2AAA', band: '80M', mode: 'CW', freq: 3.7, country: 'Lithuania', continent: 'EU', exchRcvd: '006' },
+      { call: 'YL3AAA', band: '40M', mode: 'CW', freq: 7.03, country: 'Latvia', continent: 'EU', exchRcvd: '007' }
+    ];
+    const balticEuropeanStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU' });
+    const balticEuropeanPoints = computeRuleQsoPoints(balticRule, balticEuropeanQsos, balticEuropeanStation, new Set());
+    const balticOutsidePoints = computeRuleQsoPoints(balticRule, [
+      { call: 'YL2AAA', band: '80M', mode: 'CW', freq: 3.55, country: 'Latvia', continent: 'EU', exchRcvd: '001' },
+      { call: 'DL1AAA', band: '80M', mode: 'SSB', freq: 3.7, country: 'Germany', continent: 'EU', exchRcvd: '002' }
+    ], makeStation({ stationCall: 'K1ABC', stationCountry: 'United States', stationCountryKey: normalizeCountryName('United States'), stationContinent: 'NA' }), new Set());
+    const balticEntrantPoints = computeRuleQsoPoints(balticRule, [
+      { call: 'DL1AAA', band: '80M', mode: 'CW', freq: 3.55, country: 'Germany', continent: 'EU', exchRcvd: '001' },
+      { call: 'K1ABC', band: '80M', mode: 'CW', freq: 3.55, country: 'United States', continent: 'NA', exchRcvd: '002' },
+      { call: 'YL2AAA', band: '80M', mode: 'CW', freq: 3.55, country: 'Latvia', continent: 'EU', exchRcvd: '003' },
+      { call: 'EU1AAA', band: '80M', mode: 'SSB', freq: 3.7, country: 'Belarus', continent: 'EU', exchRcvd: '004' }
+    ], makeStation({ stationCall: 'ES5ABC', stationCountry: 'Estonia', stationCountryKey: normalizeCountryName('Estonia'), stationContinent: 'EU' }), new Set());
+    checks.push({
+      name: 'Baltic Contest 2026 covers all geography branches, serials, exact frequencies, modes, duplicates, and Russia/Belarus exclusion',
+      passed: balticEuropeanPoints.pointsByIndex.join(',') === '10,1,0,10,0,0,0,0'
+        && balticEuropeanPoints.qsoPointsTotal === 21
+        && balticEuropeanPoints.duplicateByIndex[2] === true
+        && balticOutsidePoints.pointsByIndex.join(',') === '20,1'
+        && balticEntrantPoints.pointsByIndex.join(',') === '1,2,1,0',
+      details: { european: balticEuropeanPoints.pointsByIndex, outside: balticOutsidePoints.pointsByIndex, baltic: balticEntrantPoints.pointsByIndex }
+    });
+
+    const bassoFerrareseRule = {
+      id: 'basso_ferrarese_legacy', aliases: ['BASSO-FERRARESE', 'BASSO FERRARESE', 'ARI-BASFER', 'ARI BASFER'],
+      duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'basso_ferrarese_recovered', eligible_bands: ['40M', '20M'] },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['basso_ferrarese_jolly'] },
+      formula: 'score = sum_per_band(points * (jolly_qsos * 100 if any else 1))'
+    };
+    const bassoFerrareseQsos = [
+      { qsoNumber: 1, call: 'IQ4FF', band: '40M', mode: 'CW' },
+      { qsoNumber: 2, call: 'I1AAA', band: '40M', mode: 'CW' },
+      { qsoNumber: 3, call: 'IQ4FF', band: '40M', mode: 'CW', isDupe: true },
+      { qsoNumber: 4, call: 'IZ4SJI', band: '20M', mode: 'SSB' },
+      { qsoNumber: 5, call: 'I2BBB', band: '20M', mode: 'SSB' },
+      { qsoNumber: 6, call: 'I4JEE', band: '80M', mode: 'CW' }
+    ];
+    const bassoFerrareseStation = makeStation({ stationCall: 'I4TEST', stationCountry: 'Italy', stationContinent: 'EU' });
+    const bassoFerraresePoints = computeRuleQsoPoints(bassoFerrareseRule, bassoFerrareseQsos, bassoFerrareseStation, new Set());
+    const bassoFerrareseMults = computeRuleMultipliers(bassoFerrareseRule, bassoFerrareseQsos, bassoFerrareseStation, bassoFerraresePoints, new Set());
+    checks.push({
+      name: 'BASSO-FERRARESE legacy scorer preserves bands, embedded Jolly calls, repeats, and per-band Jolly occurrence counts',
+      passed: bassoFerraresePoints.pointsByIndex.join(',') === '100,1,100,100,1,0'
+        && bassoFerraresePoints.qsoPointsTotal === 302
+        && bassoFerraresePoints.duplicateByIndex.every((value) => value === false)
+        && bassoFerrareseMults.total === 3
+        && bassoFerrareseMults.bandMultiplierCounts['40M'] === 2
+        && bassoFerrareseMults.bandMultiplierCounts['20M'] === 1,
+      details: { points: bassoFerraresePoints.pointsByIndex, duplicates: bassoFerraresePoints.duplicateByIndex, multipliers: bassoFerrareseMults.credits }
+    });
+
+    const bdmRttyRule = {
+      id: 'bdm_ww_rtty_legacy', aliases: ['BDM-WW-RTTY', 'BDM WW RTTY', 'BDM-RTTY', 'BDM RTTY'],
+      duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'bdm_ww_rtty_recovered' },
+      multipliers: { model: 'none_multiplicative', groups: [] },
+      formula: 'score = qso_points_total'
+    };
+    const bdmRttyQsos = [
+      { call: 'DL1AAA', band: '80M', mode: 'RY', country: 'Germany', continent: 'EU' },
+      { call: 'K1AAA', band: '20M', mode: 'RY', country: 'United States', continent: 'NA' },
+      { call: 'JA1AAA', band: '15M', mode: 'CW', country: 'Japan', continent: 'AS' },
+      { call: 'QQQ', band: '40M', mode: 'RY', country: '', continent: '' },
+      { call: 'DL1AAA', band: '80M', mode: 'RY', country: 'Germany', continent: 'EU', isDupe: true }
+    ];
+    const bdmRttyStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const bdmRttyPoints = computeRuleQsoPoints(bdmRttyRule, bdmRttyQsos, bdmRttyStation, new Set());
+    const bdmRttyMults = computeRuleMultipliers(bdmRttyRule, bdmRttyQsos, bdmRttyStation, bdmRttyPoints, new Set());
+    checks.push({
+      name: 'BDM-WW-RTTY legacy scorer preserves recovered continent points, unresolved geography, and retained rows',
+      passed: bdmRttyPoints.pointsByIndex.join(',') === '5,10,10,0,5'
+        && bdmRttyPoints.qsoPointsTotal === 30
+        && bdmRttyPoints.duplicateByIndex.every((value) => value === false)
+        && bdmRttyMults.total === 0,
+      details: { points: bdmRttyPoints.pointsByIndex, duplicates: bdmRttyPoints.duplicateByIndex }
+    });
+
+    const cqpRule = {
+      id: 'california_qso_party_2026', aliases: ['CA-QSO-PARTY', 'CALIFORNIA-QSO-PARTY', 'CALIFORNIA QSO PARTY', 'CQP'],
+      duplicate_policy: 'call_per_band_mode_group_per_received_qth',
+      qso_points: {
+        model: 'california_qso_party_2026', eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_mode_groups: ['CW', 'SSB'], require_received_exchange: true,
+        scoring_time_policy: 'single_op_first_24_operating_hours_with_15_minute_breaks'
+      },
+      multipliers: { model: 'single_group', counting_scope: 'once_total', groups: ['cqp_location'], credit_policy: 'valid_qso_allow_duplicates', maximum_total: 58 },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const cqpStart = Date.UTC(2026, 9, 3, 16, 0, 0);
+    const cqpOutsideQsos = [
+      { call: 'K6AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchSent: '001 NV', exchRcvd: '001 LANG' },
+      { call: 'K6AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchSent: '002 NV', exchRcvd: '002 ORAN' },
+      { call: 'K6AAA', band: '20M', mode: 'SSB', country: 'United States', continent: 'NA', exchSent: '003 NV', exchRcvd: '003 LANG' },
+      { call: 'K6AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchSent: '004 NV', exchRcvd: '004 LANG' },
+      { call: 'K6AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchSent: '005 NV', exchRcvd: '005 LANG SCLA' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchSent: '006 NV', exchRcvd: '006 DX' },
+      { call: 'K6BBB', band: '40M', mode: 'CW', country: 'United States', continent: 'NA', exchSent: '007 NV', exchRcvd: 'BAD ALAM' },
+      { call: 'K6CCC', band: '15M', mode: 'FT8', country: 'United States', continent: 'NA', exchSent: '008 NV', exchRcvd: '008 ALPI' }
+    ].map((qso, index) => ({ ...qso, ts: cqpStart + index * 60000 }));
+    const cqpOutsideStation = makeStation({ stationCall: 'W1AAA', stationCountry: 'United States', stationContinent: 'NA', stationIsCqpCalifornia: false });
+    const cqpOutsidePoints = computeRuleQsoPoints(cqpRule, cqpOutsideQsos, cqpOutsideStation, new Set());
+    const cqpOutsideMults = computeRuleMultipliers(cqpRule, cqpOutsideQsos, cqpOutsideStation, cqpOutsidePoints, new Set());
+    const cqpCaliforniaQsos = [
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchSent: '001 LANG', exchRcvd: '001 CT' },
+      { call: 'VE3AAA', band: '20M', mode: 'SSB', country: 'Canada', continent: 'NA', exchSent: '002 LANG', exchRcvd: '002 ON' },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchSent: '003 LANG', exchRcvd: '003 DX' },
+      { call: 'K6BBB', band: '15M', mode: 'CW', country: 'United States', continent: 'NA', exchSent: '004 LANG', exchRcvd: '004 ORAN SCLA' },
+      { call: 'W1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchSent: '005 LANG', exchRcvd: '005 CT' }
+    ].map((qso, index) => ({ ...qso, ts: cqpStart + index * 60000 }));
+    const cqpCaliforniaStation = makeStation({ stationCall: 'K6TEST', stationCountry: 'United States', stationContinent: 'NA', stationIsCqpCalifornia: true });
+    const cqpCaliforniaPoints = computeRuleQsoPoints(cqpRule, cqpCaliforniaQsos, cqpCaliforniaStation, new Set());
+    const cqpCaliforniaMults = computeRuleMultipliers(cqpRule, cqpCaliforniaQsos, cqpCaliforniaStation, cqpCaliforniaPoints, new Set());
+    const cqpAllLocations = [
+      ...'AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split(' '),
+      ...'AB BC MB NB NL NS NT NU ON PE QC SK YT'.split(' ')
+    ];
+    const cqpCapQsos = cqpAllLocations.map((qth, index) => ({
+      call: `W${index + 1}AAA`, band: '20M', mode: 'CW', country: qth === 'AB' || ['BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'].includes(qth) ? 'Canada' : 'United States',
+      continent: 'NA', exchSent: `${index + 1} LANG`, exchRcvd: `${index + 1} ${qth}`, ts: cqpStart + index * 60000
+    }));
+    const cqpCapPoints = computeRuleQsoPoints(cqpRule, cqpCapQsos, cqpCaliforniaStation, new Set());
+    const cqpCapMults = computeRuleMultipliers(cqpRule, cqpCapQsos, cqpCaliforniaStation, cqpCapPoints, new Set());
+    const cqpTimeQsos = Array.from({ length: 146 }, (_, index) => ({
+      call: `W${index + 1}TIME`, band: '20M', mode: 'CW', country: 'United States', continent: 'NA',
+      exchSent: `${index + 1} LANG`, exchRcvd: `${index + 1} CT`, ts: cqpStart + index * 10 * 60000
+    }));
+    const cqpTimePoints = computeRuleQsoPoints(cqpRule, cqpTimeQsos, cqpCaliforniaStation, new Set());
+    checks.push({
+      name: 'California QSO Party 2026 covers reciprocal branches, new equal mode points, mobile/county-line identities, exchanges, duplicate multiplier credit, and global locations',
+      passed: cqpOutsidePoints.pointsByIndex.join(',') === '3,3,3,0,3,0,0,0'
+        && cqpOutsidePoints.qsoPointsTotal === 12
+        && cqpOutsidePoints.duplicateByIndex[3] === true
+        && cqpOutsideMults.total === 3
+        && cqpOutsideMults.credits.some((credit) => credit.exchangeValue === 'SCLA')
+        && cqpCaliforniaPoints.pointsByIndex.join(',') === '3,3,3,3,0'
+        && cqpCaliforniaMults.total === 3
+        && cqpCaliforniaMults.credits.some((credit) => credit.exchangeValue === 'CA')
+        && !cqpCaliforniaMults.credits.some((credit) => credit.exchangeValue === 'DX')
+        && cqpCapMults.rawTotal === 63
+        && cqpCapMults.total === 58
+        && cqpTimePoints.qsoPointsTotal === 435
+        && cqpTimePoints.pointsByIndex.at(-1) === 0,
+      details: { outside: cqpOutsidePoints.pointsByIndex, outsideMultipliers: cqpOutsideMults.credits, california: cqpCaliforniaPoints.pointsByIndex, californiaMultipliers: cqpCaliforniaMults.credits, cap: cqpCapMults.total, timedTotal: cqpTimePoints.qsoPointsTotal }
+    });
+
+    const cisQpskRule = {
+      id: 'cis_qpsk63_dx_legacy', aliases: ['CIS-QPSK63-DX', 'CIS QPSK63 DX', 'CIS-DX-QPSK63', 'CIS DX QPSK63'],
+      duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'cis_qpsk63_dx_recovered' },
+      multipliers: { model: 'single_group', counting_scope: 'once_total', groups: ['cis_qpsk63_exchange'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const cisQpskQsos = [
+      { call: 'UQ1AAA', band: '20M', mode: 'DG', exchRcvd: '001' },
+      { call: 'DL1AAA', band: '20M', mode: 'DG', exchRcvd: '002' },
+      { call: 'UQ1BBB', band: '20M', mode: 'DG', exchRcvd: '001' },
+      { call: '4J1AAA', band: '40M', mode: 'DG', exchRcvd: '003' },
+      { call: 'R1AN', band: '40M', mode: 'DG', exchRcvd: '004' },
+      { call: 'RI1AN', band: '40M', mode: 'DG', exchRcvd: '005' },
+      { call: 'UQ1AAA/M', band: '80M', mode: 'DG', exchRcvd: '006' },
+      { call: 'UQ1AAA/P', band: '80M', mode: 'DG', exchRcvd: '006' },
+      { call: 'UQ2AAA', band: '80M', mode: 'DG', exchRcvd: '0000' },
+      { call: 'UQ3AAA', band: 'OTHER', mode: 'DG', exchRcvd: '007' }
+    ];
+    const cisQpskStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const cisQpskPoints = computeRuleQsoPoints(cisQpskRule, cisQpskQsos, cisQpskStation, new Set());
+    const cisQpskMults = computeRuleMultipliers(cisQpskRule, cisQpskQsos, cisQpskStation, cisQpskPoints, new Set());
+    checks.push({
+      name: 'CIS DX QPSK63 legacy scorer preserves recovered prefixes, exclusions, retained rows, and global exchanges',
+      passed: cisQpskPoints.pointsByIndex.join(',') === '3,1,3,3,1,1,0,3,3,0'
+        && cisQpskPoints.qsoPointsTotal === 18
+        && cisQpskPoints.duplicateByIndex.every((value) => value === false)
+        && cisQpskMults.total === 6,
+      details: { points: cisQpskPoints.pointsByIndex, duplicates: cisQpskPoints.duplicateByIndex, multipliers: cisQpskMults.credits }
+    });
+
+    const cqMRule = {
+      id: 'cq_m_2025', aliases: ['CQ-M', 'CQ M', 'CQM', 'CQ-M-CONTEST', 'CQ M CONTEST'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'cq_m_2025', eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_mode_groups: ['CW', 'SSB'], required_received_exchange_pattern: '^\\d+$'
+      },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['cq_m_r150_territory'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const cqMQsos = [
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '001' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '002' },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '003' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '004' },
+      { call: 'R6YAA', band: '20M', mode: 'CW', country: 'European Russia', continent: 'EU', exchRcvd: '005' },
+      { call: 'R6EAA', band: '20M', mode: 'CW', country: 'European Russia', continent: 'EU', exchRcvd: '006' },
+      { call: 'K2AAA/MM', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '007', isMaritime: true },
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '008' },
+      { call: 'S51AAA', band: '20M', mode: 'SSB', country: 'Slovenia', continent: 'EU', exchRcvd: '009' },
+      { call: 'S51AAA', band: '40M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: '010' },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'BAD' },
+      { call: 'F2AAA', band: '20M', mode: 'FT8', country: 'France', continent: 'EU', exchRcvd: '011' },
+      { call: 'F3AAA', band: '30M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: '012' }
+    ];
+    const cqMStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const cqMPoints = computeRuleQsoPoints(cqMRule, cqMQsos, cqMStation, new Set());
+    const cqMMults = computeRuleMultipliers(cqMRule, cqMQsos, cqMStation, cqMPoints, new Set());
+    checks.push({
+      name: 'CQ-M 2025 covers official Eurasia geography, exchanges, modes, bands, duplicates, R-150-S territories, and /MM exclusion',
+      passed: cqMPoints.pointsByIndex.join(',') === '2,2,2,3,2,2,3,0,2,2,0,0,0'
+        && cqMPoints.qsoPointsTotal === 20
+        && cqMPoints.duplicateByIndex[7] === true
+        && cqMMults.total === 7
+        && cqMMults.bandMultiplierCounts['20M'] === 6
+        && cqMMults.bandMultiplierCounts['40M'] === 1
+        && cqMMults.credits.some((credit) => credit.exchangeValue === 'R150:R6Y')
+        && cqMMults.credits.some((credit) => credit.exchangeValue === 'R150:R6E')
+        && !cqMMults.credits.some((credit) => credit.callsign === 'K2AAA/MM'),
+      details: { points: cqMPoints.pointsByIndex, duplicates: cqMPoints.duplicateByIndex, multipliers: cqMMults.credits }
+    });
+
+    const cqmmDxRule = {
+      id: 'cqmm_dx_2026', aliases: ['CWJF-MM', 'CWJF MM', 'CQMM-DX', 'CQMM DX', 'CQMMDX'],
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'cqmm_dx_2026', eligible_bands: ['80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['CW'], required_received_exchange_pattern: '^(AF|AS|EU|NA|OC|SA)[CMQY]?$'
+      },
+      multipliers: { model: 'sum_of_groups', counting_scope: 'once_total', groups: ['cqmm_dx_mixed'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const cqmmDxQsos = [
+      { call: 'S51AAA', band: '20M', mode: 'CW', country: 'Slovenia', continent: 'EU', exchRcvd: 'EU' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'EU' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'NA' },
+      { call: 'DL2AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'EU' },
+      { call: 'K2AAA', band: '40M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'NA' },
+      { call: 'PY2AAA', band: '20M', mode: 'CW', country: 'Brazil', continent: 'SA', wpxPrefix: 'PY2', exchRcvd: 'SA' },
+      { call: 'PY2AAA', band: '20M', mode: 'CW', country: 'Brazil', continent: 'SA', wpxPrefix: 'PY2', exchRcvd: 'SAM' },
+      { call: 'PY2AAA', band: '40M', mode: 'CW', country: 'Brazil', continent: 'SA', wpxPrefix: 'PY2', exchRcvd: 'SA' },
+      { call: 'K2AAA/MM', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'NA', isMaritime: true },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'EUC' },
+      { call: 'F2AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'EUM' },
+      { call: 'F3AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'EUQ' },
+      { call: 'F4AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'EUY' },
+      { call: 'F5AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'BAD' },
+      { call: 'F6AAA', band: '20M', mode: 'SSB', country: 'France', continent: 'EU', exchRcvd: 'EU' },
+      { call: 'F7AAA', band: '160M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'EU' }
+    ];
+    const cqmmDxStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const cqmmDxPoints = computeRuleQsoPoints(cqmmDxRule, cqmmDxQsos, cqmmDxStation, new Set());
+    const cqmmDxMults = computeRuleMultipliers(cqmmDxRule, cqmmDxQsos, cqmmDxStation, cqmmDxPoints, new Set());
+    checks.push({
+      name: 'CQMM DX 2026 covers current geography, low-band weights, category exchanges, /MM, duplicates, and mixed multiplier scopes',
+      passed: cqmmDxPoints.pointsByIndex.join(',') === '1,2,3,4,6,3,0,6,3,10,10,10,10,0,0,0'
+        && cqmmDxPoints.qsoPointsTotal === 68
+        && cqmmDxPoints.duplicateByIndex[6] === true
+        && cqmmDxMults.total === 7
+        && cqmmDxMults.credits.filter((credit) => String(credit.exchangeValue).startsWith('SA-WPX:')).length === 2
+        && cqmmDxMults.credits.filter((credit) => String(credit.exchangeValue).startsWith('DXCC:')).length === 5,
+      details: { points: cqmmDxPoints.pointsByIndex, duplicates: cqmmDxPoints.duplicateByIndex, multipliers: cqmmDxMults.credits }
+    });
+
+    const digQsoPartyRule = {
+      id: 'dig_qso_party_2025', aliases: ['DIG-QSO-PARTY', 'DIG QSO PARTY', 'DIG-PA', 'DIG PA', 'DIG-CW', 'DIG-SSB'],
+      duplicate_policy: 'call_per_band',
+      qso_points: { model: 'dig_qso_party_2025', eligible_bands: ['80M', '40M', '20M', '15M', '10M'] },
+      multipliers: { model: 'sum_of_groups', counting_scope: 'once_total', groups: ['dig_qso_party_mixed'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const digQsoPartyQsos = [
+      { call: 'DL1AAA', band: '20M', freq: 14.2, mode: 'SSB', country: 'Germany', continent: 'EU', exchRcvd: '123', ts: Date.UTC(2026, 2, 14, 12, 0) },
+      { call: 'K1AAA', band: '15M', freq: 21.2, mode: 'SSB', country: 'United States', continent: 'NA', exchRcvd: '', ts: Date.UTC(2026, 2, 14, 12, 10) },
+      { call: 'JA1AAA', band: '10M', freq: 28.4, mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: '123', ts: Date.UTC(2026, 2, 14, 12, 20) },
+      { call: 'F1AAA', band: '80M', freq: 3.62, mode: 'SSB', country: 'France', continent: 'EU', exchRcvd: '456', ts: Date.UTC(2026, 2, 15, 7, 30) },
+      { call: 'PY2AAA', band: '40M', freq: 7.08, mode: 'SSB', country: 'Brazil', continent: 'SA', exchRcvd: '', ts: Date.UTC(2026, 2, 15, 9, 30) },
+      { call: 'DL1AAA', band: '20M', freq: 14.21, mode: 'SSB', country: 'Germany', continent: 'EU', exchRcvd: '124', ts: Date.UTC(2026, 2, 14, 13, 0) },
+      { call: 'G1AAA', band: '20M', freq: 14.03, mode: 'CW', country: 'England', continent: 'EU', exchRcvd: '555', ts: Date.UTC(2026, 2, 14, 13, 10) },
+      { call: 'I1AAA', band: '20M', freq: 14.03, mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: '789', ts: Date.UTC(2026, 3, 11, 12, 0) },
+      { call: 'VE1AAA', band: '80M', freq: 3.53, mode: 'CW', country: 'Canada', continent: 'NA', exchRcvd: '', ts: Date.UTC(2026, 3, 12, 7, 30) },
+      { call: 'OE1AAA', band: '20M', freq: 14.1, mode: 'CW', country: 'Austria', continent: 'EU', exchRcvd: '790', ts: Date.UTC(2026, 3, 11, 12, 30) },
+      { call: 'OK1AAA', band: '20M', freq: 14.03, mode: 'CW', country: 'Czech Republic', continent: 'EU', exchRcvd: '791', ts: Date.UTC(2026, 4, 9, 12, 30) }
+    ];
+    const digQsoPartyStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const digQsoPartyPoints = computeRuleQsoPoints(digQsoPartyRule, digQsoPartyQsos, digQsoPartyStation, new Set());
+    const digQsoPartyMults = computeRuleMultipliers(digQsoPartyRule, digQsoPartyQsos, digQsoPartyStation, digQsoPartyPoints, new Set());
+    checks.push({
+      name: 'DIG QSO Party current rules cover recurring SSB/CW schedules, exact segments, members, per-band duplicates, and mixed multipliers',
+      passed: digQsoPartyPoints.pointsByIndex.join(',') === '10,1,10,10,1,0,0,10,1,0,0'
+        && digQsoPartyPoints.qsoPointsTotal === 43
+        && digQsoPartyPoints.duplicateByIndex[5] === true
+        && digQsoPartyMults.total === 10
+        && digQsoPartyMults.credits.filter((credit) => String(credit.exchangeValue).startsWith('DIG:')).length === 3
+        && digQsoPartyMults.credits.filter((credit) => String(credit.exchangeValue).startsWith('DXCC:')).length === 7,
+      details: { points: digQsoPartyPoints.pointsByIndex, duplicates: digQsoPartyPoints.duplicateByIndex, multipliers: digQsoPartyMults.credits }
+    });
+
+    const darcXmasRule = {
+      id: 'darc_xmas_2025', aliases: ['DARC-XMAS', 'DARC XMAS', 'XMAS'],
+      duplicate_policy: 'call_per_band',
+      qso_points: { model: 'darc_xmas_2025', eligible_bands: ['80M', '40M'], eligible_mode_groups: ['CW', 'SSB'] },
+      multipliers: { model: 'sum_of_groups', counting_scope: 'per_band_per_mode', groups: ['darc_xmas_mixed'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const darcXmasStart = Date.UTC(2025, 11, 26, 8, 30);
+    const darcXmasQsos = [
+      { call: 'DL1AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'A01', ts: darcXmasStart },
+      { call: 'DL1AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'A01', ts: darcXmasStart + 60000 },
+      { call: 'DL1BBB', band: '80M', mode: 'SSB', country: 'Germany', continent: 'EU', exchRcvd: 'A01', ts: darcXmasStart + 120000 },
+      { call: 'DL2AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'NM', ts: darcXmasStart + 180000 },
+      { call: 'K1AAA', band: '80M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '001', ts: darcXmasStart + 240000 },
+      { call: 'K1BBB', band: '80M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002', ts: darcXmasStart + 300000 },
+      { call: 'DL4AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001', ts: darcXmasStart + 360000 },
+      { call: 'K4AAA', band: '80M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'A01', ts: darcXmasStart + 420000 },
+      { call: 'DL5AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'A02', ts: Date.UTC(2025, 11, 26, 11, 0) },
+      { call: 'DL6AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'A03', ts: darcXmasStart + 480000 },
+      { call: 'DL7AAA', band: '40M', mode: 'FT8', country: 'Germany', continent: 'EU', exchRcvd: 'A04', ts: darcXmasStart + 540000 },
+      { call: 'DL3AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'B02', ts: darcXmasStart + 600000 },
+      { call: 'K2AAA', band: '40M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '003', ts: darcXmasStart + 660000 }
+    ];
+    const darcXmasStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const darcXmasPoints = computeRuleQsoPoints(darcXmasRule, darcXmasQsos, darcXmasStation, new Set());
+    const darcXmasMults = computeRuleMultipliers(darcXmasRule, darcXmasQsos, darcXmasStation, darcXmasPoints, new Set());
+    checks.push({
+      name: 'DARC Christmas 2025 covers window, bands, modes, reciprocal exchanges, duplicates, and band/mode WPX plus ordinary DOK multipliers',
+      passed: darcXmasPoints.pointsByIndex.join(',') === '1,0,1,1,1,1,0,0,0,0,0,1,1'
+        && darcXmasPoints.qsoPointsTotal === 7
+        && darcXmasPoints.duplicateByIndex[1] === true
+        && darcXmasMults.total === 9,
+      details: { points: darcXmasPoints.pointsByIndex, duplicates: darcXmasPoints.duplicateByIndex, multipliers: darcXmasMults.credits }
+    });
+
+    const euPskDxRule = {
+      id: 'eu_psk_dx_2026', aliases: ['EU-PSK-DX', 'EU PSK DX'],
+      duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'eu_psk_dx_2026', eligible_bands: ['80M', '40M', '20M', '15M', '10M'], eligible_modes: ['BPSK63', 'PSK63', 'PM'] },
+      multipliers: { model: 'sum_of_groups', counting_scope: 'per_band', groups: ['eu_psk_dx_mixed'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const euPskDxStart = Date.UTC(2026, 4, 16, 12);
+    const euPskDxQsos = [
+      { call: 'S51AAA', band: '20M', mode: 'PM', country: 'Slovenia', continent: 'EU', exchRcvd: 'SILJCE', ts: euPskDxStart },
+      { call: 'DL1AAA', band: '20M', mode: 'PSK63', country: 'Germany', continent: 'EU', exchRcvd: 'DEBYMU', ts: euPskDxStart + 60000 },
+      { call: 'K1AAA', band: '20M', mode: 'BPSK63', country: 'United States', continent: 'NA', exchRcvd: '001', ts: euPskDxStart + 120000 },
+      { call: 'K2AAA/MM', band: '20M', mode: 'PM', country: 'United States', continent: 'NA', exchRcvd: '002', isMaritime: true, ts: euPskDxStart + 180000 },
+      { call: 'S51AAA', band: '20M', mode: 'PM', country: 'Slovenia', continent: 'EU', exchRcvd: 'SILJCE', ts: euPskDxStart + 240000 },
+      { call: 'DL2AAA', band: '20M', mode: 'PM', country: 'Germany', continent: 'EU', exchRcvd: '003', ts: euPskDxStart + 300000 },
+      { call: 'K3AAA', band: '20M', mode: 'PM', country: 'United States', continent: 'NA', exchRcvd: 'NAONE', ts: euPskDxStart + 360000 },
+      { call: 'DL3AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: 'DEHESA', ts: euPskDxStart + 420000 },
+      { call: 'DL4AAA', band: '20M', mode: 'PM', country: 'Germany', continent: 'EU', exchRcvd: 'DEHESA', ts: Date.UTC(2026, 4, 17, 12) }
+    ];
+    const euPskDxEuStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const euPskDxEuPoints = computeRuleQsoPoints(euPskDxRule, euPskDxQsos, euPskDxEuStation, new Set());
+    const euPskDxEuMults = computeRuleMultipliers(euPskDxRule, euPskDxQsos, euPskDxEuStation, euPskDxEuPoints, new Set());
+    const euPskDxDxQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'PM', country: 'Germany', continent: 'EU', exchRcvd: 'DEBYMU', ts: euPskDxStart },
+      { call: 'K2AAA', band: '20M', mode: 'PM', country: 'United States', continent: 'NA', exchRcvd: '001', ts: euPskDxStart + 60000 },
+      { call: 'VE1AAA', band: '20M', mode: 'PM', country: 'Canada', continent: 'NA', exchRcvd: '002', ts: euPskDxStart + 120000 },
+      { call: 'JA1AAA', band: '20M', mode: 'PM', country: 'Japan', continent: 'AS', exchRcvd: '003', ts: euPskDxStart + 180000 }
+    ];
+    const euPskDxDxStation = makeStation({ stationCall: 'K1TEST', stationCountry: 'United States', stationCountryKey: 'UNITED STATES', stationContinent: 'NA' });
+    const euPskDxDxPoints = computeRuleQsoPoints(euPskDxRule, euPskDxDxQsos, euPskDxDxStation, new Set());
+    checks.push({
+      name: 'EU PSK DX 2026 covers published windows, BPSK63 identifiers, reciprocal geography, exchanges, /MM, retained rows, and per-band entities plus EU areas',
+      passed: euPskDxEuPoints.pointsByIndex.join(',') === '1,2,3,3,1,0,0,0,0'
+        && euPskDxEuPoints.qsoPointsTotal === 10
+        && euPskDxEuPoints.duplicateByIndex.every((value) => value === false)
+        && euPskDxEuMults.total === 5
+        && euPskDxDxPoints.pointsByIndex.join(',') === '5,1,2,3',
+      details: { euPoints: euPskDxEuPoints.pointsByIndex, dxPoints: euPskDxDxPoints.pointsByIndex, multipliers: euPskDxEuMults.credits }
+    });
+
+    const esOpenRule = {
+      id: 'es_open_hf_2026', aliases: ['ES-OPEN', 'ES-OPEN-HF', 'ES OPEN HF'],
+      duplicate_policy: 'call_per_band_mode_group_hour',
+      qso_points: { model: 'es_open_hf_2026', eligible_bands: ['80M', '40M'], eligible_mode_groups: ['CW', 'SSB'] },
+      multipliers: { model: 'single_group', counting_scope: 'per_band_per_mode', groups: ['es_open_call_area'], maximum_total: 40 },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const esOpenStart = Date.UTC(2026, 3, 18, 5);
+    const esOpenQsos = [
+      { call: 'ES1AAA', band: '20M', mode: 'CW', country: 'Estonia', continent: 'EU', exchRcvd: '001', ts: esOpenStart },
+      { call: 'ES1AAA', band: '20M', mode: 'CW', country: 'Estonia', continent: 'EU', exchRcvd: '002', ts: esOpenStart + 60000 },
+      { call: 'ES1AAA', band: '20M', mode: 'CW', country: 'Estonia', continent: 'EU', exchRcvd: '003', ts: esOpenStart + 60 * 60000 },
+      { call: 'ES1AAA', band: '20M', mode: 'SSB', country: 'Estonia', continent: 'EU', exchRcvd: '004', ts: esOpenStart + 120000 },
+      { call: 'ES2AAA', band: '40M', mode: 'CW', country: 'Estonia', continent: 'EU', exchRcvd: '005', ts: esOpenStart + 180000 },
+      { call: 'DL1AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '006', ts: esOpenStart + 240000 },
+      { call: 'R1AAA', band: '80M', mode: 'CW', country: 'Russia', continent: 'EU', exchRcvd: '007', ts: esOpenStart + 300000 },
+      { call: 'ES3AAA', band: '80M', mode: 'CW', country: 'Estonia', continent: 'EU', exchRcvd: 'BAD', ts: esOpenStart + 360000 },
+      { call: 'ES4AAA', band: '80M', mode: 'CW', country: 'Estonia', continent: 'EU', exchRcvd: '008', ts: Date.UTC(2026, 3, 18, 9) }
+    ];
+    esOpenQsos[0].band = '80M';
+    esOpenQsos[1].band = '80M';
+    esOpenQsos[2].band = '80M';
+    esOpenQsos[3].band = '80M';
+    const esOpenDxStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const esOpenDxPoints = computeRuleQsoPoints(esOpenRule, esOpenQsos, esOpenDxStation, new Set());
+    const esOpenDxMults = computeRuleMultipliers(esOpenRule, esOpenQsos, esOpenDxStation, esOpenDxPoints, new Set());
+    const esOpenEsQsos = [
+      { call: 'DL1AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001', ts: esOpenStart },
+      { call: 'ES3AAA', band: '80M', mode: 'CW', country: 'Estonia', continent: 'EU', exchRcvd: '002', ts: esOpenStart + 60000 },
+      { call: 'ES4AAA', band: '80M', mode: 'CW', country: 'Estonia', continent: 'EU', exchRcvd: '003', ts: esOpenStart + 120000 },
+      { call: 'EU1AAA', band: '80M', mode: 'CW', country: 'Belarus', continent: 'EU', exchRcvd: '004', ts: esOpenStart + 180000 }
+    ];
+    const esOpenEsStation = makeStation({ stationCall: 'ES3TEST', stationCountry: 'Estonia', stationContinent: 'EU' });
+    const esOpenEsPoints = computeRuleQsoPoints(esOpenRule, esOpenEsQsos, esOpenEsStation, new Set());
+    const esOpenEsMults = computeRuleMultipliers(esOpenRule, esOpenEsQsos, esOpenEsStation, esOpenEsPoints, new Set());
+    checks.push({
+      name: 'ES Open HF 2026 covers four tours, reciprocal eligibility, CW/SSB points, serials, excluded countries, repeats, and call-area multipliers',
+      passed: esOpenDxPoints.pointsByIndex.join(',') === '2,0,2,1,2,0,0,0,0'
+        && esOpenDxPoints.qsoPointsTotal === 7
+        && esOpenDxPoints.duplicateByIndex[1] === true
+        && esOpenDxMults.total === 3
+        && esOpenEsPoints.pointsByIndex.join(',') === '2,2,2,0'
+        && esOpenEsMults.total === 1,
+      details: { dxPoints: esOpenDxPoints.pointsByIndex, dxMultipliers: esOpenDxMults.credits, esPoints: esOpenEsPoints.pointsByIndex, esMultipliers: esOpenEsMults.credits }
+    });
+
+    const hscRule = {
+      id: 'hsc_2026', aliases: ['HSC', 'HSC-CW', 'HSC CW'], duplicate_policy: 'call_per_band',
+      qso_points: { model: 'hsc_2026', eligible_bands: ['80M', '40M', '20M', '15M', '10M'], eligible_modes: ['CW'] },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['hsc_dxcc'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const hscStart = Date.UTC(2026, 1, 22, 14);
+    const hscQsos = [
+      { call: 'DL1AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '1688', ts: hscStart },
+      { call: 'K1AAA', band: '80M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: 'NM', ts: hscStart + 60000 },
+      { call: 'DL1AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '1688', ts: hscStart + 120000 },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '1688', ts: hscStart + 180000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'BAD', ts: hscStart + 240000 },
+      { call: 'G1AAA', band: '20M', mode: 'SSB', country: 'England', continent: 'EU', exchRcvd: 'NM', ts: hscStart + 300000 },
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'NM', ts: Date.UTC(2026, 1, 22, 17) }
+    ];
+    const hscStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const hscPoints = computeRuleQsoPoints(hscRule, hscQsos, hscStation, new Set());
+    const hscMults = computeRuleMultipliers(hscRule, hscQsos, hscStation, hscPoints, new Set());
+    checks.push({
+      name: 'HSC 2026 follows current member/NM points, sessions, bands, CW, per-band duplicates, and DXCC multipliers',
+      passed: hscPoints.pointsByIndex.join(',') === '5,2,0,5,0,0,0' && hscPoints.qsoPointsTotal === 12
+        && hscPoints.duplicateByIndex[2] === true && hscMults.total === 3,
+      details: { points: hscPoints.pointsByIndex, multipliers: hscMults.credits }
+    });
+
+    const inorcRule = {
+      id: 'inorc_2025', aliases: ['INORC', 'INORC-CONTEST', 'INORC CONTEST'], duplicate_policy: 'call_per_band',
+      qso_points: { model: 'inorc_2025', eligible_bands: ['80M', '40M', '20M', '15M', '10M'], eligible_modes: ['CW'] },
+      multipliers: { model: 'single_group', counting_scope: 'once_total', groups: ['inorc_member_call'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const inorcStart = Date.UTC(2025, 11, 6, 14);
+    const inorcQsos = [
+      { call: 'I1AAA', band: '80M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'IN665', ts: inorcStart },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001', ts: inorcStart + 60000 },
+      { call: 'I1AAA', band: '80M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'IN665', ts: inorcStart + 120000 },
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: 'IN665', ts: inorcStart + 180000 },
+      { call: 'F1AAA', band: '40M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'BAD', ts: inorcStart + 240000 },
+      { call: 'G1AAA', band: '40M', mode: 'SSB', country: 'England', continent: 'EU', exchRcvd: '002', ts: inorcStart + 300000 },
+      { call: 'K1AAA', band: '40M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '003', ts: Date.UTC(2025, 11, 7, 14) }
+    ];
+    const inorcStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const inorcPoints = computeRuleQsoPoints(inorcRule, inorcQsos, inorcStation, new Set());
+    const inorcMults = computeRuleMultipliers(inorcRule, inorcQsos, inorcStation, inorcPoints, new Set());
+    checks.push({
+      name: 'INORC 2025 follows official uniform-band member points, exchanges, window, CW, duplicates, and global member calls',
+      passed: inorcPoints.pointsByIndex.join(',') === '10,1,0,10,0,0,0' && inorcPoints.qsoPointsTotal === 21
+        && inorcPoints.duplicateByIndex[2] === true && inorcMults.total === 1,
+      details: { points: inorcPoints.pointsByIndex, multipliers: inorcMults.credits }
+    });
+
+    const kcjRule = {
+      id: 'kcj_2026', aliases: ['KCJ', 'KCJ-CONTEST', 'KCJ CONTEST'], duplicate_policy: 'call_per_band',
+      qso_points: { model: 'kcj_2026', eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M', '6M'], eligible_modes: ['CW'] },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['kcj_prefecture_or_zone'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const kcjStart = Date.UTC(2026, 7, 15, 12);
+    const kcjDxQsos = [
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: 'TK', ts: kcjStart },
+      { call: 'JA2AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: 'AC', ts: kcjStart + 60000 },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '14', ts: kcjStart + 120000 },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: 'TK', ts: kcjStart + 180000 },
+      { call: 'JA3AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: 'ZZ', ts: kcjStart + 240000 },
+      { call: 'JA4AAA', band: '20M', mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: 'HS', ts: kcjStart + 300000 },
+      { call: 'JA5AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: 'EH', ts: Date.UTC(2026, 7, 16, 12) }
+    ];
+    const kcjDxStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const kcjDxPoints = computeRuleQsoPoints(kcjRule, kcjDxQsos, kcjDxStation, new Set());
+    const kcjDxMults = computeRuleMultipliers(kcjRule, kcjDxQsos, kcjDxStation, kcjDxPoints, new Set());
+    const kcjJaQsos = [
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: 'TK', ts: kcjStart },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '14', ts: kcjStart + 60000 },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '05', ts: kcjStart + 120000 },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '14', ts: kcjStart + 180000 }
+    ];
+    const kcjJaStation = makeStation({ stationCall: 'JA1TEST', stationCountry: 'Japan', stationContinent: 'AS' });
+    const kcjJaPoints = computeRuleQsoPoints(kcjRule, kcjJaQsos, kcjJaStation, new Set());
+    const kcjJaMults = computeRuleMultipliers(kcjRule, kcjJaQsos, kcjJaStation, kcjJaPoints, new Set());
+    checks.push({
+      name: 'KCJ 2026 covers JA/DX reciprocal points, official exchanges, seven bands, CW, duplicates, and entrant-dependent per-band multipliers',
+      passed: kcjDxPoints.pointsByIndex.join(',') === '2,2,1,0,0,0,0' && kcjDxPoints.qsoPointsTotal === 5 && kcjDxMults.total === 2
+        && kcjJaPoints.pointsByIndex.join(',') === '1,2,2,2' && kcjJaPoints.qsoPointsTotal === 7 && kcjJaMults.total === 4,
+      details: { dxPoints: kcjDxPoints.pointsByIndex, dxMultipliers: kcjDxMults.credits, jaPoints: kcjJaPoints.pointsByIndex, jaMultipliers: kcjJaMults.credits }
+    });
+
+    const iotaRule = {
+      id: 'iota_2026', aliases: ['IOTA', 'RSGB-IOTA', 'RSGB IOTA'], duplicate_policy: 'call_per_band_mode_group',
+      qso_points: { model: 'iota_2026', eligible_bands: ['80M', '40M', '20M', '15M', '10M'], eligible_mode_groups: ['CW', 'SSB'] },
+      multipliers: { model: 'single_group', counting_scope: 'per_band_per_mode', groups: ['iota_reference'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const iotaStart = Date.UTC(2026, 6, 25, 12);
+    const iotaWorldQsos = [
+      { call: 'G1AAA', band: '20M', mode: 'CW', country: 'England', continent: 'EU', exchSent: '001', exchRcvd: '001 EU-005', ts: iotaStart },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchSent: '002', exchRcvd: '002', ts: iotaStart + 60000 },
+      { call: 'G1AAA', band: '20M', mode: 'SSB', country: 'England', continent: 'EU', exchSent: '003', exchRcvd: '003 EU-005', ts: iotaStart + 120000 },
+      { call: 'G1AAA', band: '20M', mode: 'CW', country: 'England', continent: 'EU', exchSent: '004', exchRcvd: '004 EU-005', ts: iotaStart + 180000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchSent: '005', exchRcvd: 'EU-006', ts: iotaStart + 240000 },
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchSent: '006', exchRcvd: '006 EU-007', ts: Date.UTC(2026, 6, 26, 12) }
+    ];
+    const iotaWorldStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', stationIota: '' });
+    const iotaWorldPoints = computeRuleQsoPoints(iotaRule, iotaWorldQsos, iotaWorldStation, new Set());
+    const iotaWorldMults = computeRuleMultipliers(iotaRule, iotaWorldQsos, iotaWorldStation, iotaWorldPoints, new Set());
+    const iotaIslandQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchSent: '001 EU-005', exchRcvd: '001', ts: iotaStart },
+      { call: 'G1AAA', band: '20M', mode: 'CW', country: 'England', continent: 'EU', exchSent: '002 EU-005', exchRcvd: '002 EU-005', ts: iotaStart + 60000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchSent: '003 EU-005', exchRcvd: '003 EU-006', ts: iotaStart + 120000 }
+    ];
+    const iotaIslandStation = makeStation({ stationCall: 'G1TEST', stationCountry: 'England', stationContinent: 'EU', stationIota: 'EU-005' });
+    const iotaIslandPoints = computeRuleQsoPoints(iotaRule, iotaIslandQsos, iotaIslandStation, new Set());
+    const iotaIslandMults = computeRuleMultipliers(iotaRule, iotaIslandQsos, iotaIslandStation, iotaIslandPoints, new Set());
+    checks.push({
+      name: 'IOTA 2026 covers world/island branches, same/other references, serials, modes, duplicates, window, and per-band-per-mode references',
+      passed: iotaWorldPoints.pointsByIndex.join(',') === '15,2,15,0,0,0' && iotaWorldPoints.qsoPointsTotal === 32 && iotaWorldMults.total === 2
+        && iotaIslandPoints.pointsByIndex.join(',') === '5,5,15' && iotaIslandPoints.qsoPointsTotal === 25 && iotaIslandMults.total === 2,
+      details: { worldPoints: iotaWorldPoints.pointsByIndex, worldMultipliers: iotaWorldMults.credits, islandPoints: iotaIslandPoints.pointsByIndex, islandMultipliers: iotaIslandMults.credits }
+    });
+
+    const marconiRule = {
+      id: 'marconi_memorial_hf_2026', aliases: ['MARCONI-MEMORIAL', 'MARCONI MEMORIAL', 'MMC-HF', 'MMC HF'],
+      duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'marconi_memorial_hf_2026', eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'], eligible_modes: ['CW'] },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['marconi_memorial_dxcc'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const marconiStart = Date.UTC(2026, 6, 4, 14);
+    const marconiQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001', ts: marconiStart },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002', ts: marconiStart + 60000 },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '003', ts: marconiStart + 120000 },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '004', ts: marconiStart + 180000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: 'BAD', ts: marconiStart + 240000 },
+      { call: 'G1AAA', band: '20M', mode: 'SSB', country: 'England', continent: 'EU', exchRcvd: '005', ts: marconiStart + 300000 },
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: '006', ts: Date.UTC(2026, 6, 5, 14) },
+      { call: 'QQQ', band: '20M', mode: 'CW', country: '', continent: '', exchRcvd: '007', ts: marconiStart + 360000 }
+    ];
+    const marconiStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const marconiPoints = computeRuleQsoPoints(marconiRule, marconiQsos, marconiStation, new Set());
+    const marconiMults = computeRuleMultipliers(marconiRule, marconiQsos, marconiStation, marconiPoints, new Set());
+    checks.push({
+      name: 'Marconi Memorial HF 2026 covers current window, CW, six bands, serials, retained rows, and per-band CQWW entities',
+      passed: marconiPoints.pointsByIndex.join(',') === '1,1,1,1,0,0,0,0' && marconiPoints.qsoPointsTotal === 4
+        && marconiPoints.duplicateByIndex.every((value) => value === false) && marconiMults.total === 3,
+      details: { points: marconiPoints.pointsByIndex, multipliers: marconiMults.credits }
+    });
+
+    const gdbageRule = {
+      id: 'gdbage_dx_legacy', aliases: ['GDBAGE-DX-TEST', 'GDBAGE DX TEST'], duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'gdbage_dx_recovered' },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['gdbage_indonesian_wpx'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const gdbageQsos = [
+      { call: 'YB1AAA', band: '80M', mode: 'CW', country: 'Indonesia', continent: 'OC', wpxPrefix: 'YB1' },
+      { call: 'YB1AAA', band: '80M', mode: 'CW', country: 'Indonesia', continent: 'OC', wpxPrefix: 'YB1', isDupe: true },
+      { call: '7A1AAA', band: '20M', mode: 'SSB', country: 'Indonesia', continent: 'OC', wpxPrefix: '7A1' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', wpxPrefix: 'DL1' },
+      { call: 'QQQ', band: '40M', mode: 'CW', country: '', continent: '' }
+    ];
+    const gdbageStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const gdbagePoints = computeRuleQsoPoints(gdbageRule, gdbageQsos, gdbageStation, new Set());
+    const gdbageMults = computeRuleMultipliers(gdbageRule, gdbageQsos, gdbageStation, gdbagePoints, new Set());
+    checks.push({
+      name: 'GDBAGE DX legacy scorer preserves recovered band points, Indonesian prefix ranges, retained rows, and per-band scope',
+      passed: gdbagePoints.pointsByIndex.join(',') === '3,3,2,2,0' && gdbagePoints.qsoPointsTotal === 10
+        && gdbagePoints.duplicateByIndex.every((value) => value === false) && gdbageMults.total === 2,
+      details: { points: gdbagePoints.pointsByIndex, multipliers: gdbageMults.credits }
+    });
+
+    const lzDxRule = {
+      id: 'lz_dx_2025', aliases: ['LZ-DX', 'LZ DX', 'LZDX'], duplicate_policy: 'call_per_band_mode_group',
+      qso_points: { model: 'lz_dx_2025', eligible_bands: ['80M', '40M', '20M', '15M', '10M'], eligible_mode_groups: ['CW', 'SSB'] },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['lz_dx_mixed'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const lzDxStart = Date.UTC(2025, 10, 22, 12);
+    const lzDxQsos = [
+      { call: 'LZ1AAA', band: '20M', mode: 'CW', country: 'Bulgaria', continent: 'EU', exchRcvd: 'SF', ts: lzDxStart },
+      { call: 'LZ2AAA', band: '20M', mode: 'CW', country: 'Bulgaria', continent: 'EU', exchRcvd: 'BU', ts: lzDxStart + 60000 },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '28', ts: lzDxStart + 120000 },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '8', ts: lzDxStart + 180000 },
+      { call: 'LZ1AAA', band: '20M', mode: 'CW', country: 'Bulgaria', continent: 'EU', exchRcvd: 'SF', ts: lzDxStart + 240000 },
+      { call: 'LZ1AAA', band: '20M', mode: 'SSB', country: 'Bulgaria', continent: 'EU', exchRcvd: 'SF', ts: lzDxStart + 300000 },
+      { call: 'LZ3AAA', band: '20M', mode: 'CW', country: 'Bulgaria', continent: 'EU', exchRcvd: 'ZZ', ts: lzDxStart + 360000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: '91', ts: lzDxStart + 420000 },
+      { call: 'I1AAA', band: '20M', mode: 'RTTY', country: 'Italy', continent: 'EU', exchRcvd: '28', ts: lzDxStart + 480000 },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '45', ts: Date.UTC(2025, 10, 23, 12) }
+    ];
+    const lzDxStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const lzDxPoints = computeRuleQsoPoints(lzDxRule, lzDxQsos, lzDxStation, new Set());
+    const lzDxMults = computeRuleMultipliers(lzDxRule, lzDxQsos, lzDxStation, lzDxPoints, new Set());
+    const lzEntrantQsos = [
+      { call: 'LZ2AAA', band: '20M', mode: 'CW', country: 'Bulgaria', continent: 'EU', exchRcvd: 'BU', ts: lzDxStart },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '28', ts: lzDxStart + 60000 },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '8', ts: lzDxStart + 120000 },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '45', ts: lzDxStart + 180000 },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '28', ts: lzDxStart + 240000 }
+    ];
+    const lzEntrantStation = makeStation({ stationCall: 'LZ1TEST', stationCountry: 'Bulgaria', stationContinent: 'EU' });
+    const lzEntrantPoints = computeRuleQsoPoints(lzDxRule, lzEntrantQsos, lzEntrantStation, new Set());
+    const lzEntrantMults = computeRuleMultipliers(lzDxRule, lzEntrantQsos, lzEntrantStation, lzEntrantPoints, new Set());
+    checks.push({
+      name: 'LZ DX 2025 covers both entrant perspectives, exchanges, modes, duplicates, window, and per-band mixed multipliers',
+      passed: lzDxPoints.pointsByIndex.join(',') === '10,10,1,3,0,10,0,0,0,0' && lzDxPoints.qsoPointsTotal === 34 && lzDxMults.total === 4
+        && lzEntrantPoints.pointsByIndex.join(',') === '1,1,3,3,1' && lzEntrantPoints.qsoPointsTotal === 9 && lzEntrantMults.total === 9,
+      details: { dxPoints: lzDxPoints.pointsByIndex, dxMultipliers: lzDxMults.credits, lzPoints: lzEntrantPoints.pointsByIndex, lzMultipliers: lzEntrantMults.credits }
+    });
+
+    const nyqpRule = {
+      id: 'ny_qso_party_2025', aliases: ['NY-QSO-PARTY', 'NY QSO PARTY', 'NYQP'],
+      duplicate_policy: 'call_per_band_mode_group_per_received_qth',
+      qso_points: { model: 'ny_qso_party_2025' },
+      multipliers: { model: 'single_group', counting_scope: 'once', groups: ['nyqp_location'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const nyqpStart = Date.UTC(2025, 9, 18, 14);
+    const nyqpDxQsos = [
+      { call: 'K2AAA', band: '20M', mode: 'SSB', country: 'United States', exchSent: '59 DX', exchRcvd: '59 ALB', ts: nyqpStart },
+      { call: 'K2AAA', band: '20M', mode: 'CW', country: 'United States', exchSent: '599 DX', exchRcvd: '599 ALB', ts: nyqpStart + 60000 },
+      { call: 'K2AAA', band: '20M', mode: 'RTTY', country: 'United States', exchSent: '599 DX', exchRcvd: '599 ALB', ts: nyqpStart + 120000 },
+      { call: 'K2AAA', band: '20M', mode: 'FT8', country: 'United States', exchSent: '599 DX', exchRcvd: '599 ALB', ts: nyqpStart + 180000 },
+      { call: 'K2AAA', band: '40M', mode: 'CW', country: 'United States', exchSent: '599 DX', exchRcvd: '599 MON', ts: nyqpStart + 240000 },
+      { call: 'W3AAA', band: '20M', mode: 'CW', country: 'United States', exchSent: '599 DX', exchRcvd: '599 PA', ts: nyqpStart + 300000 },
+      { call: 'K2BBB', band: '20M', mode: 'CW', country: 'United States', exchSent: '599 DX', exchRcvd: '599 ALB', ts: Date.UTC(2025, 9, 19, 2) }
+    ];
+    const nyqpDxStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', stationIsNyqpNy: false });
+    const nyqpDxPoints = computeRuleQsoPoints(nyqpRule, nyqpDxQsos, nyqpDxStation, new Set());
+    const nyqpDxMults = computeRuleMultipliers(nyqpRule, nyqpDxQsos, nyqpDxStation, nyqpDxPoints, new Set());
+    const nyqpNyQsos = [
+      { call: 'W2AAA', band: '20M', mode: 'CW', country: 'United States', exchSent: '599 ALB', exchRcvd: '599 MON', ts: nyqpStart },
+      { call: 'W3AAA', band: '20M', mode: 'SSB', country: 'United States', exchSent: '59 ALB', exchRcvd: '59 PA', ts: nyqpStart + 60000 },
+      { call: 'VE3AAA', band: '20M', mode: 'RTTY', country: 'Canada', exchSent: '599 ALB', exchRcvd: '599 ON', ts: nyqpStart + 120000 },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', exchSent: '599 ALB', exchRcvd: '599 DX', ts: nyqpStart + 180000 }
+    ];
+    const nyqpNyStation = makeStation({ stationCall: 'W2TEST', stationCountry: 'United States', stationContinent: 'NA', stationIsNyqpNy: true });
+    const nyqpNyPoints = computeRuleQsoPoints(nyqpRule, nyqpNyQsos, nyqpNyStation, new Set());
+    const nyqpNyMults = computeRuleMultipliers(nyqpRule, nyqpNyQsos, nyqpNyStation, nyqpNyPoints, new Set());
+    checks.push({
+      name: 'NY QSO Party 2025 covers entrant branches, three modes, exchanges, duplicates, global counties, states and provinces',
+      passed: nyqpDxPoints.pointsByIndex.join(',') === '1,2,3,0,2,0,0' && nyqpDxPoints.qsoPointsTotal === 8 && nyqpDxMults.total === 2
+        && nyqpNyPoints.pointsByIndex.join(',') === '2,1,3,2' && nyqpNyPoints.qsoPointsTotal === 8 && nyqpNyMults.total === 4,
+      details: { dxPoints: nyqpDxPoints.pointsByIndex, dxMultipliers: nyqpDxMults.credits, nyPoints: nyqpNyPoints.pointsByIndex, nyMultipliers: nyqpNyMults.credits }
+    });
+
+    const okRttyRule = {
+      id: 'ok_dx_rtty_2026', aliases: ['OK-DX-RTTY', 'OK DX RTTY', 'OKRTTY'], duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'ok_dx_rtty_2026' },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['ok_dx_rtty_mixed'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const okRttyStart = Date.UTC(2026, 11, 19, 0);
+    const okRttyQsos = [
+      { call: 'OK1AAA', band: '20M', mode: 'RTTY', country: 'Czech Republic', continent: 'EU', exchRcvd: '15', ts: okRttyStart },
+      { call: 'OL2AAA', band: '20M', mode: 'RTTY', country: 'Czech Republic', continent: 'EU', exchRcvd: '15', ts: okRttyStart + 60000 },
+      { call: 'DL1AAA', band: '20M', mode: 'RTTY', country: 'Germany', continent: 'EU', exchRcvd: '14', ts: okRttyStart + 120000 },
+      { call: 'K1AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '5', ts: okRttyStart + 180000 },
+      { call: 'OK1AAA', band: '40M', mode: 'RTTY', country: 'Czech Republic', continent: 'EU', exchRcvd: '15', ts: okRttyStart + 240000 },
+      { call: 'OK1AAA', band: '20M', mode: 'RTTY', country: 'Czech Republic', continent: 'EU', exchRcvd: '15', ts: okRttyStart + 300000, isDupe: true },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: '14', ts: okRttyStart + 360000 },
+      { call: 'JA1AAA', band: '20M', mode: 'RTTY', country: 'Japan', continent: 'AS', exchRcvd: '41', ts: okRttyStart + 420000 },
+      { call: 'I1AAA', band: '20M', mode: 'RTTY', country: 'Italy', continent: 'EU', exchRcvd: '15', ts: Date.UTC(2026, 11, 20, 0) }
+    ];
+    const okRttyDxStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const okRttyDxPoints = computeRuleQsoPoints(okRttyRule, okRttyQsos, okRttyDxStation, new Set());
+    const okRttyDxMults = computeRuleMultipliers(okRttyRule, okRttyQsos, okRttyDxStation, okRttyDxPoints, new Set());
+    const okRttyOkQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'RTTY', country: 'Germany', continent: 'EU', exchRcvd: '14', ts: okRttyStart },
+      { call: 'K1AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '5', ts: okRttyStart + 60000 },
+      { call: 'OL2AAA', band: '20M', mode: 'RTTY', country: 'Czech Republic', continent: 'EU', exchRcvd: '15', ts: okRttyStart + 120000 },
+      { call: 'DL1AAA', band: '40M', mode: 'RTTY', country: 'Germany', continent: 'EU', exchRcvd: '14', ts: okRttyStart + 180000 }
+    ];
+    const okRttyOkStation = makeStation({ stationCall: 'OK1TEST', stationCountry: 'Czech Republic', stationContinent: 'EU' });
+    const okRttyOkPoints = computeRuleQsoPoints(okRttyRule, okRttyOkQsos, okRttyOkStation, new Set());
+    const okRttyOkMults = computeRuleMultipliers(okRttyRule, okRttyOkQsos, okRttyOkStation, okRttyOkPoints, new Set());
+    checks.push({
+      name: 'OK DX RTTY 2026 covers band weights, continents, CQ zones, retained rows, and entrant-dependent per-band multipliers',
+      passed: okRttyDxPoints.pointsByIndex.join(',') === '1,1,1,2,3,1,0,0,0' && okRttyDxPoints.qsoPointsTotal === 9
+        && okRttyDxPoints.duplicateByIndex.every((value) => value === false) && okRttyDxMults.total === 7
+        && okRttyOkPoints.pointsByIndex.join(',') === '1,2,1,3' && okRttyOkPoints.qsoPointsTotal === 7 && okRttyOkMults.total === 4,
+      details: { dxPoints: okRttyDxPoints.pointsByIndex, dxMultipliers: okRttyDxMults.credits, okPoints: okRttyOkPoints.pointsByIndex, okMultipliers: okRttyOkMults.credits }
+    });
+
+    const portugalDayRule = {
+      id: 'portugal_day_2026', aliases: ['PORTUGAL-DAY', 'PORTUGAL DAY', 'PORTUGAL=DAY', 'PDC'], duplicate_policy: 'include_all_dupes',
+      qso_points: { model: 'portugal_day_2026' },
+      multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['portugal_day_weighted'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const portugalDayStart = Date.UTC(2026, 5, 13, 12);
+    const portugalDayQsos = [
+      { call: 'CT1AAA', band: '20M', mode: 'CW', country: 'Portugal', continent: 'EU', exchRcvd: 'LX', ts: portugalDayStart },
+      { call: 'CT3AAA', band: '20M', mode: 'SSB', country: 'Madeira', continent: 'AF', exchRcvd: 'FU', ts: portugalDayStart + 60000 },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001', ts: portugalDayStart + 120000 },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002', ts: portugalDayStart + 180000 },
+      { call: 'CT1AAA', band: '20M', mode: 'CW', country: 'Portugal', continent: 'EU', exchRcvd: 'LX', ts: portugalDayStart + 240000, isDupe: true },
+      { call: 'CT2AAA', band: '20M', mode: 'CW', country: 'Portugal', continent: 'EU', exchRcvd: 'ZZ', ts: portugalDayStart + 300000 },
+      { call: 'DL1AAA', band: '20M', mode: 'SSB', country: 'Germany', continent: 'EU', exchRcvd: '003', ts: portugalDayStart + 360000 },
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', exchRcvd: '004', ts: Date.UTC(2026, 5, 14, 12) },
+      { call: 'F1AAA', band: '20M', mode: 'RTTY', country: 'France', continent: 'EU', exchRcvd: '005', ts: portugalDayStart + 420000 }
+    ];
+    const portugalDayDxStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const portugalDayDxPoints = computeRuleQsoPoints(portugalDayRule, portugalDayQsos, portugalDayDxStation, new Set());
+    const portugalDayDxMults = computeRuleMultipliers(portugalDayRule, portugalDayQsos, portugalDayDxStation, portugalDayDxPoints, new Set());
+    const portugalDayPtQsos = [
+      { call: 'CT2AAA', band: '20M', mode: 'CW', country: 'Portugal', continent: 'EU', exchRcvd: 'AV', ts: portugalDayStart },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '001', ts: portugalDayStart + 60000 },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '002', ts: portugalDayStart + 120000 },
+      { call: 'CU1AAA', band: '20M', mode: 'SSB', country: 'Azores', continent: 'EU', exchRcvd: 'AH', ts: portugalDayStart + 180000 },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '003', ts: portugalDayStart + 240000 }
+    ];
+    const portugalDayPtStation = makeStation({ stationCall: 'CT1TEST', stationCountry: 'Portugal', stationContinent: 'EU' });
+    const portugalDayPtPoints = computeRuleQsoPoints(portugalDayRule, portugalDayPtQsos, portugalDayPtStation, new Set());
+    const portugalDayPtMults = computeRuleMultipliers(portugalDayRule, portugalDayPtQsos, portugalDayPtStation, portugalDayPtPoints, new Set());
+    checks.push({
+      name: 'Portugal Day 2026 covers reciprocal points, all area families, serials, retained rows, and weighted per-band multipliers',
+      passed: portugalDayDxPoints.pointsByIndex.join(',') === '10,10,1,2,10,0,1,0,0' && portugalDayDxPoints.qsoPointsTotal === 34
+        && portugalDayDxPoints.duplicateByIndex.every((value) => value === false) && portugalDayDxMults.total === 14
+        && portugalDayPtPoints.pointsByIndex.join(',') === '5,1,1,5,1' && portugalDayPtPoints.qsoPointsTotal === 13 && portugalDayPtMults.total === 15,
+      details: { dxPoints: portugalDayDxPoints.pointsByIndex, dxMultipliers: portugalDayDxMults.credits, ptPoints: portugalDayPtPoints.pointsByIndex, ptMultipliers: portugalDayPtMults.credits }
+    });
+
+    const pearsRule = {
+      id: 'pears_vhf_2026', aliases: ['PEARS-VHF-UHF', 'PEARS VHF UHF', 'PEARS'],
+      duplicate_policy: 'call_per_band_analog_digital_session_per_received_grid',
+      qso_points: { model: 'pears_vhf_2026' },
+      multipliers: { model: 'single_group', counting_scope: 'once', groups: ['pears_grid4'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const pearsStart = Date.UTC(2026, 0, 9, 16);
+    const pearsQsos = [
+      { call: 'ZS6AAA', band: '2M', mode: 'SSB', exchSent: '59 KG20AA', exchRcvd: '59 KG12AA', distance: 100.9, ts: pearsStart },
+      { call: 'ZS6AAA', band: '2M', mode: 'CW', exchSent: '599 KG20AA', exchRcvd: '599 KG12AA', distance: 100.9, ts: pearsStart + 60000 },
+      { call: 'ZS6AAA', band: '2M', mode: 'FT8', exchSent: '599 KG20AA', exchRcvd: '599 KG12AA', distance: 100.9, ts: pearsStart + 120000 },
+      { call: 'ZS6AAA', band: '2M', mode: 'SSB', exchSent: '59 KG20AA', exchRcvd: '59 KG12AA', distance: 100.9, ts: Date.UTC(2026, 0, 10, 14) },
+      { call: 'ZS6R/R', band: '70CM', mode: 'SSB', exchSent: '59 KG20AA', exchRcvd: '59 KG33AA', distance: 200.8, ts: pearsStart + 180000 },
+      { call: 'ZS6R/R', band: '70CM', mode: 'CW', exchSent: '599 KG20AA', exchRcvd: '599 KG34AA', distance: 300.7, ts: pearsStart + 240000 },
+      { call: 'ZS6R/R', band: '70CM', mode: 'SSB', exchSent: '59 KG20AA', exchRcvd: '59 KG33AA', distance: 200.8, ts: pearsStart + 300000 },
+      { call: 'ZS2AAA', band: '6M', mode: 'FM', exchSent: '59 KG20AA', exchRcvd: '59 KG20AA', distance: 0, ts: pearsStart + 360000 },
+      { call: 'DL1AAA', band: '2M', mode: 'SSB', exchSent: '59 KG20AA', exchRcvd: '59 JO31AA', distance: 9000, ts: pearsStart + 420000 },
+      { call: 'V5AAA', band: '2M', mode: 'SSB', exchSent: '59 KG20AA', exchRcvd: '59 JG87AA', ts: pearsStart + 480000 },
+      { call: 'A2AAA', band: '2M', mode: 'SSB', exchSent: '59 KG20AA', exchRcvd: '59 KG25AA', distance: 500, ts: Date.UTC(2026, 0, 11, 12) }
+    ];
+    const pearsStation = makeStation({ stationCall: 'ZS1TEST', stationCountry: 'South Africa', stationContinent: 'AF' });
+    const pearsPoints = computeRuleQsoPoints(pearsRule, pearsQsos, pearsStation, new Set());
+    const pearsMults = computeRuleMultipliers(pearsRule, pearsQsos, pearsStation, pearsPoints, new Set());
+    checks.push({
+      name: 'PEARS 2026 covers distance, same-locator minimum, sessions, analogue/digital repeats, rover grids, eligibility, and global grid scope',
+      passed: pearsPoints.pointsByIndex.join(',') === '100,0,100,100,200,300,0,1,0,0,0' && pearsPoints.qsoPointsTotal === 801
+        && pearsMults.total === 4,
+      details: { points: pearsPoints.pointsByIndex, duplicates: pearsPoints.duplicateByIndex, multipliers: pearsMults.credits }
+    });
+
+    const popovRule = {
+      id: 'popov_memorial_2026', aliases: ['RADIO-POPOV', 'POPOV-MEMORIAL', 'POPOV MEMORIAL'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: { model: 'popov_memorial_2026' },
+      multipliers: { model: 'none_multiplicative', counting_scope: 'once', groups: [] },
+      formula: 'score = qso_points_total'
+    };
+    const popovStart = Date.UTC(2026, 2, 21, 5);
+    const popovQsos = [
+      { call: 'R1AAA', band: '20M', mode: 'CW', exchRcvd: '25', ts: popovStart },
+      { call: 'R1AAA', band: '20M', mode: 'CW', exchRcvd: '25', ts: popovStart + 60000 },
+      { call: 'R1AAA', band: '20M', mode: 'SSB', exchRcvd: '25', ts: popovStart + 120000 },
+      { call: 'R1AAA', band: '40M', mode: 'CW', exchRcvd: '25', ts: popovStart + 180000 },
+      { call: 'R9MUSEUM', band: '80M', mode: 'SSB', exchRcvd: '167', ts: popovStart + 240000 },
+      { call: 'R2AAA', band: '15M', mode: 'CW', exchRcvd: '5', ts: popovStart + 300000 },
+      { call: 'R3AAA', band: '10M', mode: 'RTTY', exchRcvd: '30', ts: popovStart + 360000 },
+      { call: 'R4AAA', band: '20M', mode: 'CW', exchRcvd: '40', ts: Date.UTC(2026, 2, 21, 9) },
+      { call: 'R5AAA', band: '160M', mode: 'CW', exchRcvd: '50', ts: popovStart + 420000 }
+    ];
+    const popovStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const popovPoints = computeRuleQsoPoints(popovRule, popovQsos, popovStation, new Set());
+    const popovMults = computeRuleMultipliers(popovRule, popovQsos, popovStation, popovPoints, new Set());
+    checks.push({
+      name: 'Popov Memorial 2026 covers experience points, museum values, band/mode repeats, malformed exchanges, and additive total',
+      passed: popovPoints.pointsByIndex.join(',') === '25,0,25,25,167,0,0,0,0' && popovPoints.qsoPointsTotal === 242
+        && popovMults.total === 0,
+      details: { points: popovPoints.pointsByIndex, duplicates: popovPoints.duplicateByIndex, multipliers: popovMults.credits }
+    });
+
+    const popovVhfRule = {
+      id: 'popov_vhf_2026', aliases: ['POPOV-VHF', 'POPOV VHF'], duplicate_policy: 'call_per_session',
+      qso_points: { model: 'popov_vhf_2026' },
+      multipliers: { model: 'none_multiplicative', counting_scope: 'once', groups: [] },
+      formula: 'score = qso_points_total'
+    };
+    const popovVhfStart = Date.UTC(2026, 2, 21, 15);
+    const popovVhfQsos = [
+      { call: 'R9AAA', band: '2M', mode: 'SSB', exchSent: '59 001 LO88DA', exchRcvd: '59 001 LO77AA', distance: 100.9, ts: popovVhfStart },
+      { call: 'R9AAA', band: '2M', mode: 'CW', exchSent: '599 002 LO88DA', exchRcvd: '599 002 LO77AA', distance: 100.9, ts: popovVhfStart + 60000 },
+      { call: 'R9AAA', band: '2M', mode: 'FM', exchSent: '59 003 LO88DA', exchRcvd: '59 003 LO77AA', distance: 100.9, ts: Date.UTC(2026, 2, 22, 2) },
+      { call: 'R9BBB', band: '2M', mode: 'CW', exchSent: '599 004 LO88DA', exchRcvd: '599 004 LO88DA', distance: 0, ts: popovVhfStart + 120000 },
+      { call: 'R9CCC', band: '2M', mode: 'SSB', exchSent: '59 005 LO88DA', exchRcvd: '59 005 LO99AA', distance: 150, ts: Date.UTC(2026, 2, 21, 18) },
+      { call: 'R9DDD', band: '70CM', mode: 'CW', exchSent: '599 006 LO88DA', exchRcvd: '599 006 LO66AA', distance: 200, ts: popovVhfStart + 180000 },
+      { call: 'R9EEE', band: '2M', mode: 'CW', exchSent: '599 007 LO88DA', exchRcvd: '599 LO55AA', distance: 300, ts: popovVhfStart + 240000 },
+      { call: 'R9FFF', band: '2M', mode: 'CW', exchSent: '599 008 LO88DA', exchRcvd: '599 008', distance: 400, ts: popovVhfStart + 300000 }
+    ];
+    const popovVhfStation = makeStation({ stationCall: 'R9FTEST', stationCountry: 'European Russia', stationContinent: 'EU' });
+    const popovVhfPoints = computeRuleQsoPoints(popovVhfRule, popovVhfQsos, popovVhfStation, new Set());
+    const popovVhfMults = computeRuleMultipliers(popovVhfRule, popovVhfQsos, popovVhfStation, popovVhfPoints, new Set());
+    checks.push({
+      name: 'Popov VHF 2026 covers kilometre and same-locator points, round repeats, mode-independent duplicates, exchanges, and additive total',
+      passed: popovVhfPoints.pointsByIndex.join(',') === '100,0,100,4,0,0,0,0' && popovVhfPoints.qsoPointsTotal === 204
+        && popovVhfMults.total === 0,
+      details: { points: popovVhfPoints.pointsByIndex, duplicates: popovVhfPoints.duplicateByIndex, multipliers: popovVhfMults.credits }
+    });
+
+    const russian160Rule = {
+      id: 'russian_160m_2025', aliases: ['RADIO-160', 'RUSSIAN-160M', 'RUSSIAN 160M', 'RUSSIAN-160M-DX'],
+      duplicate_policy: 'call_per_mode_session',
+      qso_points: { model: 'russian_160m_2025' },
+      multipliers: { model: 'multi_group', counting_scope: 'per_mode', groups: ['russian_160m_entity', 'russian_160m_oblast'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const russian160Start = Date.UTC(2025, 11, 19, 17);
+    const russian160Qsos = [
+      { call: 'R1AAA', band: '160M', mode: 'CW', country: 'Russia', region: 'MO', exchSent: '599 JN76', exchRcvd: '599 KO85', distance: 0, ts: russian160Start },
+      { call: 'R1AAA', band: '160M', mode: 'CW', country: 'Russia', region: 'MO', exchSent: '599 JN76', exchRcvd: '599 KO85', distance: 501, ts: russian160Start + 60000 },
+      { call: 'R1AAA', band: '160M', mode: 'SSB', country: 'Russia', region: 'MO', exchSent: '59 JN76', exchRcvd: '59 KO85', distance: 1001, ts: russian160Start + 120000 },
+      { call: 'DL1AAA', band: '160M', mode: 'CW', country: 'Germany', exchSent: '599 JN76', exchRcvd: '599 JO31', distance: 1501, ts: Date.UTC(2025, 11, 19, 19) },
+      { call: 'R1AAA', band: '160M', mode: 'CW', country: 'Russia', region: 'MO', exchSent: '599 JN76', exchRcvd: '599 KO85', distance: 500, ts: Date.UTC(2025, 11, 19, 19, 1) },
+      { call: 'F1AAA', band: '80M', mode: 'CW', country: 'France', exchSent: '599 JN76', exchRcvd: '599 JN18', distance: 700, ts: russian160Start + 180000 },
+      { call: 'G1AAA', band: '160M', mode: 'RTTY', country: 'England', exchSent: '599 JN76', exchRcvd: '599 IO91', distance: 1200, ts: russian160Start + 240000 },
+      { call: 'K1AAA', band: '160M', mode: 'CW', country: 'United States', exchSent: '599 JN76', exchRcvd: '599 FN31', ts: russian160Start + 300000 },
+      { call: 'JA1AAA', band: '160M', mode: 'CW', country: 'Japan', exchSent: '599 JN76', exchRcvd: '599 PM95', distance: 9000, ts: Date.UTC(2025, 11, 19, 21) }
+    ];
+    const russian160Station = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const russian160Points = computeRuleQsoPoints(russian160Rule, russian160Qsos, russian160Station, new Set());
+    const russian160Mults = computeRuleMultipliers(russian160Rule, russian160Qsos, russian160Station, russian160Points, new Set());
+    checks.push({
+      name: 'Russian 160m 2025 covers distance steps, phone doubling, mode/round repeats, gates, and mode-scoped entity/oblast multipliers',
+      passed: russian160Points.pointsByIndex.join(',') === '10,0,24,13,10,0,0,0,0' && russian160Points.qsoPointsTotal === 57
+        && russian160Mults.total === 5,
+      details: { points: russian160Points.pointsByIndex, pointTotal: russian160Points.qsoPointsTotal, multiplierTotal: russian160Mults.total, duplicates: russian160Points.duplicateByIndex, multipliers: russian160Mults.credits }
+    });
+
+    const russianWwRttyRule = {
+      id: 'russian_ww_rtty_2026', aliases: ['RADIO-WW-RTTY', 'RUSSIAN-WW-RTTY', 'RUSSIAN WW RTTY', 'RUS-WW-RTTY'],
+      duplicate_policy: 'call_per_band', qso_points: { model: 'russian_ww_rtty_2026' },
+      multipliers: { model: 'multi_group', counting_scope: 'per_band', groups: ['russian_ww_rtty_entity', 'russian_ww_rtty_oblast'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const russianWwRttyStart = Date.UTC(2026, 8, 5, 12);
+    const russianWwRttyQsos = [
+      { call: 'R1AAA', band: '20M', mode: 'RTTY', country: 'Russia', continent: 'EU', exchRcvd: '599 MO', ts: russianWwRttyStart },
+      { call: 'R1AAA', band: '20M', mode: 'RY', country: 'Russia', continent: 'EU', exchRcvd: '599 MO', ts: russianWwRttyStart + 60000 },
+      { call: 'DL1AAA', band: '20M', mode: 'RTTY', country: 'Germany', continent: 'EU', exchRcvd: '599 001', ts: russianWwRttyStart + 120000 },
+      { call: 'S51AAA', band: '20M', mode: 'RTTY', country: 'Slovenia', continent: 'EU', exchRcvd: '599 002', ts: russianWwRttyStart + 180000 },
+      { call: 'K1AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '599 003', ts: russianWwRttyStart + 240000 },
+      { call: 'R0AAA', band: '40M', mode: 'RTTY', country: 'Asiatic Russia', continent: 'AS', exchRcvd: '599 HM', ts: russianWwRttyStart + 300000 },
+      { call: 'W1AAA/MM', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '599 004', ts: russianWwRttyStart + 360000 },
+      { call: 'R2AAA', band: '20M', mode: 'RTTY', country: 'Russia', continent: 'EU', exchRcvd: '599 005', ts: russianWwRttyStart + 420000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: '599 006', ts: russianWwRttyStart + 480000 },
+      { call: 'JA1AAA', band: '160M', mode: 'RTTY', country: 'Japan', continent: 'AS', exchRcvd: '599 007', ts: russianWwRttyStart + 540000 },
+      { call: 'VK1AAA', band: '20M', mode: 'RTTY', country: 'Australia', continent: 'OC', exchRcvd: '599 008', ts: Date.UTC(2026, 8, 6, 12) }
+    ];
+    const russianWwRttyDxStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const russianWwRttyDxPoints = computeRuleQsoPoints(russianWwRttyRule, russianWwRttyQsos, russianWwRttyDxStation, new Set());
+    const russianWwRttyDxMults = computeRuleMultipliers(russianWwRttyRule, russianWwRttyQsos, russianWwRttyDxStation, russianWwRttyDxPoints, new Set());
+    const russianWwRttyRuQsos = [
+      { call: 'R1AAA', band: '20M', mode: 'RTTY', country: 'Russia', continent: 'EU', exchRcvd: '599 MO', ts: russianWwRttyStart },
+      { call: 'R0AAA', band: '20M', mode: 'RTTY', country: 'Asiatic Russia', continent: 'AS', exchRcvd: '599 HM', ts: russianWwRttyStart + 60000 },
+      { call: 'DL1AAA', band: '20M', mode: 'RTTY', country: 'Germany', continent: 'EU', exchRcvd: '599 001', ts: russianWwRttyStart + 120000 },
+      { call: 'K1AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: '599 002', ts: russianWwRttyStart + 180000 }
+    ];
+    const russianWwRttyRuStation = makeStation({ stationCall: 'R3TEST', stationCountry: 'European Russia', stationCountryKey: 'EUROPEAN RUSSIA', stationContinent: 'EU', stationIsRu: true });
+    const russianWwRttyRuPoints = computeRuleQsoPoints(russianWwRttyRule, russianWwRttyRuQsos, russianWwRttyRuStation, new Set());
+    checks.push({
+      name: 'Russian WW RTTY 2026 covers both entrant perspectives, exchanges, maritime, duplicates, gates, and per-band entity/oblast multipliers',
+      passed: russianWwRttyDxPoints.pointsByIndex.join(',') === '10,0,3,2,5,10,5,0,0,0,0'
+        && russianWwRttyDxPoints.qsoPointsTotal === 35 && russianWwRttyDxMults.total === 7
+        && russianWwRttyRuPoints.pointsByIndex.join(',') === '2,5,3,5',
+      details: { dxPoints: russianWwRttyDxPoints.pointsByIndex, dxMultipliers: russianWwRttyDxMults.credits, ruPoints: russianWwRttyRuPoints.pointsByIndex }
+    });
+
+    const remembranceRule = {
+      id: 'wia_remembrance_2026', aliases: ['WIA-REMEMBRANCE', 'REMEMBRANCE-DAY', 'REMEMBRANCE DAY', 'RD-CONTEST'],
+      duplicate_policy: 'call_per_band_mode_group_3hours', qso_points: { model: 'wia_remembrance_2026' },
+      multipliers: { model: 'none_multiplicative', counting_scope: 'once', groups: [] }, formula: 'score = qso_points_total'
+    };
+    const remembranceStart = Date.UTC(2026, 7, 15, 3);
+    const remembranceQsos = [
+      { call: 'VK2AAA', band: '40M', mode: 'SSB', exchRcvd: '59 010', ts: remembranceStart },
+      { call: 'VK2AAA', band: '40M', mode: 'FM', exchRcvd: '59 010', ts: remembranceStart + 2 * 3600000 },
+      { call: 'VK2AAA', band: '40M', mode: 'FM', exchRcvd: '59 010', ts: remembranceStart + 3 * 3600000 },
+      { call: 'ZL1AAA', band: '40M', mode: 'CW', exchRcvd: '599 025', ts: Date.UTC(2026, 7, 15, 15, 30) },
+      { call: 'P29AAA', band: '160M', mode: 'RTTY', exchRcvd: '599 005', ts: remembranceStart + 240000 },
+      { call: 'VK3AAA', band: '23CM', mode: 'SSB', exchRcvd: '59 030', ts: remembranceStart + 300000 },
+      { call: 'VK4AAA', band: '17M', mode: 'CW', exchRcvd: '599 040', ts: remembranceStart + 360000 },
+      { call: 'JA1AAA', band: '20M', mode: 'SSB', exchRcvd: '59 020', ts: remembranceStart + 420000 },
+      { call: 'VK5AAA', band: '20M', mode: 'SSB', exchRcvd: '59 000', ts: remembranceStart + 480000 },
+      { call: 'VK6AAA', band: '20M', mode: 'FT8', exchRcvd: '599 015', ts: remembranceStart + 540000 }
+    ];
+    const remembranceStation = makeStation({ stationCall: 'VK5TEST', stationCountry: 'Australia', stationContinent: 'OC' });
+    const remembrancePoints = computeRuleQsoPoints(remembranceRule, remembranceQsos, remembranceStation, new Set());
+    checks.push({
+      name: 'WIA Remembrance Day 2026 covers base bands, CW/RTTY and local-time factors, three-hour grouped-mode repeats, eligibility, exchange, and WARC gates',
+      passed: remembrancePoints.pointsByIndex.join(',') === '1,0,1,6,4,2,0,0,0,0' && remembrancePoints.qsoPointsTotal === 14,
+      details: { points: remembrancePoints.pointsByIndex, duplicates: remembrancePoints.duplicateByIndex }
+    });
+
+    const navalRule = {
+      id: 'international_naval_2025', aliases: ['RNARS', 'RNARS-CW', 'INTERNATIONAL-NAVAL', 'INTERNATIONAL NAVAL', 'INC'],
+      duplicate_policy: 'naval_member_once_nonmember_include', qso_points: { model: 'international_naval_2025' },
+      multipliers: { model: 'single_group', counting_scope: 'once', groups: ['international_naval_member'] }, formula: 'score = qso_points_total * multipliers_total'
+    };
+    const navalStart = Date.UTC(2025, 11, 13, 16);
+    const navalQsos = [
+      { call: 'G1AAA', band: '20M', mode: 'CW', exchRcvd: '599 RN1234', ts: navalStart },
+      { call: 'G1AAA', band: '40M', mode: 'SSB', exchRcvd: '59 RN1234', ts: navalStart + 60000 },
+      { call: 'I1AAA', band: '20M', mode: 'SSB', exchRcvd: '59 MI300', ts: navalStart + 120000 },
+      { call: 'DL1AAA', band: '20M', mode: 'CW', exchRcvd: '599 001', ts: navalStart + 180000 },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', exchRcvd: '599 002', ts: navalStart + 240000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', exchRcvd: '599 RN', ts: navalStart + 300000 },
+      { call: 'W1AAA', band: '20M', mode: 'RTTY', exchRcvd: '599 003', ts: navalStart + 360000 },
+      { call: 'JA1AAA', band: '160M', mode: 'CW', exchRcvd: '599 004', ts: navalStart + 420000 },
+      { call: 'ZL1AAA', band: '20M', mode: 'CW', exchRcvd: '599 005', ts: Date.UTC(2025, 11, 14, 16) }
+    ];
+    const navalStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const navalPoints = computeRuleQsoPoints(navalRule, navalQsos, navalStation, new Set());
+    const navalMults = computeRuleMultipliers(navalRule, navalQsos, navalStation, navalPoints, new Set());
+    checks.push({
+      name: 'International Naval 2025 covers naval/non-member points, global member repeats and multipliers, exchanges, bands, modes, and window',
+      passed: navalPoints.pointsByIndex.join(',') === '10,0,10,1,1,0,0,0,0' && navalPoints.qsoPointsTotal === 22 && navalMults.total === 2,
+      details: { points: navalPoints.pointsByIndex, duplicates: navalPoints.duplicateByIndex, multipliers: navalMults.credits }
+    });
+
+    const rsgb160Rule = {
+      id: 'rsgb_160m_2026', aliases: ['RSGB-160', 'RSGB-1.8MHZ', 'RSGB 1.8MHZ', 'RSGB-160M'],
+      duplicate_policy: 'call_per_band_mode_group', qso_points: { model: 'rsgb_160m_2026' },
+      multipliers: { model: 'single_group', counting_scope: 'once', groups: ['rsgb_160m_bonus'] }, formula: 'score = qso_points_total + multipliers_total'
+    };
+    const rsgb160Feb = Date.UTC(2026, 1, 14, 20);
+    const rsgb160Qsos = [
+      { call: 'G1AAA', band: '160M', mode: 'CW', country: 'England', exchRcvd: '599 001 LO', ts: rsgb160Feb },
+      { call: 'G1AAA', band: '160M', mode: 'CW', country: 'England', exchRcvd: '599 002 LO', ts: rsgb160Feb + 60000 },
+      { call: 'G1AAA', band: '160M', mode: 'SSB', country: 'England', exchRcvd: '59 003 LO', ts: rsgb160Feb + 120000 },
+      { call: 'DL1AAA', band: '160M', mode: 'CW', country: 'Germany', exchRcvd: '599 004', ts: rsgb160Feb + 180000 },
+      { call: 'F1AAA', band: '160M', mode: 'SSB', country: 'France', exchRcvd: '59 005', ts: rsgb160Feb + 240000 },
+      { call: 'GM1AAA', band: '160M', mode: 'CW', country: 'Scotland', exchRcvd: '599 006', ts: rsgb160Feb + 300000 },
+      { call: 'K1AAA', band: '160M', mode: 'SSB', country: 'United States', exchRcvd: '59 007', ts: Date.UTC(2026, 10, 21, 20) },
+      { call: 'K2AAA', band: '160M', mode: 'CW', country: 'United States', exchRcvd: '599 008', ts: Date.UTC(2026, 10, 21, 20, 1) }
+    ];
+    const rsgb160Station = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU' });
+    const rsgb160Points = computeRuleQsoPoints(rsgb160Rule, rsgb160Qsos, rsgb160Station, new Set());
+    const rsgb160Mults = computeRuleMultipliers(rsgb160Rule, rsgb160Qsos, rsgb160Station, rsgb160Points, new Set());
+    checks.push({
+      name: 'RSGB 1.8 MHz 2026 covers additive QSO/district/entity bonuses, February mode repeats, November CW, and exchange gates',
+      passed: rsgb160Points.pointsByIndex.join(',') === '2,0,2,2,2,0,0,2' && rsgb160Points.qsoPointsTotal === 10 && rsgb160Mults.total === 20,
+      details: { points: rsgb160Points.pointsByIndex, duplicates: rsgb160Points.duplicateByIndex, bonuses: rsgb160Mults.credits }
+    });
+
+    const rsgbLowPowerRule = {
+      id: 'rsgb_low_power_2026', aliases: ['RSGB-LOW-POWER', 'RSGB LOW POWER', 'RSGB-ILPC', 'RSGB-QRP'],
+      duplicate_policy: 'call_per_band', qso_points: { model: 'rsgb_low_power_2026' },
+      multipliers: { model: 'none_multiplicative', counting_scope: 'once', groups: [] }, formula: 'score = qso_points_total'
+    };
+    const rsgbLowPowerStart = Date.UTC(2026, 6, 19, 9);
+    const rsgbLowPowerQsos = [
+      { call: 'G1AAA/P', band: '80M', mode: 'CW', exchRcvd: '599 001 1W5', ts: rsgbLowPowerStart },
+      { call: 'G2AAA', band: '40M', mode: 'CW', exchRcvd: '599 002 10W', ts: rsgbLowPowerStart + 60000 },
+      { call: 'G3AAA/M', band: '20M', mode: 'CW', exchRcvd: '599 003 QRO', ts: rsgbLowPowerStart + 120000 },
+      { call: 'G1AAA/P', band: '80M', mode: 'CW', exchRcvd: '599 004 5W', ts: Date.UTC(2026, 6, 19, 13) },
+      { call: 'G1AAA/P', band: '40M', mode: 'CW', exchRcvd: '599 005 5W', ts: Date.UTC(2026, 6, 19, 13, 1) },
+      { call: 'G4AAA', band: '20M', mode: 'SSB', exchRcvd: '59 006 5W', ts: rsgbLowPowerStart + 180000 },
+      { call: 'G5AAA', band: '15M', mode: 'CW', exchRcvd: '599 007 5W', ts: rsgbLowPowerStart + 240000 },
+      { call: 'G6AAA', band: '20M', mode: 'CW', exchRcvd: '599 000 5W', ts: rsgbLowPowerStart + 300000 },
+      { call: 'G7AAA', band: '20M', mode: 'CW', exchRcvd: '599 008 5W', ts: Date.UTC(2026, 6, 19, 12, 30) }
+    ];
+    const rsgbLowPowerPoints = computeRuleQsoPoints(rsgbLowPowerRule, rsgbLowPowerQsos, rsgb160Station, new Set());
+    checks.push({
+      name: 'RSGB International Low Power 2026 covers 15/10/5-point branches, power syntax, split sessions, per-band repeats, and gates',
+      passed: rsgbLowPowerPoints.pointsByIndex.join(',') === '15,10,5,0,15,0,0,0,0' && rsgbLowPowerPoints.qsoPointsTotal === 45,
+      details: { points: rsgbLowPowerPoints.pointsByIndex, duplicates: rsgbLowPowerPoints.duplicateByIndex }
+    });
+
+    const rsgbNfdRule = { id: 'rsgb_nfd_2026', aliases: ['RSGB-NFD'], duplicate_policy: 'call_per_band', qso_points: { model: 'rsgb_nfd_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['rsgb_field_day_dxcc'], credit_policy: 'valid_qso_allow_zero_points' }, formula: 'score = qso_points_total * multipliers_total' };
+    const nfdStart = Date.UTC(2026, 5, 6, 15);
+    const nfdQsos = [
+      { call: 'DL1AAA/P', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '599 001', ts: nfdStart },
+      { call: 'K1AAA/M', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '599 002', ts: nfdStart + 60000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', exchRcvd: '599 003', ts: nfdStart + 120000 },
+      { call: 'W1AAA', band: '160M', mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '599 004', ts: nfdStart + 180000 },
+      { call: 'DL1AAA/P', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '599 005', ts: nfdStart + 240000 }
+    ];
+    const nfdPortableStation = makeStation({ stationCall: 'G4TEST/P', stationCountry: 'England', stationContinent: 'EU', stationPortable: true });
+    const nfdPortablePoints = computeRuleQsoPoints(rsgbNfdRule, nfdQsos, nfdPortableStation, new Set());
+    const nfdPortableMults = computeRuleMultipliers(rsgbNfdRule, nfdQsos, nfdPortableStation, nfdPortablePoints, new Set());
+    const nfdFixedStation = makeStation({ stationCall: 'G4TEST', stationCountry: 'England', stationContinent: 'EU', stationPortable: false });
+    const nfdFixedPoints = computeRuleQsoPoints(rsgbNfdRule, nfdQsos, nfdFixedStation, new Set());
+    const nfdFixedMults = computeRuleMultipliers(rsgbNfdRule, nfdQsos, nfdFixedStation, nfdFixedPoints, new Set());
+    checks.push({ name: 'RSGB CW NFD 2026 covers entrant sections, geography, portable branches, 160m doubling, zero-point multipliers, and duplicates', passed: nfdPortablePoints.pointsByIndex.join(',') === '4,6,2,6,0' && nfdPortableMults.total === 4 && nfdFixedPoints.pointsByIndex.join(',') === '4,6,0,0,0' && nfdFixedMults.total === 4, details: { portablePoints: nfdPortablePoints.pointsByIndex, fixedPoints: nfdFixedPoints.pointsByIndex, fixedMultipliers: nfdFixedMults.credits } });
+
+    const rsgbSsbFdRule = { id: 'rsgb_ssb_fd_2026', aliases: ['RSGB-SSB-FD'], duplicate_policy: 'call_per_band', qso_points: { model: 'rsgb_ssb_fd_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['rsgb_field_day_dxcc'], credit_policy: 'valid_qso_allow_zero_points' }, formula: 'score = qso_points_total * multipliers_total' };
+    const ssbFdStart = Date.UTC(2026, 8, 5, 13);
+    const ssbFdQsos = [
+      { call: 'DL1AAA/P', band: '20M', mode: 'SSB', country: 'Germany', continent: 'EU', exchRcvd: '59 001', ts: ssbFdStart },
+      { call: 'K1AAA', band: '20M', mode: 'SSB', country: 'United States', continent: 'NA', exchRcvd: '59 002', ts: ssbFdStart + 60000 },
+      { call: 'F1AAA', band: '40M', mode: 'SSB', country: 'France', continent: 'EU', exchRcvd: '59 003', ts: ssbFdStart + 120000 },
+      { call: 'G1AAA/P', band: '20M', mode: 'FM', country: 'England', continent: 'EU', exchRcvd: '59 004', ts: ssbFdStart + 180000 }
+    ];
+    const ssbFdPoints = computeRuleQsoPoints(rsgbSsbFdRule, ssbFdQsos, nfdPortableStation, new Set());
+    const ssbFdMults = computeRuleMultipliers(rsgbSsbFdRule, ssbFdQsos, nfdPortableStation, ssbFdPoints, new Set());
+    checks.push({ name: 'RSGB SSB Field Day 2026 covers current point matrix, phone gates, bands, per-band DXCC multipliers, and duplicates', passed: ssbFdPoints.pointsByIndex.join(',') === '4,3,2,0' && ssbFdMults.total === 3, details: { points: ssbFdPoints.pointsByIndex, multipliers: ssbFdMults.credits } });
+
+    const sacRule = { id: 'sac_2026', aliases: ['SAC-CW', 'SAC-SSB'], duplicate_policy: 'call_per_band', qso_points: { model: 'sac_2026' }, multipliers: { model: 'station_dependent_group', counting_scope: 'per_band', groups: ['sac_multiplier'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const sacCwStart = Date.UTC(2026, 8, 19, 12);
+    const sacScandinavianStation = makeStation({ stationCall: 'OH1TEST', stationCountry: 'Finland', stationCountryKey: normalizeCountryName('Finland'), stationContinent: 'EU' });
+    const sacScandinavianQsos = [
+      { call: 'DL1AAA', band: '20M', freq: 14.02, mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '599 001', ts: sacCwStart },
+      { call: 'K1AAA', band: '20M', freq: 14.03, mode: 'CW', country: 'United States', continent: 'NA', exchRcvd: '599 002', ts: sacCwStart + 60000 },
+      { call: 'SM1AAA', band: '20M', freq: 14.04, mode: 'CW', country: 'Sweden', continent: 'EU', exchRcvd: '599 003', ts: sacCwStart + 120000 },
+      { call: 'DL1AAA', band: '20M', freq: 14.05, mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '599 004', ts: sacCwStart + 180000 },
+      { call: 'F1AAA', band: '20M', freq: 14.1, mode: 'CW', country: 'France', continent: 'EU', exchRcvd: '599 005', ts: sacCwStart + 240000 }
+    ];
+    const sacScandinavianPoints = computeRuleQsoPoints(sacRule, sacScandinavianQsos, sacScandinavianStation, new Set());
+    const sacScandinavianMults = computeRuleMultipliers(sacRule, sacScandinavianQsos, sacScandinavianStation, sacScandinavianPoints, new Set());
+    const sacOutsideStation = makeStation({ stationCall: 'K1TEST', stationCountry: 'United States', stationCountryKey: normalizeCountryName('United States'), stationContinent: 'NA' });
+    const sacOutsideQsos = [
+      { call: 'OH2AAA', band: '20M', freq: 14.02, mode: 'CW', country: 'Finland', continent: 'EU', exchRcvd: '599 001', ts: sacCwStart },
+      { call: 'SM3AAA', band: '80M', freq: 3.52, mode: 'CW', country: 'Sweden', continent: 'EU', exchRcvd: '599 002', ts: sacCwStart + 60000 },
+      { call: '7S3BBB', band: '80M', freq: 3.53, mode: 'CW', country: 'Sweden', continent: 'EU', exchRcvd: '599 003', ts: sacCwStart + 120000 },
+      { call: 'LA/G3XYZ', band: '40M', freq: 7.02, mode: 'CW', country: 'Norway', continent: 'EU', exchRcvd: '599 004', ts: sacCwStart + 180000 },
+      { call: 'DL2AAA', band: '40M', freq: 7.03, mode: 'CW', country: 'Germany', continent: 'EU', exchRcvd: '599 005', ts: sacCwStart + 240000 }
+    ];
+    const sacOutsidePoints = computeRuleQsoPoints(sacRule, sacOutsideQsos, sacOutsideStation, new Set());
+    const sacOutsideMults = computeRuleMultipliers(sacRule, sacOutsideQsos, sacOutsideStation, sacOutsidePoints, new Set());
+    checks.push({ name: 'SAC 2026 covers reciprocal geography, non-European low-band weighting, Scandinavian area and DXCC multipliers, duplicates, serials, and frequency gates', passed: sacScandinavianPoints.pointsByIndex.join(',') === '2,3,0,0,0' && sacScandinavianMults.total === 2 && sacOutsidePoints.pointsByIndex.join(',') === '1,3,3,3,0' && sacOutsideMults.total === 3, details: { scandinavianPoints: sacScandinavianPoints.pointsByIndex, scandinavianMultipliers: sacScandinavianMults.credits, outsidePoints: sacOutsidePoints.pointsByIndex, outsideMultipliers: sacOutsideMults.credits } });
+
+    const sarlStation = makeStation({ stationCall: 'ZS6TEST', stationCountry: 'South Africa', stationCountryKey: normalizeCountryName('South Africa'), stationContinent: 'AF' });
+    const sarlHfRule = { id: 'sarl_hf_2026', duplicate_policy: 'call_per_band', qso_points: { model: 'sarl_hf_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['sarl_hf_area'] }, formula: 'custom' };
+    const sarlHfStart = Date.UTC(2026, 7, 23, 14);
+    const sarlHfQsos = [
+      { call: 'ZS1AAA', band: '80M', freq: 3.52, mode: 'CW', exchRcvd: '599 001', ts: sarlHfStart },
+      { call: 'ZS1AAA', band: '40M', freq: 7.02, mode: 'CW', exchRcvd: '599 002', ts: sarlHfStart + 60000 },
+      { call: 'ZS1AAA', band: '20M', freq: 14.025, mode: 'CW', exchRcvd: '599 003', ts: sarlHfStart + 120000 },
+      { call: 'DL1AAA', band: '20M', freq: 14.025, mode: 'CW', exchRcvd: '599 004', ts: sarlHfStart + 180000 },
+      { call: 'DL1AAA', band: '20M', freq: 14.025, mode: 'CW', exchRcvd: '599 005', ts: sarlHfStart + 240000 }
+    ];
+    const sarlHfPoints = computeRuleQsoPoints(sarlHfRule, sarlHfQsos, sarlStation, new Set());
+    const sarlHfMults = computeRuleMultipliers(sarlHfRule, sarlHfQsos, sarlStation, sarlHfPoints, new Set());
+    const sarlHfScore = getAnalysisCore().evaluateRuleFormula(sarlHfRule, sarlHfPoints, sarlHfMults, sarlStation, new Set(), buildAnalysisResourcesPayload());
+    checks.push({ name: 'SARL HF 2026 applies additive per-band area and all-three-band station bonuses', passed: sarlHfPoints.pointsByIndex.join(',') === '1,1,1,1,0' && sarlHfMults.total === 4 && sarlHfPoints.sarlHfTriBandBonus === 2 && sarlHfScore === 14, details: { points: sarlHfPoints.pointsByIndex, areas: sarlHfMults.credits, triBandBonus: sarlHfPoints.sarlHfTriBandBonus, score: sarlHfScore } });
+
+    const sarlVhfRule = { id: 'sarl_vhf_2026', duplicate_policy: 'call_per_band', qso_points: { model: 'sarl_vhf_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['sarl_vhf_grid'] }, formula: 'custom' };
+    const sarlVhfStart = Date.UTC(2026, 5, 13, 10);
+    const sarlVhfQsos = [
+      { call: 'ZS1AAA', country: 'South Africa', band: '2M', mode: 'FM', exchSent: '59 KG20AA', exchRcvd: '59 JF95AA', grid: 'JF95AA', distance: 100.9, ts: sarlVhfStart },
+      { call: 'ZS2AAA', country: 'South Africa', band: '2M', mode: 'FM', exchSent: '59 KG20AA', exchRcvd: '59 JF95BB', grid: 'JF95BB', distance: 200.2, ts: sarlVhfStart + 60000 },
+      { call: 'V5AAA', country: 'Namibia', band: '70CM', mode: 'FM', exchSent: '59 KG20AA', exchRcvd: '59 JG87AA', grid: 'JG87AA', distance: 300.8, ts: sarlVhfStart + 120000 },
+      { call: 'DL1AAA', country: 'Germany', band: '2M', mode: 'FM', exchSent: '59 KG20AA', exchRcvd: '59 JO31AA', grid: 'JO31AA', distance: 9000, ts: sarlVhfStart + 180000 }
+    ];
+    const sarlVhfPoints = computeRuleQsoPoints(sarlVhfRule, sarlVhfQsos, sarlStation, new Set());
+    const sarlVhfMults = computeRuleMultipliers(sarlVhfRule, sarlVhfQsos, sarlStation, sarlVhfPoints, new Set());
+    const sarlVhfScore = getAnalysisCore().evaluateRuleFormula(sarlVhfRule, sarlVhfPoints, sarlVhfMults, sarlStation, new Set(), buildAnalysisResourcesPayload());
+    checks.push({ name: 'SARL VHF/UHF FM 2026 uses current three bands, geography, distance points, and per-band grids without legacy band factors', passed: sarlVhfPoints.pointsByIndex.join(',') === '100,200,300,0' && sarlVhfMults.total === 2 && sarlVhfScore === 600, details: { points: sarlVhfPoints.pointsByIndex, grids: sarlVhfMults.credits, score: sarlVhfScore } });
+
+    const sarlYouthRule = { id: 'sarl_youth_2026', duplicate_policy: 'call_per_band', qso_points: { model: 'sarl_youth_2026' }, multipliers: { model: 'none_multiplicative', groups: [] }, formula: 'score = qso_points_total' };
+    const youthStart = Date.UTC(2026, 5, 16, 12);
+    const youthQsos = [
+      { call: 'ZS1AAA', band: '40M', freq: 7.02, mode: 'CW', exchSent: '599 20', exchRcvd: '599 25', ts: youthStart },
+      { call: 'ZS2AAA', band: '40M', freq: 7.08, mode: 'SSB', exchSent: '59 20', exchRcvd: '59 40', ts: youthStart + 60000 },
+      { call: 'ZS3AAA', band: '40M', freq: 7.15, mode: 'SSB', exchSent: '59 35', exchRcvd: '59 40', ts: youthStart + 120000 },
+      { call: 'ZS4AAA', band: '40M', freq: 7.15, mode: 'SSB', exchSent: '59 20', exchRcvd: '59 BAD', ts: youthStart + 180000 }
+    ];
+    const youthPoints = computeRuleQsoPoints(sarlYouthRule, youthQsos, sarlStation, new Set());
+    checks.push({ name: 'SARL Youth QSO Party 2026 covers current 5/3/1 age branches and malformed exchange gating', passed: youthPoints.pointsByIndex.join(',') === '5,3,1,0', details: { points: youthPoints.pointsByIndex } });
+
+    const sarlYlRule = { id: 'sarl_yl_2026', duplicate_policy: 'call_per_band', qso_points: { model: 'sarl_yl_2026' }, multipliers: { model: 'none_multiplicative', groups: [] }, formula: 'score = qso_points_total' };
+    const ylStart = Date.UTC(2026, 2, 7, 14);
+    const ylQsos = [
+      { call: 'ZS1AAA', country: 'South Africa', band: '40M', freq: 7.02, mode: 'CW', exchSent: '599 YL', exchRcvd: '599 YL', ts: ylStart },
+      { call: 'ZS2AAA', country: 'South Africa', band: '40M', freq: 7.08, mode: 'SSB', exchSent: '59 YL', exchRcvd: '59 OM', ts: ylStart + 60000 },
+      { call: 'ZS3AAA', country: 'South Africa', band: '40M', freq: 7.15, mode: 'SSB', exchSent: '59 OM', exchRcvd: '59 OM', ts: ylStart + 120000 },
+      { call: 'DL1AAA', country: 'Germany', band: '40M', freq: 7.02, mode: 'CW', exchSent: '599 YL', exchRcvd: '599 OM', ts: ylStart + 180000 },
+      { call: 'F1AAA', country: 'France', band: '40M', freq: 7.02, mode: 'CW', exchSent: '599 YL', exchRcvd: '599 YL', ts: ylStart + 240000 }
+    ];
+    const ylPoints = computeRuleQsoPoints(sarlYlRule, ylQsos, sarlStation, new Set());
+    checks.push({ name: 'SARL YL QSO Party 2026 covers domestic 6/3/2 and DX 7/10 branches', passed: ylPoints.pointsByIndex.join(',') === '6,3,2,7,10', details: { points: ylPoints.pointsByIndex } });
+
+    const sartgRule = { id: 'sartg_rtty_2026', duplicate_policy: 'call_per_band', qso_points: { model: 'sartg_rtty_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['sartg_entity_and_call_area'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const sartgStart = Date.UTC(2026, 7, 15, 0);
+    const sartgStation = makeStation({ stationCall: 'SM1TEST', stationCountry: 'Sweden', stationCountryKey: normalizeCountryName('Sweden'), stationContinent: 'EU' });
+    const sartgQsos = [
+      { call: 'SM2AAA', country: 'Sweden', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 001', ts: sartgStart },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'RY', exchRcvd: '599 002', ts: sartgStart + 60000 },
+      { call: 'K5AAA/7', country: 'United States', continent: 'NA', band: '20M', mode: 'RTTY', exchRcvd: '599 003', ts: sartgStart + 120000 },
+      { call: 'JA2AAA', country: 'Japan', continent: 'AS', band: '20M', mode: 'RTTY', exchRcvd: '599 004', ts: sartgStart + 180000 },
+      { call: 'JA2AAA', country: 'Japan', continent: 'AS', band: '20M', mode: 'RTTY', exchRcvd: '599 005', ts: sartgStart + 240000 }
+    ];
+    const sartgPoints = computeRuleQsoPoints(sartgRule, sartgQsos, sartgStation, new Set());
+    const sartgMults = computeRuleMultipliers(sartgRule, sartgQsos, sartgStation, sartgPoints, new Set());
+    checks.push({ name: 'SARTG WW RTTY 2026 covers 5/10/15 points, entity plus special call-area multipliers, /digit overrides, periods and duplicates', passed: sartgPoints.pointsByIndex.join(',') === '5,10,15,15,0' && sartgMults.total === 6 && sartgMults.credits.some((credit) => credit.entityKey === 'AREA:W7'), details: { points: sartgPoints.pointsByIndex, multipliers: sartgMults.credits } });
+
+    const unDxRule = { id: 'un_dx_2026', duplicate_policy: 'call_per_band_mode_group', qso_points: { model: 'un_dx_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['un_dx_entity_and_kda'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const unDxStart = Date.UTC(2026, 4, 16, 6);
+    const unStation = makeStation({ stationCall: 'UN1TEST', stationCountry: 'Kazakhstan', stationCountryKey: normalizeCountryName('Kazakhstan'), stationContinent: 'AS' });
+    const unQsos = [
+      { call: 'UN2AAA', country: 'Kazakhstan', continent: 'AS', band: '20M', mode: 'CW', exchRcvd: '599 L17', ts: unDxStart },
+      { call: 'JA1AAA', country: 'Japan', continent: 'AS', band: '20M', mode: 'CW', exchRcvd: '599 001', ts: unDxStart + 60000 },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'SSB', exchRcvd: '59 002', ts: unDxStart + 120000 }
+    ];
+    const unPoints = computeRuleQsoPoints(unDxRule, unQsos, unStation, new Set());
+    const unMults = computeRuleMultipliers(unDxRule, unQsos, unStation, unPoints, new Set());
+    const unDxStation = makeStation({ stationCall: 'DL1TEST', stationCountry: 'Germany', stationCountryKey: normalizeCountryName('Germany'), stationContinent: 'EU' });
+    const unDxQsos = [
+      { call: 'UN2AAA', country: 'Kazakhstan', continent: 'AS', band: '20M', mode: 'CW', exchRcvd: '599 L17', ts: unDxStart },
+      { call: 'DL2AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 001', ts: unDxStart + 60000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 002', ts: unDxStart + 120000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchRcvd: '599 003', ts: unDxStart + 180000 },
+      { call: 'UN2AAA', country: 'Kazakhstan', continent: 'AS', band: '20M', mode: 'CW', exchRcvd: '599 L18', ts: unDxStart + 240000 },
+      { call: 'UN2AAA', country: 'Kazakhstan', continent: 'AS', band: '20M', mode: 'SSB', exchRcvd: '59 L18', ts: unDxStart + 300000 }
+    ];
+    const unDxPoints = computeRuleQsoPoints(unDxRule, unDxQsos, unDxStation, new Set());
+    const unDxMults = computeRuleMultipliers(unDxRule, unDxQsos, unDxStation, unDxPoints, new Set());
+    checks.push({ name: 'UN DX 2026 covers Kazakhstan and DX entrant geography, KDA plus DXCC multipliers, and mode-separated repeats', passed: unPoints.pointsByIndex.join(',') === '10,3,5' && unMults.total === 4 && unDxPoints.pointsByIndex.join(',') === '10,2,3,5,0,10' && unDxMults.total === 6, details: { unEntrant: { points: unPoints.pointsByIndex, multipliers: unMults.credits }, dxEntrant: { points: unDxPoints.pointsByIndex, multipliers: unDxMults.credits } } });
+
+    const voltaRule = { id: 'volta_rtty_2026', duplicate_policy: 'call_per_band', qso_points: { model: 'volta_rtty_2026' }, multipliers: { model: 'single_group', counting_scope: 'once_total', groups: ['volta_multipliers'] }, formula: 'score = positive_qso_count * qso_points_total * multipliers_total' };
+    const voltaStart = Date.UTC(2026, 4, 9, 12);
+    const voltaStation = makeStation({ stationCall: 'DL1TEST', stationCountry: 'Germany', stationCountryKey: normalizeCountryName('Germany'), stationContinent: 'EU' });
+    const voltaQsos = [
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'RTTY', exchSent: '599 001 14', exchRcvd: '599 001 14', ts: voltaStart },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '80M', mode: 'RY', exchSent: '599 002 14', exchRcvd: '599 002 5', ts: voltaStart + 60000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '80M', mode: 'RTTY', exchSent: '599 003 14', exchRcvd: '599 003 5', ts: voltaStart + 120000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '40M', mode: 'RTTY', exchSent: '599 004 14', exchRcvd: '599 004 5', ts: voltaStart + 180000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'RTTY', exchSent: '599 005 14', exchRcvd: '599 005 5', ts: voltaStart + 240000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '15M', mode: 'RTTY', exchSent: '599 006 14', exchRcvd: '599 006 5', ts: voltaStart + 300000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '10M', mode: 'RTTY', exchSent: '599 007 14', exchRcvd: '599 007 5', ts: voltaStart + 360000 },
+      { call: 'DL2AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'RTTY', exchSent: '599 008 14', exchRcvd: '599 008 14', ts: voltaStart + 420000 }
+    ];
+    const voltaPoints = computeRuleQsoPoints(voltaRule, voltaQsos, voltaStation, new Set());
+    const voltaMults = computeRuleMultipliers(voltaRule, voltaQsos, voltaStation, voltaPoints, new Set());
+    const voltaScore = evaluateRuleFormula(voltaRule, voltaPoints, voltaMults, voltaStation, new Set());
+    const voltaUsStation = makeStation({ stationCall: 'K1TEST', stationCountry: 'United States', stationCountryKey: normalizeCountryName('United States'), stationContinent: 'NA' });
+    const voltaUsPoints = computeRuleQsoPoints(voltaRule, [
+      { call: 'K2AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'RTTY', exchSent: '599 001 5', exchRcvd: '599 001 5', ts: voltaStart },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'RTTY', exchSent: '599 002 5', exchRcvd: '599 002 5', ts: voltaStart + 60000 }
+    ], voltaUsStation, new Set());
+    checks.push({ name: 'VOLTA RTTY 2026 applies the official zone matrix, low/high-band doubling, special call areas, four-band bonus, duplicates, and product formula', passed: voltaPoints.pointsByIndex.join(',') === '2,36,0,18,18,18,36,0' && voltaPoints.positiveQsoCount === 6 && voltaMults.total === 7 && voltaMults.credits.some((credit) => credit.entityKey === 'FOUR-BAND:AREA:W1') && voltaScore === 5376 && voltaUsPoints.pointsByIndex.join(',') === '2,0', details: { points: voltaPoints.pointsByIndex, positiveQsoCount: voltaPoints.positiveQsoCount, multipliers: voltaMults.credits, score: voltaScore, usCallAreaPoints: voltaUsPoints.pointsByIndex } });
+
+    const ubaPskRule = { id: 'uba_psk63_2026', duplicate_policy: 'call_per_band', qso_points: { model: 'uba_psk63_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['uba_psk63_prefix_and_section'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const ubaPskStart = Date.UTC(2026, 0, 10, 12);
+    const ubaPskQsos = [
+      { call: 'DL1AAA', country: 'Germany', band: '20M', mode: 'PSK63', exchRcvd: '599 001', ts: ubaPskStart },
+      { call: 'ON9TT', country: 'Belgium', band: '20M', mode: 'BPSK63', exchRcvd: '599 ACC', ts: ubaPskStart + 60000 },
+      { call: 'ON9TT', country: 'Belgium', band: '20M', mode: 'PSK63', exchRcvd: '599 ACC', ts: ubaPskStart + 120000 },
+      { call: 'ON4UBA', country: 'Belgium', band: '40M', mode: 'PSK63', exchRcvd: '599 UBA', ts: ubaPskStart + 180000 },
+      { call: 'RA1AAA', country: 'Russia', band: '20M', mode: 'PSK63', exchRcvd: '599 002', ts: ubaPskStart + 240000 },
+      { call: 'EW1AAA', country: 'Belarus', band: '20M', mode: 'PSK63', exchRcvd: '599 003', ts: ubaPskStart + 300000 },
+      { call: 'F1AAA', country: 'France', band: '20M', mode: 'DG', exchRcvd: '599 004', ts: ubaPskStart + 360000 },
+      { call: 'ON1AAA', country: 'Belgium', band: '20M', mode: 'PSK63', exchRcvd: '599 ABC', ts: ubaPskStart + 420000 },
+      { call: 'K1AAA', country: 'United States', band: '15M', mode: 'PSK63', exchRcvd: '599 005', ts: ubaPskStart + 480000 }
+    ];
+    const ubaPskPoints = computeRuleQsoPoints(ubaPskRule, ubaPskQsos, makeStation(), new Set());
+    const ubaPskMults = computeRuleMultipliers(ubaPskRule, ubaPskQsos, makeStation(), ubaPskPoints, new Set());
+    checks.push({ name: 'UBA PSK63 Prefix 2026 enforces BPSK63, exchanges, excluded countries, per-band duplicates, WPX and official UBA-section multipliers', passed: ubaPskPoints.pointsByIndex.join(',') === '1,1,0,1,0,0,0,0,1' && ubaPskPoints.qsoPointsTotal === 4 && ubaPskMults.total === 6 && ubaPskMults.groupCounts.uba_psk63_prefix_and_section === 6, details: { points: ubaPskPoints.pointsByIndex, duplicates: ubaPskPoints.duplicateByIndex, multipliers: ubaPskMults.credits } });
+
+    const uksmgRule = { id: 'uksmg_summer_2027', duplicate_policy: 'call_per_band', qso_points: { model: 'uksmg_summer_2027' }, multipliers: { model: 'sum_of_groups', counting_scope: 'once_total', groups: ['uksmg_dxcc', 'uksmg_grid', 'uksmg_member', 'uksmg_committee'] }, formula: 'custom' };
+    const uksmgStart = Date.UTC(2027, 5, 19, 13);
+    const uksmgQsos = [
+      { call: 'DL1AAA', country: 'Germany', band: '6M', mode: 'SSB', myGrid: 'IO90AA', grid: 'JO31AA', distance: 100.2, exchRcvd: '59 001 JO31AA 12', ts: uksmgStart },
+      { call: 'G5KW', country: 'England', band: '6M', mode: 'CW', myGrid: 'IO90AA', grid: 'IO91AA', distance: 200, exchRcvd: '599 002 IO91AA 34', ts: uksmgStart + 60000 },
+      { call: 'G5KW', country: 'England', band: '6M', mode: 'SSB', myGrid: 'IO90AA', grid: 'IO91AA', distance: 200, exchRcvd: '59 003 IO91AA 34', ts: uksmgStart + 120000 },
+      { call: 'F1AAA', country: 'France', band: '6M', mode: 'FM', myGrid: 'IO90AA', grid: 'IO90AA', distance: 0, exchRcvd: '59 004 IO90AA', ts: uksmgStart + 180000 },
+      { call: 'I1AAA', country: 'Italy', band: '6M', mode: 'FT8', myGrid: 'IO90AA', grid: 'JN45AA', distance: 800, exchRcvd: '599 005 JN45AA', ts: uksmgStart + 240000 },
+      { call: 'EA1AAA', country: 'Spain', band: '2M', mode: 'SSB', myGrid: 'IO90AA', grid: 'IN80AA', distance: 900, exchRcvd: '59 006 IN80AA', ts: uksmgStart + 300000 },
+      { call: 'PA1AAA', country: 'Netherlands', band: '6M', mode: 'RTTY', myGrid: 'IO90AA', grid: 'JO22AA', distance: 400, exchRcvd: '599 JO22AA 55', ts: uksmgStart + 360000 },
+      { call: 'G1AAA/AM', country: 'England', band: '6M', mode: 'AM', myGrid: 'IO90AA', grid: 'IO92AA', distance: 220, exchRcvd: '59 007 IO92AA', ts: uksmgStart + 420000 }
+    ];
+    const uksmgPoints = computeRuleQsoPoints(uksmgRule, uksmgQsos, makeStation(), new Set());
+    const uksmgMults = computeRuleMultipliers(uksmgRule, uksmgQsos, makeStation(), uksmgPoints, new Set());
+    const uksmgScore = evaluateRuleFormula(uksmgRule, uksmgPoints, uksmgMults, makeStation(), new Set());
+    checks.push({ name: 'UKSMG Summer Es 2027 applies distance, global DXCC/grid/member bonuses, committee calls, event gates, exchanges and duplicates', passed: uksmgPoints.pointsByIndex.join(',') === '101,200,0,1,0,0,0,0' && uksmgPoints.qsoPointsTotal === 302 && uksmgMults.groupCounts.uksmg_dxcc === 3 && uksmgMults.groupCounts.uksmg_grid === 3 && uksmgMults.groupCounts.uksmg_member === 2 && uksmgMults.groupCounts.uksmg_committee === 1 && uksmgScore === 5302, details: { points: uksmgPoints.pointsByIndex, duplicates: uksmgPoints.duplicateByIndex, groupCounts: uksmgMults.groupCounts, score: uksmgScore } });
+
+    const makrothenRule = { id: 'makrothen_rtty_2026', duplicate_policy: 'call_per_band', qso_points: { model: 'makrothen_rtty_2026' }, multipliers: { model: 'none_multiplicative', counting_scope: 'once', groups: [] }, formula: 'score = qso_points_total' };
+    const makrothenStart = Date.UTC(2026, 9, 10, 0);
+    const makrothenQsos = [
+      { call: 'K1AAA', band: '20M', mode: 'RTTY', myGrid: 'CM87', grid: 'EL49', exchSent: 'CM87', exchRcvd: 'EL49', ts: makrothenStart },
+      { call: 'K1AAA', band: '40M', mode: 'RY', myGrid: 'CM87', grid: 'EL49', exchSent: 'CM87', exchRcvd: 'EL49', ts: makrothenStart + 60000 },
+      { call: 'K1AAA', band: '80M', mode: 'RTTY', myGrid: 'CM87', grid: 'EL49', exchSent: 'CM87', exchRcvd: 'EL49', ts: makrothenStart + 120000 },
+      { call: 'DL1AAA', band: '10M', mode: 'RTTY', myGrid: 'JO41', grid: 'JO41', exchSent: 'JO41', exchRcvd: 'JO41', ts: makrothenStart + 180000 },
+      { call: 'K1AAA', band: '20M', mode: 'RTTY', myGrid: 'CM87', grid: 'EL49', exchSent: 'CM87', exchRcvd: 'EL49', ts: makrothenStart + 240000 },
+      { call: 'F1AAA', band: '20M', mode: 'CW', myGrid: 'JO41', grid: 'JN18', exchSent: 'JO41', exchRcvd: 'JN18', ts: makrothenStart + 300000 },
+      { call: 'I1AAA', band: '20M', mode: 'RTTY', myGrid: 'JO41', grid: 'JN45', exchSent: 'JO41', exchRcvd: 'JN45', ts: Date.UTC(2026, 9, 10, 9) }
+    ];
+    const makrothenPoints = computeRuleQsoPoints(makrothenRule, makrothenQsos, makeStation(), new Set());
+    checks.push({ name: 'Makrothen RTTY 2026 matches the official distance example, low-band factors, same-grid exception, periods, mode and per-band duplicates', passed: makrothenPoints.pointsByIndex.join(',') === '3084,4626,6168,100,0,0,0' && makrothenPoints.qsoPointsTotal === 13978, details: { points: makrothenPoints.pointsByIndex, duplicates: makrothenPoints.duplicateByIndex, total: makrothenPoints.qsoPointsTotal } });
+
+    const spDxRule = { id: 'sp_dx_2026', duplicate_policy: 'call_per_band_mode_group', qso_points: { model: 'sp_dx_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['sp_dx_multiplier'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const spDxStart = Date.UTC(2026, 3, 4, 15);
+    const spStation = makeStation({ stationCall: 'SP1TEST', stationCountry: 'Poland', stationCountryKey: normalizeCountryName('Poland'), stationContinent: 'EU' });
+    const spDxPolishQsos = [
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 001', ts: spDxStart },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchRcvd: '599 002', ts: spDxStart + 60000 },
+      { call: 'SQ2AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 B', ts: spDxStart + 120000 },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'SSB', exchRcvd: '59 003', ts: spDxStart + 180000 },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 004', ts: spDxStart + 240000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599', ts: spDxStart + 300000 }
+    ];
+    const spDxPolishPoints = computeRuleQsoPoints(spDxRule, spDxPolishQsos, spStation, new Set());
+    const spDxPolishMults = computeRuleMultipliers(spDxRule, spDxPolishQsos, spStation, spDxPolishPoints, new Set());
+    const spDxForeignQsos = [
+      { call: 'SP1AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 B', ts: spDxStart },
+      { call: 'SQ2AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 C', ts: spDxStart + 60000 },
+      { call: 'SP3AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 B', ts: spDxStart + 120000 },
+      { call: 'SP1AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'SSB', exchRcvd: '59 B', ts: spDxStart + 180000 },
+      { call: 'SP1AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 B', ts: spDxStart + 240000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 001', ts: spDxStart + 300000 }
+    ];
+    const spDxForeignPoints = computeRuleQsoPoints(spDxRule, spDxForeignQsos, makeStation(), new Set());
+    const spDxForeignMults = computeRuleMultipliers(spDxRule, spDxForeignQsos, makeStation(), spDxForeignPoints, new Set());
+    checks.push({ name: 'SP DX 2026 covers reciprocal Polish/foreign points, serial/province exchanges, band-mode duplicates and entrant-dependent per-band multipliers', passed: spDxPolishPoints.pointsByIndex.join(',') === '1,3,0,1,0,0' && spDxPolishMults.total === 2 && spDxForeignPoints.pointsByIndex.join(',') === '3,3,3,3,0,0' && spDxForeignMults.total === 2, details: { polishEntrant: { points: spDxPolishPoints.pointsByIndex, multipliers: spDxPolishMults.credits }, foreignEntrant: { points: spDxForeignPoints.pointsByIndex, multipliers: spDxForeignMults.credits } } });
+
+    const spDxRttyRule = { id: 'sp_dx_rtty_2026', aliases: ['SP DX RTTY', 'SP-DX-RTTY', 'SPDX-RTTY'], duplicate_policy: 'call_per_band', qso_points: { model: 'sp_dx_rtty_2026' }, multipliers: { model: 'sum_of_groups', counting_scope: 'once_total', groups: ['sp_dx_rtty_country', 'sp_dx_rtty_poviat', 'sp_dx_rtty_continent'] }, formula: 'custom' };
+    const spDxRttyStart = Date.UTC(2026, 3, 25, 12);
+    const spDxRttyStation = makeStation({ stationCall: 'DL1TEST', stationCountry: 'Germany', stationCountryKey: normalizeCountryName('Germany'), stationContinent: 'EU' });
+    const spDxRttyQsos = [
+      { call: 'DL2AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 001', ts: spDxRttyStart },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 002', ts: spDxRttyStart + 60000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'RTTY', exchRcvd: '599 003', ts: spDxRttyStart + 120000 },
+      { call: 'SP1AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 DY', ts: spDxRttyStart + 180000 },
+      { call: 'SQ2AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 RU', ts: spDxRttyStart + 240000 },
+      { call: 'UA1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 004', ts: spDxRttyStart + 300000 },
+      { call: 'EW1AAA', country: 'Belarus', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 005', ts: spDxRttyStart + 360000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 006', ts: spDxRttyStart + 420000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '40M', mode: 'RTTY', exchRcvd: '599 007', ts: spDxRttyStart + 480000 },
+      { call: 'SP3AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 B', ts: spDxRttyStart + 540000 },
+      { call: 'I1AAA', country: 'Italy', continent: 'EU', band: '20M', mode: 'CW', exchRcvd: '599 008', ts: spDxRttyStart + 600000 },
+      { call: 'G1AAA', country: 'England', continent: 'EU', band: '20M', mode: 'RTTY', exchRcvd: '599 009', ts: Date.UTC(2026, 3, 25, 11, 59) }
+    ];
+    const spDxRttyPoints = computeRuleQsoPoints(spDxRttyRule, spDxRttyQsos, spDxRttyStation, new Set());
+    const spDxRttyMults = computeRuleMultipliers(spDxRttyRule, spDxRttyQsos, spDxRttyStation, spDxRttyPoints, new Set());
+    const spDxRttyScore = getAnalysisCore().evaluateRuleFormula(spDxRttyRule, spDxRttyPoints, spDxRttyMults, spDxRttyStation, new Set(), buildAnalysisResourcesPayload());
+    checks.push({ name: 'SP DX RTTY 2026 covers official points, exchanges, UA/EW exclusions, per-band countries/poviats, global continents, duplicates and formula', passed: spDxRttyPoints.pointsByIndex.join(',') === '2,5,10,5,5,0,0,0,5,0,0,0' && spDxRttyMults.groupCounts.sp_dx_rtty_country === 5 && spDxRttyMults.groupCounts.sp_dx_rtty_poviat === 2 && spDxRttyMults.groupCounts.sp_dx_rtty_continent === 2 && spDxRttyScore === 448, details: { points: spDxRttyPoints.pointsByIndex, duplicates: spDxRttyPoints.duplicateByIndex, groups: spDxRttyMults.groupCounts, score: spDxRttyScore } });
+
+    const trcDxRule = { id: 'trc_dx_2025', aliases: ['TRC-DX', 'TRC DX'], duplicate_policy: 'call_per_band_mode_group', qso_points: { model: 'trc_dx_2025', scoring_time_policy: 'single_op_first_24_operating_hours_with_60_minute_breaks' }, multipliers: { model: 'sum_of_groups', counting_scope: 'per_band_per_mode', groups: ['trc_dx_dxcc', 'trc_dx_member_dxcc'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const trcDxStart = Date.UTC(2025, 9, 4, 6);
+    const trcNonMemberStation = makeStation({ stationCall: 'DL1TEST', stationCountry: 'Germany', stationCountryKey: normalizeCountryName('Germany'), stationContinent: 'EU', stationIsTrcMember: false });
+    const trcNonMemberQsos = [
+      { call: 'DL2AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 001', exchRcvd: '599 001', ts: trcDxStart },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: '599 002', exchRcvd: '599 002', ts: trcDxStart + 60000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 003', exchRcvd: '599 003TRC', ts: trcDxStart + 120000 },
+      { call: 'VE2AAA', country: 'Canada', continent: 'NA', band: '20M', mode: 'CW', exchSent: '599 004', exchRcvd: '599 004TRC', ts: trcDxStart + 180000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 005', exchRcvd: '599 005TRC', ts: trcDxStart + 240000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'SSB', exchSent: '59 006', exchRcvd: '59 006TRC', ts: trcDxStart + 300000 },
+      { call: 'I1AAA', country: 'Italy', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 007', exchRcvd: '599 TRC', ts: trcDxStart + 360000 },
+      { call: 'G1AAA', country: 'England', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599', exchRcvd: '599 008', ts: trcDxStart + 420000 },
+      { call: 'JA1AAA', country: 'Japan', continent: 'AS', band: '20M', mode: 'RTTY', exchSent: '599 009', exchRcvd: '599 009', ts: trcDxStart + 480000 },
+      { call: 'SP1AAA', country: 'Poland', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 010', exchRcvd: '599 010', ts: Date.UTC(2025, 9, 5, 18) }
+    ];
+    const trcNonMemberPoints = computeRuleQsoPoints(trcDxRule, trcNonMemberQsos, trcNonMemberStation, new Set());
+    const trcNonMemberMults = computeRuleMultipliers(trcDxRule, trcNonMemberQsos, trcNonMemberStation, trcNonMemberPoints, new Set());
+    const trcNonMemberScore = getAnalysisCore().evaluateRuleFormula(trcDxRule, trcNonMemberPoints, trcNonMemberMults, trcNonMemberStation, new Set(), buildAnalysisResourcesPayload());
+    const trcMemberStation = makeStation({ stationCall: 'S51TEST', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU', stationIsTrcMember: true });
+    const trcMemberQsos = [
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 001TRC', exchRcvd: '599 001TRC', ts: trcDxStart },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 002TRC', exchRcvd: '599 002', ts: trcDxStart + 60000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: '599 003TRC', exchRcvd: '599 003', ts: trcDxStart + 120000 }
+    ];
+    const trcMemberPoints = computeRuleQsoPoints(trcDxRule, trcMemberQsos, trcMemberStation, new Set());
+    const trcMemberMults = computeRuleMultipliers(trcDxRule, trcMemberQsos, trcMemberStation, trcMemberPoints, new Set());
+    checks.push({ name: 'TRC DX 2025 covers member-dependent points, serial-TRC exchanges, geography, band/mode duplicates, both multiplier families and formula', passed: trcNonMemberPoints.pointsByIndex.join(',') === '1,2,10,10,0,10,0,0,0,0' && trcNonMemberMults.groupCounts.trc_dx_dxcc === 5 && trcNonMemberMults.groupCounts.trc_dx_member_dxcc === 3 && trcNonMemberScore === 264 && trcMemberPoints.pointsByIndex.join(',') === '1,1,2' && trcMemberMults.total === 4, details: { nonMember: { points: trcNonMemberPoints.pointsByIndex, groups: trcNonMemberMults.groupCounts, score: trcNonMemberScore }, member: { points: trcMemberPoints.pointsByIndex, groups: trcMemberMults.groupCounts } } });
+
+    const ubaDxRule = { id: 'uba_dx_2026', aliases: ['UBA', 'UBA-CW', 'UBA-SSB', 'UBA-DX', 'UBA DX', 'UBA-DX-CW', 'UBA-DX-SSB'], duplicate_policy: 'call_per_band', qso_points: { model: 'uba_dx_2026' }, multipliers: { model: 'station_dependent_group', counting_scope: 'per_band', groups: ['uba_dx_multiplier'] }, formula: 'custom' };
+    const ubaCwStart = Date.UTC(2026, 1, 28, 13);
+    const ubaSsbStart = Date.UTC(2026, 0, 31, 13);
+    const ubaOutsideStation = makeStation({ stationCall: 'DL1TEST', stationCountry: 'Germany', stationCountryKey: normalizeCountryName('Germany'), stationContinent: 'EU' });
+    const ubaOutsideQsos = [
+      { call: 'ON4AAA', country: 'Belgium', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 001', exchRcvd: '599 001 ACC', ts: ubaCwStart },
+      { call: 'OP5AAA', country: 'Belgium', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 002', exchRcvd: '599 002 XXX', ts: ubaCwStart + 60000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 003', exchRcvd: '599 003', ts: ubaCwStart + 120000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: '599 004', exchRcvd: '599 004', ts: ubaCwStart + 180000 },
+      { call: 'EA8AAA', country: 'Canary Islands', continent: 'AF', band: '20M', mode: 'CW', exchSent: '599 005', exchRcvd: '599 005', ts: ubaCwStart + 240000 },
+      { call: 'UA1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 006', exchRcvd: '599 006', ts: ubaCwStart + 300000 },
+      { call: 'EW1AAA', country: 'Belarus', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 007', exchRcvd: '599 007', ts: ubaCwStart + 360000 },
+      { call: 'ON4AAA', country: 'Belgium', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 008', exchRcvd: '599 008 ACC', ts: ubaCwStart + 420000 },
+      { call: 'ON4AAA', country: 'Belgium', continent: 'EU', band: '40M', mode: 'CW', exchSent: '599 009', exchRcvd: '599 009 ACC', ts: ubaCwStart + 480000 },
+      { call: 'I1AAA', country: 'Italy', continent: 'EU', band: '20M', mode: 'SSB', exchSent: '59 010', exchRcvd: '59 010', ts: ubaCwStart + 540000 },
+      { call: 'OQ6AAA', country: 'Belgium', continent: 'EU', band: '15M', mode: 'SSB', exchSent: '59 011', exchRcvd: '59 011 HCC', ts: ubaSsbStart }
+    ];
+    const ubaOutsidePoints = computeRuleQsoPoints(ubaDxRule, ubaOutsideQsos, ubaOutsideStation, new Set());
+    const ubaOutsideMults = computeRuleMultipliers(ubaDxRule, ubaOutsideQsos, ubaOutsideStation, ubaOutsidePoints, new Set());
+    const ubaOutsideScore = getAnalysisCore().evaluateRuleFormula(ubaDxRule, ubaOutsidePoints, ubaOutsideMults, ubaOutsideStation, new Set(), buildAnalysisResourcesPayload());
+    const ubaBelgianStation = makeStation({ stationCall: 'ON4TEST', stationCountry: 'Belgium', stationCountryKey: normalizeCountryName('Belgium'), stationContinent: 'EU' });
+    const ubaBelgianQsos = [
+      { call: 'OP5AAA', country: 'Belgium', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 001 ACC', exchRcvd: '599 001 XXX', ts: ubaCwStart },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 002 ACC', exchRcvd: '599 002', ts: ubaCwStart + 60000 },
+      { call: 'EA8AAA', country: 'Canary Islands', continent: 'AF', band: '20M', mode: 'CW', exchSent: '599 003 ACC', exchRcvd: '599 003', ts: ubaCwStart + 120000 },
+      { call: 'K1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: '599 004 ACC', exchRcvd: '599 004', ts: ubaCwStart + 180000 },
+      { call: 'UA1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'CW', exchSent: '599 005 ACC', exchRcvd: '599 005', ts: ubaCwStart + 240000 }
+    ];
+    const ubaBelgianPoints = computeRuleQsoPoints(ubaDxRule, ubaBelgianQsos, ubaBelgianStation, new Set());
+    const ubaBelgianMults = computeRuleMultipliers(ubaDxRule, ubaBelgianQsos, ubaBelgianStation, ubaBelgianPoints, new Set());
+    const ubaBelgianScore = getAnalysisCore().evaluateRuleFormula(ubaDxRule, ubaBelgianPoints, ubaBelgianMults, ubaBelgianStation, new Set(), buildAnalysisResourcesPayload());
+    checks.push({ name: 'UBA DX 2026 covers both entrant perspectives, explicit EU entities, exchanges, exclusions, per-band multiplier families, duplicates and Belgian-QSO bonus', passed: ubaOutsidePoints.pointsByIndex.join(',') === '10,10,3,1,3,0,0,0,10,0,10' && ubaOutsidePoints.ubaValidQsoCount === 7 && ubaOutsidePoints.ubaBelgianQsoCount === 4 && ubaOutsideMults.total === 9 && ubaOutsideScore === 630 && ubaBelgianPoints.pointsByIndex.join(',') === '1,2,2,3,0' && ubaBelgianMults.total === 4 && ubaBelgianScore === 32, details: { outside: { points: ubaOutsidePoints.pointsByIndex, valid: ubaOutsidePoints.ubaValidQsoCount, belgian: ubaOutsidePoints.ubaBelgianQsoCount, groups: ubaOutsideMults.groupCounts, score: ubaOutsideScore }, belgian: { points: ubaBelgianPoints.pointsByIndex, groups: ubaBelgianMults.groupCounts, score: ubaBelgianScore } } });
+
+    const ukrChampRttyRule = { id: 'ukr_champ_rtty_2026', aliases: ['UKR-CHAMP-RTTY'], duplicate_policy: 'call_per_band_ukr_champ_round', qso_points: { model: 'ukr_champ_rtty_2026' }, multipliers: { model: 'single_group', counting_scope: 'once_total', groups: ['ukr_champ_2026_oblast'] }, formula: 'custom' };
+    const ukrChampStart = Date.UTC(2026, 2, 7, 17);
+    const ukrChampStation = makeStation({ stationCall: 'UT1TEST', stationCountry: 'Ukraine', stationCountryKey: normalizeCountryName('Ukraine'), stationContinent: 'EU' });
+    const ukrChampQsos = [
+      { call: 'UR1AAA', country: 'Ukraine', continent: 'EU', band: '80M', mode: 'RTTY', exchSent: 'HA 001', exchRcvd: 'HA 001', ts: ukrChampStart },
+      { call: 'UR1AAA', country: 'Ukraine', continent: 'EU', band: '80M', mode: 'RTTY', exchSent: 'HA 002', exchRcvd: 'HA 002', ts: ukrChampStart + 60000 },
+      { call: 'US2AAA', country: 'Ukraine', continent: 'EU', band: '80M', mode: 'RTTY', exchSent: 'HA 003', exchRcvd: 'HA 003', ts: ukrChampStart + 120000 },
+      { call: 'UR1AAA', country: 'Ukraine', continent: 'EU', band: '40M', mode: 'RTTY', exchSent: 'HA 004', exchRcvd: 'HA 004', ts: ukrChampStart + 180000 },
+      { call: 'UR1AAA', country: 'Ukraine', continent: 'EU', band: '80M', mode: 'RTTY', exchSent: 'HA 005', exchRcvd: 'HA 005', ts: ukrChampStart + 30 * 60000 },
+      { call: 'UZ3AAA', country: 'Ukraine', continent: 'EU', band: '80M', mode: 'RTTY', exchSent: 'HA 006', exchRcvd: 'MY 006', ts: ukrChampStart + 31 * 60000 },
+      { call: 'UW4AAA', country: 'Ukraine', continent: 'EU', band: '80M', mode: 'RTTY', exchSent: 'HA 007', exchRcvd: 'NI 007', ts: ukrChampStart + 32 * 60000 },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '80M', mode: 'RTTY', exchSent: 'HA 008', exchRcvd: 'HA 008', ts: ukrChampStart + 33 * 60000 },
+      { call: 'UT5AAA', country: 'Ukraine', continent: 'EU', band: '80M', mode: 'CW', exchSent: 'HA 009', exchRcvd: 'HA 009', ts: ukrChampStart + 34 * 60000 },
+      { call: 'UX6AAA', country: 'Ukraine', continent: 'EU', band: '80M', mode: 'RTTY', exchSent: 'HA 010', exchRcvd: 'HA 010', ts: Date.UTC(2026, 2, 7, 19) }
+    ];
+    const ukrChampPoints = computeRuleQsoPoints(ukrChampRttyRule, ukrChampQsos, ukrChampStation, new Set());
+    const ukrChampMults = computeRuleMultipliers(ukrChampRttyRule, ukrChampQsos, ukrChampStation, ukrChampPoints, new Set());
+    const ukrChampScore = getAnalysisCore().evaluateRuleFormula(ukrChampRttyRule, ukrChampPoints, ukrChampMults, ukrChampStation, new Set(), buildAnalysisResourcesPayload());
+    checks.push({ name: 'Ukrainian RTTY Championship 2026 covers current rounds, two bands, exchanges, participant eligibility, round-band duplicates and additive oblast bonuses', passed: ukrChampPoints.pointsByIndex.join(',') === '2,0,2,2,2,2,0,0,0,0' && ukrChampPoints.duplicateByIndex[1] === true && ukrChampMults.total === 4 && ukrChampScore === 30, details: { points: ukrChampPoints.pointsByIndex, duplicates: ukrChampPoints.duplicateByIndex, oblastCredits: ukrChampMults.credits, score: ukrChampScore } });
+
+    const ukeiccRule = { id: 'ukeicc_80m_2026_27', aliases: ['UKEICC-80M', 'UKEICC-80MCW', 'UKEICC-80MSSB'], duplicate_policy: 'call_per_band', qso_points: { model: 'ukeicc_80m_2026_27' }, multipliers: { model: 'none_multiplicative', counting_scope: 'once', groups: [] }, formula: 'score = qso_points_total' };
+    const ukeiccStart = Date.UTC(2026, 8, 2, 20);
+    const ukeiccStation = makeStation({ stationCall: 'G4TEST', stationCountry: 'England', stationCountryKey: normalizeCountryName('England'), stationContinent: 'EU' });
+    const ukeiccQsos = [
+      { call: 'G1AAA', band: '80M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: 'IO92XX', myGrid: 'IO91XX', grid: 'IO92XX', distance: 111, ts: ukeiccStart },
+      { call: 'DL1AAA', band: '80M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: 'JO31XX', myGrid: 'IO91XX', grid: 'JO31XX', distance: 501, ts: ukeiccStart + 60000 },
+      { call: 'JA1AAA', band: '80M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: 'PM95XX', myGrid: 'IO91XX', grid: 'PM95XX', distance: 9600, ts: ukeiccStart + 120000 },
+      { call: 'EI5G', band: '80M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: 'IO63XX', myGrid: 'IO91XX', grid: 'IO63XX', distance: 450, ts: ukeiccStart + 180000 },
+      { call: 'GW5GEI', band: '80M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: 'IO81XX', myGrid: 'IO91XX', grid: 'IO81XX', distance: 90, ts: ukeiccStart + 240000 },
+      { call: 'G1AAA', band: '80M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: 'IO92XX', myGrid: 'IO91XX', grid: 'IO92XX', distance: 111, ts: ukeiccStart + 300000 },
+      { call: 'F1AAA', band: '80M', mode: 'CW', exchSent: 'IO91XX', exchRcvd: 'JN18XX', myGrid: 'IO91XX', grid: 'JN18XX', distance: 350, ts: ukeiccStart + 360000 },
+      { call: 'PA1AAA', band: '40M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: 'JO22XX', myGrid: 'IO91XX', grid: 'JO22XX', distance: 350, ts: ukeiccStart + 420000 },
+      { call: 'ON1AAA', band: '80M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: 'JO20XX', myGrid: 'IO91XX', grid: 'JO20XX', distance: 350, ts: ukeiccStart + 60 * 60000 },
+      { call: 'SM1AAA', band: '80M', mode: 'SSB', exchSent: 'IO91XX', exchRcvd: '', myGrid: 'IO91XX', distance: NaN, ts: ukeiccStart + 480000 }
+    ];
+    const ukeiccPoints = computeRuleQsoPoints(ukeiccRule, ukeiccQsos, ukeiccStation, new Set());
+    const ukeiccMults = computeRuleMultipliers(ukeiccRule, ukeiccQsos, ukeiccStation, ukeiccPoints, new Set());
+    const ukeiccScore = getAnalysisCore().evaluateRuleFormula(ukeiccRule, ukeiccPoints, ukeiccMults, ukeiccStation, new Set(), buildAnalysisResourcesPayload());
+    checks.push({ name: 'UKEICC 80m 2026-27 covers distance steps and cap, bonus calls, duplicates, locator, date/time, mode and band gates', passed: ukeiccPoints.pointsByIndex.join(',') === '1,2,10,15,15,0,0,0,0,0' && ukeiccPoints.duplicateByIndex[5] === true && ukeiccScore === 43, details: { points: ukeiccPoints.pointsByIndex, duplicates: ukeiccPoints.duplicateByIndex, score: ukeiccScore } });
+
+    const ukeidxRule = { id: 'ukeidx_2026', aliases: ['UKEIDX', 'UKEIDX-CW', 'UKEIDX-SSB'], duplicate_policy: 'call_per_band', qso_points: { model: 'ukeidx_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['ukeidx_dxcc_or_district'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const ukeidxStart = Date.UTC(2026, 3, 25, 12);
+    const ukeidxUkStation = makeStation({ stationCall: 'G3TEST', stationCountry: 'England', stationCountryKey: normalizeCountryName('England'), stationContinent: 'EU' });
+    const ukeidxUkQsos = [
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '001 OX', exchRcvd: '001', ts: ukeidxStart },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: '002 OX', exchRcvd: '002', ts: ukeidxStart + 60000 },
+      { call: 'GM1AAA', country: 'Scotland', continent: 'EU', band: '20M', mode: 'CW', exchSent: '003 OX', exchRcvd: '000 AB', ts: ukeidxStart + 120000 },
+      { call: 'DL2AAA', country: 'Germany', continent: 'EU', band: '40M', mode: 'CW', exchSent: '004 OX', exchRcvd: '004', ts: ukeidxStart + 180000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchSent: '005 OX', exchRcvd: '005', ts: Date.UTC(2026, 3, 26, 2) },
+      { call: 'GM1AAA', country: 'Scotland', continent: 'EU', band: '20M', mode: 'CW', exchSent: '006 OX', exchRcvd: '006 AB', ts: ukeidxStart + 240000 },
+      { call: 'GI1AAA', country: 'Northern Ireland', continent: 'EU', band: '20M', mode: 'CW', exchSent: '007 OX', exchRcvd: '007 NR', ts: ukeidxStart + 300000 },
+      { call: 'G1AAA', country: 'England', continent: 'EU', band: '20M', mode: 'CW', exchSent: '008 OX', exchRcvd: '008 NK', ts: ukeidxStart + 360000 },
+      { call: 'ON1AAA', country: 'Belgium', continent: 'EU', band: '80M', mode: 'CW', freq: 3.58, exchSent: '009 OX', exchRcvd: '009', ts: ukeidxStart + 420000 },
+      { call: 'PA1AAA', country: 'Netherlands', continent: 'EU', band: '20M', mode: 'SSB', exchSent: '010 OX', exchRcvd: '010', ts: ukeidxStart + 480000 }
+    ];
+    const ukeidxUkPoints = computeRuleQsoPoints(ukeidxRule, ukeidxUkQsos, ukeidxUkStation, new Set());
+    const ukeidxUkMults = computeRuleMultipliers(ukeidxRule, ukeidxUkQsos, ukeidxUkStation, ukeidxUkPoints, new Set());
+    const ukeidxUkScore = getAnalysisCore().evaluateRuleFormula(ukeidxRule, ukeidxUkPoints, ukeidxUkMults, ukeidxUkStation, new Set(), buildAnalysisResourcesPayload());
+    const ukeidxEuStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU' });
+    const ukeidxEuQsos = [
+      { call: 'G1AAA', country: 'England', continent: 'EU', band: '20M', mode: 'CW', exchSent: '001', exchRcvd: '001 AB', ts: ukeidxStart },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '002', exchRcvd: '002', ts: ukeidxStart + 60000 },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: '003', exchRcvd: '003', ts: ukeidxStart + 120000 },
+      { call: 'GM1AAA', country: 'Scotland', continent: 'EU', band: '40M', mode: 'CW', exchSent: '004', exchRcvd: '004 DD', ts: ukeidxStart + 180000 }
+    ];
+    const ukeidxEuPoints = computeRuleQsoPoints(ukeidxRule, ukeidxEuQsos, ukeidxEuStation, new Set());
+    const ukeidxDxStation = makeStation({ stationCall: 'W3TEST', stationCountry: 'United States', stationCountryKey: normalizeCountryName('United States'), stationContinent: 'NA' });
+    const ukeidxDxQsos = [
+      { call: 'EI1AAA', country: 'Ireland', continent: 'EU', band: '20M', mode: 'CW', exchSent: '001', exchRcvd: '001 DU', ts: ukeidxStart },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '002', exchRcvd: '002', ts: ukeidxStart + 60000 },
+      { call: 'JA1AAA', country: 'Japan', continent: 'AS', band: '20M', mode: 'CW', exchSent: '003', exchRcvd: '003', ts: ukeidxStart + 120000 },
+      { call: 'G1AAA', country: 'England', continent: 'EU', band: '80M', mode: 'CW', freq: 3.52, exchSent: '004', exchRcvd: '004 AB', ts: ukeidxStart + 180000 }
+    ];
+    const ukeidxDxPoints = computeRuleQsoPoints(ukeidxRule, ukeidxDxQsos, ukeidxDxStation, new Set());
+    checks.push({ name: 'UK/EI DX 2026 covers entrant-region branches, low/night bonuses, current districts, duplicates, event gates and per-band multiplier families', passed: ukeidxUkPoints.pointsByIndex.join(',') === '2,4,2,4,4,0,0,2,0,0' && ukeidxUkPoints.duplicateByIndex[5] === true && ukeidxUkMults.total === 6 && ukeidxUkScore === 108 && ukeidxEuPoints.pointsByIndex.join(',') === '2,1,2,4' && ukeidxDxPoints.pointsByIndex.join(',') === '4,2,1,8', details: { uk: { points: ukeidxUkPoints.pointsByIndex, groups: ukeidxUkMults.groupCounts, score: ukeidxUkScore }, eu: ukeidxEuPoints.pointsByIndex, dx: ukeidxDxPoints.pointsByIndex } });
+
+    const rdrcStation = makeStation({ stationCall: 'DL1TEST', stationCountry: 'Germany', stationCountryKey: normalizeCountryName('Germany'), stationContinent: 'EU' });
+    const rusDigiRule = { id: 'rus_ww_digi_2026', aliases: ['RUS-WW-DIGI'], duplicate_policy: 'call_per_band_exact_mode_3min', qso_points: { model: 'rus_ww_digi_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['rdrc_rus_ww_dxcc_and_area'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const rusDigiStart = Date.UTC(2026, 9, 3, 12);
+    const rusDigiQsos = [
+      { call: 'DL2AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'RY', exchSent: '001', exchRcvd: '001', ts: rusDigiStart },
+      { call: 'R1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'RY', exchSent: '002', exchRcvd: 'MA', ts: rusDigiStart + 60000 },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'PM', exchSent: '003', exchRcvd: '003', ts: rusDigiStart + 120000 },
+      { call: 'JA1AAA/QRP', country: 'Japan', continent: 'AS', band: '20M', mode: 'PM', exchSent: '004', exchRcvd: '004', ts: rusDigiStart + 180000 },
+      { call: 'R2AAA', country: 'Russia', continent: 'EU', band: '40M', mode: 'RY', exchSent: '005', exchRcvd: 'MO', ts: rusDigiStart + 240000 },
+      { call: 'R1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'PM', exchSent: '006', exchRcvd: 'MA', ts: rusDigiStart + 2 * 60000 },
+      { call: 'R1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'PM', exchSent: '007', exchRcvd: 'MA', ts: rusDigiStart + 4 * 60000 },
+      { call: 'R1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'PM', exchSent: '008', exchRcvd: 'MA', ts: rusDigiStart + 8 * 60000 },
+      { call: 'R3AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'PM', exchSent: '009', exchRcvd: 'ZZ', ts: rusDigiStart + 9 * 60000 },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'DG', exchSent: '010', exchRcvd: '010', ts: rusDigiStart + 10 * 60000 }
+    ];
+    const rusDigiPoints = computeRuleQsoPoints(rusDigiRule, rusDigiQsos, rdrcStation, new Set());
+    const rusDigiMults = computeRuleMultipliers(rusDigiRule, rusDigiQsos, rdrcStation, rusDigiPoints, new Set());
+    const rusDigiScore = getAnalysisCore().evaluateRuleFormula(rusDigiRule, rusDigiPoints, rusDigiMults, rdrcStation, new Set(), buildAnalysisResourcesPayload());
+
+    const rusMmRule = { id: 'rus_ww_mm_2026', aliases: ['RUS-WW-MM'], duplicate_policy: 'call_per_band_exact_mode_3min', qso_points: { model: 'rus_ww_mm_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['rdrc_rus_ww_dxcc_and_area'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const rusMmStart = Date.UTC(2026, 9, 31, 12);
+    const rusMmQsos = [
+      { call: 'DL2AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '001', exchRcvd: '001', ts: rusMmStart },
+      { call: 'F1AAA', country: 'France', continent: 'EU', band: '20M', mode: 'PH', exchSent: '002', exchRcvd: '002', ts: rusMmStart + 60000 },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'RY', exchSent: '003', exchRcvd: '003', ts: rusMmStart + 120000 },
+      { call: 'R1AAA', country: 'Russia', continent: 'EU', band: '80M', mode: 'PM', exchSent: '004', exchRcvd: 'MA', ts: rusMmStart + 180000 }
+    ];
+    const rusMmPoints = computeRuleQsoPoints(rusMmRule, rusMmQsos, rdrcStation, new Set());
+    const rusMmMults = computeRuleMultipliers(rusMmRule, rusMmQsos, rdrcStation, rusMmPoints, new Set());
+
+    const rusPskRule = { id: 'rus_ww_psk_2027', aliases: ['RUS-WW-PSK'], duplicate_policy: 'call_per_band_exact_mode_3min', qso_points: { model: 'rus_ww_psk_2027' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['rdrc_rus_ww_dxcc_and_area'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const rusPskStart = Date.UTC(2027, 1, 20, 12);
+    const rusPskQsos = [
+      { call: 'R1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'PS', exchSent: '001', exchRcvd: 'MA', ts: rusPskStart },
+      { call: 'R1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'PM', exchSent: '002', exchRcvd: 'MA', ts: rusPskStart + 3 * 60000 },
+      { call: 'R1AAA', country: 'Russia', continent: 'EU', band: '20M', mode: 'PO', exchSent: '003', exchRcvd: 'MA', ts: rusPskStart + 6 * 60000 },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '40M', mode: 'PO', exchSent: '004', exchRcvd: '004', ts: rusPskStart + 9 * 60000 }
+    ];
+    const rusPskPoints = computeRuleQsoPoints(rusPskRule, rusPskQsos, rdrcStation, new Set());
+    const rusPskMults = computeRuleMultipliers(rusPskRule, rusPskQsos, rdrcStation, rusPskPoints, new Set());
+    checks.push({ name: 'RDRC Russian WW family covers current events, exact modes, geography/QRP/low-band points, reciprocal exchanges, repeat timing and mode-aware multiplier scopes', passed: rusDigiPoints.pointsByIndex.join(',') === '1,3,5,5,6,0,3,0,0,0' && rusDigiPoints.duplicateByIndex[5] === true && rusDigiPoints.duplicateByIndex[7] === true && rusDigiMults.total === 9 && rusDigiScore === 207 && rusMmPoints.pointsByIndex.join(',') === '1,3,5,6' && rusMmMults.total === 5 && rusPskPoints.pointsByIndex.join(',') === '3,3,3,10' && rusPskMults.total === 3, details: { digi: { points: rusDigiPoints.pointsByIndex, groups: rusDigiMults.groupCounts, score: rusDigiScore }, mm: { points: rusMmPoints.pointsByIndex, groups: rusMmMults.groupCounts }, psk: { points: rusPskPoints.pointsByIndex, groups: rusPskMults.groupCounts } } });
+
+    const wiaVhfRule = { id: 'wia_vhf_2026', aliases: ['WIA-VHF-UHF'], duplicate_policy: 'call_per_band_sent_received_grid_2hours', qso_points: { model: 'wia_vhf_2026' }, multipliers: { model: 'none_multiplicative', counting_scope: 'once', groups: [] }, formula: 'score = qso_points_total' };
+    const wiaVhfStart = Date.UTC(2026, 5, 20, 1);
+    const wiaVhfStation = makeStation({ stationCall: 'VK3TEST', stationCountry: 'Australia', stationCountryKey: normalizeCountryName('Australia'), stationContinent: 'OC' });
+    const wiaVhfQsos = [
+      { call: 'VK2AAA', band: '6M', mode: 'SSB', exchSent: '001 QF22AA', exchRcvd: '001 QF56AA', myGrid: 'QF22AA', grid: 'QF56AA', distance: 1000, ts: wiaVhfStart },
+      { call: 'VK2BBB', band: '2M', mode: 'CW', exchSent: '002 QF22AA', exchRcvd: '002 QF34AA', myGrid: 'QF22AA', grid: 'QF34AA', distance: 200, ts: wiaVhfStart + 60000 },
+      { call: 'VK2BBB', band: '2M', mode: 'FM', exchSent: '003 QF22AA', exchRcvd: '003 QF34AA', myGrid: 'QF22AA', grid: 'QF34AA', distance: 200, ts: wiaVhfStart + 2 * 60000 },
+      { call: 'VK2BBB', band: '2M', mode: 'FM', exchSent: '004 QF22AA', exchRcvd: '004 QF34AA', myGrid: 'QF22AA', grid: 'QF34AA', distance: 200, ts: wiaVhfStart + 121 * 60000 },
+      { call: 'VK2CCC', band: '70CM', mode: 'DIG', exchSent: '005 QF22AA', exchRcvd: '005 QF35AA', myGrid: 'QF22AA', grid: 'QF35AA', distance: 200, ts: wiaVhfStart + 3 * 60000 },
+      { call: 'VK2CCC', band: '70CM', mode: 'SSB', exchSent: '006 QF22AA', exchRcvd: '006 QF45AA', myGrid: 'QF22AA', grid: 'QF45AA', distance: 200, ts: wiaVhfStart + 4 * 60000 },
+      { call: 'VK2DDD', band: '23CM', mode: 'SSB', exchSent: '007 QF22AA', exchRcvd: '007 QF46AA', myGrid: 'QF22AA', grid: 'QF46AA', distance: 200, ts: wiaVhfStart + 5 * 60000 },
+      { call: 'VK2DDD', band: '23CM', mode: 'SSB', exchSent: '008 QG12AA', exchRcvd: '008 QF46AA', myGrid: 'QG12AA', grid: 'QF46AA', distance: 200, ts: wiaVhfStart + 6 * 60000 },
+      { call: 'VK2EEE', band: '1.25CM', mode: 'SSB', exchSent: '009 QF22AA', exchRcvd: '009 QF23AA', myGrid: 'QF22AA', grid: 'QF23AA', distance: 10, ts: wiaVhfStart + 7 * 60000 },
+      { call: 'VK2FFF', band: '2M', mode: 'SSB', exchSent: '010 QF22AA', exchRcvd: '010 QF22AA', myGrid: 'QF22AA', grid: 'QF22AA', distance: 1, ts: wiaVhfStart + 8 * 60000 },
+      { call: 'VK2GGG', band: '2M', mode: 'SSB', exchSent: '011 QF22AA', exchRcvd: 'QF34AA', myGrid: 'QF22AA', grid: 'QF34AA', distance: 200, ts: wiaVhfStart + 9 * 60000 },
+      { call: 'VK2HHH', band: '40M', mode: 'SSB', exchSent: '012 QF22AA', exchRcvd: '012 QF34AA', myGrid: 'QF22AA', grid: 'QF34AA', distance: 200, ts: wiaVhfStart + 10 * 60000 },
+      { call: 'VK2III', band: '2M', mode: 'SSB', exchSent: '013 QF22AA', exchRcvd: '013 QF34AA', myGrid: 'QF22AA', grid: 'QF34AA', distance: 200, ts: Date.UTC(2026, 5, 21, 1) }
+    ];
+    const wiaVhfPoints = computeRuleQsoPoints(wiaVhfRule, wiaVhfQsos, wiaVhfStation, new Set());
+    const wiaVk6Station = makeStation({ stationCall: 'VK6TEST', stationCountry: 'Australia', stationCountryKey: normalizeCountryName('Australia'), stationContinent: 'OC' });
+    const wiaVk6Qsos = [
+      { call: 'VK5AAA', band: '2M', mode: 'SSB', exchSent: '001 OF88AA', exchRcvd: '001 PF95AA', myGrid: 'OF88AA', grid: 'PF95AA', distance: 200, ts: Date.UTC(2026, 5, 20, 1) },
+      { call: 'VK5BBB', band: '2M', mode: 'SSB', exchSent: '002 OF88AA', exchRcvd: '002 PF95AA', myGrid: 'OF88AA', grid: 'PF95AA', distance: 200, ts: Date.UTC(2026, 5, 20, 3) }
+    ];
+    const wiaVk6Points = computeRuleQsoPoints(wiaVhfRule, wiaVk6Qsos, wiaVk6Station, new Set());
+    checks.push({ name: 'WIA VHF-UHF 2026 covers current distance scales, band factors, exchanges, locator moves, two-hour repeats, same-sub-square zero and VK6 windows', passed: wiaVhfPoints.pointsByIndex.join(',') === '1196,200,0,200,540,540,740,740,100,0,0,0,0' && wiaVhfPoints.duplicateByIndex[2] === true && wiaVhfPoints.duplicateByIndex[3] === false && wiaVk6Points.pointsByIndex.join(',') === '0,200', details: { points: wiaVhfPoints.pointsByIndex, duplicates: wiaVhfPoints.duplicateByIndex, vk6: wiaVk6Points.pointsByIndex } });
+
+    const yoDxRule = { id: 'yo_dx_2026', aliases: ['YODX', 'YO-DX'], duplicate_policy: 'call_per_band_mode_group', qso_points: { model: 'yo_dx_2026' }, multipliers: { model: 'multi_group', counting_scope: 'per_band', groups: ['yo_dx_dxcc', 'yo_dx_county'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const yoDxStart = Date.UTC(2026, 7, 22, 12);
+    const yoDxOutsideStation = makeStation({ stationCall: 'S53ZO', stationCountry: 'Slovenia', stationCountryKey: normalizeCountryName('Slovenia'), stationContinent: 'EU' });
+    const yoDxOutsideQsos = [
+      { call: 'YO3AAA', country: 'Romania', continent: 'EU', band: '20M', mode: 'CW', exchSent: '001', exchRcvd: 'BU', ts: yoDxStart },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '002', exchRcvd: '002', ts: yoDxStart + 60000 },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: '003', exchRcvd: '003', ts: yoDxStart + 120000 },
+      { call: 'S52AAA', country: 'Slovenia', continent: 'EU', band: '20M', mode: 'CW', exchSent: '004', exchRcvd: '004', ts: yoDxStart + 180000 },
+      { call: 'F1AAA/MM', country: 'France', continent: 'EU', band: '20M', mode: 'CW', exchSent: '005', exchRcvd: '005', ts: yoDxStart + 240000 },
+      { call: 'YO3AAA', country: 'Romania', continent: 'EU', band: '20M', mode: 'CW', exchSent: '006', exchRcvd: 'BU', ts: yoDxStart + 300000 },
+      { call: 'YO3AAA', country: 'Romania', continent: 'EU', band: '20M', mode: 'SSB', exchSent: '007', exchRcvd: 'BU', ts: yoDxStart + 360000 },
+      { call: 'YO4AAA', country: 'Romania', continent: 'EU', band: '40M', mode: 'CW', exchSent: '008', exchRcvd: 'ZZ', ts: yoDxStart + 420000 },
+      { call: 'YO5AAA', country: 'Romania', continent: 'EU', band: '20M', mode: 'CW', exchSent: '009', exchRcvd: 'CJ', ts: Date.UTC(2026, 7, 23, 12) }
+    ];
+    const yoDxOutsidePoints = computeRuleQsoPoints(yoDxRule, yoDxOutsideQsos, yoDxOutsideStation, new Set());
+    const yoDxOutsideMults = computeRuleMultipliers(yoDxRule, yoDxOutsideQsos, yoDxOutsideStation, yoDxOutsidePoints, new Set());
+    const yoDxOutsideScore = getAnalysisCore().evaluateRuleFormula(yoDxRule, yoDxOutsidePoints, yoDxOutsideMults, yoDxOutsideStation, new Set(), buildAnalysisResourcesPayload());
+    const yoDxRomanianStation = makeStation({ stationCall: 'YO3TEST', stationCountry: 'Romania', stationCountryKey: normalizeCountryName('Romania'), stationContinent: 'EU' });
+    const yoDxRomanianQsos = [
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: 'BU', exchRcvd: '001', ts: yoDxStart },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: 'BU', exchRcvd: '002', ts: yoDxStart + 60000 },
+      { call: 'YO2AAA', country: 'Romania', continent: 'EU', band: '20M', mode: 'CW', exchSent: 'BU', exchRcvd: 'TM', ts: yoDxStart + 120000 },
+      { call: 'F1AAA/MM', country: 'France', continent: 'EU', band: '40M', mode: 'SSB', exchSent: 'BU', exchRcvd: '003', ts: yoDxStart + 180000 }
+    ];
+    const yoDxRomanianPoints = computeRuleQsoPoints(yoDxRule, yoDxRomanianQsos, yoDxRomanianStation, new Set());
+    const yoDxRomanianMults = computeRuleMultipliers(yoDxRule, yoDxRomanianQsos, yoDxRomanianStation, yoDxRomanianPoints, new Set());
+    checks.push({ name: 'YO DX 2026 covers reciprocal geography, maritime mobile, counties/serials, per-mode-band duplicates and entrant-dependent multipliers', passed: yoDxOutsidePoints.pointsByIndex.join(',') === '8,2,4,1,4,0,8,0,0' && yoDxOutsidePoints.duplicateByIndex[5] === true && yoDxOutsideMults.total === 5 && yoDxOutsideScore === 135 && yoDxRomanianPoints.pointsByIndex.join(',') === '4,8,0,4' && yoDxRomanianMults.total === 2, details: { outside: { points: yoDxOutsidePoints.pointsByIndex, groups: yoDxOutsideMults.groupCounts, score: yoDxOutsideScore }, romanian: { points: yoDxRomanianPoints.pointsByIndex, groups: yoDxRomanianMults.groupCounts } } });
+
+    const yuDxRule = { id: 'yu_dx_2026', aliases: ['YUDX', 'YU-DX'], duplicate_policy: 'call_per_band_mode_group', qso_points: { model: 'yu_dx_2026' }, multipliers: { model: 'multi_group', counting_scope: 'per_band', groups: ['yu_dx_dxcc', 'yu_dx_county'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const yuDxStart = Date.UTC(2026, 8, 26, 12);
+    const yuDxOutsideQsos = [
+      { call: 'YU1AAA', country: 'Serbia', continent: 'EU', band: '20M', mode: 'CW', exchSent: '001', exchRcvd: 'BGD', ts: yuDxStart },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: '002', exchRcvd: '002', ts: yuDxStart + 60000 },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: '003', exchRcvd: '003', ts: yuDxStart + 120000 },
+      { call: 'S52AAA', country: 'Slovenia', continent: 'EU', band: '20M', mode: 'CW', exchSent: '004', exchRcvd: '004', ts: yuDxStart + 180000 },
+      { call: 'YU1AAA', country: 'Serbia', continent: 'EU', band: '20M', mode: 'CW', exchSent: '005', exchRcvd: 'BGD', ts: yuDxStart + 240000 },
+      { call: 'YU1AAA', country: 'Serbia', continent: 'EU', band: '20M', mode: 'SSB', exchSent: '006', exchRcvd: 'BGD', ts: yuDxStart + 300000 },
+      { call: 'YT2AAA', country: 'Serbia', continent: 'EU', band: '40M', mode: 'CW', exchSent: '007', exchRcvd: 'XXX', ts: yuDxStart + 360000 },
+      { call: 'YU3AAA', country: 'Serbia', continent: 'EU', band: '20M', mode: 'CW', exchSent: '008', exchRcvd: 'NIS', ts: Date.UTC(2026, 8, 27, 12) }
+    ];
+    const yuDxOutsidePoints = computeRuleQsoPoints(yuDxRule, yuDxOutsideQsos, yoDxOutsideStation, new Set());
+    const yuDxOutsideMults = computeRuleMultipliers(yuDxRule, yuDxOutsideQsos, yoDxOutsideStation, yuDxOutsidePoints, new Set());
+    const yuDxOutsideScore = getAnalysisCore().evaluateRuleFormula(yuDxRule, yuDxOutsidePoints, yuDxOutsideMults, yoDxOutsideStation, new Set(), buildAnalysisResourcesPayload());
+    const yuDxSerbianStation = makeStation({ stationCall: 'YU1TEST', stationCountry: 'Serbia', stationCountryKey: normalizeCountryName('Serbia'), stationContinent: 'EU' });
+    const yuDxSerbianQsos = [
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'CW', exchSent: 'BGD', exchRcvd: '001', ts: yuDxStart },
+      { call: 'W1AAA', country: 'United States', continent: 'NA', band: '20M', mode: 'CW', exchSent: 'BGD', exchRcvd: '002', ts: yuDxStart + 60000 },
+      { call: 'YT2AAA', country: 'Serbia', continent: 'EU', band: '20M', mode: 'CW', exchSent: 'BGD', exchRcvd: 'NIS', ts: yuDxStart + 120000 }
+    ];
+    const yuDxSerbianPoints = computeRuleQsoPoints(yuDxRule, yuDxSerbianQsos, yuDxSerbianStation, new Set());
+    const yuDxSerbianMults = computeRuleMultipliers(yuDxRule, yuDxSerbianQsos, yuDxSerbianStation, yuDxSerbianPoints, new Set());
+    checks.push({ name: 'YU DX 2026 covers reciprocal geography, current counties/serials, mode-band duplicates and entrant-dependent per-band multipliers', passed: yuDxOutsidePoints.pointsByIndex.join(',') === '10,2,4,1,0,10,0,0' && yuDxOutsidePoints.duplicateByIndex[4] === true && yuDxOutsideMults.total === 5 && yuDxOutsideScore === 135 && yuDxSerbianPoints.pointsByIndex.join(',') === '2,4,1' && yuDxSerbianMults.total === 2, details: { outside: { points: yuDxOutsidePoints.pointsByIndex, groups: yuDxOutsideMults.groupCounts, score: yuDxOutsideScore }, serbian: { points: yuDxSerbianPoints.pointsByIndex, groups: yuDxSerbianMults.groupCounts } } });
+
+    const xeRttyRule = { id: 'xe_rtty_2026', aliases: ['XE-RTTY', 'FMRE-RTTY'], duplicate_policy: 'call_per_band', qso_points: { model: 'xe_rtty_2026' }, multipliers: { model: 'single_group', counting_scope: 'per_band', groups: ['xe_rtty_state_or_dxcc'] }, formula: 'score = qso_points_total * multipliers_total' };
+    const xeRttyStart = Date.UTC(2026, 1, 7, 12);
+    const xeRttyOutsideQsos = [
+      { call: 'XE1AAA', country: 'Mexico', continent: 'NA', band: '20M', mode: 'RTTY', exchSent: '001', exchRcvd: 'CDMX', ts: xeRttyStart },
+      { call: 'S52AAA', country: 'Slovenia', continent: 'EU', band: '20M', mode: 'RTTY', exchSent: '002', exchRcvd: '002', ts: xeRttyStart + 60000 },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'RTTY', exchSent: '003', exchRcvd: '003', ts: xeRttyStart + 120000 },
+      { call: 'XE1AAA', country: 'Mexico', continent: 'NA', band: '20M', mode: 'RTTY', exchSent: '004', exchRcvd: 'CDMX', ts: xeRttyStart + 180000 },
+      { call: 'XE1AAA', country: 'Mexico', continent: 'NA', band: '40M', mode: 'RTTY', exchSent: '005', exchRcvd: 'CDMX', ts: xeRttyStart + 240000 },
+      { call: 'XE2AAA', country: 'Mexico', continent: 'NA', band: '20M', mode: 'RTTY', exchSent: '006', exchRcvd: 'DF', ts: xeRttyStart + 300000 },
+      { call: 'XE3AAA', country: 'Mexico', continent: 'NA', band: '20M', mode: 'SSB', exchSent: '007', exchRcvd: 'YUC', ts: xeRttyStart + 360000 },
+      { call: 'XE4AAA', country: 'Mexico', continent: 'NA', band: '20M', mode: 'RTTY', exchSent: '008', exchRcvd: 'QRO', ts: Date.UTC(2026, 1, 9, 0) }
+    ];
+    const xeRttyOutsidePoints = computeRuleQsoPoints(xeRttyRule, xeRttyOutsideQsos, yoDxOutsideStation, new Set());
+    const xeRttyOutsideMults = computeRuleMultipliers(xeRttyRule, xeRttyOutsideQsos, yoDxOutsideStation, xeRttyOutsidePoints, new Set());
+    const xeRttyOutsideScore = getAnalysisCore().evaluateRuleFormula(xeRttyRule, xeRttyOutsidePoints, xeRttyOutsideMults, yoDxOutsideStation, new Set(), buildAnalysisResourcesPayload());
+    const xeRttyMexicanStation = makeStation({ stationCall: 'XE1TEST', stationCountry: 'Mexico', stationCountryKey: normalizeCountryName('Mexico'), stationContinent: 'NA' });
+    const xeRttyMexicanQsos = [
+      { call: 'XE2AAA', country: 'Mexico', continent: 'NA', band: '20M', mode: 'RTTY', exchSent: 'CDMX', exchRcvd: 'BC', ts: xeRttyStart },
+      { call: 'DL1AAA', country: 'Germany', continent: 'EU', band: '20M', mode: 'RTTY', exchSent: 'CDMX', exchRcvd: '001', ts: xeRttyStart + 60000 }
+    ];
+    const xeRttyMexicanPoints = computeRuleQsoPoints(xeRttyRule, xeRttyMexicanQsos, xeRttyMexicanStation, new Set());
+    const xeRttyMexicanMults = computeRuleMultipliers(xeRttyRule, xeRttyMexicanQsos, xeRttyMexicanStation, xeRttyMexicanPoints, new Set());
+    checks.push({ name: 'XE RTTY 2026 covers current Mexican override, reciprocal states/serials, Baudot RTTY gates, per-band duplicates and multipliers', passed: xeRttyOutsidePoints.pointsByIndex.join(',') === '4,2,3,0,4,0,0,0' && xeRttyOutsidePoints.duplicateByIndex[3] === true && xeRttyOutsideMults.total === 4 && xeRttyOutsideScore === 52 && xeRttyMexicanPoints.pointsByIndex.join(',') === '4,3' && xeRttyMexicanMults.total === 2, details: { outside: { points: xeRttyOutsidePoints.pointsByIndex, groups: xeRttyOutsideMults.groupCounts, score: xeRttyOutsideScore }, mexican: { points: xeRttyMexicanPoints.pointsByIndex, groups: xeRttyMexicanMults.groupCounts } } });
+
+    const aadxRule = {
+      id: 'aadx',
+      duplicate_policy: 'call_per_band',
+      qso_points: { model: 'aadx_2025' },
+      multipliers: {
+        model: 'station_dependent_group',
+        counting_scope: 'per_band',
+        groups: ['aadx_entity_or_asian_wpx']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const aadxAsianQsos = [
+      { call: 'JA2AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', wpxPrefix: 'JA2' },
+      { call: 'HL1AAA', band: '20M', mode: 'CW', country: 'South Korea', continent: 'AS', wpxPrefix: 'HL1' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', wpxPrefix: 'K1' },
+      { call: 'DL1AAA', band: '80M', mode: 'CW', country: 'Germany', continent: 'EU', wpxPrefix: 'DL1' }
+    ];
+    const aadxAsianStation = makeStation({
+      stationCall: 'JA1TEST', stationCountry: 'Japan', stationCountryKey: normalizeCountryName('Japan'), stationContinent: 'AS'
+    });
+    const aadxAsianPoints = computeRuleQsoPoints(aadxRule, aadxAsianQsos, aadxAsianStation, new Set());
+    const aadxAsianMults = computeRuleMultipliers(aadxRule, aadxAsianQsos, aadxAsianStation, aadxAsianPoints, new Set());
+    const aadxDxQsos = [
+      { call: 'JA1AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', wpxPrefix: 'JA1' },
+      { call: 'JA2AAA', band: '20M', mode: 'CW', country: 'Japan', continent: 'AS', wpxPrefix: 'JA2' },
+      { call: 'HL1AAA', band: '80M', mode: 'SSB', country: 'South Korea', continent: 'AS', wpxPrefix: 'HL1' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', wpxPrefix: 'K1' },
+      { call: 'JA1AAA', band: '20M', mode: 'SSB', country: 'Japan', continent: 'AS', wpxPrefix: 'JA1' }
+    ];
+    const aadxDxPoints = computeRuleQsoPoints(aadxRule, aadxDxQsos, makeStation(), new Set());
+    const aadxDxMults = computeRuleMultipliers(aadxRule, aadxDxQsos, makeStation(), aadxDxPoints, new Set());
+    checks.push({
+      name: 'All Asian DX 2025 applies entrant geography, band weights, per-band entities/prefixes, and mode-independent duplicates',
+      passed: aadxAsianPoints.pointsByIndex.join(',') === '0,1,3,6'
+        && aadxAsianMults.total === 3
+        && aadxDxPoints.pointsByIndex.join(',') === '1,1,2,0,0'
+        && aadxDxMults.total === 3
+        && aadxDxPoints.duplicateByIndex.join(',') === 'false,false,false,false,true',
+      details: {
+        asianEntrant: { points: aadxAsianPoints.pointsByIndex, multipliers: aadxAsianMults.total },
+        nonAsianEntrant: { points: aadxDxPoints.pointsByIndex, duplicates: aadxDxPoints.duplicateByIndex, multipliers: aadxDxMults.total }
+      }
+    });
+
+    const cwopsRule = {
+      id: 'cwops_cwt',
+      duplicate_policy: 'call_per_band',
+      qso_points: { model: 'fixed', rules: [{ when: 'valid_qso', points: 1 }] },
+      multipliers: { model: 'single_group', counting_scope: 'once_total', groups: ['unique_callsign'] },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const cwopsQsos = [
+      { call: 'K1ABC', band: '20M', mode: 'CW' },
+      { call: 'K1ABC', band: '40M', mode: 'CW' },
+      { call: 'DL1AAA', band: '20M', mode: 'CW' },
+      { call: 'K1ABC', band: '20M', mode: 'CW' }
+    ];
+    const cwopsPoints = computeRuleQsoPoints(cwopsRule, cwopsQsos, makeStation(), new Set());
+    const cwopsMults = computeRuleMultipliers(cwopsRule, cwopsQsos, makeStation(), cwopsPoints, new Set());
+    checks.push({
+      name: 'CWops CWT scores one point per band contact and unique callsigns once per session',
+      passed: cwopsPoints.qsoPointsTotal === 3
+        && cwopsMults.total === 2
+        && cwopsPoints.pointsByIndex.join(',') === '1,1,1,0'
+        && cwopsPoints.duplicateByIndex.join(',') === 'false,false,false,true',
+      details: {
+        qsoPointsTotal: cwopsPoints.qsoPointsTotal,
+        pointsByIndex: cwopsPoints.pointsByIndex,
+        duplicateByIndex: cwopsPoints.duplicateByIndex,
+        multiplierTotal: cwopsMults.total
+      }
+    });
+
+    const bartgBaseRule = {
+      duplicate_policy: 'call_per_band',
+      qso_points: {
+        model: 'fixed',
+        require_received_exchange: true,
+        rules: [{ when: 'valid_qso', points: 1 }],
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'],
+        eligible_modes: ['RTTY', 'RY'],
+        eligible_frequency_ranges_mhz: {
+          '80M': [3.58, 3.615], '40M': [7.04, 7.125], '20M': [14.07, 14.125],
+          '15M': [21.07, 21.148], '10M': [28.07, 28.189]
+        },
+        excluded_frequency_ranges_mhz: [[14.0995, 14.1005]]
+      },
+      multipliers: {
+        model: 'bartg_product_factors',
+        groups: ['bartg_dxcc_country', 'bartg_call_area', 'bartg_continent']
+      },
+      formula: 'score = qso_points_total * bartg_multiplier_total * continent_mults'
+    };
+    const bartgQsos = [
+      { call: 'JA1AAA', band: '20M', mode: 'RY', freq: 14.075, country: 'Japan', continent: 'AS', wpxPrefix: 'JA1' },
+      { call: 'JA2AAA', band: '20M', mode: 'RTTY', freq: 14.08, country: 'Japan', continent: 'AS', wpxPrefix: 'JA2' },
+      { call: 'JA1AAA', band: '20M', mode: 'RY', freq: 14.085, country: 'Japan', continent: 'AS', wpxPrefix: 'JA1' },
+      { call: 'JA1AAA', band: '40M', mode: 'RY', freq: 7.05, country: 'Japan', continent: 'AS', wpxPrefix: 'JA1' },
+      { call: 'K1AAA', band: '40M', mode: 'RY', freq: 7.055, country: 'United States', continent: 'NA', wpxPrefix: 'K1' },
+      { call: 'DL1AAA', band: '20M', mode: 'RY', freq: 14.09, country: 'Germany', continent: 'EU', wpxPrefix: 'DL1' },
+      { call: 'VK2AAA', band: '10M', mode: 'RY', freq: 28.08, country: 'Australia', continent: 'OC', wpxPrefix: 'VK2' },
+      { call: 'F1AAA', band: '20M', mode: 'CW', freq: 14.095, country: 'France', continent: 'EU', wpxPrefix: 'F1' },
+      { call: 'G1AAA', band: '20M', mode: 'RY', freq: 14.1, country: 'England', continent: 'EU', wpxPrefix: 'G1' },
+      { call: 'I1AAA', band: '20M', mode: 'RY', freq: 14.13, country: 'Italy', continent: 'EU', wpxPrefix: 'I1' },
+      { call: 'EA1AAA', band: '15M', mode: 'RY', freq: 21.08, country: 'Spain', continent: 'EU', wpxPrefix: 'EA1', exchRcvd: '' }
+    ].map((q, index) => ({ ...q, exchRcvd: Object.prototype.hasOwnProperty.call(q, 'exchRcvd') ? q.exchRcvd : String(index + 1).padStart(3, '0') }));
+    const bartgHfRule = Object.assign({}, bartgBaseRule, {
+      id: 'bartg_hf_rtty',
+      name: 'BARTG HF RTTY Contest',
+      aliases: ['BARTG-RTTY', 'BARTG HF RTTY'],
+      multipliers: Object.assign({}, bartgBaseRule.multipliers, { counting_scope: 'bartg_hf_mixed' })
+    });
+    const bartgHfPoints = computeRuleQsoPoints(bartgHfRule, bartgQsos, makeStation(), new Set());
+    const bartgHfMults = computeRuleMultipliers(bartgHfRule, bartgQsos, makeStation(), bartgHfPoints, new Set());
+    checks.push({
+      name: 'BARTG HF RTTY applies frequency/mode eligibility, per-band entities and call areas, global continents, and per-band duplicates',
+      passed: bartgHfPoints.pointsByIndex.join(',') === '1,1,0,1,1,1,1,0,0,0,0'
+        && bartgHfMults.groupCounts.bartg_dxcc_country === 5
+        && bartgHfMults.groupCounts.bartg_call_area === 5
+        && bartgHfMults.groupCounts.bartg_continent === 4
+        && bartgHfMults.total === 10,
+      details: {
+        points: bartgHfPoints.pointsByIndex,
+        duplicates: bartgHfPoints.duplicateByIndex,
+        groupCounts: bartgHfMults.groupCounts,
+        multiplierTotal: bartgHfMults.total
+      }
+    });
+
+    const bartgSprintRule = Object.assign({}, bartgBaseRule, {
+      id: 'bartg_sprint',
+      name: 'BARTG January Sprint Contest',
+      aliases: ['BARTG-SPRINT', 'BARTG JANUARY SPRINT'],
+      multipliers: Object.assign({}, bartgBaseRule.multipliers, { counting_scope: 'once_total' })
+    });
+    const bartgSprintPoints = computeRuleQsoPoints(bartgSprintRule, bartgQsos, makeStation(), new Set());
+    const bartgSprintMults = computeRuleMultipliers(bartgSprintRule, bartgQsos, makeStation(), bartgSprintPoints, new Set());
+    checks.push({
+      name: 'BARTG January Sprint keeps entities and call areas global while allowing the same station on a new band',
+      passed: bartgSprintPoints.pointsByIndex.join(',') === '1,1,0,1,1,1,1,0,0,0,0'
+        && bartgSprintMults.groupCounts.bartg_dxcc_country === 4
+        && bartgSprintMults.groupCounts.bartg_call_area === 4
+        && bartgSprintMults.groupCounts.bartg_continent === 4
+        && bartgSprintMults.total === 8,
+      details: {
+        points: bartgSprintPoints.pointsByIndex,
+        duplicates: bartgSprintPoints.duplicateByIndex,
+        groupCounts: bartgSprintMults.groupCounts,
+        multiplierTotal: bartgSprintMults.total
+      }
+    });
+
+    const iaruHfRule = {
+      id: 'iaru_hf',
+      name: 'IARU HF World Championship',
+      aliases: ['IARU-HF', 'IARU HF'],
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'table_by_station_type_and_itu_relation',
+        require_received_exchange: true,
+        eligible_bands: ['160M', '80M', '40M', '20M', '15M', '10M'],
+        eligible_mode_groups: ['CW', 'SSB'],
+        rules: [
+          { when: 'iaru_hq_or_official_station', points: 1 },
+          { when: 'same_itu_zone', points: 1 },
+          { when: 'same_continent_different_itu_zone_iaru', points: 3 },
+          { when: 'different_continent_different_itu_zone', points: 5 }
+        ]
+      },
+      multipliers: {
+        model: 'sum_of_groups', counting_scope: 'per_band',
+        groups: ['itu_zone_excluding_iaru_hq', 'iaru_hq_or_official']
+      },
+      formula: 'score = qso_points_total * multipliers_total'
+    };
+    const iaruHfQsos = [
+      { call: 'DL1AAA', band: '20M', mode: 'CW', country: 'Germany', continent: 'EU', ituZone: 28, exchRcvd: '28' },
+      { call: 'F1AAA', band: '20M', mode: 'CW', country: 'France', continent: 'EU', ituZone: 27, exchRcvd: '27' },
+      { call: 'K1AAA', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', ituZone: 8, exchRcvd: '8' },
+      { call: 'W1AW', band: '20M', mode: 'CW', country: 'United States', continent: 'NA', ituZone: 8, exchRcvd: 'ARRL' },
+      { call: 'DL1AAA', band: '20M', mode: 'SSB', country: 'Germany', continent: 'EU', ituZone: 28, exchRcvd: '28' },
+      { call: 'DL1AAA', band: '20M', mode: 'PH', country: 'Germany', continent: 'EU', ituZone: 28, exchRcvd: '28' },
+      { call: 'DL1AAA', band: '40M', mode: 'CW', country: 'Germany', continent: 'EU', ituZone: 28, exchRcvd: '28' },
+      { call: 'JA1AAA', band: '15M', mode: 'FT8', country: 'Japan', continent: 'AS', ituZone: 45, exchRcvd: '45' },
+      { call: 'I1AAA', band: '30M', mode: 'CW', country: 'Italy', continent: 'EU', ituZone: 28, exchRcvd: '28' },
+      { call: 'EA1AAA', band: '10M', mode: 'CW', country: 'Spain', continent: 'EU', ituZone: 37, exchRcvd: '' }
+    ];
+    const iaruHfPoints = computeRuleQsoPoints(iaruHfRule, iaruHfQsos, makeStation(), new Set());
+    const iaruHfMults = computeRuleMultipliers(iaruHfRule, iaruHfQsos, makeStation(), iaruHfPoints, new Set());
+    checks.push({
+      name: 'IARU HF scores ITU geography and HQ stations, duplicates by band/mode, and multipliers once per band',
+      passed: iaruHfPoints.pointsByIndex.join(',') === '1,3,5,1,1,0,1,0,0,0'
+        && iaruHfPoints.qsoPointsTotal === 12
+        && iaruHfMults.groupCounts.itu_zone_excluding_iaru_hq === 4
+        && iaruHfMults.groupCounts.iaru_hq_or_official === 1
+        && iaruHfMults.total === 5,
+      details: { points: iaruHfPoints.pointsByIndex, duplicates: iaruHfPoints.duplicateByIndex, groupCounts: iaruHfMults.groupCounts }
+    });
+
+    const eaRttyRule = {
+      id: 'ea_rtty', name: 'EA RTTY Contest', aliases: ['EARTTY', 'EA-RTTY'],
+      score_completeness: 'qso_points_only', duplicate_policy: 'call_per_band',
+      incomplete_score_reason: 'Final score is unavailable because EADX-100 multiplier validation and unique-QSO adjudication require organizer data outside the uploaded log.',
+      qso_points: {
+        model: 'ea_rtty_2026', require_received_exchange: true,
+        eligible_bands: ['80M', '40M', '20M', '15M', '10M'], eligible_modes: ['RTTY', 'RY']
+      },
+      multipliers: { model: 'none_multiplicative', groups: [] },
+      formula: 'score = qso_points_total * official_adjudicated_multipliers'
+    };
+    const eaRttyQsos = [
+      { call: 'EA8AAA', band: '20M', mode: 'RY', country: 'Canary Islands', continent: 'AF', exchRcvd: 'TF' },
+      { call: 'DL1AAA', band: '20M', mode: 'RY', country: 'Germany', continent: 'EU', exchRcvd: '001' },
+      { call: 'EA8AAA', band: '20M', mode: 'RTTY', country: 'Canary Islands', continent: 'AF', exchRcvd: 'TF' },
+      { call: 'EA8AAA', band: '40M', mode: 'RY', country: 'Canary Islands', continent: 'AF', exchRcvd: 'TF' },
+      { call: 'F1AAA', band: '20M', mode: 'RY', country: 'France', continent: 'EU', exchRcvd: '' },
+      { call: 'I1AAA', band: '20M', mode: 'CW', country: 'Italy', continent: 'EU', exchRcvd: '002' }
+    ];
+    const eaStation = makeStation({ stationCountry: 'Spain', stationCountryKey: normalizeCountryName('Spain'), stationIsEa: true });
+    const eaRttyEaPoints = computeRuleQsoPoints(eaRttyRule, eaRttyQsos, eaStation, new Set());
+    const eaRttyDxPoints = computeRuleQsoPoints(eaRttyRule, eaRttyQsos, makeStation(), new Set());
+    checks.push({
+      name: 'EA RTTY 2026 computes entrant-dependent pre-adjudication points and rejects duplicates, modes, and missing exchanges',
+      passed: eaRttyEaPoints.pointsByIndex.join(',') === '2,1,0,2,0,0'
+        && eaRttyDxPoints.pointsByIndex.join(',') === '3,1,0,3,0,0',
+      details: { eaEntrant: eaRttyEaPoints.pointsByIndex, dxEntrant: eaRttyDxPoints.pointsByIndex }
+    });
+
+    const wfdRule = {
+      id: 'wfd',
+      aliases: ['WFD', 'WINTER FIELD DAY'],
+      score_completeness: 'qso_points_only',
+      incomplete_score_reason: 'Final score is unavailable because Winter Field Day objective selections are submitted outside the uploaded log.',
+      duplicate_policy: 'call_per_band_mode_group',
+      qso_points: {
+        model: 'by_mode',
+        rules: [{ mode: 'PHONE', points: 1 }, { mode: 'CW', points: 2 }, { mode: 'DIG', points: 2 }],
+        excluded_bands: ['12M', '17M', '30M', '60M'],
+        excluded_modes: ['FT4', 'FT8'],
+        exclude_satellite: true
+      },
+      multipliers: { model: 'none_multiplicative', groups: [] },
+      formula: 'score = qso_points_total * objective_multiplier_plus_one'
+    };
+    const wfdQsos = [
+      { call: 'K1ABC', band: '20M', mode: 'PH' },
+      { call: 'K1ABC', band: '20M', mode: 'CW' },
+      { call: 'K1ABC', band: '20M', mode: 'DG' },
+      { call: 'K1ABC', band: '20M', mode: 'RY' },
+      { call: 'K1ABC', band: '40M', mode: 'CW' },
+      { call: 'DL1AAA', band: '40M', mode: 'FT8' },
+      { call: 'DL2AAA', band: '12M', mode: 'PH' }
+    ];
+    const wfdPoints = computeRuleQsoPoints(wfdRule, wfdQsos, makeStation(), new Set());
+    checks.push({
+      name: 'Winter Field Day 2026 computes base points with mode-group duplicates and leaves objective scoring external',
+      passed: wfdPoints.qsoPointsTotal === 7
+        && wfdPoints.pointsByIndex.join(',') === '1,2,2,0,2,0,0'
+        && wfdPoints.duplicateByIndex.join(',') === 'false,false,false,true,false,false,false',
+      details: {
+        qsoPointsTotal: wfdPoints.qsoPointsTotal,
+        pointsByIndex: wfdPoints.pointsByIndex,
+        duplicateByIndex: wfdPoints.duplicateByIndex,
+        scoreCompleteness: wfdRule.score_completeness
+      }
+    });
+
     const wrtcRule = {
       id: 'wrtc_2026',
       qso_points: {
@@ -8467,7 +11551,7 @@ function syncEngineCompareLogForSlot(slot) {
 
     const scoringSpec = {
       spec_version: 'delegation-smoke',
-      rule_sets: [wrtcRule, wrtc2022Rule]
+      rule_sets: [wrtcRule, wrtc2022Rule, wfdRule, bartgHfRule, bartgSprintRule, iaruHfRule, eaRttyRule, jarlRttyRule, ftChallengeRule, jidxCwRule, jidxSsbRule, igRyRule, oceaniaCwRule, oceaniaSsbRule, gacwRule, haDxRule, helvetiaRule, holylandRule, naqpCwRule, naqpSsbRule, naqpRttyRule, racRule, paccRule, ariDxRule, aegeanRttyRule, aegeanVhfRule, africaDxRule, agbPartyRule, apSprintRule, ariSectionsRule, avhfcRule, balticRule, bassoFerrareseRule, bdmRttyRule, cqpRule, cisQpskRule, cqMRule, cqmmDxRule, digQsoPartyRule, darcXmasRule, euPskDxRule, esOpenRule, hscRule, inorcRule, kcjRule, iotaRule, marconiRule, gdbageRule, lzDxRule, nyqpRule, okRttyRule, portugalDayRule, pearsRule, popovRule, popovVhfRule]
     };
     const previousScoringState = {
       scoringSpec: state.scoringSpec,
@@ -8479,6 +11563,61 @@ function syncEngineCompareLogForSlot(slot) {
       scoringSource: state.scoringSource
     };
     let wrtcSummary = null;
+    let wfdSummary = null;
+    let bartgHfSummary = null;
+    let bartgSprintSummary = null;
+    let iaruHfSummary = null;
+    let eaRttySummary = null;
+    let jarlRttySummary = null;
+    let ftChallengeSummary = null;
+    let jidxCwSummary = null;
+    let jidxSsbSummary = null;
+    let igRySummary = null;
+    let oceaniaCwSummary = null;
+    let oceaniaSsbSummary = null;
+    let gacwSummary = null;
+    let haDxSummary = null;
+    let helvetiaSummary = null;
+    let holylandSummary = null;
+    let naqpCwSummary = null;
+    let naqpSsbSummary = null;
+    let naqpRttySummary = null;
+    let racDaySummary = null;
+    let racWinterSummary = null;
+    let paccSummary = null;
+    let ariDxSummary = null;
+    let aegeanRttySummary = null;
+    let aegeanVhfSummary = null;
+    let africaDxSummary = null;
+    let agbPartySummary = null;
+    let apSprintSummary = null;
+    let ariSectionsSummary = null;
+    let avhfcSummary = null;
+    let balticSummary = null;
+    let bassoFerrareseSummary = null;
+    let bdmRttySummary = null;
+    let cqpSummary = null;
+    let cisQpskSummary = null;
+    let cqMSummary = null;
+    let cqmmDxSummary = null;
+    let digQsoPartySummary = null;
+    let digPaSummary = null;
+    let darcXmasSummary = null;
+    let euPskDxSummary = null;
+    let esOpenSummary = null;
+    let hscSummary = null;
+    let inorcSummary = null;
+    let kcjSummary = null;
+    let iotaSummary = null;
+    let marconiSummary = null;
+    let gdbageSummary = null;
+    let lzDxSummary = null;
+    let nyqpSummary = null;
+    let okRttySummary = null;
+    let portugalDaySummary = null;
+    let pearsSummary = null;
+    let popovSummary = null;
+    let popovVhfSummary = null;
     try {
       applyScoringSpec(scoringSpec, 'delegation-smoke');
       wrtcSummary = computeContestScoringSummary(
@@ -8492,6 +11631,244 @@ function syncEngineCompareLogForSlot(slot) {
         },
         { scoringRuleOverride: 'wrtc_2026' }
       );
+      wfdSummary = computeContestScoringSummary(
+        wfdQsos,
+        { contestId: 'WFD', claimedScore: '999' },
+        {}
+      );
+      bartgHfSummary = computeContestScoringSummary(
+        bartgQsos,
+        { contestId: 'BARTG-RTTY', stationCallsign: 'S51AA', claimedScore: '240' },
+        {}
+      );
+      bartgSprintSummary = computeContestScoringSummary(
+        bartgQsos,
+        { contestId: 'BARTG-SPRINT', stationCallsign: 'S51AA', claimedScore: '192' },
+        {}
+      );
+      iaruHfSummary = computeContestScoringSummary(
+        iaruHfQsos,
+        {
+          contestId: 'IARU-HF', stationCallsign: 'S51AA', stationCountry: 'Slovenia',
+          stationContinent: 'EU', stationCqZone: 15, stationItuZone: 28, claimedScore: '60'
+        },
+        {}
+      );
+      eaRttySummary = computeContestScoringSummary(
+        eaRttyQsos,
+        { contestId: 'EARTTY', stationCallsign: 'S51AA', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '999' },
+        {}
+      );
+      jarlRttySummary = computeContestScoringSummary(
+        jarlRttyQsos,
+        { contestId: 'JARTS-WW-RTTY', stationCallsign: 'S51AA', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '154' },
+        {}
+      );
+      ftChallengeSummary = computeContestScoringSummary(
+        ftChallengeQsos,
+        { contestId: 'FT-CHALLENGE', stationCallsign: 'S51AA', stationGrid: 'JN76', claimedScore: '21' },
+        {}
+      );
+      jidxCwSummary = computeContestScoringSummary(
+        jidxDxQsos,
+        { contestId: 'JIDX-CW', stationCallsign: 'S51AA', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '30' },
+        {}
+      );
+      jidxSsbSummary = computeContestScoringSummary(
+        [{ call: 'JA1AAA', band: '10M', mode: 'SSB', country: 'Japan', continent: 'AS', exchRcvd: '10' }],
+        { contestId: 'JIDX-PH', stationCallsign: 'S51AA', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '2' },
+        {}
+      );
+      igRySummary = computeContestScoringSummary(
+        igRyQsos,
+        { contestId: 'IG-RY', stationCallsign: 'S51AA', categoryOperator: 'SINGLE-OP', claimedScore: '9' },
+        {}
+      );
+      oceaniaCwSummary = computeContestScoringSummary(
+        oceaniaDxQsos,
+        { contestId: 'OCEANIA-DX-CW', stationCallsign: 'S51AA', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '68' },
+        {}
+      );
+      oceaniaSsbSummary = computeContestScoringSummary(
+        oceaniaSsbQsos,
+        { contestId: 'OCDX-SSB', stationCallsign: 'S51AA', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '2' },
+        {}
+      );
+      gacwSummary = computeContestScoringSummary(
+        gacwQsos,
+        { contestId: 'WWSA-CW', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '200' },
+        {}
+      );
+      haDxSummary = computeContestScoringSummary(
+        haDxQsos,
+        {
+          contestId: 'HADX', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU',
+          categoryMode: 'CW', claimedScore: '156'
+        },
+        {}
+      );
+      helvetiaSummary = computeContestScoringSummary(
+        helvetiaQsos,
+        {
+          contestId: 'HELVETIA-CONTEST', stationCallsign: 'S53ZO', stationCountry: 'Slovenia',
+          stationContinent: 'EU', claimedScore: '315'
+        },
+        {}
+      );
+      holylandSummary = computeContestScoringSummary(
+        holylandQsos,
+        {
+          contestId: 'WWHC', stationCallsign: 'S53ZO', stationCountry: 'Slovenia',
+          stationContinent: 'EU', claimedScore: '670'
+        },
+        {}
+      );
+      naqpCwSummary = computeContestScoringSummary(
+        naqpQsos,
+        {
+          contestId: 'NAQP-CW', stationCallsign: 'S53ZO', stationCountry: 'Slovenia',
+          stationContinent: 'EU', categoryOperator: 'SINGLE-OP', categoryPower: 'LOW', claimedScore: '56'
+        },
+        {}
+      );
+      naqpSsbSummary = computeContestScoringSummary(
+        [{ call: 'W1AAA', band: '160M', mode: 'SSB', country: 'United States', continent: 'NA', exchRcvd: 'AL CT', ts: naqpEventStart }],
+        { contestId: 'NAQP-PH', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', categoryPower: 'LOW', claimedScore: '1' },
+        {}
+      );
+      naqpRttySummary = computeContestScoringSummary(
+        [{ call: 'W1AAA', band: '20M', mode: 'RTTY', country: 'United States', continent: 'NA', exchRcvd: 'AL CT', ts: naqpEventStart }],
+        { contestId: 'NAQP-RTTY', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', categoryPower: 'LOW', claimedScore: '1' },
+        {}
+      );
+      racDaySummary = computeContestScoringSummary(
+        racQsos,
+        { contestId: 'CANADA-DAY', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '672' },
+        {}
+      );
+      racWinterSummary = computeContestScoringSummary(
+        racDxOnlyQsos,
+        { contestId: 'RAC-CANADA-WINTER', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '2' },
+        {}
+      );
+      paccSummary = computeContestScoringSummary(
+        paccDxQsos,
+        { contestId: 'PACC-CONTEST', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '9' },
+        {}
+      );
+      ariDxSummary = computeContestScoringSummary(
+        ariDxOutsideQsos,
+        { contestId: 'ARI-INTERNATIONAL-DX', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '220' },
+        {}
+      );
+      aegeanRttySummary = computeContestScoringSummary(
+        aegeanRttyQsos,
+        { contestId: 'AEGEAN-RTTY', stationCallsign: 'S53ZO/QRP', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '59' },
+        {}
+      );
+      aegeanVhfSummary = computeContestScoringSummary(
+        aegeanVhfQsos,
+        { contestId: 'AEGEAN-VHF', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '337' },
+        {}
+      );
+      africaDxSummary = computeContestScoringSummary(
+        africaDxQsos,
+        { contestId: 'AF-ALL-MODE-DX', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '40' },
+        {}
+      );
+      agbPartySummary = computeContestScoringSummary(
+        agbPartyQsos,
+        { contestId: 'AGB-PARTY', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '288' },
+        {}
+      );
+      apSprintSummary = computeContestScoringSummary(
+        apOutsideQsos,
+        { contestId: 'AP-SPRINT', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '16' },
+        {}
+      );
+      ariSectionsSummary = computeContestScoringSummary(
+        ariSectionsQsos,
+        { contestId: 'ARI-SEZ', stationCallsign: 'IZ1AAA', stationCountry: 'Italy', stationContinent: 'EU', claimedScore: '126' },
+        {}
+      );
+      avhfcSummary = computeContestScoringSummary(
+        avhfcQsos,
+        { contestId: 'AVHFC', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '93' },
+        {}
+      );
+      balticSummary = computeContestScoringSummary(
+        balticEuropeanQsos,
+        { contestId: 'BALTIC', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '21' },
+        {}
+      );
+      bassoFerrareseSummary = computeContestScoringSummary(
+        bassoFerrareseQsos,
+        { contestId: 'BASSO-FERRARESE', stationCallsign: 'I4TEST', stationCountry: 'Italy', stationContinent: 'EU', claimedScore: '50300' },
+        {}
+      );
+      bdmRttySummary = computeContestScoringSummary(
+        bdmRttyQsos,
+        { contestId: 'BDM-WW-RTTY', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '30' },
+        {}
+      );
+      cqpSummary = computeContestScoringSummary(
+        cqpOutsideQsos,
+        { contestId: 'CA-QSO-PARTY', stationCallsign: 'W1AAA', stationCountry: 'United States', stationContinent: 'NA', claimedScore: '36' },
+        {}
+      );
+      cisQpskSummary = computeContestScoringSummary(
+        cisQpskQsos,
+        { contestId: 'CIS-QPSK63-DX', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '108' },
+        {}
+      );
+      cqMSummary = computeContestScoringSummary(
+        cqMQsos,
+        { contestId: 'CQ-M', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '140' },
+        {}
+      );
+      cqmmDxSummary = computeContestScoringSummary(
+        cqmmDxQsos,
+        { contestId: 'CWJF-MM', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '476' },
+        {}
+      );
+      digQsoPartySummary = computeContestScoringSummary(
+        digQsoPartyQsos,
+        { contestId: 'DIG-QSO-PARTY', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '430' },
+        {}
+      );
+      digPaSummary = computeContestScoringSummary(
+        digQsoPartyQsos,
+        { contestId: 'DIG-PA', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '430' },
+        {}
+      );
+      darcXmasSummary = computeContestScoringSummary(
+        darcXmasQsos,
+        { contestId: 'DARC-XMAS', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '63' },
+        {}
+      );
+      euPskDxSummary = computeContestScoringSummary(
+        euPskDxQsos,
+        { contestId: 'EU-PSK-DX', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '50' },
+        {}
+      );
+      esOpenSummary = computeContestScoringSummary(
+        esOpenQsos,
+        { contestId: 'ES-OPEN-HF', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '21' },
+        {}
+      );
+      hscSummary = computeContestScoringSummary(hscQsos, { contestId: 'HSC-CW', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '36' }, {});
+      inorcSummary = computeContestScoringSummary(inorcQsos, { contestId: 'INORC', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '21' }, {});
+      kcjSummary = computeContestScoringSummary(kcjDxQsos, { contestId: 'KCJ', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '10' }, {});
+      iotaSummary = computeContestScoringSummary(iotaWorldQsos, { contestId: 'IOTA', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '64' }, {});
+      marconiSummary = computeContestScoringSummary(marconiQsos, { contestId: 'MARCONI-MEMORIAL', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '12' }, {});
+      gdbageSummary = computeContestScoringSummary(gdbageQsos, { contestId: 'GDBAGE-DX-TEST', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '20' }, {});
+      lzDxSummary = computeContestScoringSummary(lzDxQsos, { contestId: 'LZ-DX', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '136' }, {});
+      nyqpSummary = computeContestScoringSummary(nyqpDxQsos, { contestId: 'NYQP', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '16' }, {});
+      okRttySummary = computeContestScoringSummary(okRttyQsos, { contestId: 'OK-DX-RTTY', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '63' }, {});
+      portugalDaySummary = computeContestScoringSummary(portugalDayQsos, { contestId: 'PORTUGAL-DAY', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '476' }, {});
+      pearsSummary = computeContestScoringSummary(pearsQsos, { contestId: 'PEARS-VHF-UHF', stationCallsign: 'ZS1TEST', stationCountry: 'South Africa', stationContinent: 'AF', claimedScore: '3204' }, {});
+      popovSummary = computeContestScoringSummary(popovQsos, { contestId: 'RADIO-POPOV', stationCallsign: 'S53ZO', stationCountry: 'Slovenia', stationContinent: 'EU', claimedScore: '242' }, {});
+      popovVhfSummary = computeContestScoringSummary(popovVhfQsos, { contestId: 'POPOV-VHF', stationCallsign: 'R9FTEST', stationCountry: 'European Russia', stationContinent: 'EU', claimedScore: '204' }, {});
     } finally {
       Object.assign(state, previousScoringState);
     }
@@ -8502,6 +11879,415 @@ function syncEngineCompareLogForSlot(slot) {
         && wrtcSummary?.computedScore === 36
         && wrtcSummary?.scoringRuleOverride === 'wrtc_2026',
       details: wrtcSummary
+    });
+    checks.push({
+      name: 'Winter Field Day partial scorer never presents base QSO points as a final score',
+      passed: wfdSummary?.supported === true
+        && wfdSummary?.ruleId === 'wfd'
+        && wfdSummary?.computedQsoPointsTotal === 7
+        && wfdSummary?.computedScore === null
+        && wfdSummary?.scoreDeltaAbs === null
+        && wfdSummary?.effectivePointsSource === 'computed'
+        && wfdSummary?.assumptions?.some((value) => /objective selections/i.test(value)),
+      details: wfdSummary
+    });
+    checks.push({
+      name: 'BARTG official three-factor formulas resolve by contest alias end to end',
+      passed: bartgHfSummary?.ruleId === 'bartg_hf_rtty'
+        && bartgHfSummary?.computedQsoPointsTotal === 6
+        && bartgHfSummary?.computedMultiplierTotal === 10
+        && bartgHfSummary?.computedScore === 240
+        && bartgSprintSummary?.ruleId === 'bartg_sprint'
+        && bartgSprintSummary?.computedQsoPointsTotal === 6
+        && bartgSprintSummary?.computedMultiplierTotal === 8
+        && bartgSprintSummary?.computedScore === 192,
+      details: { hf: bartgHfSummary, sprint: bartgSprintSummary }
+    });
+    checks.push({
+      name: 'General IARU HF scoring resolves independently of protected WRTC overlays',
+      passed: iaruHfSummary?.ruleId === 'iaru_hf'
+        && iaruHfSummary?.computedQsoPointsTotal === 12
+        && iaruHfSummary?.computedMultiplierTotal === 5
+        && iaruHfSummary?.computedScore === 60,
+      details: iaruHfSummary
+    });
+    checks.push({
+      name: 'EA RTTY partial scorer exposes pre-adjudication points without presenting an unreliable final score',
+      passed: eaRttySummary?.ruleId === 'ea_rtty'
+        && eaRttySummary?.computedQsoPointsTotal === 7
+        && eaRttySummary?.computedScore === null
+        && eaRttySummary?.scoreDeltaAbs === null
+        && eaRttySummary?.assumptions?.some((value) => /EADX-100.*unique-QSO/i.test(value)),
+      details: eaRttySummary
+    });
+    checks.push({
+      name: 'Former JARTS contest alias resolves to current JARL WW RTTY scoring end to end',
+      passed: jarlRttySummary?.ruleId === 'jarl_ww_rtty'
+        && jarlRttySummary?.computedQsoPointsTotal === 22
+        && jarlRttySummary?.computedMultiplierTotal === 7
+        && jarlRttySummary?.computedScore === 154
+        && jarlRttySummary?.scoreDeltaAbs === 0,
+      details: jarlRttySummary
+    });
+    checks.push({
+      name: 'International FT Challenge official contest identifier resolves current scoring end to end',
+      passed: ftChallengeSummary?.ruleId === 'ft_challenge'
+        && ftChallengeSummary?.computedQsoPointsTotal === 7
+        && ftChallengeSummary?.computedMultiplierTotal === 3
+        && ftChallengeSummary?.computedScore === 21
+        && ftChallengeSummary?.scoreDeltaAbs === 0,
+      details: ftChallengeSummary
+    });
+    checks.push({
+      name: 'JIDX CW and phone official identifiers resolve their mode-specific rules end to end',
+      passed: jidxCwSummary?.ruleId === 'jidx_cw'
+        && jidxCwSummary?.computedQsoPointsTotal === 6
+        && jidxCwSummary?.computedMultiplierTotal === 5
+        && jidxCwSummary?.computedScore === 30
+        && jidxCwSummary?.scoreDeltaAbs === 0
+        && jidxSsbSummary?.ruleId === 'jidx_ssb'
+        && jidxSsbSummary?.computedQsoPointsTotal === 2
+        && jidxSsbSummary?.computedMultiplierTotal === 1
+        && jidxSsbSummary?.computedScore === 2,
+      details: { cw: jidxCwSummary, phone: jidxSsbSummary }
+    });
+    checks.push({
+      name: 'IG-RY official contest identifier resolves per-band year scoring end to end',
+      passed: igRySummary?.ruleId === 'ig_ry_ww_rtty'
+        && igRySummary?.computedQsoPointsTotal === 3
+        && igRySummary?.computedMultiplierTotal === 3
+        && igRySummary?.computedScore === 9
+        && igRySummary?.scoreDeltaAbs === 0,
+      details: igRySummary
+    });
+    checks.push({
+      name: 'Oceania DX CW and phone identifiers resolve mode-specific current scoring end to end',
+      passed: oceaniaCwSummary?.ruleId === 'oceania_dx_cw'
+        && oceaniaCwSummary?.computedQsoPointsTotal === 17
+        && oceaniaCwSummary?.computedMultiplierTotal === 4
+        && oceaniaCwSummary?.computedScore === 68
+        && oceaniaCwSummary?.scoreDeltaAbs === 0
+        && oceaniaSsbSummary?.ruleId === 'oceania_dx_ssb'
+        && oceaniaSsbSummary?.computedQsoPointsTotal === 2
+        && oceaniaSsbSummary?.computedMultiplierTotal === 1
+        && oceaniaSsbSummary?.computedScore === 2,
+      details: { cw: oceaniaCwSummary, phone: oceaniaSsbSummary }
+    });
+    checks.push({
+      name: 'WWSA-CW alias resolves explicitly labeled GACW legacy-compatible scoring end to end',
+      passed: gacwSummary?.ruleId === 'gacw_wwsa_legacy'
+        && gacwSummary?.computedQsoPointsTotal === 20
+        && gacwSummary?.computedMultiplierTotal === 10
+        && gacwSummary?.computedScore === 200
+        && gacwSummary?.scoreDeltaAbs === 0,
+      details: gacwSummary
+    });
+    checks.push({
+      name: 'HADX alias resolves current HA-DX 2026 scoring end to end',
+      passed: haDxSummary?.ruleId === 'ha_dx_2026'
+        && haDxSummary?.computedQsoPointsTotal === 39
+        && haDxSummary?.computedMultiplierTotal === 4
+        && haDxSummary?.computedScore === 156
+        && haDxSummary?.scoreDeltaAbs === 0,
+      details: haDxSummary
+    });
+    checks.push({
+      name: 'Helvetia contest alias resolves current USKA 2026 scoring end to end',
+      passed: helvetiaSummary?.ruleId === 'helvetia_2026'
+        && helvetiaSummary?.computedQsoPointsTotal === 45
+        && helvetiaSummary?.computedMultiplierTotal === 7
+        && helvetiaSummary?.computedScore === 315
+        && helvetiaSummary?.scoreDeltaAbs === 0,
+      details: helvetiaSummary
+    });
+    checks.push({
+      name: 'WWHC alias resolves current detailed Holyland scoring end to end',
+      passed: holylandSummary?.ruleId === 'holyland_2025'
+        && holylandSummary?.computedQsoPointsTotal === 67
+        && holylandSummary?.computedMultiplierTotal === 10
+        && holylandSummary?.computedScore === 670
+        && holylandSummary?.scoreDeltaAbs === 0,
+      details: holylandSummary
+    });
+    checks.push({
+      name: 'NAQP CW, phone, and RTTY identifiers resolve their current mode-specific rules end to end',
+      passed: naqpCwSummary?.ruleId === 'naqp_cw_2026'
+        && naqpCwSummary?.computedQsoPointsTotal === 8
+        && naqpCwSummary?.computedMultiplierTotal === 7
+        && naqpCwSummary?.computedScore === 56
+        && naqpCwSummary?.scoreDeltaAbs === 0
+        && naqpSsbSummary?.ruleId === 'naqp_ssb_2026'
+        && naqpSsbSummary?.computedScore === 1
+        && naqpRttySummary?.ruleId === 'naqp_rtty_2026'
+        && naqpRttySummary?.computedScore === 1,
+      details: { cw: naqpCwSummary, phone: naqpSsbSummary, rtty: naqpRttySummary }
+    });
+    checks.push({
+      name: 'RAC Canada Day and Canada Winter identifiers resolve shared 2026 scoring end to end',
+      passed: racDaySummary?.ruleId === 'rac_canada_2026'
+        && racDaySummary?.computedQsoPointsTotal === 112
+        && racDaySummary?.computedMultiplierTotal === 6
+        && racDaySummary?.computedScore === 672
+        && racDaySummary?.scoreDeltaAbs === 0
+        && racWinterSummary?.ruleId === 'rac_canada_2026'
+        && racWinterSummary?.computedQsoPointsTotal === 2
+        && racWinterSummary?.computedMultiplierTotal === 1
+        && racWinterSummary?.computedScore === 2,
+      details: { canadaDay: racDaySummary, canadaWinter: racWinterSummary }
+    });
+    checks.push({
+      name: 'PACC contest alias resolves current VERON 2026 scoring end to end',
+      passed: paccSummary?.ruleId === 'pacc_2026'
+        && paccSummary?.computedQsoPointsTotal === 3
+        && paccSummary?.computedMultiplierTotal === 3
+        && paccSummary?.computedScore === 9
+        && paccSummary?.scoreDeltaAbs === 0,
+      details: paccSummary
+    });
+    checks.push({
+      name: 'ARI International DX alias resolves current 2026 scoring end to end',
+      passed: ariDxSummary?.ruleId === 'ari_dx_2026'
+        && ariDxSummary?.computedQsoPointsTotal === 44
+        && ariDxSummary?.computedMultiplierTotal === 5
+        && ariDxSummary?.computedScore === 220
+        && ariDxSummary?.scoreDeltaAbs === 0,
+      details: ariDxSummary
+    });
+    checks.push({
+      name: 'AEGEAN-RTTY alias resolves explicitly labeled legacy-compatible scoring end to end',
+      passed: aegeanRttySummary?.ruleId === 'aegean_rtty_legacy'
+        && aegeanRttySummary?.computedQsoPointsTotal === 39
+        && aegeanRttySummary?.computedMultiplierTotal === 0
+        && aegeanRttySummary?.computedScore === 59
+        && aegeanRttySummary?.scoreDeltaAbs === 0,
+      details: aegeanRttySummary
+    });
+    checks.push({
+      name: 'AEGEAN-VHF alias resolves explicitly labeled legacy-compatible scoring end to end',
+      passed: aegeanVhfSummary?.ruleId === 'aegean_vhf_legacy'
+        && aegeanVhfSummary?.computedQsoPointsTotal === 169
+        && aegeanVhfSummary?.computedMultiplierTotal === 2
+        && aegeanVhfSummary?.computedScore === 337
+        && aegeanVhfSummary?.scoreDeltaAbs === 0,
+      details: aegeanVhfSummary
+    });
+    checks.push({
+      name: 'AF-ALL-MODE-DX identifier resolves official SARL 2026 scoring end to end',
+      passed: africaDxSummary?.ruleId === 'africa_all_mode_dx_2026'
+        && africaDxSummary?.computedQsoPointsTotal === 8
+        && africaDxSummary?.computedMultiplierTotal === 5
+        && africaDxSummary?.computedScore === 40
+        && africaDxSummary?.scoreDeltaAbs === 0,
+      details: africaDxSummary
+    });
+    checks.push({
+      name: 'AGB-PARTY identifier resolves latest organizer-published scoring end to end',
+      passed: agbPartySummary?.ruleId === 'agb_party_latest'
+        && agbPartySummary?.computedQsoPointsTotal === 36
+        && agbPartySummary?.computedMultiplierTotal === 8
+        && agbPartySummary?.computedScore === 288
+        && agbPartySummary?.scoreDeltaAbs === 0,
+      details: agbPartySummary
+    });
+    checks.push({
+      name: 'AP-SPRINT identifier resolves current organizer scoring end to end',
+      passed: apSprintSummary?.ruleId === 'ap_sprint_2026'
+        && apSprintSummary?.computedQsoPointsTotal === 4
+        && apSprintSummary?.computedMultiplierTotal === 4
+        && apSprintSummary?.computedScore === 16
+        && apSprintSummary?.scoreDeltaAbs === 0,
+      details: apSprintSummary
+    });
+    checks.push({
+      name: 'ARI-SEZ identifier resolves current ARI Sections 2026 scoring end to end',
+      passed: ariSectionsSummary?.ruleId === 'ari_sections_2026'
+        && ariSectionsSummary?.computedQsoPointsTotal === 18
+        && ariSectionsSummary?.computedMultiplierTotal === 7
+        && ariSectionsSummary?.computedScore === 126
+        && ariSectionsSummary?.scoreDeltaAbs === 0,
+      details: ariSectionsSummary
+    });
+    checks.push({
+      name: 'AVHFC identifier resolves explicitly labeled legacy-compatible scoring end to end',
+      passed: avhfcSummary?.ruleId === 'avhfc_legacy'
+        && avhfcSummary?.computedQsoPointsTotal === 6
+        && avhfcSummary?.computedMultiplierTotal === 3
+        && avhfcSummary?.computedScore === 93
+        && avhfcSummary?.scoreDeltaAbs === 0,
+      details: avhfcSummary
+    });
+    checks.push({
+      name: 'BALTIC identifier resolves current official 2026 scoring end to end',
+      passed: balticSummary?.ruleId === 'baltic_2026'
+        && balticSummary?.computedQsoPointsTotal === 21
+        && balticSummary?.computedMultiplierTotal === 0
+        && balticSummary?.computedScore === 21
+        && balticSummary?.scoreDeltaAbs === 0,
+      details: balticSummary
+    });
+    checks.push({
+      name: 'BASSO-FERRARESE identifier resolves explicitly labeled legacy-compatible scoring end to end',
+      passed: bassoFerrareseSummary?.ruleId === 'basso_ferrarese_legacy'
+        && bassoFerrareseSummary?.computedQsoPointsTotal === 302
+        && bassoFerrareseSummary?.computedMultiplierTotal === 3
+        && bassoFerrareseSummary?.computedScore === 50300
+        && bassoFerrareseSummary?.scoreDeltaAbs === 0,
+      details: bassoFerrareseSummary
+    });
+    checks.push({
+      name: 'BDM-WW-RTTY identifier resolves explicitly labeled legacy-compatible scoring end to end',
+      passed: bdmRttySummary?.ruleId === 'bdm_ww_rtty_legacy'
+        && bdmRttySummary?.computedQsoPointsTotal === 30
+        && bdmRttySummary?.computedMultiplierTotal === 0
+        && bdmRttySummary?.computedScore === 30
+        && bdmRttySummary?.scoreDeltaAbs === 0,
+      details: bdmRttySummary
+    });
+    checks.push({
+      name: 'CA-QSO-PARTY identifier resolves current official 2026 scoring end to end',
+      passed: cqpSummary?.ruleId === 'california_qso_party_2026'
+        && cqpSummary?.computedQsoPointsTotal === 12
+        && cqpSummary?.computedMultiplierTotal === 3
+        && cqpSummary?.computedScore === 36
+        && cqpSummary?.scoreDeltaAbs === 0,
+      details: cqpSummary
+    });
+    checks.push({
+      name: 'CIS-QPSK63-DX identifier resolves explicitly labeled legacy-compatible scoring end to end',
+      passed: cisQpskSummary?.ruleId === 'cis_qpsk63_dx_legacy'
+        && cisQpskSummary?.computedQsoPointsTotal === 18
+        && cisQpskSummary?.computedMultiplierTotal === 6
+        && cisQpskSummary?.computedScore === 108
+        && cisQpskSummary?.scoreDeltaAbs === 0,
+      details: cisQpskSummary
+    });
+    checks.push({
+      name: 'CQ-M identifier resolves latest official scoring end to end',
+      passed: cqMSummary?.ruleId === 'cq_m_2025'
+        && cqMSummary?.computedQsoPointsTotal === 20
+        && cqMSummary?.computedMultiplierTotal === 7
+        && cqMSummary?.computedScore === 140
+        && cqMSummary?.scoreDeltaAbs === 0,
+      details: cqMSummary
+    });
+    checks.push({
+      name: 'CWJF-MM identifier resolves current CQMM DX 2026 scoring end to end',
+      passed: cqmmDxSummary?.ruleId === 'cqmm_dx_2026'
+        && cqmmDxSummary?.computedQsoPointsTotal === 68
+        && cqmmDxSummary?.computedMultiplierTotal === 7
+        && cqmmDxSummary?.computedScore === 476
+        && cqmmDxSummary?.scoreDeltaAbs === 0,
+      details: cqmmDxSummary
+    });
+    checks.push({
+      name: 'DIG-QSO-PARTY and DIG-PA identifiers resolve current rules with value-equivalent end-to-end scoring',
+      passed: digQsoPartySummary?.ruleId === 'dig_qso_party_2025'
+        && digQsoPartySummary?.computedQsoPointsTotal === 43
+        && digQsoPartySummary?.computedMultiplierTotal === 10
+        && digQsoPartySummary?.computedScore === 430
+        && digQsoPartySummary?.scoreDeltaAbs === 0
+        && digPaSummary?.ruleId === 'dig_qso_party_2025'
+        && digPaSummary?.computedScore === digQsoPartySummary?.computedScore,
+      details: { digQsoPartySummary, digPaSummary }
+    });
+    checks.push({
+      name: 'DARC-XMAS identifier resolves current partial scoring end to end',
+      passed: darcXmasSummary?.ruleId === 'darc_xmas_2025'
+        && darcXmasSummary?.computedQsoPointsTotal === 7
+        && darcXmasSummary?.computedMultiplierTotal === 9
+        && darcXmasSummary?.computedScore === 63
+        && darcXmasSummary?.scoreDeltaAbs === 0,
+      details: darcXmasSummary
+    });
+    checks.push({
+      name: 'EU-PSK-DX identifier resolves current partial scoring end to end',
+      passed: euPskDxSummary?.ruleId === 'eu_psk_dx_2026'
+        && euPskDxSummary?.computedQsoPointsTotal === 10
+        && euPskDxSummary?.computedMultiplierTotal === 5
+        && euPskDxSummary?.computedScore === 50
+        && euPskDxSummary?.scoreDeltaAbs === 0,
+      details: euPskDxSummary
+    });
+    checks.push({
+      name: 'ES-OPEN-HF identifier resolves current partial scoring end to end',
+      passed: esOpenSummary?.ruleId === 'es_open_hf_2026'
+        && esOpenSummary?.computedQsoPointsTotal === 7
+        && esOpenSummary?.computedMultiplierTotal === 3
+        && esOpenSummary?.computedScore === 21
+        && esOpenSummary?.scoreDeltaAbs === 0,
+      details: esOpenSummary
+    });
+    checks.push({
+      name: 'HSC-CW and INORC identifiers resolve current official scoring end to end',
+      passed: hscSummary?.ruleId === 'hsc_2026' && hscSummary?.computedScore === 36 && hscSummary?.scoreDeltaAbs === 0
+        && inorcSummary?.ruleId === 'inorc_2025' && inorcSummary?.computedScore === 21 && inorcSummary?.scoreDeltaAbs === 0,
+      details: { hscSummary, inorcSummary }
+    });
+    checks.push({
+      name: 'KCJ identifier resolves current partial scoring end to end',
+      passed: kcjSummary?.ruleId === 'kcj_2026' && kcjSummary?.computedQsoPointsTotal === 5
+        && kcjSummary?.computedMultiplierTotal === 2 && kcjSummary?.computedScore === 10 && kcjSummary?.scoreDeltaAbs === 0,
+      details: kcjSummary
+    });
+    checks.push({
+      name: 'IOTA identifier resolves current partial scoring end to end',
+      passed: iotaSummary?.ruleId === 'iota_2026' && iotaSummary?.computedQsoPointsTotal === 32
+        && iotaSummary?.computedMultiplierTotal === 2 && iotaSummary?.computedScore === 64 && iotaSummary?.scoreDeltaAbs === 0,
+      details: iotaSummary
+    });
+    checks.push({
+      name: 'MARCONI-MEMORIAL identifier resolves current partial scoring end to end',
+      passed: marconiSummary?.ruleId === 'marconi_memorial_hf_2026' && marconiSummary?.computedQsoPointsTotal === 4
+        && marconiSummary?.computedMultiplierTotal === 3 && marconiSummary?.computedScore === 12 && marconiSummary?.scoreDeltaAbs === 0,
+      details: marconiSummary
+    });
+    checks.push({
+      name: 'GDBAGE-DX-TEST identifier resolves explicitly labeled legacy-compatible scoring end to end',
+      passed: gdbageSummary?.ruleId === 'gdbage_dx_legacy' && gdbageSummary?.computedQsoPointsTotal === 10
+        && gdbageSummary?.computedMultiplierTotal === 2 && gdbageSummary?.computedScore === 20 && gdbageSummary?.scoreDeltaAbs === 0,
+      details: gdbageSummary
+    });
+    checks.push({
+      name: 'LZ-DX identifier resolves 2025 partial scoring end to end',
+      passed: lzDxSummary?.ruleId === 'lz_dx_2025' && lzDxSummary?.computedQsoPointsTotal === 34
+        && lzDxSummary?.computedMultiplierTotal === 4 && lzDxSummary?.computedScore === 136 && lzDxSummary?.scoreDeltaAbs === 0,
+      details: lzDxSummary
+    });
+    checks.push({
+      name: 'NYQP identifier resolves 2025 partial scoring end to end',
+      passed: nyqpSummary?.ruleId === 'ny_qso_party_2025' && nyqpSummary?.computedQsoPointsTotal === 8
+        && nyqpSummary?.computedMultiplierTotal === 2 && nyqpSummary?.computedScore === 16 && nyqpSummary?.scoreDeltaAbs === 0,
+      details: nyqpSummary
+    });
+    checks.push({
+      name: 'OK-DX-RTTY identifier resolves 2026 partial scoring end to end',
+      passed: okRttySummary?.ruleId === 'ok_dx_rtty_2026' && okRttySummary?.computedQsoPointsTotal === 9
+        && okRttySummary?.computedMultiplierTotal === 7 && okRttySummary?.computedScore === 63 && okRttySummary?.scoreDeltaAbs === 0,
+      details: okRttySummary
+    });
+    checks.push({
+      name: 'PORTUGAL-DAY identifier resolves 2026 partial scoring end to end',
+      passed: portugalDaySummary?.ruleId === 'portugal_day_2026' && portugalDaySummary?.computedQsoPointsTotal === 34
+        && portugalDaySummary?.computedMultiplierTotal === 14 && portugalDaySummary?.computedScore === 476 && portugalDaySummary?.scoreDeltaAbs === 0,
+      details: portugalDaySummary
+    });
+    checks.push({
+      name: 'PEARS-VHF-UHF identifier resolves 2026 partial scoring end to end',
+      passed: pearsSummary?.ruleId === 'pears_vhf_2026' && pearsSummary?.computedQsoPointsTotal === 801
+        && pearsSummary?.computedMultiplierTotal === 4 && pearsSummary?.computedScore === 3204 && pearsSummary?.scoreDeltaAbs === 0,
+      details: pearsSummary
+    });
+    checks.push({
+      name: 'RADIO-POPOV identifier resolves 2026 partial scoring end to end',
+      passed: popovSummary?.ruleId === 'popov_memorial_2026' && popovSummary?.computedQsoPointsTotal === 242
+        && popovSummary?.computedMultiplierTotal === 0 && popovSummary?.computedScore === 242 && popovSummary?.scoreDeltaAbs === 0,
+      details: popovSummary
+    });
+    checks.push({
+      name: 'POPOV-VHF identifier resolves 2026 partial scoring end to end',
+      passed: popovVhfSummary?.ruleId === 'popov_vhf_2026' && popovVhfSummary?.computedQsoPointsTotal === 204
+        && popovVhfSummary?.computedMultiplierTotal === 0 && popovVhfSummary?.computedScore === 204 && popovVhfSummary?.scoreDeltaAbs === 0,
+      details: popovVhfSummary
     });
 
     return {

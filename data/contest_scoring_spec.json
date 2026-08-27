@@ -212,6 +212,2713 @@
       ]
     },
     {
+      "id": "cq_vhf",
+      "archive_folder": "CQVHF",
+      "name": "CQ World Wide VHF Contest",
+      "aliases": [
+        "CQ-VHF",
+        "CQ WW VHF",
+        "CQ WORLD WIDE VHF"
+      ],
+      "official_rules_urls": [
+        "https://cqww-vhf.com/rules.htm",
+        "https://cqww-vhf.com/rules/2026_cq_ww_vhf_rules.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band_per_sent_grid",
+      "qso_points": {
+        "model": "table_by_band",
+        "band_points": {
+          "6M": 1,
+          "2M": 2
+        }
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "sent_received_grid_path4"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Four-character worked grids count once per band for fixed stations.",
+        "Including the sent grid in multiplier and duplicate identity implements the official rover rule when the rover changes grid location.",
+        "The 2026 contest has separate analog and digital weekends, but both use this scoring model."
+      ]
+    },
+    {
+      "id": "ww_digi",
+      "archive_folder": "WWDIGI",
+      "name": "World Wide Digi DX Contest",
+      "aliases": [
+        "WW-DIGI",
+        "WW DIGI",
+        "WORLD WIDE DIGI DX"
+      ],
+      "official_rules_urls": [
+        "https://ww-digi.com/rules/",
+        "https://ww-digi.com/rules/wwdigi26_eng.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "distance_3000km_steps",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "FT4",
+          "FT8"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "grid_field2"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Each QSO scores one point plus one point for each 3,000 km between four-character grid-square centers.",
+        "A station may be worked once per band, either FT4 or FT8; mode does not create a second scoring QSO.",
+        "Two-character grid fields count once on each band."
+      ]
+    },
+    {
+      "id": "ft8_dx",
+      "archive_folder": "FT8DX",
+      "name": "FT8 DX Contest",
+      "aliases": [
+        "FT8-DX",
+        "FT8 DX",
+        "FT8DX"
+      ],
+      "official_rules_urls": [
+        "https://europeanft8club.wordpress.com/2026/02/22/ft8-dx-contest-2026/"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "distance_3000km_steps",
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "FT8"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "grid_field2"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Each QSO scores one point plus one point for each 3,000 km between four-character grid-square centers.",
+        "A station may be worked once per band; only FT8 contacts on 80, 40, 20, 15, and 10 metres are eligible.",
+        "Two-character grid fields count once on each band.",
+        "This current rule materially differs from LogChecker's recovered legacy implementation, which used flat one-point QSOs and global U.S.-state, Canadian-province, and other-DXCC multipliers."
+      ]
+    },
+    {
+      "id": "jarl_ww_rtty",
+      "archive_folder": "JARTSRTTY",
+      "name": "JARL World Wide RTTY Contest",
+      "aliases": [
+        "JARL-WW-RTTY",
+        "JARL WW RTTY",
+        "JARTS-WW-RTTY",
+        "JARTS WW RTTY"
+      ],
+      "official_rules_urls": [
+        "https://www.jarl.org/English/4_Library/A-4-3_Contests/rtty_rules_en.html",
+        "https://100th.jarl.org/topics/%E6%96%B0%E8%A8%AD%E3%80%8Cjarl-ww-rtty%E3%82%B3%E3%83%B3%E3%83%86%E3%82%B9%E3%83%88%E3%80%8D%E3%81%8C%E4%BB%8A%E5%B9%B410%E6%9C%88%E3%82%88%E3%82%8A%E3%82%B9%E3%82%BF%E3%83%BC%E3%83%88/"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "table_by_geography",
+        "require_received_exchange": true,
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "RTTY",
+          "RY"
+        ],
+        "rules": [
+          {
+            "when": "maritime_mobile",
+            "points": 2
+          },
+          {
+            "when": "same_continent",
+            "points": 2
+          },
+          {
+            "when": "different_continent",
+            "points": 3
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "jarl_rtty_entity_or_call_area"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "JARL assumed responsibility for the former JARTS contest beginning with the 2026 event.",
+        "Same-continent contacts, including the same DXCC entity, score two points; cross-continent contacts score three.",
+        "Maritime-mobile contacts score two points regardless of location and do not count as multipliers.",
+        "DXCC entities other than mainland JA/W/VE/VK count once per band; mainland JA/W/VE/VK instead count by portable-aware call area once per band.",
+        "The received age (or permitted 00/01/99 substitute) must be present; organizer adjudication of its semantic validity remains authoritative."
+      ]
+    },
+    {
+      "id": "ft_challenge",
+      "archive_folder": "FTCHALLENGE",
+      "name": "International FT Challenge",
+      "aliases": [
+        "FT-CHALLENGE",
+        "FT CHALLENGE",
+        "INTERNATIONAL FT CHALLENGE"
+      ],
+      "official_rules_urls": [
+        "https://www.rttycontesting.com/ft-challenge/rules/",
+        "https://www.rttycontesting.com/ft-challenge/",
+        "https://www.rttycontesting.com/ft-challenge/cabrillo/"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "distance_3000km_steps",
+        "scoring_time_policy": "first_24_operating_hours_with_30_minute_breaks",
+        "missing_grid_base_points": 1,
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "FT4",
+          "FT8"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "grid_field2"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The organizer replaced the FT Roundup (whose Cabrillo identifier was FT8-RU) with the International FT Challenge in 2024 after materially changing its rules.",
+        "Each QSO scores one point plus one point for each 3,000 km between four-character grid-square centers; a missing received grid defaults to ZZ00 and scores one point only.",
+        "ZZ is not a multiplier. Two-character grid fields count once per band, and a call may be worked once per band across FT4 and FT8.",
+        "Only the first 24 operating hours count. Gaps of at least 30 minutes with no logged QSOs are excluded from accumulated operating time.",
+        "The current organizer page is headed for the 5-6 December 2026 event although two administrative date examples in the body still show 2025; the scoring clauses are unambiguous."
+      ]
+    },
+    {
+      "id": "jidx_cw",
+      "archive_folder": "JIDXCW",
+      "name": "Japan International DX Contest — CW",
+      "aliases": [
+        "JIDX-CW",
+        "JIDX CW",
+        "JIDXCW"
+      ],
+      "official_rules_urls": [
+        "https://jidx.org/jidxrule-e.html",
+        "https://jidx.org/jidxmult.lst"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "jidx_2025",
+        "require_received_exchange": true,
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW"
+        ],
+        "eligible_frequency_segments_mhz": {
+          "160M": [[1.8, 1.875], [1.9075, 1.9125]],
+          "80M": [[3.5, 3.58], [3.599, 3.612], [3.662, 3.687], [3.702, 3.716], [3.745, 3.77], [3.791, 3.805]]
+        }
+      },
+      "multipliers": {
+        "model": "station_dependent_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "jidx_dxcc_for_ja",
+          "jidx_cq_zone_for_ja",
+          "jidx_prefecture_for_dx"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Only JA-to-DX (including maritime mobile) and DX-to-JA contacts score; JA-to-JA, DX-to-DX, and DX-to-maritime-mobile contacts do not.",
+        "Band points are 4 on 160 m, 2 on 80 m and 10 m, and 1 on 40 m, 20 m, and 15 m.",
+        "JA entrants count received CQ zones and non-JD1 DXCC entities per band; maritime mobile supplies only a zone multiplier.",
+        "DX and maritime-mobile entrants count received Japanese prefecture numbers 01-50 per band; 48-50 represent the three JD1 island multipliers."
+      ]
+    },
+    {
+      "id": "jidx_ssb",
+      "archive_folder": "JIDXSSB",
+      "name": "Japan International DX Contest — Phone",
+      "aliases": [
+        "JIDX-SSB",
+        "JIDX SSB",
+        "JIDX-PH",
+        "JIDX PHONE",
+        "JIDXSSB"
+      ],
+      "official_rules_urls": [
+        "https://jidx.org/jidxrule-e.html",
+        "https://jidx.org/jidxmult.lst"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "jidx_2025",
+        "require_received_exchange": true,
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB"
+        ],
+        "eligible_frequency_segments_mhz": {
+          "160M": [[1.8, 1.875], [1.9075, 1.9125]],
+          "80M": [[3.5, 3.58], [3.599, 3.612], [3.662, 3.687], [3.702, 3.716], [3.745, 3.77], [3.791, 3.805]]
+        }
+      },
+      "multipliers": {
+        "model": "station_dependent_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "jidx_dxcc_for_ja",
+          "jidx_cq_zone_for_ja",
+          "jidx_prefecture_for_dx"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "This is the phone event corresponding to jidx_cw; scoring and multipliers are identical, but only phone modes are eligible.",
+        "The official 2025-04 revision explicitly publishes the 2026 CW and phone schedules."
+      ]
+    },
+    {
+      "id": "ig_ry_ww_rtty",
+      "archive_folder": "IGRTTY",
+      "name": "IG-RY World Wide RTTY Contest",
+      "aliases": [
+        "IG-RY",
+        "IG-RTTY",
+        "IG-RY-WW-RTTY",
+        "IG-RY WW RTTY",
+        "IG-WW-RY"
+      ],
+      "official_rules_urls": [
+        "https://www.ig-ry.de/ig-ry-ww-contest",
+        "https://irp.cdn-website.com/7beb9501/files/uploaded/IG-RY%20WW%20RTTY%20Contest%20Rules.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "fixed",
+        "scoring_time_policy": "single_op_first_24_operating_hours_with_60_minute_breaks",
+        "require_received_exchange": true,
+        "required_received_exchange_pattern": "^(19|20)\\d{2}$",
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "RTTY",
+          "RY"
+        ],
+        "rules": [
+          { "points": 1 }
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "unique_year_number_exchange"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Each valid contact scores one point; the same station may be worked once per band.",
+        "Each different four-digit year of the operator's first official amateur-radio licence counts once per band.",
+        "Single operators may use 24 of the 30 hours; gaps of at least 60 minutes with no QSO are excluded from accumulated operating time. Multi-operator stations may use all 30 hours.",
+        "The organizer requires at least ten minutes before changing bands, including single operators, but defines no per-QSO scoring penalty for a violation. SH6 records this as an adjudication/compliance requirement and does not invent one."
+      ]
+    },
+    {
+      "id": "oceania_dx_cw",
+      "archive_folder": "OCDXCW",
+      "name": "Oceania DX Contest — CW",
+      "aliases": [
+        "OCEANIA-DX-CW",
+        "OCEANIA DX CW",
+        "OCDX-CW",
+        "OCDX CW"
+      ],
+      "official_rules_urls": [
+        "https://www.oceaniadxcontest.com/",
+        "https://www.oceaniadxcontest.com/wp-content/uploads/2025/08/ocdx25-rules-0.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "oceania_dx_2026",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "wpx_prefix"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The organizer's 2026 announcement confirms the event dates and scoring structure; the latest detailed official rule PDF is the 2025 edition and supplies the unchanged prefix definitions and exchange details.",
+        "Oceania entrants may work any station; entrants outside Oceania score only contacts with Oceania stations.",
+        "QSO points are 20 on 160 m, 10 on 80 m, 5 on 40 m, 1 on 20 m, 2 on 15 m, and 3 on 10 m.",
+        "Portable-aware amateur-radio prefixes count once per band. A missing received serial is logged as 001 under the official rule and therefore is not silently rejected by SH6."
+      ]
+    },
+    {
+      "id": "oceania_dx_ssb",
+      "archive_folder": "OCDXSSB",
+      "name": "Oceania DX Contest — Phone",
+      "aliases": [
+        "OCEANIA-DX-SSB",
+        "OCEANIA DX SSB",
+        "OCEANIA-DX-PH",
+        "OCDX-SSB",
+        "OCDX PHONE"
+      ],
+      "official_rules_urls": [
+        "https://www.oceaniadxcontest.com/",
+        "https://www.oceaniadxcontest.com/wp-content/uploads/2025/08/ocdx25-rules-0.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "oceania_dx_2026",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "wpx_prefix"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "This is the phone event corresponding to oceania_dx_cw; scoring and multiplier behavior are identical, but only phone modes are eligible."
+      ]
+    },
+    {
+      "id": "gacw_wwsa_legacy",
+      "archive_folder": "GACW",
+      "name": "GACW WWSA CW DX Contest — recovered legacy scoring",
+      "aliases": [
+        "GACW",
+        "WWSA",
+        "WWSA-CW",
+        "WWSA CW"
+      ],
+      "official_rules_urls": [],
+      "rules_year": "legacy recovered behavior; current official rules not verified",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium",
+      "duplicate_policy": "none",
+      "qso_points": {
+        "model": "gacw_wwsa_recovered",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW"
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "credit_on_zero_point_valid_qso": true,
+        "groups": [
+          "gacw_cq_zone",
+          "gacw_dxcc_entity"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "This rule is explicitly legacy-compatible, not a claim about the current organizer rules. Organizer sites and web search were unreachable during the 2026-08-26 research pass.",
+        "The behavior is ported from LogChecker's fixture-backed gacw-recovered rule: zero points for the same DXCC entity, one point for another entity on the same continent, three points across continents, and five points when the worked station is in South America.",
+        "Received CQ zones and resolved DXCC entities count separately on each band. Mobile and maritime-mobile stations receive no multiplier credit. The recovered implementation performs no duplicate elimination.",
+        "A later switch to verified current official rules may be material and must be implemented as a separately versioned rule or reviewed before changing this legacy scorer."
+      ]
+    },
+    {
+      "id": "ha_dx_2026",
+      "archive_folder": "HA_DX",
+      "name": "HA-DX Contest",
+      "aliases": [
+        "HA-DX",
+        "HA DX",
+        "HADX"
+      ],
+      "official_rules_urls": [
+        "https://ha-dx.com/en/contest-rules"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium-high",
+      "duplicate_policy": "call_per_band_category_mode",
+      "qso_points": {
+        "model": "ha_dx_2026",
+        "require_received_exchange": true,
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW",
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "ha_dx_county_or_country"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The current official 2026 rules award 10 points for a Hungarian station, 2 points for another station on the entrant's continent, and 5 points for another continent. Aeronautical- and maritime-mobile contacts score 2 points and do not multiply.",
+        "Hungarian counties and non-Hungarian DXCC/WAE-list countries count once per band regardless of mode. The 20 official county abbreviations are validated.",
+        "In MIX categories the same station may be worked once per band in each of CW and SSB; other categories allow it once per band. When CATEGORY-MODE is absent SH6 conservatively applies once per band.",
+        "Current scoring differs materially from LogChecker's recovered 1/3/5 and 1/3/6 entrant-dependent point tables, entrant-dependent multiplier sets, minimum-one multiplier, and lack of duplicate elimination.",
+        "Limitation: SH6 resolves ordinary DXCC entities, but it does not yet distinguish WAE-only subentities that share a DXCC entity. Logs relying on such a WAE-only multiplier can be undercounted. Adjudication penalties, cross-log validation, and multi-operator 10-minute compliance are outside claimed-score computation."
+      ]
+    },
+    {
+      "id": "helvetia_2026",
+      "archive_folder": "HELVETIA",
+      "name": "USKA Helvetia Contest",
+      "aliases": [
+        "HELVETIA",
+        "HELVETIA-CONTEST",
+        "HELVETIA CONTEST"
+      ],
+      "official_rules_urls": [
+        "https://uska.ch/wp-content/uploads/2026/03/2026-01-Rules-and-Regulations-for-Helvetia-Contest-issued-March-2026.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "helvetia_2026",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW",
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB",
+          "RTTY",
+          "RY",
+          "PSK31",
+          "PSK63",
+          "FT4",
+          "FT8",
+          "DG"
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "helvetia_canton",
+          "helvetia_dxcc_country"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The March 2026 official rules award 10 points for a valid Swiss contact, 1 point within the entrant's continent, and 3 points outside it.",
+        "Swiss stations must send one of 26 canton abbreviations; other stations must send a serial of at least three digits. Incomplete or incorrect exchanges score zero.",
+        "Each callsign may be worked once per band in CW, once in SSB, and once in the combined digital mode group. Cantons and DXCC countries, including Switzerland, count independently per band.",
+        "The 2026 rules add digital operation and explicit duplicate and exchange validation to the fixture-backed recovered behavior. LogChecker's recovered point and multiplier values otherwise agree.",
+        "The required six-hour single-operator rest period, team-member cross-log exclusion, and adjudication sanctions are compliance checks rather than deterministic claimed-score branches and are not inferred from a single submitted QSO list."
+      ]
+    },
+    {
+      "id": "holyland_2025",
+      "archive_folder": "HOLYLAND",
+      "name": "World Wide Holyland DX Contest",
+      "aliases": [
+        "HOLYLAND",
+        "HOLYLAND-DX",
+        "HOLYLAND DX",
+        "WWHC"
+      ],
+      "official_rules_urls": [
+        "https://4xbulletin.org/wp-content/uploads/2025/04/4xbulletin-04-2025-a.pdf",
+        "https://tools.iarc.org/wwhc"
+      ],
+      "rules_year": "2025 detailed official rules; 2026 event endpoint and exchange confirmed",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium-high",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "holyland_2025",
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW",
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB"
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "holyland_area",
+          "holyland_dxcc_country"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "IARC's April 2025 bulletin is the latest complete organizer rule text retrieved. The official IARC 2026 endpoint listed by ARRL was unreachable during retrieval, while the 2026 calendar confirms the same five bands, CW/phone modes, and Israeli-area-or-serial exchange.",
+        "Outside-Israel entrants score 8 points for Israel, 1 for their own DXCC entity, 2 for another entity on the same continent, and 4 across continents. Israeli entrants score 1 for Israel, 2 for other Asian stations, and 8 for other continents. /MM contacts score 4 for everyone and do not multiply.",
+        "Israeli stations must send a five-character Holyland area such as H08HF; other stations must send a serial beginning at 001. Each DXCC entity and valid Israeli area count separately per band.",
+        "Duplicates are once per callsign, band, and CW/phone mode. Israeli mobile location suffixes remain part of the callsign, matching the official distinct-location treatment.",
+        "Cross-log errors, the multioperator ten-minute rule, and the half-hour minimum at each Israeli mobile area require adjudication evidence and are not inferred by claimed-score computation."
+      ]
+    },
+    {
+      "id": "naqp_cw_2026",
+      "archive_folder": "NAQP",
+      "name": "North American QSO Party — CW",
+      "aliases": [
+        "NAQP-CW",
+        "NAQP CW"
+      ],
+      "official_rules_urls": [
+        "https://ncjweb.com/NAQP-Rules.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "naqp_2026",
+        "scoring_time_policy": "single_op_first_10_operating_hours_with_31_minute_qso_gaps",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "naqp_location"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "A valid complete exchange scores one point. At least one side of every valid QSO must be a North American entity under the ARRL DXCC list, with Hawaii added explicitly.",
+        "Multipliers per band are all 50 states, DC, 13 Canadian provinces/territories, and other North American DXCC entities. Non-North-American stations and /MM or /AM stations can score QSO credit but never multiply.",
+        "Single operators may operate 10 of 12 hours; a gap between QSO timestamps must be at least 31 minutes to contain the required 30 intervening off-time minutes. M2 entries may use the full period and SH6 applies the 10-minute transmitter band lock when TX_ID is present.",
+        "LogChecker's recovered rule omitted duplicates, mode/band restrictions, exchange/geography eligibility, and operating limits, and incorrectly normalized Maryland (MD) to District of Columbia (DC). SH6 keeps MD and DC distinct under the official rules."
+      ]
+    },
+    {
+      "id": "naqp_ssb_2026",
+      "name": "North American QSO Party — SSB",
+      "aliases": [
+        "NAQP-SSB",
+        "NAQP SSB",
+        "NAQP-PH",
+        "NAQP PHONE"
+      ],
+      "official_rules_urls": [
+        "https://ncjweb.com/NAQP-Rules.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "naqp_2026",
+        "scoring_time_policy": "single_op_first_10_operating_hours_with_31_minute_qso_gaps",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "naqp_location"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Uses the same 2026 scoring, exchanges, multipliers, duplicate policy, and operating limits as naqp_cw_2026, with phone modes only."
+      ]
+    },
+    {
+      "id": "naqp_rtty_2026",
+      "name": "North American QSO Party — RTTY",
+      "aliases": [
+        "NAQP-RTTY",
+        "NAQP RTTY"
+      ],
+      "official_rules_urls": [
+        "https://ncjweb.com/NAQP-Rules.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "naqp_2026",
+        "scoring_time_policy": "single_op_first_10_operating_hours_with_31_minute_qso_gaps",
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "RTTY",
+          "RY"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "naqp_location"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Uses the same 2026 scoring, exchanges, multipliers, duplicate policy, and operating limits as naqp_cw_2026, but permits RTTY only and excludes 160 metres."
+      ]
+    },
+    {
+      "id": "rac_canada_2026",
+      "archive_folder": "RAC",
+      "name": "RAC Canada Day and Canada Winter Contests",
+      "aliases": [
+        "RAC-CANADA-DAY",
+        "RAC CANADA DAY",
+        "CANADA-DAY",
+        "CANADA DAY",
+        "RAC-CANADA-WINTER",
+        "RAC CANADA WINTER",
+        "CANADA-WINTER",
+        "CANADA WINTER"
+      ],
+      "official_rules_urls": [
+        "https://www.rac.ca/mivahih/2026/06/RAC_CanadaDayContestRules_2026.pdf",
+        "https://www.rac.ca/contesting-results/"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "rac_canada_2026",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M",
+          "6M",
+          "2M"
+        ],
+        "eligible_modes": [
+          "CW",
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB",
+          "AM",
+          "FM"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band_per_mode",
+        "minimum_total": 1,
+        "groups": [
+          "rac_canadian_province"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official 2026 document defines identical scoring for Canada Day and Canada Winter: listed RAC official stations score 20 points, other Canadian stations including VE0 score 10, and stations outside Canada score 2.",
+        "Canadian stations send one of 13 province/territory abbreviations; VE0 and stations outside Canada send a serial. Each province/territory counts once per band and CW/phone mode group.",
+        "A callsign may be worked once in each mode group on each of eight bands from 160 m through 2 m. If no Canadian multiplier is worked, the official minimum multiplier of one is applied.",
+        "For MOST logs, SH6 enforces transmitter-specific 10-minute band locks and the multiplier-station new-multiplier restriction when Cabrillo TX_ID data is present; otherwise the unverified operational constraint is reported.",
+        "LogChecker's recovered scorer omitted duplicate, band/mode, exchange, minimum-multiplier, and multioperator constraints and treated all non-CW modes as multiplier-eligible."
+      ]
+    },
+    {
+      "id": "pacc_2026",
+      "archive_folder": "PACC",
+      "name": "PACC Contest",
+      "aliases": [
+        "PACC",
+        "PACC-CONTEST",
+        "PACC CONTEST"
+      ],
+      "official_rules_urls": [
+        "https://veron.nl/wp-content/uploads/2025/12/PACC_2026_rules_eng.pdf",
+        "https://veron.nl/vereniging/commissies-en-werkgroepen/traffic-bureau/hf-contesten/pacc-rules/"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "pacc_2026",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW",
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band_per_mode",
+        "groups": [
+          "pacc_province_or_entity"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Every valid QSO involving a Dutch station scores one point. Non-Dutch entrants may score only Dutch contacts; Dutch entrants may also claim cross-contest contacts when a serial is received.",
+        "Dutch stations send one of the 12 official province abbreviations and other stations send a serial. The same call may be worked once per band in CW and once in SSB.",
+        "Non-Dutch entrants multiply Dutch provinces; Dutch entrants multiply DXCC entities except that Asiatic Russia, Chile, Japan, Argentina, Brazil, Canada, the USA, Australia, South Africa, and New Zealand use the official callsign-area identities. All multipliers count independently per band and mode.",
+        "Current official rules differ from LogChecker's recovered scorer by making multipliers per band and mode, enforcing duplicates, bands, modes, and exchanges, and treating Dutch-to-foreign cross-contest serial contacts explicitly as valid.",
+        "Special callsigns whose call area cannot be derived from their visible callsign, SWL-specific scoring, cross-log penalties, and multioperator category reclassification require organizer or external evidence and are not inferred by claimed-score computation. Ordinary and explicit portable/reciprocal call-area designators are supported."
+      ]
+    },
+    {
+      "id": "ari_dx_2026",
+      "archive_folder": "ARI",
+      "name": "A.R.I. International DX Contest",
+      "aliases": [
+        "ARI-DX",
+        "ARI DX",
+        "ARI-INTERNATIONAL-DX",
+        "ARI INTERNATIONAL DX"
+      ],
+      "official_rules_urls": [
+        "https://contest.ari.it/hf_web/rules/aridxrule_dx.pdf",
+        "https://contest.ari.it/hf_web/rules/aridxrule_it.pdf",
+        "https://contest.ari.it/hf_web/regolamenti.php"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "ari_dx_2026",
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW",
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB",
+          "RTTY",
+          "RY"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "credit_on_zero_point_valid_qso": true,
+        "groups": [
+          "ari_dx_province_or_country"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "For non-Italian entrants, an Italian contact scores 10 points, another country on the same continent scores 1, another continent scores 3, and an own-country contact scores zero but can still multiply. Italian entrants score 1 for Europe and 3 outside Europe; Italian-to-Italian QSOs are forbidden and receive no credit.",
+        "Italian stations send one of the 107 official province abbreviations and other stations send a serial. A callsign may be worked once per band in each of CW, SSB, and RTTY, while a multiplier counts only once per band regardless of mode.",
+        "Outside entrants count Italian provinces plus non-Italian DXCC/WAE entities. Italian entrants count non-Italian DXCC/WAE entities. I, IS, and IT9 are excluded as country multipliers.",
+        "The official 2026 rules differ from LogChecker's recovered behavior by forbidding Italian-to-Italian QSOs, adding the SU province, and enforcing current exchanges, five bands, three modes, duplicates, and mode-independent per-band multiplier scope.",
+        "Limitation: SH6 resolves ordinary DXCC entities but does not distinguish WAE-only subentities that share a DXCC entity, so those multipliers can be undercounted. SWL scoring, cross-log adjudication, and Multi-One ten-minute violations require evidence outside a single claimed-score log."
+      ]
+    },
+    {
+      "id": "aegean_rtty_legacy",
+      "archive_folder": "AegeanRTTY",
+      "name": "AEGEAN-RTTY legacy-compatible scoring",
+      "aliases": [
+        "AEGEAN-RTTY",
+        "AEGEAN RTTY"
+      ],
+      "official_rules_urls": [],
+      "rules_year": "unverified legacy module behavior",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium",
+      "classification": "legacy-compatible",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {
+        "model": "aegean_rtty_recovered",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ]
+      },
+      "multipliers": {
+        "model": "none_multiplicative",
+        "groups": []
+      },
+      "formula": "score = qso_points_total + operator_qrp_bonus",
+      "notes": [
+        "No current or archived organizer rule page could be verified during this research pass. This rule is an explicit fixture-backed compatibility port of LogChecker's recovered aegean.dll behavior and must not be represented as current organizer-authoritative scoring.",
+        "Same-continent contacts score 3 points on 160/80/40 metres and 1 point on 20/15/10 metres. Cross-continent contacts score 6 on 80/40, 2 on 20/15/10, and zero on 160 metres.",
+        "A worked /QRP suffix doubles the QSO value; worked SV5, SV8, or SV9 calls triple it, and the factors compound. An entrant callsign containing /QRP adds 20 points once to the final score.",
+        "The recovered DLL does not eliminate duplicates and contains no explicit mode or exchange validation, so this compatibility rule deliberately retains those limitations. Calls without resolvable country/continent data score zero conservatively."
+      ]
+    },
+    {
+      "id": "aegean_vhf_legacy",
+      "archive_folder": "AegeanVHF",
+      "name": "AEGEAN-VHF legacy-compatible scoring",
+      "aliases": [
+        "AEGEAN-VHF",
+        "AEGEAN VHF"
+      ],
+      "official_rules_urls": [],
+      "rules_year": "unverified legacy module behavior",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium",
+      "classification": "legacy-compatible",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {
+        "model": "aegean_vhf_recovered"
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "aegean_vhf_grid4"
+        ]
+      },
+      "formula": "score = aegean_vhf_bandwise_product",
+      "notes": [
+        "No current or archived organizer rule page could be verified during this research pass. This rule is an explicit fixture-backed compatibility port of LogChecker's recovered aegvhf.dll behavior and must not be represented as current organizer-authoritative scoring.",
+        "Each QSO contributes the locator distance rounded up to the next whole kilometre; a same-four-character-grid QSO contributes one point. Missing or malformed locator distance contributes zero points rather than being guessed.",
+        "For each band separately, the recovered DLL multiplies the number of QSO rows by the sum of QSO point values and by the number of unique received four-character grids, then sums those band products.",
+        "The recovered DLL retains duplicate rows and contains no explicit band, mode, or exchange-validity gate beyond locator extraction. This compatibility rule deliberately retains those limitations."
+      ]
+    },
+    {
+      "id": "africa_all_mode_dx_2026",
+      "archive_folder": "AfricaAllModeDX",
+      "name": "Africa All Mode International DX Contest 2026",
+      "aliases": [
+        "AF-ALL-MODE-DX",
+        "AFRICA-DX",
+        "AFRICA ALL MODE DX"
+      ],
+      "official_rules_urls": [
+        "https://mysarl.org.za/wp-content/uploads/2025/11/2026-Africa-All-Mode-International-DX-Contest-v1.1.pdf",
+        "https://mysarl.org.za/contest-resources/"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "fixed",
+        "rules": [
+          {
+            "points": 1
+          }
+        ],
+        "require_received_exchange": true,
+        "required_received_exchange_pattern": "^\\d+$",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "CW",
+          "SSB",
+          "PH",
+          "PHONE",
+          "USB",
+          "LSB"
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band_per_mode",
+        "groups": [
+          "africa_dx_entity"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The current SARL 2026 rules award one point to every valid QSO and multiply by the sum of unique African DXCC entities worked separately on each band and in each of CW and SSB.",
+        "A station may be worked once per band per mode. A complete received exchange must contain RS(T) and an incremental serial; SH6 validates the received serial represented by its exchange field but cannot cross-check the other station's transmitted sequence from a single log.",
+        "Ship-based and aeronautical calls score one point but never count as multipliers. SH6 identifies African entities using the contest-time cty.dat continent classification, corresponding to the official ARRL AF-DXCC definition.",
+        "This differs materially from LogChecker's recovered afdx.dll behavior, which awards two points for African contacts and also separates an unsupported third mode group. The SH6 rule follows the current organizer rules instead. Certificate eligibility, cross-mode/cross-band contact validity, and adjudication penalties require evidence beyond a single submitted log."
+      ]
+    },
+    {
+      "id": "agb_party_latest",
+      "archive_folder": "AGBParty",
+      "name": "AGB-PARTY latest organizer-published scoring",
+      "aliases": [
+        "AGB-PARTY",
+        "AGB PARTY"
+      ],
+      "official_rules_urls": [
+        "http://ev5agb.com/contest/agb_party.htm",
+        "http://ev5agb.com/contest/contests_e.htm"
+      ],
+      "rules_year": "latest organizer page dated 2022; event still listed in 2024-2025 calendars",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium-high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_exact_mode_15min",
+      "qso_points": {
+        "model": "agb_party_latest",
+        "eligible_bands": [
+          "80M",
+          "40M"
+        ]
+      },
+      "multipliers": {
+        "model": "sum_groups",
+        "counting_scope": "once_total",
+        "groups": [
+          "country",
+          "agb_member_number"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The latest live AGB organizer page is dated for the 16 December 2022 edition, while independent 2024 and 2025 calendars continue to list the event and organizer. No newer organizer rule revision was found, so this explicitly versioned rule uses the latest organizer-published format rather than silently presenting it as a 2026 rule.",
+        "On 40 and 80 metres, a non-FT contact with an AGB member number in the received exchange scores 5 points; another nonmember on the entrant's continent scores 1 and a nonmember on another continent scores 3. FT4 and FT8 contacts use their normal exchange and score 1 point.",
+        "The same station may be worked once in each exact mode during each 15-minute period. Each distinct DXCC/WAE country and each received AGB member number counts once for the whole contest; the final score is total QSO points times their combined count.",
+        "This differs from LogChecker's recovered DLL by adding the current 40-metre band, digital and FT modes, the 15-minute exact-mode duplicate rule, and current exchange handling. Limitation: SH6 resolves ordinary DXCC entities but cannot distinguish WAE-only subentities sharing a DXCC entity, so country multipliers can be undercounted. Missing timestamps cannot be safely assigned to a 15-minute period and are conservatively treated as distinct rows rather than guessed."
+      ]
+    },
+    {
+      "id": "ap_sprint_2026",
+      "archive_folder": "APSprint",
+      "name": "Asia-Pacific Sprint 2026",
+      "aliases": [
+        "AP-SPRINT",
+        "ASIA-PACIFIC-SPRINT",
+        "ASIA PACIFIC SPRINT"
+      ],
+      "official_rules_urls": [
+        "https://www.jsfc.org/apsprint/aprule.txt",
+        "https://www.jsfc.org/apsprint/index.html"
+      ],
+      "rules_year": "January 2024 revision, updated June 2026 schedule",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "ap_sprint_2026",
+        "require_received_exchange": true
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "once_total",
+        "groups": [
+          "ap_sprint_wpx"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The organizer's January 2024 revision, updated with the June 2026 schedule, defines three editions: February on 20/40 metres CW, June on 15/20 metres SSB, and October on 15/20 metres CW. SH6 selects the edition from each QSO's UTC date rather than applying one band's rules to every historical log.",
+        "Asia-Pacific entrants may work any station; entrants elsewhere score only contacts with the organizer's explicit Asia-Pacific entity list. Each accepted QSO is one point, a station may be worked once per band, and WPX prefixes count once for the entire contest. A numeric received serial is required.",
+        "The implementation uses explicit callsign and DXCC-entity handling for UA0 but not UA9, VK1-9 except VK9X/VK9Y, and ZL excluding Chatham and Kermadec, plus every other entity enumerated by the organizer. This matches LogChecker's recovered eligibility and global-prefix model while adding current schedule, exchange, mode, band, and duplicate enforcement.",
+        "Limitation: the called station must QSY at least 1 kHz after CW QSOs or 6 kHz after SSB QSOs. A single Cabrillo log does not reliably identify which party was called or prove subsequent transmissions, so SH6 cannot adjudicate that operating rule. Russian and Belarusian submitted logs are organizer checklogs from October 2023 onward; SH6 computes their claimed score but does not determine award eligibility."
+      ]
+    },
+    {
+      "id": "ari_sections_2026",
+      "archive_folder": "ARISezioni",
+      "name": "Contest delle Sezioni A.R.I. 2026",
+      "aliases": [
+        "ARI-SEZ",
+        "ARI SEZ",
+        "CONTEST-SEZIONI-ARI",
+        "CONTEST SEZIONI ARI"
+      ],
+      "official_rules_urls": [
+        "https://www.ari.it/contest-hf/contest-sezioni/8675-contest-delle-sezioni-ari-2026.html",
+        "https://www.ari.it/images/stories/ContestHF/contestdellesezioniari-regolamento2026.pdf",
+        "https://www.ari.it/sezioni-ari.html"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "ari_sections_2026",
+        "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+        "eligible_mode_groups": ["CW", "SSB", "DIG"],
+        "required_received_exchange_pattern": "^[A-HJ-NP-Z][0-9]{2}$"
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band_per_mode",
+        "groups": ["ari_section_asc"]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official 2026 rules admit Italian ARI members operating from Italian territory with ordinary I-prefixed licence calls, plus IQ section stations. Special prefixes and Italian stations operating abroad are excluded. SH6 enforces Italian entity and ordinary/IQ callsign shape, but ARI membership and the licensed-versus-special status of unusual calls require organizer records and remain an adjudication limitation.",
+        "Valid contacts use 160 through 10 metres excluding WARC, with RTTY limited to 80 through 10 metres. A call may be worked once per band in each CW, SSB, and RTTY mode. Points are 3 on 160, 2 on 80, 1 on 40, 2 on 20, 3 on 15, and 4 on 10 metres.",
+        "The received exchange must be an ordinary three-character ASC section code. Each section counts once per band and mode; the final score is total QSO points times their combined count.",
+        "This supersedes LogChecker's recovered legacy behavior, which uses old four-digit section codes and the former 2/2/1/3/5/5 band table. SH6 validates the current ASC syntax but cannot prove that a syntactically valid code was active on the contest date without a versioned organizer dataset, so the rule is marked partial. Digital mode grouping is restricted by the point model to RTTY-compatible Cabrillo modes."
+      ]
+    },
+    {
+      "id": "avhfc_legacy",
+      "archive_folder": "AVHFC",
+      "name": "Araucaria VHF Contest legacy-compatible scoring",
+      "aliases": ["AVHFC", "ARAUCARIA-VHF", "ARAUCARIA VHF"],
+      "official_rules_urls": [
+        "https://www.casadoradioamador.org.br/downloads/_Contest/ARAUCARIA_VHF_WIDE_CONTEST.pdf"
+      ],
+      "rules_year": "archived rules, circa 2017; current organizer status unverified",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium",
+      "classification": "legacy-compatible",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {
+        "model": "avhfc_recovered",
+        "eligible_bands": ["6M", "2M"]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": ["avhfc_locator"]
+      },
+      "formula": "score = avhfc_bandwise_grid_products + whole_kilometre_distance_bonuses",
+      "notes": [
+        "No current organizer rule publication could be verified. The former avhfc.com domain now serves unrelated content, while the latest organizer-linked material found is archived historical material. This rule is therefore explicitly legacy-compatible and must not be read as a current AVHFC rule.",
+        "The fixture-backed recovered behavior awards one base point on 6 metres and two on 2 metres, counts unique normalized received locators per band, retains all duplicate rows, and adds one point for identical normalized locators or the floor of the derived distance in kilometres otherwise.",
+        "The final score is the sum, for each band, of base QSO points times unique received locators, plus all whole-kilometre distance bonuses. Four-character locators use the recovered 55AA expansion, values longer than six characters are truncated to six, and text after a comma is ignored.",
+        "Archived published rules describe the same point branches and bandwise grid-plus-distance formula, but organizer cross-log validity and category/award rules are outside a single-log score computation."
+      ]
+    },
+    {
+      "id": "baltic_2026",
+      "archive_folder": "Baltic",
+      "name": "61st Baltic Contest 2026",
+      "aliases": ["BALTIC", "BALTIC-CONTEST", "BALTIC CONTEST"],
+      "official_rules_urls": [
+        "https://www.lrsf.lt/en/baltic-contest-2026-2/",
+        "https://www.lrsf.lt/wp-content/uploads/2026/04/BC-2026-61th-BALTIC-CONTEST.pdf"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "current official",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "baltic_2026",
+        "eligible_bands": ["80M"],
+        "eligible_mode_groups": ["CW", "SSB"],
+        "eligible_frequency_segments_mhz": {
+          "80M": [[3.51, 3.6], [3.6, 3.75]]
+        },
+        "require_received_exchange": true
+      },
+      "multipliers": {"model": "none_multiplicative", "groups": []},
+      "formula": "score = qso_points_total",
+      "notes": [
+        "The official LRSF 2026 rules use 80 metres only: CW from 3510 through 3600 kHz and SSB from 3600 through 3750 kHz. The exchange is RS(T) plus a serial starting at 001, and each station may be worked once in each mode.",
+        "Baltic entrants in Estonia, Latvia, or Lithuania score one point for European QSOs and two for other continents. Other European entrants score ten for Baltic QSOs and one otherwise; entrants outside Europe score twenty for Baltic QSOs and one otherwise. The final score is the sum of QSO points with no multiplier.",
+        "In accordance with the explicit 2026 LRSF decision, QSOs involving Russia or Belarus score zero. SH6 uses resolved country and ordinary ES/YL/LY callsign identity.",
+        "LogChecker's recovered geography branches agree with the current point table but count every parsed row. SH6 additionally enforces the official numeric exchange, frequency/mode limits, once-per-mode duplicate rule, and 2026 Russia/Belarus exclusion. Exact frequency is required rather than assuming an in-band value from a band label."
+      ]
+    },
+    {
+      "id": "basso_ferrarese_legacy",
+      "archive_folder": "BassoFerrarese",
+      "name": "ARI Basso Ferrarese legacy-compatible scoring",
+      "aliases": ["BASSO-FERRARESE", "BASSO FERRARESE", "ARI-BASFER", "ARI BASFER"],
+      "official_rules_urls": [],
+      "rules_year": "unverified historical event; fixture-backed recovered behavior",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium",
+      "classification": "legacy-compatible",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {
+        "model": "basso_ferrarese_recovered",
+        "eligible_bands": ["40M", "20M"]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": ["basso_ferrarese_jolly"]
+      },
+      "formula": "score = sum_per_band(points * (jolly_qsos * 100 if any else 1))",
+      "notes": [
+        "No current or archived organizer rule publication could be verified. Contemporary N1MM documentation still lists the ARI Basso Ferrarese user-defined contest but provides no sponsor rules. This rule is therefore explicitly legacy-compatible and not represented as current organizer scoring.",
+        "The fixture-backed recovered DLL accepts only 40- and 20-metre rows. Ordinary contacts score one point; the embedded Jolly calls IQ4FF, I4JEE, IZ4OSH, IK4RDP, IZ4ISC, and IZ4SJI score 100 points and each count as a Jolly occurrence on that band.",
+        "For each band, its QSO points are multiplied by 100 times the number of Jolly QSOs, or by one when none were logged; band results are then added. The recovered module retains repeated contacts, including repeated Jolly calls.",
+        "The unusual repeated-Jolly multiplication is intentionally preserved exactly from LogChecker's fixture-backed implementation. Without organizer rules, SH6 does not infer mode, exchange, date, participant geography, or duplicate restrictions."
+      ]
+    },
+    {
+      "id": "bdm_ww_rtty_legacy",
+      "archive_folder": "BDMWWRTTY",
+      "name": "BDM WW RTTY legacy-compatible scoring",
+      "aliases": ["BDM-WW-RTTY", "BDM WW RTTY", "BDM-RTTY", "BDM RTTY"],
+      "official_rules_urls": [],
+      "rules_year": "historical event documented 2013-2020; fixture-backed recovered scoring",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium",
+      "classification": "legacy-compatible",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {"model": "bdm_ww_rtty_recovered"},
+      "multipliers": {"model": "none_multiplicative", "groups": []},
+      "formula": "score = qso_points_total",
+      "notes": [
+        "No current organizer source could be verified. Historical announcements document BDM WW RTTY editions from 2013 through at least 2020, while the original organizer pages are unavailable. This rule is explicitly legacy-compatible rather than current.",
+        "The fixture-backed recovered DLL awards five points when the station and worked station are on the same continent and ten points when they are on different continents. Unresolved geography scores zero; there is no multiplier and the final score is the point sum.",
+        "Historical announcements describe RTTY, five HF bands, numeric serials, and once-per-band contacts, but these constraints are not present in LogChecker's recovered scoring fixture. SH6 does not graft an unversioned secondary-source event format onto the recovered rule and therefore retains every parsed row exactly as the DLL did."
+      ]
+    },
+    {
+      "id": "california_qso_party_2026",
+      "archive_folder": "CaliforniaQsoParty",
+      "name": "California QSO Party 2026",
+      "aliases": ["CA-QSO-PARTY", "CALIFORNIA-QSO-PARTY", "CALIFORNIA QSO PARTY", "CQP"],
+      "official_rules_urls": [
+        "https://www.cqp.org/Rules.html",
+        "https://www.cqp.org/cqp_multipliers.html"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group_per_received_qth",
+      "qso_points": {
+        "model": "california_qso_party_2026",
+        "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+        "eligible_mode_groups": ["CW", "SSB"],
+        "require_received_exchange": true,
+        "scoring_time_policy": "single_op_first_24_operating_hours_with_15_minute_breaks"
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "once_total",
+        "groups": ["cqp_location"],
+        "credit_policy": "valid_qso_allow_duplicates",
+        "maximum_total": 58
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official 2026 rules award three points for every complete non-duplicate CW or phone QSO, a change from the two-point phone rule used through 2025 and by LogChecker's recovered module. Six HF bands are eligible and a station may be worked once per band in each mode.",
+        "California entrants work everyone and count US states plus all 13 Canadian provinces/territories once globally, capped at 58 scored multipliers; the first California county worked supplies the California multiplier and DX supplies QSO credit only. Other entrants work California only and count its 58 counties globally.",
+        "The exchange must contain a numeric serial plus an official location. SH6 identifies a California entrant from the official county sent in its Cabrillo exchanges, supports multiple counties in a county-line exchange, and treats a mobile changing county or state as a new duplicate identity. Duplicate contacts score zero but may still supply new multiplier credit, as the organizer explicitly permits.",
+        "Single-operator and assisted entries are limited to the first 24 operating hours with breaks of at least 15 minutes. Multi-operator operator-replacement timing, transmitter concurrency, spotting, physical-location, and audio-based adjudication cannot be proven from ordinary Cabrillo QSO rows, so this rule is marked partial."
+      ]
+    },
+    {
+      "id": "cis_qpsk63_dx_legacy",
+      "archive_folder": "CISQPSK63DX",
+      "name": "CIS DX QPSK63 legacy-compatible scoring",
+      "aliases": ["CIS-QPSK63-DX", "CIS QPSK63 DX", "CIS-DX-QPSK63", "CIS DX QPSK63"],
+      "official_rules_urls": [],
+      "rules_year": "historical event documented 2009-2013; fixture-backed recovered scoring",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium",
+      "classification": "legacy-compatible",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {"model": "cis_qpsk63_dx_recovered"},
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "once_total",
+        "groups": ["cis_qpsk63_exchange"]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "No current organizer rules or edition could be verified. The former cisdx.srars.org site is unavailable, historical organizer material documents the event in 2009, and published result records were found through 2013. This rule is explicitly legacy-compatible rather than current.",
+        "The fixture-backed recovered DLL awards three points to calls matching its embedded CIS-prefix fragments and one point to other calls, excluding /M and /MM suffixes and the Antarctic R1AN/RI1AN patterns. It retains duplicate rows.",
+        "Each distinct non-empty received exchange counts once globally, except exchanges containing the literal placeholder 0000. The recovered case-sensitive comparison behavior is preserved. Historical organizer material also required QPSK63 and at most 100 W, but those constraints are not inferable reliably from ordinary parsed QSO rows and are not grafted onto the recovered scorer."
+      ]
+    },
+    {
+      "id": "cq_m_2025",
+      "archive_folder": "CQM",
+      "name": "CQ-M International DX Contest 2025",
+      "aliases": ["CQ-M", "CQ M", "CQM", "CQ-M-CONTEST", "CQ M CONTEST"],
+      "official_rules_urls": [
+        "https://cqm.srr.ru/rules-en/",
+        "https://srr.ru/spisok-stran-i-territorij-dlya-diploma-r-150-s/"
+      ],
+      "rules_year": 2025,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "cq_m_2025",
+        "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+        "eligible_mode_groups": ["CW", "SSB"],
+        "required_received_exchange_pattern": "^\\d+$"
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band",
+        "groups": ["cq_m_r150_territory"]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The latest official CQ-M rules published by the organizer are the 2025 edition. They award two points within a continent while treating Europe and Asia together as Eurasia, and three points between other continents. This replaces LogChecker's recovered one-point same-entity and same-Russian-region branches.",
+        "CW and phone contacts on 160, 80, 40, 20, 15, and 10 metres require a numeric progressive serial. A station may be worked once per band in each mode. R-150-S countries and territories count once per band, and /MM contacts supply no multiplier.",
+        "SH6 uses its resolved country/entity identity plus the recovered Russian R1N/R4/R6/R9/R0 territory splits that remain present in the current official R-150-S list. It cannot prove progressive serial ordering, one-signal operation, remote-receiver, self-spotting, or organizer cross-log confirmation from a single ordinary log, so the rule is marked partial."
+      ]
+    },
+    {
+      "id": "cqmm_dx_2026",
+      "archive_folder": "CQMM",
+      "name": "CQMM DX Contest 2026",
+      "aliases": ["CWJF-MM", "CWJF MM", "CQMM-DX", "CQMM DX", "CQMMDX"],
+      "official_rules_urls": [
+        "https://www.cqmmdx.com/",
+        "https://www.cqmmdx.com/rules",
+        "https://www.cqmmdx.com/software"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "cqmm_dx_2026",
+        "eligible_bands": ["80M", "40M", "20M", "15M", "10M"],
+        "eligible_modes": ["CW"],
+        "required_received_exchange_pattern": "^(AF|AS|EU|NA|OC|SA)[CMQY]?$"
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "once_total",
+        "groups": ["cqmm_dx_mixed"]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The organizer announces the 18-19 April 2026 event and describes its logger support as updated for the 2025/2026 rules. CQMM DX is the current international continuation of the historical CWJF Manchester Mineira contest represented by LogChecker's CWJF-MM identifier.",
+        "Ordinary same-entity contacts score one point. Different entities on the same continent score two points on 20/15/10 metres and four on 80/40; different continents score three and six respectively. A valid exchange ending C, M, Q, or Y scores ten points, while /MM scores three. CW only is permitted on 80 through 10 metres, and each call may be worked once per band.",
+        "Every DXCC entity counts once globally and every South American WPX prefix counts separately on each band. SH6 encodes the band in the South-American multiplier identity while retaining global DXCC identity. It cannot prove category, power, single-signal, operator, self-spotting, or organizer cross-log requirements from an ordinary single log, so the rule is marked partial."
+      ]
+    },
+    {
+      "id": "dig_qso_party_2025",
+      "archive_folder": "DIGQsoParty",
+      "name": "DIG QSO Party HF (rules valid since 2025)",
+      "aliases": ["DIG-QSO-PARTY", "DIG QSO PARTY", "DIG-PA", "DIG PA", "DIG-CW", "DIG-SSB"],
+      "official_rules_urls": [
+        "https://diplom-interessen-gruppe.info/wp-content/uploads/2025/01/2025_DIG-Contest-Ausschreibungen-Partys-EN.pdf",
+        "https://diplom-interessen-gruppe.info/wp-content/uploads/2025/12/DIG-Termine-2026.pdf"
+      ],
+      "rules_year": "valid since 2025; 2026 calendar verified",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "dig_qso_party_2025",
+        "eligible_bands": ["80M", "40M", "20M", "15M", "10M"]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "once_total",
+        "groups": ["dig_qso_party_mixed"]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official rules valid since 2025 define separate SSB and CW parties on the second full weekends of March and April. Saturday covers exact 20/15/10-metre segments from 1200-1700 UTC; Sunday covers exact 80-metre segments from 0700-0900 and 40-metre segments from 0900-1100 UTC. SH6 validates mode, date, time, and exact frequency for each row.",
+        "A claimed DIG member number scores ten points; a non-member exchange scores one. Each call may be worked once per band. Each claimed DIG number counts once globally, while every DXCC or WAE country counts once per band. The final score multiplies points by the sum of both multiplier families.",
+        "SH6 can validate the form of a claimed membership number but cannot prove that it belonged to the worked callsign on the contest date. Its normal entity resolver also cannot distinguish every WAE-only entity sharing a DXCC identity. Those limitations make this rule partial; it does not silently invent member or WAE data."
+      ]
+    },
+    {
+      "id": "darc_xmas_2025",
+      "archive_folder": "DARCXmas",
+      "name": "DARC Christmas Contest 2025",
+      "aliases": ["DARC-XMAS", "DARC XMAS", "XMAS"],
+      "official_rules_urls": [
+        "https://www.darc.de/der-club/referate/conteste/weihnachtswettbewerb/en/",
+        "https://dxhf2.darc.de/cont_hub/index.html?lang=en",
+        "https://www.darc.de/fileadmin/filemounts/referate/conteste/contest/AllgemeineRegeln/General_Rules_for_DARC_DXHF_Contests_v1_neu.pdf"
+      ],
+      "rules_year": "2025; annual 26 December schedule",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "darc_xmas_2025",
+        "eligible_bands": ["80M", "40M"],
+        "eligible_mode_groups": ["CW", "SSB"],
+        "contest_window": "26 December 0830-1059 UTC"
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band_per_mode",
+        "groups": ["darc_xmas_mixed"]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The current DARC contest hub and 2025 results confirm one point per valid QSO and the final formula QSO points multiplied by the sum of DOK and WPX-prefix multipliers. The annual contest runs on 26 December from 0830 through 1059 UTC on 80 and 40 metres in CW and SSB.",
+        "German DARC/VFDB members send a DOK, German non-members send NM, and stations outside Germany send a progressive serial. A station may be worked once per band. In Mixed entries, multiplier identities are counted separately by band and by CW/SSB; SH6 applies that scope consistently.",
+        "SH6 conservatively recognizes only ordinary one-letter/two-digit DOKs because no redistributable, versioned special-DOK list was found. It cannot prove whether a CQ-calling station changed frequency after each QSO, progressive-serial ordering, transmitter/category restrictions, or organizer cross-log validation from one ordinary log, so the rule is partial. LogChecker's recovered dxmas.dll instead retains all duplicate rows, accepts a defective three-character DOK test, omits the contest window and exchange rules, and does not separate multipliers by mode."
+      ]
+    },
+    {
+      "id": "eu_psk_dx_2026",
+      "archive_folder": "EUPSK",
+      "name": "European PSK DX Contest 2026",
+      "aliases": ["EU-PSK-DX", "EU PSK DX"],
+      "official_rules_urls": [
+        "https://www.eupsk.club/eupskdx/eupskdxrules.pdf",
+        "https://eupsk.club/documents/euareas.xls"
+      ],
+      "rules_year": "2025-2029 published schedule; 2026 current edition",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {
+        "model": "eu_psk_dx_2026",
+        "eligible_bands": ["80M", "40M", "20M", "15M", "10M"],
+        "eligible_modes": ["BPSK63", "PSK63", "PM"]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": ["eu_psk_dx_mixed"]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The organizer's current rules publish exact 24-hour dates through 2029 and permit BPSK63 on 80, 40, 20, 15, and 10 metres. The listed frequencies are recommendations, not hard scoring limits. EU stations send a compact EU Area code and DX stations a progressive serial.",
+        "Both entrant groups score one point in the same DXCC entity, two within the same continent, and three between continents; a DX entrant scores five for an EU station. Maritime-mobile contacts score three and supply no multiplier. Every DXCC entity and every received EU Area count once per band, and the final score multiplies points by their sum.",
+        "The official PDF does not state a repeat-contact or duplicate rule, so SH6 does not invent one and retains rows, matching LogChecker in that narrow respect. SH6 validates compact alphabetic EU Area form but cannot prove membership in the organizer's date-versioned spreadsheet, and it cannot prove power, full-period operation, single-operator, single-signal, physical-location, or cross-log constraints; the rule is therefore partial."
+      ]
+    },
+    {
+      "id": "es_open_hf_2026",
+      "archive_folder": "ESOpen",
+      "name": "ES Open HF Championship 2026",
+      "aliases": ["ES-OPEN", "ES-OPEN-HF", "ES OPEN HF"],
+      "official_rules_urls": [
+        "https://www.erau.ee/images/LL/ES-Open_rules.pdf",
+        "https://esopen.erau.ee/",
+        "https://www.erau.ee/en/?catid=59&id=362:es-open-invitation-avalehele-ingl&view=article"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group_hour",
+      "qso_points": {
+        "model": "es_open_hf_2026",
+        "eligible_bands": ["80M", "40M"],
+        "eligible_mode_groups": ["CW", "SSB"],
+        "contest_window": "2026-04-18 0500-0859 UTC; four one-hour tours"
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "per_band_per_mode",
+        "groups": ["es_open_call_area"],
+        "maximum_total": 40
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "ERAU's official 2026 rules define four one-hour tours on 18 April from 0500 through 0859 UTC, simultaneously on 80 and 40 metres. CW QSOs score two and SSB one. Every contact requires a continuous numeric serial; the published frequency ranges are recommendations rather than scoring limits.",
+        "An Estonian station may work every eligible station, while a non-Estonian entrant may work only Estonian stations. Contacts involving Russia or Belarus do not count. The same call may be worked once per band and mode in each hourly tour. ES0 through ES9 call areas other than the entrant's own count separately per band and mode, capped at the official maximum 40.",
+        "SH6 identifies ES areas from the callsign and cannot prove continuous serial ordering, one-signal operation, operator/category/power declarations, or cross-log validation from one ordinary log, so the rule is partial. LogChecker's recovered scorer omits the four tours, duplicate handling, serial, band/mode/window, Russia/Belarus, and own-area exclusions."
+      ]
+    },
+    {
+      "id": "hsc_2026",
+      "archive_folder": "HSC",
+      "name": "HSC CW Contest 2026",
+      "aliases": ["HSC", "HSC-CW", "HSC CW"],
+      "official_rules_urls": ["https://hsc.lima-city.de/en/contests.html"],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "hsc_2026",
+        "eligible_bands": ["80M", "40M", "20M", "15M", "10M"],
+        "eligible_modes": ["CW"],
+        "contest_windows": ["2026-02-22 1400-1659 UTC", "2026-11-01 1400-1659 UTC"]
+      },
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["hsc_dxcc"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The HSC organizer publishes two 2026 three-hour CW sessions, on 22 February and 1 November, using 80 through 10 metres. A claimed positive HSC number scores five points and NM scores two; every DXCC entity counts once per band, and each call may be worked once per band.",
+        "LogChecker's recovered module gives NM only one point, fixes the multiplier at one, and lacks current schedule/mode/band gates. SH6 follows the current official rules. It cannot validate a claimed number against the current HSC roster or prove the organizer's cross-log/ten-appearance condition, 100 W/QRP category, or manual-keying constraints, so the rule is partial."
+      ]
+    },
+    {
+      "id": "inorc_2025",
+      "archive_folder": "INORC",
+      "name": "INORC Contest 2025",
+      "aliases": ["INORC", "INORC-CONTEST", "INORC CONTEST"],
+      "official_rules_urls": [
+        "https://www.inorc.it/wp/2025/09/23/contest-inorc-2025-it-en/",
+        "https://www.inorc.it/wp/category/inorc-contest/"
+      ],
+      "rules_year": 2025,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "inorc_2025",
+        "eligible_bands": ["80M", "40M", "20M", "15M", "10M"],
+        "eligible_modes": ["CW"],
+        "contest_window": "2025-12-06 1400 through 2025-12-07 1359 UTC"
+      },
+      "multipliers": {"model": "single_group", "counting_scope": "once_total", "groups": ["inorc_member_call"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The latest organizer-published edition found is the 2025 INORC Contest. Naval-club contacts score ten points and independents one on all five bands, a call may be worked once per band, and each distinct naval-club station counts once globally as a multiplier.",
+        "LogChecker doubles both member and independent points on 20/15/10 metres, retains duplicates, and forces a minimum multiplier of one; none of those behaviors appears in the official 2025 rules, so SH6 does not carry them forward.",
+        "SH6 distinguishes a claimed naval club code-plus-number from a numeric independent serial but cannot validate club membership or paid-up status against organizer rosters. It also cannot prove manual (non-computer) CW, serial progression, single-operator/single-transmitter, self-spotting, or bilateral cross-log checks, so the rule is partial."
+      ]
+    },
+    {
+      "id": "kcj_2026",
+      "archive_folder": "KCJ",
+      "name": "47th KCJ Contest 2026",
+      "aliases": ["KCJ", "KCJ-CONTEST", "KCJ CONTEST"],
+      "official_rules_urls": [
+        "https://kcj-cw.com/contest/rule/2026_47_kcj_dx_t.pdf",
+        "https://kcj-cw.com/php/contest_info.php?k=dx"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "kcj_2026",
+        "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M", "6M"],
+        "eligible_modes": ["CW"],
+        "contest_window": "2026-08-15 1200 through 2026-08-16 1159 UTC"
+      },
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["kcj_prefecture_or_zone"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official 47th KCJ rules award a Japanese entrant one point for JA and two for DX; a DX entrant scores two for JA and one for other DX. JA stations send one of the official 62 prefecture/district codes and DX stations a CQ zone from 1 through 40. CW is used on 1.8 through 50 MHz excluding 3.8 MHz and WARC bands, and each call may be worked once per band.",
+        "Japanese entrants count each JA prefecture/district and each CQ zone per band; DX entrants count JA prefecture/districts per band. SH6 embeds the organizer's complete 62-code table and applies the published 2026 window.",
+        "The organizer awards credit only when the worked station also submits a matching log. SH6 cannot perform contest-wide bilateral collation from one uploaded log, and cannot prove assistance, category/power, simultaneous-signal, or log-submission requirements, so the rule is partial rather than an official adjudication result."
+      ]
+    },
+    {
+      "id": "iota_2026",
+      "archive_folder": "IOTA",
+      "name": "RSGB IOTA Contest 2026",
+      "aliases": ["IOTA", "RSGB-IOTA", "RSGB IOTA"],
+      "official_rules_urls": [
+        "https://hf.rsgbcc.org/cgi-bin/hfcontest_rules.pl?contest=iota&year=2026",
+        "https://www.rsgbcc.org/hf/iotafaq.shtml",
+        "https://www.iota-world.org/iota-directory/iota-programme-rules.html"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "iota_2026",
+        "eligible_bands": ["80M", "40M", "20M", "15M", "10M"],
+        "eligible_mode_groups": ["CW", "SSB"],
+        "contest_window": "2026-07-25 1200 through 2026-07-26 1159 UTC"
+      },
+      "multipliers": {"model": "single_group", "counting_scope": "per_band_per_mode", "groups": ["iota_reference"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official 2026 RSGB rules award an island entrant five points for a world station or the same IOTA reference and fifteen for another island reference. A world entrant scores two for another world station and fifteen for an island. Every QSO requires a serial; island stations additionally send an IOTA reference.",
+        "CW and SSB are allowed on 80 through 10 metres, the same station may be contacted on both modes on each band, and IOTA references count separately per band and mode. The final score is total points multiplied by total references.",
+        "SH6 derives the entrant's island status from a valid-form IOTA reference in sent exchanges and validates the received reference syntax. It does not carry a date-versioned copy of the official qualifying-island directory and cannot prove location, 12-hour-category operation, power, remote-operation, Russian/Belarus checklog status, audio evidence, or organizer cross-log adjudication, so the rule is partial."
+      ]
+    },
+    {
+      "id": "marconi_memorial_hf_2026",
+      "archive_folder": "MarconiMemorial",
+      "name": "Marconi Memorial Contest HF CW 2026",
+      "aliases": ["MARCONI-MEMORIAL", "MARCONI MEMORIAL", "MMC-HF", "MMC HF"],
+      "official_rules_urls": [
+        "https://www.arifano.it/contest_marconi.html",
+        "https://www.arifano.it/2026_results.html"
+      ],
+      "rules_year": "XXX edition, 2026",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {
+        "model": "marconi_memorial_hf_2026",
+        "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+        "eligible_modes": ["CW"],
+        "contest_window": "2026-07-04 1400 through 2026-07-05 1359 UTC"
+      },
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["marconi_memorial_dxcc"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "ARI Fano's official 2026 rules award one point for each valid CW QSO on 160 through 10 metres excluding WARC bands. Every CQWW country counts once per band and the final score multiplies QSO points by their total. Each exchange requires a progressive serial.",
+        "The official published page does not state a repeat-contact or duplicate identity, so SH6 does not invent one and retains rows, matching LogChecker on that narrow behavior. LogChecker otherwise lacks the current date, CW, six-band, and serial requirements and excludes mobile entities from multipliers without current-rule support.",
+        "SH6 cannot prove progressive serial ordering, category/single-band selection made during web upload, power, single-transmitter operation, self-spotting, or organizer cross-log/error adjudication from one ordinary log, so the rule is partial."
+      ]
+    },
+    {
+      "id": "gdbage_dx_legacy",
+      "archive_folder": "GDBAGE",
+      "name": "GDBAGE DX Test legacy-compatible scoring",
+      "aliases": ["GDBAGE-DX-TEST", "GDBAGE DX TEST"],
+      "official_rules_urls": [],
+      "rules_year": "unverified historical event; fixture-backed recovered behavior",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium",
+      "classification": "legacy-compatible",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {"model": "gdbage_dx_recovered"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["gdbage_indonesian_wpx"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "No organizer, current edition, or archived official rules could be verified for the GDBAGE DX Test identifier. This rule is explicitly legacy-compatible and is not represented as current organizer scoring.",
+        "The fixture-backed recovered DLL awards three points on 80 metres and two on every other decoded band for a geographically resolved contact, retains duplicate rows, and counts distinct Indonesian WPX prefixes separately on each band. Its embedded Indonesian ranges are YB-YH, 7A-7I, 8A-8I, PK-PO, and JZ.",
+        "Because no reliable rules source was found, SH6 does not add unproven mode, exchange, date, category, or duplicate restrictions."
+      ]
+    },
+    {
+      "id": "lz_dx_2025",
+      "archive_folder": "LZDX",
+      "name": "LZ DX Contest 2025",
+      "aliases": ["LZ-DX", "LZ DX", "LZDX"],
+      "official_rules_urls": ["https://lzdx.bfra.bg/rulesen.html"],
+      "rules_year": "2025, latest organizer edition retrieved before the 2026 event",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "lz_dx_2025",
+        "eligible_bands": ["80M", "40M", "20M", "15M", "10M"],
+        "eligible_mode_groups": ["CW", "SSB"],
+        "contest_window": "2025-11-22 1200 through 2025-11-23 1159 UTC"
+      },
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["lz_dx_mixed"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "BFRA's latest published rules award a non-LZ entrant ten points for an LZ contact, three for another continent, and one for the same continent. An LZ entrant receives one point for an LZ contact and otherwise the same one/three-point continental branches.",
+        "LZ stations send one of the 28 official two-letter district codes; all others send an ITU zone. Non-LZ entrants count ITU zones and LZ districts per band. LZ entrants count ITU zones, DXCC countries, and LZ districts per band. A station may be contacted once on CW and once on SSB on each band.",
+        "This rule is explicitly tied to the latest published 2025 edition rather than silently projecting its dates onto 2026. SH6 cannot prove the multi-operator ten-minute rule, transmitter/category limits, power, off-time, self-spotting, remote-operation, or organizer cross-log adjudication, so the implementation is partial."
+      ]
+    },
+    {
+      "id": "ny_qso_party_2025",
+      "archive_folder": "NYQP",
+      "name": "New York QSO Party 2025",
+      "aliases": ["NY-QSO-PARTY", "NY QSO PARTY", "NYQP"],
+      "official_rules_urls": ["https://nyqp.org/wordpress/wp-content/uploads/2025/10/2025-New-York-QSO-Party-Rules-v1.2-2025-10-01-FINAL.pdf"],
+      "rules_year": "2025 v1.2 final",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group_per_received_qth",
+      "qso_points": {"model": "ny_qso_party_2025", "contest_window": "2025-10-18 1400 through 2025-10-19 0159 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "once", "groups": ["nyqp_location"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official 2025 rules award one point for phone, two for CW, and three for RTTY or another valid exchange-capable digital mode. A station may be worked once in each of those three mode groups on every band, excluding 30, 17, and 12 metres.",
+        "Non-New York entrants may contact only New York stations and count the 62 counties globally. New York entrants may contact everyone and count 50 states, 62 New York counties, and 13 Canadian provinces globally; the first New York county also supplies the NY state multiplier. DX contacts score for New York entrants but do not multiply.",
+        "SH6 recognizes a New York entrant from an official county code in sent exchanges. County-line and mobile county changes can require sent-location-aware repeat handling beyond ordinary Cabrillo rows, and SH6 cannot prove category, power, automation, transmitter, spotting, county-line location, or organizer adjudication, so this rule is partial."
+      ]
+    },
+    {
+      "id": "ok_dx_rtty_2026",
+      "archive_folder": "OKRTTY",
+      "name": "OK DX RTTY Contest 2026",
+      "aliases": ["OK-DX-RTTY", "OK DX RTTY", "OKRTTY"],
+      "official_rules_urls": ["http://okrtty.crk.cz/index.php?page=english", "https://ceskyradioklub.cz/zavody/okomdx-rtty"],
+      "rules_year": "2026 organizer announcement and standing rules",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {"model": "ok_dx_rtty_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["RTTY"], "contest_window": "2026-12-19 0000 through 2359 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["ok_dx_rtty_mixed"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The Czech Radio Club's 2026 announcement fixes the event on 19 December. Its standing rules require Baudot RTTY on 80 through 10 metres and an RST plus CQ-zone exchange.",
+        "Contacts on 20, 15, and 10 metres score one point within the entrant's continent and two across continents; 40- and 80-metre contacts score three and six. Every DXCC country counts once per band. Outside OK/OL entrants additionally count each individual Czech OK/OL station once per band.",
+        "The organizer rules do not state a repeat-contact identity, so SH6 retains rows rather than inventing a duplicate restriction, matching the recovered LogChecker behavior. SH6 cannot prove Baudot encoding, five-minute band changes, category/power, the three-log validation rule, or organizer adjudication, so the rule is partial."
+      ]
+    },
+    {
+      "id": "portugal_day_2026",
+      "archive_folder": "PDC",
+      "name": "Portugal Day Contest HF 2026",
+      "aliases": ["PORTUGAL-DAY", "PORTUGAL DAY", "PORTUGAL=DAY", "PDC"],
+      "official_rules_urls": ["https://concursos.rep.pt/portugal-day-contest-hf/", "https://portugaldaycontest.rep.pt/rules_regras/Portugal_Day_Contest_EN.pdf"],
+      "rules_year": "2026",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "include_all_dupes",
+      "qso_points": {"model": "portugal_day_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2026-06-13 1200 through 2026-06-14 1159 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["portugal_day_weighted"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "REP's official 2026 rules award ten points to a DX entrant for a Portuguese contact, one point to a Portuguese entrant for a DX contact, five points between Portuguese stations, one point between other stations on the same continent, and two across continents.",
+        "Portuguese stations send one of the published mainland-district, Madeira-county, or Azores-county codes; other stations send a serial. Every unique Portuguese area is worth five multiplier points per band and every unique DXCC entity one per band, regardless of mode. SH6 models this exactly as five identities for an area plus one DXCC identity.",
+        "The current organizer page does not define repeat-contact identity, so SH6 retains rows rather than inventing one, matching recovered LogChecker behavior. SH6 cannot prove progressive serial ordering, band plans, distributed multi-transmitter/category conditions, licensing, or organizer adjudication, so the rule is partial."
+      ]
+    },
+    {
+      "id": "pears_vhf_2026",
+      "archive_folder": "PEARS",
+      "name": "PEARS National VHF/UHF Contest 2026",
+      "aliases": ["PEARS-VHF-UHF", "PEARS VHF UHF", "PEARS"],
+      "official_rules_urls": ["https://mysarl.org.za/wp-content/uploads/2025/11/2026-SARL-Contest-Manual-Version-1.0-2025-11-12.pdf"],
+      "rules_year": "2026 SARL Contest Manual v1.0",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_analog_digital_session_per_received_grid",
+      "qso_points": {"model": "pears_vhf_2026", "eligible_bands": ["6M", "4M", "2M", "70CM", "23CM"], "contest_window": "2026-01-09 1600 through 2026-01-11 1159 UTC in two 22-hour sessions"},
+      "multipliers": {"model": "single_group", "counting_scope": "once", "groups": ["pears_grid4"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official SARL 2026 manual awards one point per whole kilometre on 50, 70, 144, 432, and 1296 MHz. Valid contacts exchange reports and locators and are restricted to South Africa and its six named neighbouring states.",
+        "A station may be contacted once in an analogue mode and once digitally on each band in each of the two sessions. A rover in a different four-character grid is a new contact. The total distance points across all bands are multiplied by the number of unique four-character grids worked globally; this deliberately differs from LogChecker's recovered per-band grid scope.",
+        "SH6 supports the five ordinary distance-scored categories. The separate 144/145 MHz simplified FM category needs the entrant and worked station's South African division, which ordinary Cabrillo exchanges omit, so its ten/twenty-point branch remains unsupported. SH6 also cannot prove category operating-time limits, rover stop/count limits, exact channel compliance, licensing, or organizer adjudication, so the rule is partial."
+      ]
+    },
+    {
+      "id": "popov_memorial_2026",
+      "archive_folder": "POPOV",
+      "name": "A. S. Popov Memorial Contest 2026",
+      "aliases": ["RADIO-POPOV", "POPOV-MEMORIAL", "POPOV MEMORIAL"],
+      "official_rules_urls": ["https://www.contest.ru/memorial-popov-ru/"],
+      "rules_year": "2026",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {"model": "popov_memorial_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2026-03-21 0500 through 0859 UTC"},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []},
+      "formula": "score = qso_points_total",
+      "notes": [
+        "The official 2026 rules award each QSO the two- or three-digit number of full years of amateur-radio experience received in the exchange. Museum stations send the number of years since A. S. Popov's birth. There is no multiplier and the final score is the sum of QSO points.",
+        "CW and SSB are allowed on 80 through 10 metres excluding WARC bands during the published four-hour window. The same station may be contacted again on another band or mode, so SH6 treats calls as duplicates only within the same band and mode group.",
+        "SH6 cannot independently prove the truth of an operator's experience number, museum status, age overlay, category, power, self-spot timing, or organizer adjudication, so the rule is partial."
+      ]
+    },
+    {
+      "id": "popov_vhf_2026",
+      "archive_folder": "POPOVVHF",
+      "name": "A. S. Popov Cup VHF 2026",
+      "aliases": ["POPOV-VHF", "POPOV VHF"],
+      "official_rules_urls": ["http://r9f.ucoz.ru/Radiosport/2026/260321_popov_vhf_regl.pdf", "http://r9f.ucoz.ru/"],
+      "rules_year": "2026 Perm regional sports regulation",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_session",
+      "qso_points": {"model": "popov_vhf_2026", "eligible_bands": ["2M"], "eligible_mode_groups": ["CW", "SSB", "FM"], "contest_window": "2026-03-21 1500-1759 and 2026-03-22 0200-0459 UTC"},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []},
+      "formula": "score = qso_points_total",
+      "notes": [
+        "The official scanned 2026 Perm regulation awards one point per whole kilometre on 144 MHz and four points when both stations are within the same six-character QTH locator. The final score is the sum of confirmed QSO points with no multiplier.",
+        "The event has two three-hour rounds. A station may be contacted once in each round regardless of CW, SSB, or FM. Exchanges contain RS, a serial continuing across rounds, and the QTH locator.",
+        "Competitive entrants must be Perm-region residents, while contacts with all regions and countries are allowed. SH6 cannot prove entrant residency, continuous serial ordering, submitted-log confirmation, three-minute time tolerance, category/age eligibility, or organizer adjudication, so the rule is partial."
+      ]
+    },
+    {
+      "id": "russian_160m_2025",
+      "archive_folder": "RADIO160",
+      "name": "Russian 160m DX Contest — RU3AX Memorial 2025",
+      "aliases": ["RADIO-160", "RUSSIAN-160M", "RUSSIAN 160M", "RUSSIAN-160M-DX"],
+      "official_rules_urls": ["https://www.qrz.ru/contest/detail/90.html", "http://www.topband.ru/"],
+      "rules_year": "2025",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium-high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_mode_session",
+      "qso_points": {"model": "russian_160m_2025", "eligible_bands": ["160M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2025-12-19 1700 through 2059 UTC in two two-hour rounds"},
+      "multipliers": {"model": "multi_group", "counting_scope": "per_mode", "groups": ["russian_160m_entity", "russian_160m_oblast"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The published 2025 rules award at least ten points according to distance between four-character locator centres, then one additional point for each further 500-km step; SSB QSO points are doubled. SH6 interprets the stated progression as 10 points through 500 km, 11 through 1000 km, 12 through 1500 km, and so on. The page's isolated 1500-2000 km example says 14 and is treated as a typographical error because it conflicts with both the preceding formula and examples.",
+        "A station may be worked once in CW and once in SSB in each of the two rounds. The multiplier is unique DXCC/WAE entities plus Russian oblasts, counted independently in CW and SSB and only once across both rounds.",
+        "SH6 can count the entity component and a Russian oblast when the normalized QSO carries a trustworthy two-letter region field. The current exchange contains a locator rather than an oblast, so the oblast component cannot always be reconstructed from a single submitted log; WAE-only entities may also depend on the installed country dataset. Category, station-location radius, exact band-plan compliance, cross-log recovery of rejected first contacts, penalties, and adjudication remain outside local scoring, so this rule is partial. LogChecker's fixture-backed module represents the superseded oblast/serial and geographic-point rules and is intentionally not copied."
+      ]
+    },
+    {
+      "id": "russian_ww_rtty_2026",
+      "archive_folder": "RADIORTTY",
+      "name": "Russian WW RTTY Contest 2026",
+      "aliases": ["RADIO-WW-RTTY", "RUSSIAN-WW-RTTY", "RUSSIAN WW RTTY", "RUS-WW-RTTY"],
+      "official_rules_urls": ["https://www.contest.ru/russian-ww-rtty-contest-rules-en/", "https://www.contest.ru/russian-ww-rtty-contest-ru/", "https://www.qrz.ru/contest/detail/93"],
+      "rules_year": "2026 schedule with current standing organizer rules",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {"model": "russian_ww_rtty_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["RTTY"], "contest_window": "2026-09-05 1200 through 2026-09-06 1159 UTC"},
+      "multipliers": {"model": "multi_group", "counting_scope": "per_band", "groups": ["russian_ww_rtty_entity", "russian_ww_rtty_oblast"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Current organizer rules use Russian-entrant branches of two points for same-continent Russia, five for cross-continent Russia, three for another same-continent entity, and five across continents. Non-Russian entrants receive ten points for Russia, two for their own entity, three for another same-continent entity, and five across continents. Every maritime-mobile contact is five points and is excluded from multipliers.",
+        "Russian stations send a two-letter oblast and all others a serial beginning at 001. A call may be worked once per band; the English page says same band and mode while the Russian page says same band, which is equivalent because RTTY-45 is the only eligible mode. Unique DXCC/WAE entities and Russian oblasts count independently on every band, including the published double-multiplier special Russian territories.",
+        "SH6 validates the exchange shape but cannot prove oblast membership, progressive all-band serial ordering, Baudot speed, WAE-only entities absent from its installed country data, or the Multi-Op ten-minute run/multiplier-transmitter constraints when complete transmitter/category evidence is unavailable. Organizer cross-log adjudication and penalties are also external, so the rule is partial. LogChecker's recovered scorer only applies five/ten continent points and mutually exclusive entity-or-oblast multipliers and is intentionally superseded here."
+      ]
+    },
+    {
+      "id": "wia_remembrance_2026",
+      "archive_folder": "REMD",
+      "name": "WIA Remembrance Day Contest 2026",
+      "aliases": ["WIA-REMEMBRANCE", "REMEMBRANCE-DAY", "REMEMBRANCE DAY", "RD-CONTEST"],
+      "official_rules_urls": ["https://www.wia.org.au/members/contests/rdcontest/index.php", "https://www.wia.org.au/members/contests/generalrules/"],
+      "rules_year": "2026 specific rules plus WIA General Rules v3.0",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group_3hours",
+      "qso_points": {"model": "wia_remembrance_2026", "eligible_participants": ["VK/VL", "ZL", "P2/P29"], "excluded_bands": ["30M", "17M", "12M"], "eligible_mode_groups": ["PHONE", "CW", "RTTY"], "contest_window": "2026-08-15 0300 through 2026-08-16 0259 UTC"},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []},
+      "formula": "score = qso_points_total",
+      "notes": [
+        "Current WIA rules award two base points on 160 metres and 23 cm or higher, and one point on other non-WARC bands. CW and RTTY double those points. QSOs logged from 01:00 through 05:59 at the entrant station's local time triple the result. SH6 derives the August standard-time offsets from VK/VL call areas, ZL, and P2; VK5/VK8 use UTC+09:30 and VK6 UTC+08:00.",
+        "Only VK/VL, ZL, and P2/P29 participants are eligible. The exchange is a positive number of licence years. The same station may be worked again after at least three hours on the same band and grouped mode; phone includes AM/FM/SSB, while CW and RTTY form the other grouped mode.",
+        "SH6 cannot establish a portable station's true local timezone when its callsign does not identify the operating call area, validate licence-year truth, exact band-plan segments, QRP power, category/transmitter limits, satellite/repeater paths, remote-site declarations, or organizer cross-log adjudication. Those limitations make the rule partial. LogChecker's recovered implementation omits participant, exchange, date, band, and repeat gates and treats UTC as local time; it is not copied."
+      ]
+    },
+    {
+      "id": "international_naval_2025",
+      "archive_folder": "RNARS",
+      "name": "International Naval Contest 2025",
+      "aliases": ["RNARS", "RNARS-CW", "INTERNATIONAL-NAVAL", "INTERNATIONAL NAVAL", "INC"],
+      "official_rules_urls": ["https://www.assoradiomarinai.it/bollettini/BOLLETTINO_290_25.pdf", "https://www.rnars.org.uk/documents/INC-2023-Ausschreibung-FNARS-E.pdf"],
+      "rules_year": "2025 ARMI-sponsored edition",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "medium-high",
+      "classification": "partial",
+      "duplicate_policy": "naval_member_once_nonmember_include",
+      "qso_points": {"model": "international_naval_2025", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2025-12-13 1600 through 2025-12-14 1559 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "once", "groups": ["international_naval_member"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "The official ARMI 2025 edition awards ten points for a station sending a participating naval-club code plus membership number and one point for a non-member sending a positive serial. Every worked naval-club station is one global multiplier. The participating codes are CA, FN, IN, MA, MF, MI, RN, YO, PN, and GR.",
+        "The 2025 wording says naval-club multiplier stations may be contacted only once regardless of band. It does not state a repeat rule for non-members, so SH6 retains non-member rows rather than inventing one. This differs from the 2023 RNARS-hosted copy, which allowed each station once per band while counting each naval member once as a multiplier.",
+        "SH6 validates club-code and numeric exchange syntax but cannot verify membership-number ownership without the organizers' non-public/current member databases, progressive serial ordering, preferred-frequency compliance, category/operator conditions, or cross-log adjudication. The rule is therefore partial. LogChecker's recovered RNARS scorer uses exchange first-character heuristics and DXCC/call-area multipliers that conflict with current official rules and are not retained."
+      ]
+    },
+    {
+      "id": "rsgb_160m_2026",
+      "archive_folder": "RSGB160",
+      "name": "RSGB 1.8 MHz Contests 2026",
+      "aliases": ["RSGB-160", "RSGB-1.8MHZ", "RSGB 1.8MHZ", "RSGB-160M"],
+      "official_rules_urls": ["https://www.rsgbcc.org/hf/rules/2026/r160m.shtml", "https://www.rsgbcc.org/hf/information/information.shtml"],
+      "rules_year": "2026",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {"model": "rsgb_160m_2026", "eligible_bands": ["160M"], "contest_windows": ["2026-02-14 2000-2259 UTC CW/SSB", "2026-11-21 2000-2259 UTC CW"]},
+      "multipliers": {"model": "single_group", "counting_scope": "once", "groups": ["rsgb_160m_bonus"]},
+      "formula": "score = qso_points_total + multipliers_total",
+      "notes": [
+        "Every valid contact is worth two points. In February a station may be worked once in CW and once in SSB; November is CW only. The first contact with each UK and Crown Dependency two-character district and each DXCC entity outside UK&CD earns a five-point bonus, globally across modes. SH6 represents each bonus as five deterministic credits so the additive total is exact.",
+        "All stations send a positive serial and UK&CD stations additionally send a district. SH6 validates exchange shape and contest windows but cannot verify progressive serial ordering, the official district-table membership beyond its two-character form, exact CW/SSB frequency subsegments when logs omit exact frequency, category/assistance constraints, or adjudication. The implementation is partial for those limitations.",
+        "LogChecker's recovered module uses different legacy point/multiplier mechanics and omits current event, mode, exchange and additive-bonus behavior; current official rules supersede it."
+      ]
+    },
+    {
+      "id": "rsgb_low_power_2026",
+      "archive_folder": "RSGBLP",
+      "name": "RSGB International Low Power Contest 2026",
+      "aliases": ["RSGB-LOW-POWER", "RSGB LOW POWER", "RSGB-ILPC", "RSGB-QRP"],
+      "official_rules_urls": ["https://www.rsgbcc.org/hf/rules/2026/rqrp.shtml"],
+      "rules_year": "2026",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {"model": "rsgb_low_power_2026", "eligible_bands": ["80M", "40M", "20M"], "eligible_mode_groups": ["CW"], "contest_window": "2026-07-19 0900-1159 and 1300-1559 UTC"},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []},
+      "formula": "score = qso_points_total",
+      "notes": [
+        "Contacts with portable or mobile stations sending no more than 10 W score fifteen points; fixed stations at no more than 10 W score ten; all other contacts score five. Power syntax uses W as the decimal point or QRO. Stations may be worked once on each band across both sessions.",
+        "SH6 enforces the two sessions, CW, three bands, available exact frequencies, positive serial, power exchange and suffix-derived portable/mobile status. It cannot prove sent serial continuity, whether an unsuffixed station is actually mobile, power truth, entrant section, antenna/site/assistance conditions, or adjudication, so the rule is partial.",
+        "LogChecker's recovered point branches agree with the 10 W scoring threshold but retain every row and omit current sessions, exact bands/frequencies, CW, serial and duplicate requirements."
+      ]
+    },
+    {
+      "id": "rsgb_nfd_2026",
+      "archive_folder": "RSGBNFD",
+      "name": "RSGB CW National Field Day 2026",
+      "aliases": ["RSGB-NFD", "RSGB NFD", "RSGB-CW-FD", "RSGB CW FIELD DAY"],
+      "official_rules_urls": ["https://www.rsgbcc.org/hf/rules/2026/rnfd.shtml"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {"model": "rsgb_nfd_2026", "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW"], "contest_window": "2026-06-06 1500 through 2026-06-07 1459 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["rsgb_field_day_dxcc"], "credit_policy": "valid_qso_allow_zero_points"},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["Portable entrants score four points for portable/mobile Europe, six for portable/mobile outside Europe, two for fixed Europe, and three for fixed outside Europe. Fixed entrants score only portable/mobile contacts at four or six points but may count any valid station as a DXCC multiplier. CW contacts on 160 m double their QSO points.", "A call may be worked once per band and DXCC entities count per band. SH6 enforces the 2026 window, CW, six bands, serial exchange, entrant/worked portable status, continents, zero-point multiplier credit, and formula.", "Portable/site/power/antenna/assistance/category constraints, exact operating status behind suffixes, serial progression, and organizer adjudication cannot be fully proven, so the rule is partial. LogChecker omits these current gates and multipliers and incorrectly doubles 10 m under its recovered legacy behavior." ]
+    },
+    {
+      "id": "rsgb_ssb_fd_2026",
+      "archive_folder": "RSGBSFD",
+      "name": "RSGB SSB Field Day 2026",
+      "aliases": ["RSGB-SSB-FD", "RSGB SSB FD", "RSGB-SSB-FIELD-DAY"],
+      "official_rules_urls": ["https://www.rsgbcc.org/hf/rules/2026/rnfd.shtml"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {"model": "rsgb_ssb_fd_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["SSB"], "contest_window": "2026-09-05 1300 through 2026-09-06 1259 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["rsgb_field_day_dxcc"], "credit_policy": "valid_qso_allow_zero_points"},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["The current SSB Field Day uses the same entrant-dependent Europe/outside and portable/fixed four/six/two/three point matrix as CW NFD, without a 160-metre band or doubling. Fixed entrants score only portable/mobile contacts but may count any valid station for per-band DXCC multipliers.", "SH6 enforces the 2026 window, SSB modes, five bands, serial exchange, portable status, continents, per-band duplicates, zero-point multiplier credit, and formula.", "Portable/site/power/antenna/assistance/category constraints, exact operating status behind suffixes, serial progression, and adjudication remain external, so the rule is partial. LogChecker's recovered entity-zone point table and exclusion of portable multipliers conflict with current official rules and are not copied." ]
+    },
+    {
+      "id": "sac_2026",
+      "archive_folder": "SAC",
+      "name": "Scandinavian Activity Contest 2026",
+      "aliases": ["SAC-CW", "SAC-SSB"],
+      "official_rules_urls": ["https://www.sactest.net/blog/scandinavian-activity-contest-2026-rules/"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {"model": "sac_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "CW 2026-09-19 1200 through 2026-09-20 1159 UTC; SSB 2026-10-10 1200 through 2026-10-11 1159 UTC"},
+      "multipliers": {"model": "station_dependent_group", "counting_scope": "per_band", "groups": ["sac_multiplier"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Scandinavian entrants score two points for non-Scandinavian Europe and three outside Europe, with worked DXCC entities as per-band multipliers. Non-Scandinavian entrants score only Scandinavian contacts: one point generally, or three on 80/40 m for entrants outside Europe, with each prefix-number area in each Scandinavian DXCC entity as a per-band multiplier.",
+        "SH6 enforces the separate 2026 CW/SSB windows and modes, five bands, published frequency segments when exact frequency is available, positive serial, reciprocal geography, per-band duplicates and multipliers, and the Russia/Belarus entrant exclusion.",
+        "Callsign/DXCC resolution is used for Scandinavian identity and portable prefix areas. SH6 cannot prove serial progression, transmitter/category/assistance/site restrictions or adjudication, so this rule is partial. LogChecker's recovered scoring agrees on the point and multiplier tables but retains duplicates and omits the current gates."
+      ]
+    },
+    {
+      "id": "sarl_hf_2026", "archive_folder": "SARLHF", "name": "SARL HF Phone, Digital and CW Contests 2026",
+      "aliases": ["SARL-HF-CW", "SARL-HF-PHONE", "SARL-HF-DIGITAL"],
+      "official_rules_urls": ["https://mysarl.org.za/wp-content/uploads/2025/12/2026-SARL-Contest-Manual-Version-1.1-2025-12-15.pdf"],
+      "rules_year": "2026 version 1.1", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "sarl_hf_2026", "eligible_bands": ["80M", "40M", "20M"], "eligible_mode_groups": ["CW", "SSB", "DIG"]},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["sarl_hf_area"]},
+      "formula": "score = qso_points_total + (2 * area_band_credits) + three_band_call_bonuses",
+      "notes": ["Each valid QSO is one point. Each distinct official call area on each band adds two points, and each station contacted on all three bands adds two points. SH6 implements these as additive credits, not multiplicative multipliers.", "The three separate 2026 Phone, FT4/FT8 and CW windows, published bands/frequency segments, positive serial exchange and per-band duplicates are enforced. Exact FT4/FT8 default-frequency validation is left to the logged band because dial-frequency representation varies.", "Area 9 is the rest of the world. Serial progression, digital completion tokens, category constraints and adjudication cannot be fully proven, so the rule is partial. LogChecker's recovered module recognizes a narrower target-prefix set and its state mechanics differ from the current official area wording." ]
+    },
+    {
+      "id": "sarl_vhf_2026", "archive_folder": "SARLVHF", "name": "SARL VHF/UHF FM Mode Contest 2026",
+      "aliases": ["SARL-VHF", "SARL-VHF-DIGITAL", "SARL-VHF-UHF-FM"],
+      "official_rules_urls": ["https://mysarl.org.za/wp-content/uploads/2025/12/2026-SARL-Contest-Manual-Version-1.1-2025-12-15.pdf"],
+      "rules_year": "2026 version 1.1", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "sarl_vhf_2026", "eligible_bands": ["6M", "2M", "70CM"], "eligible_mode_groups": ["FM"]},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["sarl_vhf_grid"]},
+      "formula": "score = sum_per_band(distance_points * unique_four_character_grids)",
+      "notes": ["Current rules award one point per kilometre and multiply each band's distance sum by unique four-character grids on that band, then sum the three band scores. Only FM on 6 m, 2 m and 70 cm and contacts among the seven listed Southern African countries count.", "SH6 requires sent/received six-character locators and a derived distance, uses at least one point for a valid same/near grid contact, enforces the two 2026 legs and per-band repeats, and excludes out-of-area calls.", "Mobile-location reconstruction, terrestrial-path/repeater proof, exact rounding used by the organizer spreadsheet and adjudication remain external, so the rule is partial. The recovered LogChecker scorer's many bands and fixed band factors are obsolete and intentionally not copied." ]
+    },
+    {
+      "id": "sarl_youth_2026", "archive_folder": "SARLYTH", "name": "SARL Youth QSO Party 2026",
+      "aliases": ["SARL-YOUTH-SPRINT", "SARL-YOUTH-QSO-PARTY"],
+      "official_rules_urls": ["https://mysarl.org.za/wp-content/uploads/2025/12/2026-SARL-Contest-Manual-Version-1.1-2025-12-15.pdf"],
+      "rules_year": "2026 version 1.1", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "sarl_youth_2026", "eligible_bands": ["40M"], "eligible_mode_groups": ["CW", "SSB"]},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []}, "formula": "score = qso_points_total",
+      "notes": ["Contacts between two operators aged 26 or younger score five points, mixed youth/older contacts three, and two operators aged 27 or older one. SH6 derives both ages strictly from the sent and received exchanges.", "The two 2026 one-hour legs, CW/SSB 40-metre segments and duplicate handling are enforced. Operator identity/age truth and adjudication remain external, so this rule is partial. LogChecker's recovered mixed-age value of two conflicts with the current official value of three." ]
+    },
+    {
+      "id": "sarl_yl_2026", "archive_folder": "SARLYL", "name": "SARL YL QSO Party 2026",
+      "aliases": ["SARL-YL-SPRINT", "SARL-YL-QSO-PARTY"],
+      "official_rules_urls": ["https://mysarl.org.za/wp-content/uploads/2025/12/2026-SARL-Contest-Manual-Version-1.1-2025-12-15.pdf"],
+      "rules_year": "2026 version 1.1", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "sarl_yl_2026", "eligible_bands": ["40M"], "eligible_mode_groups": ["CW", "SSB"]},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []}, "formula": "score = qso_points_total",
+      "notes": ["Domestic YL/YL, mixed YL/OM and OM/OM contacts score six, three and two points. A South Africa-to-DX contact involving one YL scores seven, or ten when both operators are YLs. Both sent and received YL/OM exchanges are required.", "The two 2026 one-hour legs, CW/SSB 40-metre segments and duplicate handling are enforced. Gender/exchange truth and adjudication remain external, so the rule is partial. LogChecker's recovered 5/3/1 table omits the current domestic and DX branches." ]
+    },
+    {
+      "id": "sartg_rtty_2026", "archive_folder": "SARTGRTTY", "name": "SARTG WW RTTY Contest 2026",
+      "aliases": ["SARTG", "SARTG RTTY", "SARTG-RTTY"],
+      "official_rules_urls": ["https://www.sartg.com/contest/wwrules.htm"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "sartg_rtty_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["RTTY"], "contest_window": "2026-08-15 0000-0759 and 1600-2359; 2026-08-16 0800-1559 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["sartg_entity_and_call_area"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["Same-country contacts score five points, different countries on the entrant's continent ten, and other continents fifteen. Every DXCC entity counts per band; Australia, Canada, Japan and the USA additionally contribute their call area per band while their first contact still contributes the DXCC multiplier.", "SH6 enforces the three 2026 periods, RTTY, five bands, positive serial, per-band repeats, geography, actual /digit call-area suffixes and formula.", "Serial progression, Baudot/shift fidelity, category/single-signal constraints and cross-log adjudication remain external, so the rule is partial. LogChecker's recovered scoring agrees with the core point and multiplier table but omits current event and exchange gates and duplicate elimination." ]
+    },
+    {
+      "id": "un_dx_2026", "archive_folder": "UNDX", "name": "UN DX Contest 2026",
+      "aliases": ["UN-DX", "UNDX"], "official_rules_urls": ["https://undxc.kz/rules-eng/"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group", "qso_points": {"model": "un_dx_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2026-05-16 0600-2059 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["un_dx_entity_and_kda"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["Kazakhstan entrants score ten points for Kazakhstan, three for a different country on their continent and five for another continent. Other entrants score ten for Kazakhstan, two for their own country, three for another country on their continent and five for another continent.", "Kazakhstan stations send a one-letter/two-digit KDA and others a positive serial. Every DXCC entity and every Kazakhstan KDA count separately per band; a call may be worked once per band in CW and once in SSB.", "SH6 enforces the 2026 window, modes, five bands, exchange shapes, all point branches, multiplier scopes and formula. It cannot validate KDA membership beyond the official shape, serial progression, category/single-signal constraints or adjudication, so the rule is partial. LogChecker's recovered scorer omits the current window/mode/exchange/duplicate gates." ]
+    },
+    {
+      "id": "volta_rtty_2026", "archive_folder": "VOLTA", "name": "Alessandro Volta RTTY DX Contest 2026",
+      "aliases": ["VOLTA-RTTY", "VOLTA RTTY"],
+      "official_rules_urls": ["https://www.contestvolta.it/rules.pdf", "https://www.contestvolta.it/point%20table.htm", "https://www.contestvolta.it/main_page.htm"],
+      "rules_year": "November 2025 rules; 2026 event", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "volta_rtty_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["RTTY", "RY"], "contest_window": "2026-05-09 1200 through 2026-05-10 1159 UTC", "exchange_points_table": "official 40-by-40 sent/received CQ-zone table, revision 2004"},
+      "multipliers": {"model": "single_group", "counting_scope": "once_total", "groups": ["volta_multipliers"]},
+      "formula": "score = positive_qso_count * qso_points_total * multipliers_total",
+      "notes": ["Valid contacts use the organizer's official 40-by-40 sent/received CQ-zone point table; intercontinental contacts on 80 and 10 metres are doubled. RST, positive serial and CQ zone are required.", "DXCC entities count per band, except Australia, Canada, Japan, New Zealand and the United States use only call areas. Contacts within one of those entities score when the call areas differ; same-country or same-call-area contacts score zero. An intercontinental entity or call area worked on at least four distinct bands earns one additional multiplier.", "SH6 enforces the 2026 weekend, RTTY, five bands, exchange shapes, per-band duplicates, call-area /digit overrides, matrix points, multiplier scopes and official three-factor product. The rule remains partial because the organizer's requirement that a worked station appear in at least three other logs or submit its own log requires cross-log adjudication; category operating-time constraints and serial progression are also external. LogChecker's recovered implementation uses the same matrix and product but treats all same-DXCC contacts as zero, omits special-area replacement for multipliers, and does not enforce current event, exchange, mode or duplicate gates."]
+    },
+    {
+      "id": "uba_psk63_2026", "archive_folder": "UBAPSK", "name": "UBA PSK63 Prefix Contest 2026",
+      "aliases": ["UBA-PSK63-PREFIX", "UBA PSK63 PREFIX"],
+      "official_rules_urls": ["https://www.uba.be/en/hf/contest-rules/uba-psk63-prefix-contest"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "uba_psk63_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["BPSK63", "PSK63"], "contest_window": "2026-01-10 1200 through 2026-01-11 1159 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["uba_psk63_prefix_and_section"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["Every valid BPSK63 QSO scores one point. Each WPX prefix and each recognized UBA section worked from a Belgian station count once per band; XXX is a valid non-member exchange but not a multiplier. Belgian stations send a section or XXX and other stations send a positive serial.", "The organizer's 2026 rules give Russian Federation and Belarus contacts zero QSO and multiplier credit. SH6 applies that current event-year restriction and does not project it onto other years.", "SH6 enforces the exact 2026 window, five bands, positively identified PSK63 submode, exchange shapes, per-band duplicates, portable-aware WPX prefixes, the organizer-published UBA section list and formula. Generic Cabrillo DG/DATA does not prove BPSK63 and scores zero conservatively unless a PSK63 submode is retained. Cross-log NIL/bad-call/exchange/time checks, the five-other-logs requirement, power/category rules and adjudication remain external, so the rule is partial. LogChecker's recovered scorer accepts every recognized-band row, accepts loose three-character section strings and retains duplicates."]
+    },
+    {
+      "id": "uksmg_summer_2027", "archive_folder": "UKSMG", "name": "UKSMG Summer Es Contest 2027",
+      "aliases": ["UKSMG", "UKSMG-SUMMER-ES", "UKSMG SUMMER ES"],
+      "official_rules_urls": ["https://uksmg.org/page/uksmg-summer-es-contest-rules", "https://uksmg.org/page/contest-page"],
+      "rules_year": "2027 published rules", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "uksmg_summer_2027", "eligible_bands": ["6M"], "eligible_modes": ["CW", "SSB", "FM", "AM", "SSTV", "RTTY"], "contest_window": "2027-06-19 1300 through 2027-06-20 1259 UTC"},
+      "multipliers": {"model": "sum_of_groups", "counting_scope": "once_total", "groups": ["uksmg_dxcc", "uksmg_grid", "uksmg_member", "uksmg_committee"]},
+      "formula": "score = qso_points_total + 500 * (dxcc_mults + grid_mults + member_mults) + 1000 * committee_calls",
+      "notes": ["Each valid six-metre contact scores one point per kilometre, using the recovered scorer's ceiling-to-whole-kilometre interpretation and one point for identical locators. Unique DXCC entities, received four- or six-character grids and positive UKSMG membership numbers each add 500 points. Each of the eleven committee calls listed in the published 2027 rules adds 1,000 points.", "The required exchange is RS(T), positive serial, four- or six-character grid and optional membership number. CW, SSB, FM, AM, SSTV and RTTY are eligible; MGM, aeronautical mobile, repeater, reflector and EME contacts are prohibited.", "SH6 enforces the published 2027 window, band, modes, exchange, locator/distance, aeronautical-mobile exclusion, implied once-per-station duplicate handling, all unique bonus groups and additive formula. It cannot infer whether a station was running inside a protected frequency segment, whether a contact used a reflector/repeater/EME, chosen six-hour category periods, serial progression or organizer adjudication, so the rule is partial. The official page does not state distance rounding explicitly; SH6 retains LogChecker's fixture-backed ceiling convention. LogChecker omits the current committee-call bonus and all event, eligibility, exchange and duplicate gates."]
+    },
+    {
+      "id": "makrothen_rtty_2026", "archive_folder": "TMC", "name": "Makrothen RTTY Contest 2026",
+      "aliases": ["TMC-RTTY", "MAKROTHEN", "MAKROTHEN-RTTY", "MAKROTHEN RTTY"],
+      "official_rules_urls": ["https://www.pl259.org/makrothen/makrothen-rules/", "https://www.ig-ry.de/contest-cup"],
+      "rules_year": "2026 current rules", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "makrothen_rtty_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["RTTY", "RY"], "contest_window": "2026-10-10 0000-0759 and 1600-2359; 2026-10-11 0800-1559 UTC", "earth_radius_km": 6378.16},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []},
+      "formula": "score = qso_points_total",
+      "notes": ["Stations exchange the first four characters of their Maidenhead locator without RST. For different grids, SH6 calculates centre-to-centre great-circle distance using the official 6378.16 km spherical Earth, floors the kilometres, applies 2.0 on 80m or 1.5 on 40m, then floors again. Contacts within the same grid score 100 regardless of band.", "A station may be worked once per band; duplicates remain in the log but score zero without penalty. There are no multipliers and the final score is the sum of QSO points.", "SH6 enforces all three 2026 periods, RTTY, five bands, four-character sent/received locators, per-band duplicates and the exact published distance formula. It cannot validate a fixed sent locator across the whole log, clock agreement within two minutes, station/category/transmitter constraints or organizer adjudication, so the rule is partial. LogChecker's recovered TMC scorer uses generic whole-kilometre distance without current windows, modes, bands, low-band factors, same-grid exception or duplicate elimination."]
+    },
+    {
+      "id": "sp_dx_2026", "archive_folder": "SPDX", "name": "SP DX Contest 2026",
+      "aliases": ["SP-DX", "SPDX", "SPDX CONTEST", "SP DX CONTEST"],
+      "official_rules_urls": ["https://spdxcontest.pzk.org.pl/2026/rules.php"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group", "qso_points": {"model": "sp_dx_2026", "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2026-04-04 1500 through 2026-04-05 1459 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["sp_dx_multiplier"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["Polish entrants score one point for a foreign European station and three for a foreign station outside Europe; Polish-to-Polish contacts score zero. Foreign entrants score three points only for Polish stations. Polish stations send one of sixteen province letters and foreign stations a positive serial.", "Polish entrants count foreign DXCC entities once per band; foreign entrants count Polish provinces once per band, independent of mode. The same call may be worked once per band in CW and once in SSB.", "SH6 enforces the exact 2026 window, six bands, modes, reciprocal exchanges and point branches, band/mode duplicates, entrant-dependent multipliers and formula. It cannot validate serial progression, four-log confirmation for stations without submitted logs, band-plan compliance, category/station constraints or adjudication, so the rule is partial. LogChecker's recovered behavior supplies the same core reciprocal geography but does not enforce all current event and adjudication gates."]
+    },
+    {
+      "id": "sp_dx_rtty_2026", "archive_folder": "SPDXRTTY", "name": "SP DX RTTY Contest 2026",
+      "aliases": ["SP DX RTTY", "SP-DX-RTTY", "SPDX-RTTY"],
+      "official_rules_urls": ["https://pkrvg.org/strona,spdxrttyen.html", "https://pkrvg.org/pliki_get.php?idn=75"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "sp_dx_rtty_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["RTTY", "RY"], "contest_window": "2026-04-25 1200 through 2026-04-26 1159 UTC"},
+      "multipliers": {"model": "sum_of_groups", "counting_scope": "once_total", "groups": ["sp_dx_rtty_country", "sp_dx_rtty_poviat", "sp_dx_rtty_continent"]},
+      "formula": "score = qso_points_total * (country_mults + poviat_mults) * continent_mults",
+      "notes": ["A valid RTTY contact scores two points within the entrant's own DXCC entity, five points with another entity on the entrant's continent, or ten points across continents. Contacts with UA or EW score zero. Foreign stations send a positive serial; Polish stations send one of the two-letter SPPA poviat abbreviations in the organizer-linked list.", "Every non-UA/EW DXCC entity and every Polish poviat count once on each band. Each worked continent counts once over the whole contest, to a maximum of six. The final score is QSO points multiplied by the sum of per-band countries and poviats, then by worked continents.", "SH6 enforces the exact 2026 window, RTTY, five bands, exchange shapes, the organizer-published 373-code SPPA list, per-band duplicates, exclusions, all multiplier scopes and the current formula. It cannot validate serial progression, category/transmitter limits, band-plan compliance, cross-log adjudication or SWL entries, so the rule is partial. LogChecker's recovered scorer has the same 2/5/10 geography branches and continent formula but incorrectly treats sixteen one-letter voivodeships as the Polish exchange, allows duplicates, and does not apply current event, mode, exchange or UA/EW gates."]
+    },
+    {
+      "id": "trc_dx_2025", "archive_folder": "TRCDX", "name": "TRC DX Contest 2025",
+      "aliases": ["TRC-DX", "TRC DX"],
+      "official_rules_urls": ["https://trcdx.org/rules-trc-dx/", "https://trcdx.org/contest-calendar/"],
+      "rules_year": "latest published 2025", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group", "qso_points": {"model": "trc_dx_2025", "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2025-10-04 0600 through 2025-10-05 1759 UTC", "scoring_time_policy": "single_op_first_24_operating_hours_with_60_minute_breaks"},
+      "multipliers": {"model": "sum_of_groups", "counting_scope": "per_band_per_mode", "groups": ["trc_dx_dxcc", "trc_dx_member_dxcc"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["Ordinary same-continent contacts score one point and intercontinental contacts score two. A non-member entrant receives ten points for a TRC member; a contact between two TRC members scores one point. Every exchange includes a positive serial, with TRC members appending TRC to the serial without a space.", "Every DXCC entity counts once per band in CW and once in SSB. A second multiplier is credited for the DXCC entity of each worked TRC member, also once per band and mode. A call may be worked once per band in each mode. Single operators may use only 24 of the 36 event hours, with breaks of at least 60 minutes excluded from operating time.", "SH6 implements the latest organizer-published 2025 edition because no 2026 rules are available. It enforces the event, bands/modes, combined serial/TRC exchanges, membership-dependent points, per-band/mode duplicates and multiplier families, operating-time policy and formula. Membership is derived from the sent serial-TRC exchange required in the Cabrillo rows. IARU band-plan compliance, power/category choice, single-signal operation, serial progression and cross-log adjudication remain external, so the rule is partial. LogChecker's recovered scorer instead gives every ordinary contact one point, treats bare TRC or an integer as the whole exchange, counts ITU zones/TRC entities per band only, and retains duplicates."]
+    },
+    {
+      "id": "uba_dx_2026", "archive_folder": "UBA", "name": "UBA DX Contest CW/SSB 2026",
+      "aliases": ["UBA", "UBA-CW", "UBA-SSB", "UBA-DX", "UBA DX", "UBA-DX-CW", "UBA-DX-SSB"],
+      "official_rules_urls": ["https://www.uba.be/en/hf/contest-rules/uba-dx-contest", "https://www.uba.be/en/hf/contest-results/uba-dx-contest-ssb-2026", "https://www.uba.be/en/hf/contest-results/uba-dx-contest-cw-2026"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "uba_dx_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_windows": {"SSB": "2026-01-31 1300 through 2026-02-01 1259 UTC", "CW": "2026-02-28 1300 through 2026-03-01 1259 UTC"}},
+      "multipliers": {"model": "station_dependent_group", "counting_scope": "per_band", "groups": ["uba_dx_multiplier"]},
+      "formula": "score = (qso_points_total + outside_belgium_bonus) * multipliers_total",
+      "notes": ["Belgian entrants score one point for Belgium, two for one of the organizer-listed EU DXCC entities, and three otherwise. Entrants outside Belgium score ten for Belgium, three for a listed EU entity, and one otherwise. Russian Federation and Belarus contacts receive no QSO or multiplier credit. Every exchange has a positive serial; Belgian stations additionally send a current UBA section, UBA, or XXX.", "Belgian entrants count every worked DXCC entity once per band. Outside entrants count current UBA sections, Belgian WPX-style prefixes, and the organizer's explicit EU DXCC entities once per band; XXX is not a multiplier, and a Belgian QSO can yield both section and prefix credit.", "Outside entrants receive a rounded bonus equal to Belgian-QSO point subtotal multiplied by the fraction of locally valid QSOs that are Belgian. The organizer's published 2026 results confirm this exact-ratio rounding interpretation. The bonus is added to QSO points before multiplication.", "SH6 enforces both exact 2026 event windows and their corresponding modes, five bands, reciprocal exchange shapes, current country exclusion, point and multiplier perspectives, per-band duplicate handling, bonus and formula. The transmitting-station rules do not state duplicate handling explicitly; SH6 applies the conventional once-per-band interpretation also stated for station-heard SWL scoring. Category time limits, multioperator ten-minute and multiplier-station compliance, band-plan/power constraints, serial progression, and cross-log post-check validity cannot always be established from a generic single log, so the rule is partial. LogChecker omits the current bonus, event/mode/band/exchange/exclusion/duplicate gates and uses a recovered approximation to the multiplier perspectives."]
+    },
+    {
+      "id": "ukr_champ_rtty_2026", "archive_folder": "UKRCHAMPRTTY", "name": "Ukrainian HF RTTY Championship 2026",
+      "aliases": ["UKR-CHAMP-RTTY"],
+      "official_rules_urls": ["https://www.uarl.org.ua/index.php/sport/1222-reglament-chempionativ-ukrajini-z-radiozv-yazku-na-kkh-2026r", "http://uarl.org.ua/files/stories2026/Reglament_ChU-2026-or-040226.pdf", "https://chu.cc.ua/"],
+      "rules_year": "2026 approved regulation", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_ukr_champ_round", "qso_points": {"model": "ukr_champ_rtty_2026", "eligible_bands": ["80M", "40M"], "eligible_modes": ["RTTY", "RY"], "contest_window": "2026-03-07 1700 through 1859 UTC", "rounds": ["1700-1729", "1730-1759", "1800-1829", "1830-1859 UTC"]},
+      "multipliers": {"model": "single_group", "counting_scope": "once_total", "groups": ["ukr_champ_2026_oblast"]},
+      "formula": "score = qso_points_total + 5 * new_oblast_band_round_credits",
+      "notes": ["The official 2026 national championship is open to Ukrainian stations and runs in four 30-minute rounds on 80 and 40 metres using RTTY. Both stations send one of the 25 current Ukrainian oblast abbreviations followed by a positive serial; serial numbering is continuous across rounds.", "Each valid QSO scores two points. Each new received oblast adds five points separately on every band in every round. A station may be worked again on another band or in another round; the same call on the same band in the same round is treated as a duplicate.", "SH6 enforces the exact Kyiv-to-UTC event window, four round identities, Ukrainian participant/correspondent identity, RTTY, two bands, both sent and received oblast/serial exchanges, round-band duplicates, the current oblast list and additive formula. It cannot fully enforce the five-minute band-change rule for every multi-workstation topology, serial continuity and the three-percent missing/repeated serial threshold, 15-confirmed-QSO entry minimum, category/station restrictions, audio evidence or cross-log adjudication, so the rule is partial. LogChecker's recovered DLL is materially obsolete: it awards 12 points for the first DXCC-plus-received-serial combination on a band and two for a repeated combination, with no current event, participant, exchange, band, round, duplicate or oblast-bonus behavior."]
+    },
+    {
+      "id": "ukeicc_80m_2026_27", "archive_folder": "UKEICC80M", "name": "UKEICC 80 m Contests 2026-27",
+      "aliases": ["UKEICC-80M", "UKEICC-80MCW", "UKEICC-80MSSB"],
+      "official_rules_urls": ["https://ukeicc.com/80m-rules.php", "https://ukeicc.com/adjudicationprinciples.php"],
+      "rules_year": "2026-27 series, version 64 dated 2026-08-22", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "ukeicc_80m_2026_27", "eligible_bands": ["80M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "fourteen published one-hour sessions from 2026-09-02 through 2027-04-28, 2000-2059 UTC"},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []},
+      "formula": "score = qso_points_total",
+      "notes": ["Each valid contact scores one point for each started 500 km between the centres of the sent and received six-character locator squares, capped at ten points. G5GEI with any UK regional prefix and EI5G override distance and power for a fixed fifteen points.", "SH6 enforces all fourteen organizer-published 2026-27 dates, the corresponding CW/SSB mode, exact 2000-2059 UTC hour, 80 metres, six-character sent and received locators, per-band duplicate elimination, the distance cap, bonus calls and additive total.", "The organizer multiplies a QSO's distance points by two when the worked station later submits a Low Power entry and by four for QRP. That category is learned during cross-log adjudication and is not reliably present in the entrant's Cabrillo, so SH6 conservatively reports base distance points and labels this rule partial. It also cannot reproduce error penalties or other cross-log adjudication. LogChecker matches the uncapped started-500-km base calculation but omits current event/mode/band gates, the ten-point cap, bonus calls and power multipliers."]
+    },
+    {
+      "id": "ukeidx_2026", "archive_folder": "UKEIDX", "name": "UK/EI DX Contest CW/SSB 2026",
+      "aliases": ["UKEIDX", "UKEIDX-CW", "UKEIDX-SSB", "UK/EI-DX-CW", "UK/EI-DX-SSB"],
+      "official_rules_urls": ["https://ukeicc.com/dx-contest-rules.php", "https://ukeicc.com/adjudicationprinciples.php"],
+      "rules_year": "2026, version 19 dated 2026-05-02", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "ukeidx_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_windows": {"CW": "2026-04-25 1200 through 2026-04-26 1159 UTC", "SSB": "2026-10-31 1200 through 2026-11-01 1159 UTC"}},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["ukeidx_dxcc_or_district"]},
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["UK/EI entrants score two points for UK/EI or Europe and four outside Europe on the three high bands, doubled on 80/40 metres and doubled again for every QSO made from 0100 through 0459 UTC. Other European entrants score two for UK/EI, one for Europe and two outside Europe on high bands; outside-Europe entrants score four for UK/EI, two for Europe and one outside Europe. Low-band points are twice those values.", "Every non-UK/EI DXCC entity and every one of the current 155 UK/EI districts count once per band; UK/EI contacts yield only district multipliers. Both sides send a serial, where received zero is explicitly valid when no serial was sent, and UK/EI stations additionally send a current district. Same-call same-band duplicates score zero without a penalty when one record is good.", "SH6 enforces both exact 2026 events and corresponding modes, five bands, published 80/20-metre preferred segments when exact frequency is available, reciprocal exchange shapes, all entrant/geography/low-band/night point branches, the current district list, per-band duplicates and multiplier scopes. It cannot enforce 12-hour category off-times, serial sequence, the unpublished preferred segments on the other bands, station/category constraints or cross-log penalties, so the rule is partial. LogChecker broadly matches the point table but retains duplicates, omits the current events and exchanges, and embeds obsolete NR instead of the current NK district."]
+    },
+    {
+      "id": "rus_ww_digi_2026", "archive_folder": "RUSWWDIGI", "name": "Russian WW Digital Contest 2026",
+      "aliases": ["RUS-WW-DIGI", "RU-WW-DIGI"], "official_rules_urls": ["https://rdrclub.ru/russian-ww-digital-contest/51-rus-ww-digi-rules"],
+      "rules_year": "2026, organizer page updated 2026-08-24", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_exact_mode_3min", "qso_points": {"model": "rus_ww_digi_2026", "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["RTTY45", "BPSK63"], "contest_window": "2026-10-03 1200 through 2026-10-04 1159 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["rdrc_rus_ww_dxcc_and_area"]}, "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["High-band contacts score one point in the same DXCC entity, three on the same continent, five across continents, or five with a /QRP station; 160/80/40-metre values are doubled. Russian stations send one of the organizer's current area codes and others a positive serial.", "DXCC entities and Russian areas count separately on every band in each of RTTY45 and BPSK63. A call may be repeated on another band or in the other mode, but a same-band repeat in the same exact mode requires at least three minutes.", "SH6 enforces the exact 2026 event, exact submodes, six bands, reciprocal exchanges, current area list, all point branches, three-minute duplicates, multiplier identities/scopes and formula. Band-change limits, signal bandwidth/quality, power/category constraints, serial continuity, grid header and cross-log confirmation remain external, so the rule is partial. LogChecker matches the core point and multiplier table but omits event, submode, exchange and duplicate gates and accepts arbitrary oblast text."]
+    },
+    {
+      "id": "rus_ww_mm_2026", "archive_folder": "RUSWWMM", "name": "Russian WW MultiMode Contest 2026",
+      "aliases": ["RUS-WW-MM", "RU-WW-MM"], "official_rules_urls": ["https://www.rdrclub.ru/russian-ww-multimode-contest/159-rus-ww-multimode-contest", "https://www.rdrclub.ru/russian-ww-multimode-contest/1457-results-rus-ww-mm-2025"],
+      "rules_year": "latest published rules with official 2026 schedule", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_exact_mode_3min", "qso_points": {"model": "rus_ww_mm_2026", "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["BPSK63", "CW", "RTTY45", "SSB"], "contest_window": "2026-10-31 1200 through 2026-11-01 1159 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["rdrc_rus_ww_dxcc_and_area"]}, "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["High-band contacts score one point in the same DXCC entity, three on the same continent and five across continents; 160/80/40-metre values are doubled. Russian stations send a current area and others a positive serial.", "DXCC entities and Russian areas count separately per band in each of BPSK63, CW, RTTY45 and SSB. Same-band same-mode repeats require at least three minutes.", "SH6 applies the latest organizer-published scoring rules to the organizer's explicit 31 October/1 November 2026 schedule and enforces event, exact mode, bands, reciprocal exchanges, current areas, points, duplicates, multiplier scopes and formula. A dedicated rules page labeled 2026 has not yet replaced the 2025 page; any later organizer change will require an annual refresh. Band-change, category, signal/power, grid and cross-log rules remain external, so the implementation is partial. LogChecker omits all current gates and accepts arbitrary oblast text."]
+    },
+    {
+      "id": "rus_ww_psk_2027", "archive_folder": "RUSWWPSK", "name": "Russian WW PSK Contest 2027",
+      "aliases": ["RUS-WW-PSK", "RU-WW-PSK"], "official_rules_urls": ["https://www.rdrclub.ru/russian-ww-psk-contest/49-rus-ww-psk-rules", "https://www.rdrclub.ru/russian-ww-psk-contest/1486-results-news-rus-ww-psk-2026"],
+      "rules_year": "next published 2027 edition", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_exact_mode_3min", "qso_points": {"model": "rus_ww_psk_2027", "eligible_bands": ["160M", "80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["BPSK31", "BPSK63", "BPSK125"], "contest_window": "2027-02-20 1200 through 2027-02-21 1159 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["rdrc_rus_ww_dxcc_and_area"]}, "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["High-band contacts score one point in the same DXCC entity, three on the same continent and five across continents; 160/80/40-metre values are doubled. Russian stations send a current area and others a positive serial.", "DXCC entities and Russian areas count separately per band across the three BPSK rates. Same-band repeats in a different exact BPSK rate are permitted after at least three minutes.", "SH6 follows the organizer's next published 2027 edition and enforces its exact event, BPSK31/63/125 identities, six bands, reciprocal exchanges, current area list, geography/low-band points, three-minute duplicates, per-band multipliers and formula. Power, band-change, signal quality, grid-header and cross-log requirements remain external, so the rule is partial. LogChecker supplies the same core points and mode-independent multiplier scope but omits all current gates and accepts arbitrary oblast text."]
+    },
+    {
+      "id": "wia_vhf_2026", "archive_folder": "WIAVHF", "name": "WIA VHF-UHF Field Days 2026",
+      "aliases": ["WIA-VHF-UHF", "WIA VHF UHF", "WIA-FIELD-DAY"],
+      "official_rules_urls": ["https://www.wia.org.au/members/contests/vhfuhf/", "https://www.wia.org.au/members/contests/vhfuhf/documents/2026%20Winter%20VHF-UHF%20Field%20Day%20Rules.pdf"],
+      "rules_year": "2026 Summer, Winter and Spring field days", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_sent_received_grid_2hours",
+      "qso_points": {"model": "wia_vhf_2026", "eligible_bands": ["6M", "2M", "70CM", "23CM", "13CM", "9CM", "6CM", "3CM", "1.25CM and above"], "eligible_mode_groups": ["PHONE", "CW", "DIGITAL"], "contest_windows": ["2026-01-03/04", "2026-06-20/21", "2026-09-19/20"]},
+      "multipliers": {"model": "none_multiplicative", "counting_scope": "once", "groups": []}, "formula": "score = qso_points_total",
+      "notes": ["SH6 implements the published 2026 Summer, Winter and Spring 24-hour UTC windows, including the later VK6 starts. Every QSO requires positive sent and received serials and six-character locators; contacts within the same six-character sub-square score zero.", "On 6 m, 2 m and 70 cm, distance contributes one unit per kilometre through 700 km and one additional unit per 100 km thereafter. Other bands use one unit per kilometre. The final per-QSO result is rounded up after applying the official band factors: 1.7, 1, 2.7, 3.7, 4.4, 5.4, 6.4, 7.4 and 10 for 24 GHz and higher.", "A worked call may be repeated on a band after two hours; a new four-character locator square at either end permits an immediate contact. Mode changes alone do not. The implementation is partial because CATEGORY-TIME 8-HOURS requires selecting the entrant's best consecutive eight-hour interval, while SH6 currently reports the complete 24-hour score, and because category band restrictions, rover site declarations and cross-log adjudication remain external. LogChecker's recovered fixed-factor QSO/grid accumulation is materially obsolete and is not copied."]
+    },
+    {
+      "id": "yo_dx_2026", "archive_folder": "YODX", "name": "YO DX HF Contest 2026",
+      "aliases": ["YODX", "YO-DX", "YO DX", "YO-DX-HF"], "official_rules_urls": ["https://yodx.ro/rules.php", "https://www.hamradio.ro/regulamente/"],
+      "rules_year": "current rules and 2026 results edition", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group", "qso_points": {"model": "yo_dx_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2026-08-22 1200 through 2026-08-23 1159 UTC"},
+      "multipliers": {"model": "multi_group", "counting_scope": "per_band", "groups": ["yo_dx_dxcc", "yo_dx_county"]}, "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["Non-Romanian entrants score eight points with Romania, four across continents, two with another same-continent entity and one within their own DXCC entity. Romanian entrants score four with Europe, eight outside Europe and zero with Romania. Maritime-mobile QSOs score four and never multiply.", "Romanian stations send one of 42 published county abbreviations; all others send a positive serial. A call may be worked once on each band in each of CW and SSB. DXCC entities count per band; non-Romanian entrants additionally count Romanian counties per band, including both the Romanian DXCC and county on the same positive-point contact.", "SH6 enforces the current fourth-full-weekend 2026 event, five bands, CW/SSB, reciprocal exchange shapes, point branches, mode/band duplicates, counties, entrant-dependent multipliers and formula. It cannot perform cross-log confirmation, validate serial progression or enforce the multioperator ten-minute rule and category/frequency-recording requirements, so the implementation is partial. LogChecker's recovered scorer omits the event, exchanges, mode-aware duplicates and current entrant point detail."]
+    },
+    {
+      "id": "yu_dx_2026", "archive_folder": "YUDX", "name": "International YU DX HF Contest 2026",
+      "aliases": ["YUDX", "YU-DX", "YU DX", "YUDXC"], "official_rules_urls": ["https://www.yudx.yu1srs.org.rs/", "https://www.yudx.yu1srs.org.rs/YUDXC_2026_EN.md"],
+      "rules_year": "2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band_mode_group", "qso_points": {"model": "yu_dx_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_mode_groups": ["CW", "SSB"], "contest_window": "2026-09-26 1200 through 2026-09-27 1159 UTC"},
+      "multipliers": {"model": "multi_group", "counting_scope": "per_band", "groups": ["yu_dx_dxcc", "yu_dx_county"]}, "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["Contacts with a YU/YT station score ten points for outside entrants; a YU/YT-to-YU/YT contact scores one. Other contacts score four across continents, two with another entity on the same continent, and one within the entrant's own DXCC entity.", "YU/YT stations send one of the 30 organizer-published county abbreviations; other entrants send a positive serial. A call may be worked once per band in CW and once in SSB. Non-YU entrants count both DXCC entities and YU/YT counties per band; YU/YT entrants count DXCC entities per band but not domestic Serbia.", "SH6 enforces the exact official 2026 event, five bands, modes, reciprocal exchanges, all point branches, current county list, per-band/per-mode duplicates, multiplier perspectives and formula. It cannot enforce category band/mode declarations, DX calling segments, log uniqueness/cross-log requirements or the two-other-log multiplier test, so the implementation is partial. LogChecker's recovered generic 1/2/4 scorer and arbitrary YU exchange multiplier are materially superseded."]
+    },
+    {
+      "id": "xe_rtty_2026", "archive_folder": "XERTTY", "name": "Mexico RTTY International Contest 2026",
+      "aliases": ["XE-RTTY", "XE RTTY", "FMRE-RTTY", "MEXICO-RTTY"], "official_rules_urls": ["https://rtty.fmre.mx/", "https://rtty.fmre.mx/reglas/Rules_FMRE_RTTY_2026.pdf"],
+      "rules_year": "28th edition, 2026", "source_retrieved_on": "2026-08-26", "confidence": "high", "classification": "partial",
+      "duplicate_policy": "call_per_band", "qso_points": {"model": "xe_rtty_2026", "eligible_bands": ["80M", "40M", "20M", "15M", "10M"], "eligible_modes": ["Baudot RTTY"], "contest_window": "2026-02-07 1200 through 2026-02-08 2359 UTC"},
+      "multipliers": {"model": "single_group", "counting_scope": "per_band", "groups": ["xe_rtty_state_or_dxcc"]}, "formula": "score = qso_points_total * multipliers_total",
+      "notes": ["The current official rules award two points in the entrant's own DXCC entity, three with a different entity and four with any Mexican station. Mexican stations send one of the organizer's 32 current state abbreviations and all other stations send a positive serial.", "Each Mexican state (including CDMX) and each non-Mexican DXCC entity counts once per band. SH6 treats the official statement that a station may be worked on different bands as once-per-band duplicate identity.", "SH6 enforces the exact 36-hour 2026 event, Baudot RTTY identity, five non-WARC bands, reciprocal exchanges, current state abbreviations, points, per-band duplicates/multipliers and formula. It cannot prove Baudot speed from generic RTTY, validate serial progression or perform organizer cross-log adjudication, so the rule is partial. LogChecker omits the Mexican four-point override, current event/exchanges/duplicates and uses obsolete state abbreviations such as DF instead of CDMX."]
+    },
+    {
+      "id": "aadx",
+      "archive_folder": "AADX",
+      "name": "All Asian DX Contest",
+      "aliases": [
+        "AADX-CW",
+        "AADX-SSB",
+        "ALL-ASIAN-CW",
+        "ALL-ASIAN-SSB",
+        "ALL ASIAN DX"
+      ],
+      "official_rules_urls": [
+        "https://www.jarl.org/English/4_Library/A-4-3_Contests/2025AA_rule.htm"
+      ],
+      "rules_year": 2025,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "aadx_2025",
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ]
+      },
+      "multipliers": {
+        "model": "station_dependent_group",
+        "counting_scope": "per_band",
+        "groups": [
+          "aadx_entity_or_asian_wpx"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "Asian entrants count worked DXCC entities per band; non-Asian entrants count worked Asian WPX prefixes per band.",
+        "Same-entity contacts score zero and do not count as multipliers.",
+        "Maritime-mobile contacts use Asian-contact points but do not count as multipliers; maritime-mobile entrants may score only Asian contacts.",
+        "The JARL 2025 page was the latest published English rules page found on 2026-08-26; the guessed 2026 URL returned 404."
+      ]
+    },
+    {
+      "id": "cwops_cwt",
+      "archive_folder": "CWOPS",
+      "name": "CWops Test (CWT)",
+      "aliases": [
+        "CW-OPS",
+        "CW OPS",
+        "CWOPS CWT",
+        "CWT"
+      ],
+      "official_rules_urls": [
+        "https://cwops.org/cwops-tests/"
+      ],
+      "rules_year": "current undated organizer page",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "fixed",
+        "rules": [
+          {
+            "when": "valid_qso",
+            "points": 1
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "single_group",
+        "counting_scope": "once_total",
+        "groups": [
+          "unique_callsign"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "A station may be worked once on each band.",
+        "Each valid QSO is one point and each unique callsign worked is one multiplier for the complete session."
+      ]
+    },
+    {
+      "id": "wfd",
+      "archive_folder": "WFD",
+      "name": "Winter Field Day",
+      "aliases": [
+        "WFD",
+        "WINTER FIELD DAY",
+        "WINTER-FIELD-DAY"
+      ],
+      "official_rules_urls": [
+        "https://winterfieldday.org/sop.php",
+        "https://winterfieldday.org/queries/query_rules.php"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "score_completeness": "qso_points_only",
+      "incomplete_score_reason": "Final score is unavailable because Winter Field Day objective selections are submitted outside the uploaded log.",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "by_mode",
+        "rules": [
+          {
+            "mode": "PHONE",
+            "points": 1
+          },
+          {
+            "mode": "CW",
+            "points": 2
+          },
+          {
+            "mode": "DIG",
+            "points": 2
+          }
+        ],
+        "excluded_bands": [
+          "12M",
+          "17M",
+          "30M",
+          "60M"
+        ],
+        "excluded_modes": [
+          "FST4",
+          "FT4",
+          "FT8",
+          "JT4",
+          "JT9",
+          "JT65",
+          "Q65",
+          "MSK144",
+          "WSPR",
+          "FST4W",
+          "ECHO"
+        ],
+        "exclude_satellite": true
+      },
+      "multipliers": {
+        "model": "none_multiplicative",
+        "groups": []
+      },
+      "formula": "score = qso_points_total * objective_multiplier_plus_one",
+      "notes": [
+        "Phone contacts score one point; CW and permitted digital contacts score two points.",
+        "A station may be worked once in each of the Phone, CW, and Digital groups on each band.",
+        "The final 2026 score requires objective selections submitted through the organizer form; those selections are not present in Cabrillo or ADIF logs, so SH6 reports computed QSO points but no computed final score.",
+        "A generic Cabrillo DG mode does not identify the underlying digital protocol, so SH6 can reject explicitly identified WSJT modes but cannot infer whether an undifferentiated DG contact used a prohibited WSJT mode."
+      ]
+    },
+    {
+      "id": "bartg_hf_rtty",
+      "archive_folder": "BARTG_RTTY",
+      "name": "BARTG HF RTTY Contest",
+      "aliases": [
+        "BARTG-RTTY",
+        "BARTG RTTY",
+        "BARTG HF RTTY",
+        "BARTG-HF-RTTY"
+      ],
+      "official_rules_urls": [
+        "https://bartg.org.uk/bartg-hf-rtty-contest/",
+        "https://bartg.org.uk/wp-content/uploads/2025/05/bartg-hf-rtty-rules-2025-v3.pdf"
+      ],
+      "rules_year": 2025,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "fixed",
+        "require_received_exchange": true,
+        "rules": [
+          {
+            "when": "valid_qso",
+            "points": 1
+          }
+        ],
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "RTTY",
+          "RY"
+        ],
+        "eligible_frequency_ranges_mhz": {
+          "80M": [3.58, 3.615],
+          "40M": [7.04, 7.125],
+          "20M": [14.07, 14.125],
+          "15M": [21.07, 21.148],
+          "10M": [28.07, 28.189]
+        },
+        "excluded_frequency_ranges_mhz": [
+          [14.0995, 14.1005]
+        ]
+      },
+      "multipliers": {
+        "model": "bartg_product_factors",
+        "counting_scope": "bartg_hf_mixed",
+        "groups": [
+          "bartg_dxcc_country",
+          "bartg_call_area",
+          "bartg_continent"
+        ]
+      },
+      "formula": "score = qso_points_total * bartg_multiplier_total * continent_mults",
+      "notes": [
+        "DXCC entities and JA, W, VE, and VK call areas count separately on every band; continents count once for the contest, to a maximum of six.",
+        "QSOs outside the organizer's five RTTY frequency windows, including 14100 kHz plus or minus 500 Hz, score zero points and multipliers.",
+        "The organizer page remained current in 2026 and linked this 2025 v3 rules PDF, whose internal revision date is 19 May 2024.",
+        "Operating-time, band-change, entry-category, and organizer check-log restrictions are adjudication constraints and are not inferred by this QSO scoring engine."
+      ]
+    },
+    {
+      "id": "bartg_sprint",
+      "archive_folder": "BARTG_SPRINT",
+      "name": "BARTG January Sprint Contest",
+      "aliases": [
+        "BARTG-SPRINT",
+        "BARTG SPRINT",
+        "BARTG JANUARY SPRINT"
+      ],
+      "official_rules_urls": [
+        "https://bartg.org.uk/bartg-sprint-contest/",
+        "https://bartg.org.uk/wp-content/uploads/2025/05/bartg-sprint-rules-2025-v3.pdf"
+      ],
+      "rules_year": 2025,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "fixed",
+        "require_received_exchange": true,
+        "rules": [
+          {
+            "when": "valid_qso",
+            "points": 1
+          }
+        ],
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "RTTY",
+          "RY"
+        ],
+        "eligible_frequency_ranges_mhz": {
+          "80M": [3.58, 3.615],
+          "40M": [7.04, 7.125],
+          "20M": [14.07, 14.125],
+          "15M": [21.07, 21.148],
+          "10M": [28.07, 28.189]
+        },
+        "excluded_frequency_ranges_mhz": [
+          [14.0995, 14.1005]
+        ]
+      },
+      "multipliers": {
+        "model": "bartg_product_factors",
+        "counting_scope": "once_total",
+        "groups": [
+          "bartg_dxcc_country",
+          "bartg_call_area",
+          "bartg_continent"
+        ]
+      },
+      "formula": "score = qso_points_total * bartg_multiplier_total * continent_mults",
+      "notes": [
+        "DXCC entities and JA, W, VE, and VK call areas count once for the complete contest regardless of band; continents also count once, to a maximum of six.",
+        "Stations may be contacted once per band even though multipliers are global.",
+        "QSOs outside the organizer's five RTTY frequency windows, including 14100 kHz plus or minus 500 Hz, score zero points and multipliers.",
+        "The organizer page remained current in 2026 and linked this 2025 v3 rules PDF, whose internal revision date is 21 May 2024.",
+        "Band-change, entry-category, and organizer check-log restrictions are adjudication constraints and are not inferred by this QSO scoring engine."
+      ]
+    },
+    {
+      "id": "iaru_hf",
+      "archive_folder": "IARU_HF",
+      "name": "IARU HF World Championship",
+      "aliases": [
+        "IARU-HF",
+        "IARU HF",
+        "IARU HF WORLD CHAMPIONSHIP"
+      ],
+      "official_rules_urls": [
+        "https://www.arrl.org/iaru-hf-world-championship",
+        "https://contests.arrl.org/ContestRules/IARU-HF-Rules.pdf"
+      ],
+      "rules_year": "current Version 1.21; 2026 event page",
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "duplicate_policy": "call_per_band_mode_group",
+      "qso_points": {
+        "model": "table_by_station_type_and_itu_relation",
+        "require_received_exchange": true,
+        "eligible_bands": [
+          "160M",
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_mode_groups": [
+          "CW",
+          "SSB"
+        ],
+        "rules": [
+          {
+            "when": "iaru_hq_or_official_station",
+            "points": 1
+          },
+          {
+            "when": "same_itu_zone",
+            "points": 1
+          },
+          {
+            "when": "same_continent_different_itu_zone_iaru",
+            "points": 3
+          },
+          {
+            "when": "different_continent_different_itu_zone",
+            "points": 5
+          }
+        ]
+      },
+      "multipliers": {
+        "model": "sum_of_groups",
+        "counting_scope": "per_band",
+        "groups": [
+          "itu_zone_excluding_iaru_hq",
+          "iaru_hq_or_official"
+        ]
+      },
+      "formula": "score = qso_points_total * multipliers_total",
+      "notes": [
+        "ITU zones and HQ/official abbreviations count separately per band; HQ and official contacts do not also receive a zone multiplier.",
+        "Stations may be worked once per band on CW and once per band on Phone; multiplier identities count once per band, not once per mode.",
+        "HQ and IARU official contacts score one point regardless of geography. AC, R1, R2, and R3 are separate official multipliers per band.",
+        "Entry-category operating restrictions and adjudication penalties are not inferred by the QSO scoring engine."
+      ]
+    },
+    {
+      "id": "ea_rtty",
+      "archive_folder": "EARTTY",
+      "name": "EA RTTY Contest",
+      "aliases": [
+        "EARTTY",
+        "EA-RTTY",
+        "EA RTTY"
+      ],
+      "official_rules_urls": [
+        "https://concursos.ure.es/en/eartty/bases/",
+        "https://diplomas.ure.es/diplomas/eadx100/bases/"
+      ],
+      "rules_year": 2026,
+      "source_retrieved_on": "2026-08-26",
+      "confidence": "high",
+      "score_completeness": "qso_points_only",
+      "incomplete_score_reason": "Final score is unavailable because EADX-100 multiplier validation and unique-QSO adjudication require organizer data outside the uploaded log.",
+      "duplicate_policy": "call_per_band",
+      "qso_points": {
+        "model": "ea_rtty_2026",
+        "require_received_exchange": true,
+        "eligible_bands": [
+          "80M",
+          "40M",
+          "20M",
+          "15M",
+          "10M"
+        ],
+        "eligible_modes": [
+          "RTTY",
+          "RY"
+        ]
+      },
+      "multipliers": {
+        "model": "none_multiplicative",
+        "groups": []
+      },
+      "formula": "score = qso_points_total * official_adjudicated_multipliers",
+      "notes": [
+        "EA entrants score two points with EA and one with DX; DX entrants score three points with EA and one with DX.",
+        "The organizer requires EADX-100 entities, 52 Spanish provinces, EA4URE HQ, and JA/W/VE/VK call areas per band. SH6 does not substitute its DXCC table because EADX-100 also includes WAE entities and URE retains final authority over the entity list.",
+        "The organizer invalidates unique QSOs using cross-log comparison. A single uploaded log cannot determine that adjudication status.",
+        "SH6 therefore reports deterministic pre-adjudication QSO points but no computed multiplier total or final score."
+      ]
+    },
+    {
       "id": "wae",
       "archive_folder": "WAE",
       "name": "Worked All Europe",

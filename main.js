@@ -166,7 +166,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.26';
+  const APP_VERSION = 'v6.3.27';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -276,7 +276,7 @@
   const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.22';
   const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.22';
   const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.22';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.26';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.27';
   const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.22';
   const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.22';
   const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.22';

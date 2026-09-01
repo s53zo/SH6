@@ -135,6 +135,8 @@
           { path: 'WAE/SSB/2024/S53M.log', contest: 'WAE', year: 2024, mode: '', season: '' },
           { path: 'WAE/RTTY/2023/S53M.log', contest: 'WAE', year: 2023, mode: 'RTTY', season: '' },
           { path: 'OK1WC_Memorial/2026-03-02/S53M.log', contest: 'OK1WC_Memorial', year: 2026, mode: '', season: 'Spring' },
+          { path: 'TTC-SPCWC/2026-08-25/S53M.log', contest: 'TTC-SPCWC', year: 2026, mode: 'CW', season: 'Summer' },
+          { path: 'TTC-SPCWC/2026-08-18/S53M.log', contest: 'TTC-SPCWC', year: 2026, mode: 'MIXED', season: 'Summer' },
           { path: 'RECONSTRUCTED_LOGS/CQWW/cw/2023/S53M.log', contest: 'CQWW', year: 2023, mode: 'CW', season: '' }
         ];
 
@@ -201,8 +203,22 @@
           'Weekly archive contests render by round date instead of season',
           dom.resultsEl.textContent.includes('OK1WC_Memorial')
             && dom.resultsEl.textContent.includes('2026-03-02')
-            && !dom.resultsEl.textContent.includes('Spring'),
+            && dom.resultsEl.textContent.includes('TTC-SPCWC')
+            && dom.resultsEl.textContent.includes('2026-08-25')
+            && dom.resultsEl.textContent.includes('2026-08-18')
+            && !dom.resultsEl.textContent.includes('Spring')
+            && !dom.resultsEl.textContent.includes('Summer'),
           dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
+        );
+        const ttcButton = dom.resultsEl.querySelector('button[data-path="TTC-SPCWC/2026-08-25/S53M.log"]');
+        const ttcHierarchy = [];
+        for (let node = ttcButton?.parentElement; node && node !== dom.resultsEl; node = node.parentElement) {
+          if (node.matches?.('details')) ttcHierarchy.unshift(node.querySelector(':scope > summary')?.textContent.trim());
+        }
+        add(
+          'TTC-SPCWC archive paths group as contest, year, then round date',
+          JSON.stringify(ttcHierarchy) === JSON.stringify(['TTC-SPCWC', '2026', '2026-08-25']),
+          JSON.stringify(ttcHierarchy)
         );
         add(
           'Reconstructed ARRL paths render under the real subcontest without an unspecified mode folder',

@@ -2,6 +2,10 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.27 (2026-09-01)
+- Render TTC-SPCWC archive entries by weekly round date instead of collapsing them into seasonal mode groups.
+- Add TTC-SPCWC weekly archive-tree regression coverage alongside OK1WC Memorial.
+
 ## v6.3.26 (2026-07-17)
 - Remove the false `(unspecified)` archive level from mode-only paths such as `WAE/CW/2025` and `CQWW/SSB/2025`.
 - Preserve mode and detail labels from archive paths when optional shard metadata is absent.

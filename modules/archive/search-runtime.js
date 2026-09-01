@@ -122,7 +122,7 @@ export function createArchiveSearchRuntime(deps = {}) {
 
   function isArchiveWeeklyRoundContest(contest) {
     const key = normalizeLabel(contest).toUpperCase();
-    return key.startsWith('WEDNESDAYMINITEST') || key === 'OK1WC_MEMORIAL';
+    return key.startsWith('WEDNESDAYMINITEST') || key === 'OK1WC_MEMORIAL' || key === 'TTC-SPCWC';
   }
 
   function parseIsoWeek(dateStr) {

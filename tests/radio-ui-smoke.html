@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Radio UI smoke</title></head>
+<body><div id="status">RUNNING</div><pre id="result"></pre><iframe id="app" src="../index.html" hidden></iframe>
+<script>
+(async () => {
+  const status = document.getElementById('status');
+  const result = document.getElementById('result');
+  const checks = [];
+  const check = (name, passed, details = '') => checks.push({ name, passed: Boolean(passed), details });
+  const waitFor = async (fn, ms = 30000) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) { const value = fn(); if (value) return value; await new Promise((r) => setTimeout(r, 100)); }
+    throw new Error('Timed out');
+  };
+  try {
+    const frame = document.getElementById('app');
+    await new Promise((resolve) => frame.addEventListener('load', resolve, { once: true }));
+    const win = frame.contentWindow;
+    const doc = frame.contentDocument;
+    await waitFor(() => win.SH6 && doc.getElementById('fileInput'));
+    await waitFor(() => doc.querySelectorAll('#navList [data-index]').length > 5 && doc.getElementById('viewTitle').textContent.trim() === 'Start');
+    const text = await fetch('./fixtures/radio-m2.log').then((r) => r.text());
+    const transfer = new win.DataTransfer();
+    transfer.items.add(new win.File([text], 'radio-m2.log', { type: 'text/plain' }));
+    const input = doc.getElementById('fileInput');
+    input.files = transfer.files;
+    input.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await waitFor(() => win.SH6.getSlotById('A')?.qsoData?.qsos?.length === 3);
+    await waitFor(() => !doc.getElementById('radioFilterRibbon').hidden);
+    const clickReport = async (title) => {
+      const navItems = Array.from(doc.querySelectorAll('#navList [data-index]'));
+      const item = navItems.find((el) => el.textContent.trim() === title);
+      if (!item) throw new Error(`Missing report ${title}`);
+      item.click();
+      await waitFor(() => doc.getElementById('viewTitle').textContent.trim() === title && doc.getElementById('viewContainer').getAttribute('aria-busy') === 'false');
+    };
+    await clickReport('Log');
+    const headers = Array.from(doc.querySelectorAll('.log-table tr.thc th')).map((el) => el.textContent.trim());
+    check('Radio is the last Log column', headers.at(-1) === 'Radio', headers);
+    check('Radio filter is visible', Boolean(doc.getElementById('logRadioFilter')));
+    check('Submitted IDs render as R0/R1', /R0/.test(doc.getElementById('viewContainer').textContent) && /R1/.test(doc.getElementById('viewContainer').textContent));
+    doc.getElementById('logRadioFilter').value = '1';
+    doc.getElementById('logRadioFilter').dispatchEvent(new win.Event('change', { bubbles: true }));
+    await waitFor(() => /Showing 1-1 of 1 QSOs/.test(doc.getElementById('viewContainer').textContent));
+    check('Log Radio filter changes pagination/count', true);
+    await clickReport('Radio timeline');
+    check('Radio timeline renders accessible table', Boolean(doc.querySelector('.radio-timeline-table')));
+    check('Dedicated timeline ignores global Radio filter and renders both lanes', doc.querySelectorAll('.radio-timeline-figure .radio-timeline-lane').length === 2);
+    check('Timeline has a visible band legend and one keyboard stop per lane', Boolean(doc.querySelector('.radio-band-legend')) && Array.from(doc.querySelectorAll('.radio-timeline-track')).every((track) => track.tabIndex === 0) && Array.from(doc.querySelectorAll('.radio-timeline-segment')).every((segment) => segment.tabIndex < 0));
+    check('Radio reports expose analytical CSV export', Boolean(doc.querySelector('.radio-csv-export')));
+    await clickReport('Transmitter-rule audit');
+    check('Audit renders category diagnostics', /Recorded|Declared capacity/.test(doc.getElementById('viewContainer').textContent));
+    await clickReport('Band-pair heatmap');
+    check('Heatmap exposes radio and metric selectors', Boolean(doc.getElementById('radioHeatA') && doc.getElementById('radioHeatB') && doc.getElementById('radioHeatMetric')));
+    await clickReport('Qs by minute');
+    const firstMinuteLink = doc.querySelector('.log-minute');
+    check('Minute report exposes a time drill-down', Boolean(firstMinuteLink));
+    firstMinuteLink?.click();
+    await waitFor(() => doc.getElementById('viewTitle').textContent.trim() === 'Log');
+    await clickReport('Radio timeline');
+    check('Dedicated Radio report honors explicit Log time range', doc.querySelectorAll('.radio-timeline-table tbody tr:not(.radio-idle-row)').length === 2);
+
+    const compareTwo = doc.querySelector('input[name="compareCount"][value="2"]');
+    compareTwo.checked = true;
+    compareTwo.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await waitFor(() => doc.getElementById('fileInputB'));
+    const transferB = new win.DataTransfer();
+    const heteroText = [
+      '20260711;120000;K1ABC;20M;CW;599;599;001;002;TEST1;JN76;15;28;ALPHA',
+      '20260711;120030;K2ABC;15M;CW;599;599;002;003;TEST1;JN76;15;28;BETA',
+      '20260711;120100;K3ABC;20M;CW;599;599;003;004;TEST1;JN76;15;28;ALPHA'
+    ].join('\n');
+    transferB.items.add(new win.File([heteroText], 'radio-m2-b.cbf', { type: 'text/plain' }));
+    const inputB = doc.getElementById('fileInputB');
+    inputB.files = transferB.files;
+    inputB.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await waitFor(() => win.SH6.getSlotById('B')?.qsoData?.qsos?.length === 3);
+    await clickReport('Log');
+    const compareHeaders = Array.from(doc.querySelectorAll('.compare-log-table tr.thc')).at(-1)?.querySelectorAll('th') || [];
+    check('Compare Log keeps Radio as each slot’s final available column', Array.from(compareHeaders).filter((el) => el.textContent.trim() === 'Radio').length === 2 && Array.from(compareHeaders).at(-1)?.textContent.trim() === 'Radio');
+    await clickReport('Radio timeline');
+    check('Compare timeline keeps both radios for each log', doc.querySelectorAll('.radio-timeline-figure .radio-timeline-lane').length === 4);
+    const compareAxes = Array.from(doc.querySelectorAll('.radio-timeline-axis')).map((axis) => axis.textContent.trim());
+    check('Compare timeline panels share one UTC scale', compareAxes.length === 2 && new Set(compareAxes).size === 1, compareAxes);
+    await clickReport('Radio coordination');
+    const compareShape = { workspaces: doc.querySelectorAll('.compare-workspace').length, panels: doc.querySelectorAll('.compare-panel').length, directPanels: doc.querySelectorAll('.compare-workspace > .compare-grid > .compare-panel').length, nested: doc.querySelectorAll('.compare-panel .compare-workspace').length };
+    check('Radio reports render exactly once per compare slot', compareShape.workspaces === 1 && compareShape.panels === 2 && compareShape.nested === 0, compareShape);
+    check('Radio compare exports appear once per slot', doc.querySelectorAll('.radio-csv-export').length === 2);
+    await clickReport('Band-pair heatmap');
+    check('Heterogeneous heatmap pair fallback is explicit', /does not contain both selected IDs/.test(doc.getElementById('viewContainer').textContent));
+    await clickReport('Competitor coach');
+    check('Single-instance compare report retains per-log Radio integration', doc.querySelectorAll('.radio-compare-context .radio-context-panel').length === 2);
+
+    const compareFour = doc.querySelector('input[name="compareCount"][value="4"]');
+    compareFour.checked = true;
+    compareFour.dispatchEvent(new win.Event('change', { bubbles: true }));
+    await waitFor(() => doc.getElementById('fileInputC') && doc.getElementById('fileInputD'));
+    for (const slot of ['C', 'D']) {
+      const transferExtra = new win.DataTransfer();
+      transferExtra.items.add(new win.File([text], `radio-m2-${slot.toLowerCase()}.log`, { type: 'text/plain' }));
+      const slotInput = doc.getElementById(`fileInput${slot}`);
+      slotInput.files = transferExtra.files;
+      slotInput.dispatchEvent(new win.Event('change', { bubbles: true }));
+      await waitFor(() => win.SH6.getSlotById(slot)?.qsoData?.qsos?.length === 3);
+    }
+    await clickReport('Radio timeline');
+    const fourShape = { workspaces: doc.querySelectorAll('.compare-workspace').length, panels: doc.querySelectorAll('.compare-panel').length, nested: doc.querySelectorAll('.compare-panel .compare-workspace').length, lanes: doc.querySelectorAll('.radio-timeline-lane').length, exports: doc.querySelectorAll('.radio-csv-export').length };
+    check('Four-log Radio timeline renders 4 panels without nesting', fourShape.workspaces === 1 && fourShape.panels === 4 && fourShape.nested === 0 && fourShape.lanes === 8 && fourShape.exports === 4, fourShape);
+    await clickReport('Main');
+    check('Ordinary compare report has one workspace and compact Radio split', doc.querySelectorAll('.compare-workspace').length === 1 && doc.querySelectorAll('.compare-panel .compare-workspace').length === 0 && doc.querySelectorAll('.radio-compare-context').length === 1);
+    await clickReport('Log');
+    const fourLogTables = Array.from(doc.querySelectorAll('.compare-log-table'));
+    const fourHeaders = fourLogTables.flatMap((table) => Array.from(table.querySelectorAll('tr.thc th')).map((cell) => cell.textContent.trim()));
+    const fourLogShape = { count: fourLogTables.length, radioColumns: fourHeaders.filter((value) => value === 'Radio').length, lastHeader: fourHeaders.at(-1) };
+    check('Four-log Log view keeps a final Radio column for every slot', fourLogTables.length === 1 && fourLogShape.radioColumns === 4 && fourLogShape.lastHeader === 'Radio', fourLogShape);
+  } catch (err) {
+    check('Smoke completed', false, err?.stack || String(err));
+  }
+  const passed = checks.every((entry) => entry.passed);
+  status.textContent = passed ? 'PASS' : 'FAIL';
+  result.textContent = JSON.stringify({ passed, checks }, null, 2);
+})();
+</script></body></html>

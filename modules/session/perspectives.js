@@ -48,6 +48,10 @@ export function createComparePerspectiveStore(deps = {}) {
       compareTimeRangeLock: cloneTsRange(state.compareTimeRangeLock),
       compareFocus: cloneCompareFocus(state.compareFocus),
       globalBandFilter: state.globalBandFilter || '',
+      globalRadioFilter: state.globalRadioFilter || '',
+      radioHeatMetric: state.radioHeatMetric || 'minutes',
+      radioHeatA: state.radioHeatA || '',
+      radioHeatB: state.radioHeatB || '',
       logTimeRange: cloneTsRange(state.logTimeRange)
     };
   }
@@ -75,6 +79,10 @@ export function createComparePerspectiveStore(deps = {}) {
       compareTimeRangeLock: explicitRange,
       compareFocus: cloneCompareFocus(input.compareFocus || state.compareFocus || defaultCompareFocus),
       globalBandFilter: typeof input.globalBandFilter === 'string' ? input.globalBandFilter : (state.globalBandFilter || ''),
+      globalRadioFilter: typeof input.globalRadioFilter === 'string' ? input.globalRadioFilter : (state.globalRadioFilter || ''),
+      radioHeatMetric: ['minutes', 'qsos', 'points', 'multipliers', 'combinedRate'].includes(input.radioHeatMetric) ? input.radioHeatMetric : (state.radioHeatMetric || 'minutes'),
+      radioHeatA: typeof input.radioHeatA === 'string' ? input.radioHeatA : (state.radioHeatA || ''),
+      radioHeatB: typeof input.radioHeatB === 'string' ? input.radioHeatB : (state.radioHeatB || ''),
       logTimeRange: explicitLogRange
     };
   }

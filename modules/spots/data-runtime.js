@@ -831,8 +831,38 @@ export function createSpotsDataRuntime(deps = {}) {
       return filterSet.has(key);
     };
     const displayRange = resolveSpotDisplayRange(target);
-    const qsoIndex = spotsState.qsoIndex || buildQsoTimeIndex(target.qsoData.qsos);
-    const qsoCallIndex = spotsState.qsoCallIndex || buildQsoCallIndex(target.qsoData.qsos);
+    const qsoRecordsByBand = new Map();
+    const qsoRecordsByBandCall = new Map();
+    (target.qsoData.qsos || []).forEach((qso) => {
+      if (!Number.isFinite(qso?.ts)) return;
+      const band = normalizeBandTokenSafe(qso.band || '');
+      if (!qsoRecordsByBand.has(band)) qsoRecordsByBand.set(band, []);
+      qsoRecordsByBand.get(band).push(qso);
+      const call = normalizeCallSafe(qso.call || '');
+      if (call) {
+        const key = `${band}|${call}`;
+        if (!qsoRecordsByBandCall.has(key)) qsoRecordsByBandCall.set(key, []);
+        qsoRecordsByBandCall.get(key).push(qso);
+      }
+    });
+    qsoRecordsByBand.forEach((list) => list.sort((a, b) => a.ts - b.ts));
+    qsoRecordsByBandCall.forEach((list) => list.sort((a, b) => a.ts - b.ts));
+    const nearestQso = (band, ts, call = '') => {
+      const bandKey = normalizeBandTokenSafe(band || '');
+      const wantedCall = normalizeCallSafe(call);
+      const list = wantedCall ? (qsoRecordsByBandCall.get(`${bandKey}|${wantedCall}`) || []) : (qsoRecordsByBand.get(bandKey) || []);
+      let lo = 0;
+      let hi = list.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (list[mid].ts < ts) lo = mid + 1; else hi = mid; }
+      const candidates = [list[lo - 1], list[lo]].filter(Boolean);
+      const best = candidates.sort((a, b) => Math.abs(a.ts - ts) - Math.abs(b.ts - ts))[0] || null;
+      return best && Math.abs(best.ts - ts) <= windowMs ? best : null;
+    };
+    const radioIdForQso = (qso) => {
+      const value = qso?.txId ?? qso?.raw?.TX_ID ?? qso?.raw?.TRANSMITTER_ID ?? qso?.raw?.RADIO_ID ?? qso?.raw?.RADIO;
+      const id = String(value == null ? '' : value).trim().toUpperCase();
+      return /^[A-Z0-9][A-Z0-9._-]{0,15}$/.test(id) ? id : null;
+    };
     let ofUs = 0;
     let byUs = 0;
     let ofUsMatched = 0;
@@ -854,14 +884,15 @@ export function createSpotsDataRuntime(deps = {}) {
       const bandKey = spot.band || 'unknown';
       if (!bandStats.has(bandKey)) bandStats.set(bandKey, { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 });
       bandStats.get(bandKey).ofUs += 1;
-      const matched = hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs);
+      const matchedQso = nearestQso(spot.band, spot.ts);
+      const matched = Boolean(matchedQso);
       if (matched) {
         ofUsMatched += 1;
         bandStats.get(bandKey).ofUsMatched += 1;
       }
-      const delta = matched ? getNearestQsoDeltaMinutes(spot.band, spot.ts, qsoIndex) : null;
+      const delta = matchedQso ? Math.abs(matchedQso.ts - spot.ts) / 60000 : null;
       if (matched && Number.isFinite(delta)) responseTimes.push(delta);
-      ofUsSpots.push({ ...spot, matched, delta });
+      ofUsSpots.push({ ...spot, matched, delta, matchedRadioId: radioIdForQso(matchedQso), radioAttribution: matchedQso ? 'time-nearby inferred' : '' });
       if (spot.band) {
         if (!heatmap.has(spot.band)) heatmap.set(spot.band, Array.from({ length: 24 }, () => 0));
         const hour = new Date(spot.ts).getUTCHours();
@@ -876,18 +907,21 @@ export function createSpotsDataRuntime(deps = {}) {
       const bandKey = spot.band || 'unknown';
       if (!bandStats.has(bandKey)) bandStats.set(bandKey, { ofUs: 0, ofUsMatched: 0, byUs: 0, byUsMatched: 0 });
       bandStats.get(bandKey).byUs += 1;
-      const matched = hasQsoWithin(spot.band, spot.ts, qsoIndex, windowMs);
+      const matchedAnyQso = nearestQso(spot.band, spot.ts);
+      const matched = Boolean(matchedAnyQso);
       if (matched) {
         byUsMatched += 1;
         bandStats.get(bandKey).byUsMatched += 1;
       }
-      const matchedDx = hasQsoCallWithin(spot.band, spot.dxCall, spot.ts, qsoCallIndex, windowMs);
-      const deltaDx = matchedDx ? getNearestQsoCallDeltaMinutes(spot.band, spot.dxCall, spot.ts, qsoCallIndex) : null;
+      const matchedDxQso = nearestQso(spot.band, spot.ts, spot.dxCall);
+      const matchedDx = Boolean(matchedDxQso);
+      const deltaDx = matchedDxQso ? Math.abs(matchedDxQso.ts - spot.ts) / 60000 : null;
       if (matchedDx) {
         byUsMatchedDx += 1;
         if (Number.isFinite(deltaDx)) responseDxTimes.push(deltaDx);
       }
-      byUsSpots.push({ ...spot, matched, matchedDx, deltaDx: Number.isFinite(deltaDx) ? deltaDx : null });
+      const matchedQso = matchedDxQso || matchedAnyQso;
+      byUsSpots.push({ ...spot, matched, matchedDx, deltaDx: Number.isFinite(deltaDx) ? deltaDx : null, matchedRadioId: radioIdForQso(matchedQso), radioAttribution: matchedQso ? 'time-nearby inferred' : '' });
     });
     const topSpotters = Array.from(spotters.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
     const topDx = Array.from(dxTargets.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);

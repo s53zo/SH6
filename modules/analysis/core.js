@@ -1523,9 +1523,45 @@
   function shouldParseCabrilloTxId(header) {
     const tx = String(normalizeCabrilloHeaderValue(header?.['CATEGORY-TRANSMITTER'] || '') || '').toUpperCase();
     const op = String(normalizeCabrilloHeaderValue(header?.['CATEGORY-OPERATOR'] || '') || '').toUpperCase();
-    if (tx && tx !== 'ONE' && tx !== 'SINGLE') return true;
-    if (op.includes('MULTI')) return true;
-    return false;
+    return Boolean((tx && tx !== 'ONE' && tx !== 'SINGLE') || op.includes('MULTI'));
+  }
+
+  function normalizeTransmitterId(value) {
+    if (value == null) return null;
+    const normalized = String(value).trim().toUpperCase();
+    if (!normalized || !/^[A-Z0-9][A-Z0-9._-]{0,15}$/.test(normalized)) return null;
+    return normalized;
+  }
+
+  function hasCabrilloTransmitterFieldShape(tokens) {
+    if (!Array.isArray(tokens) || tokens.length < 9) return false;
+    if (tokens.length >= 8 && isMaidenheadGrid(tokens[5]) && isCallsignToken(tokens[6]) && isMaidenheadGrid(tokens[7])) {
+      return tokens.length >= 9;
+    }
+    if (tokens.length >= 8 && isCallsignToken(tokens[5]) && isLikelyRstToken(tokens[6]) && isLikelyRstToken(tokens[7])) {
+      return tokens.length >= 10;
+    }
+    const rest = tokens.slice(6);
+    let dxIndex = -1;
+    for (let i = 0; i < rest.length; i += 1) {
+      if (isCallsignToken(rest[i]) && i + 1 < rest.length && isLikelyRstToken(rest[i + 1])) {
+        dxIndex = i;
+        break;
+      }
+    }
+    // A valid transmitter field follows at least one received-exchange token.
+    return dxIndex >= 0 && rest.length - (dxIndex + 2) >= 2;
+  }
+
+  function parseCabrilloTransmitterId(tokens, header) {
+    if (!Array.isArray(tokens) || tokens.length < 9 || !shouldParseCabrilloTxId(header)) return null;
+    if (!hasCabrilloTransmitterFieldShape(tokens)) return null;
+    const candidate = normalizeTransmitterId(tokens[tokens.length - 1]);
+    if (!candidate) return null;
+    // Cabrillo's transmitter field is defined as the submitted 0/1 stream ID.
+    // Broader identifiers are accepted only from explicitly named ADIF/CBF fields;
+    // inferring them from a repeated Cabrillo tail can consume valid exchanges.
+    return /^(?:0|1)$/.test(candidate) ? candidate : null;
   }
 
   function parseCabrillo(text) {
@@ -1533,6 +1569,26 @@
     const header = {};
     const qsos = [];
     const qtcs = [];
+    const qsoLines = [];
+    const qtcLines = [];
+    lines.forEach((line, lineIndex) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      if (/^QSO:/i.test(trimmed)) {
+        qsoLines.push({ tokens: trimmed.replace(/^QSO:\s*/i, '').split(/\s+/), lineIndex, rawLine: trimmed });
+      } else if (/^QTC:/i.test(trimmed)) {
+        qtcLines.push({ tokens: trimmed.replace(/^QTC:\s*/i, '').split(/\s+/), lineIndex, rawLine: trimmed });
+      } else {
+        const idx = trimmed.indexOf(':');
+        if (idx === -1) return;
+        const key = trimmed.slice(0, idx).trim().toUpperCase();
+        const value = trimmed.slice(idx + 1).trim();
+        if (!key) return;
+        if (header[key] == null) header[key] = value;
+        else if (Array.isArray(header[key])) header[key].push(value);
+        else header[key] = [header[key], value];
+      }
+    });
     const parseQsoTokens = (tokens, lineIndex, rawLine) => {
       if (tokens.length < 8) return;
       const freqInfo = parseCabrilloFreqToken(tokens[0]);
@@ -1543,8 +1599,10 @@
       const myCall = tokens[4] || '';
       let txId = null;
       const working = tokens.slice();
-      if (working.length >= 9 && /^\d$/.test(working[working.length - 1]) && shouldParseCabrilloTxId(header)) {
-        txId = working.pop();
+      const parsedTxId = parseCabrilloTransmitterId(working, header);
+      if (parsedTxId != null) {
+        txId = parsedTxId;
+        working.pop();
       }
 
       const isVhfGrid = working.length >= 8
@@ -1706,24 +1764,8 @@
       });
     };
 
-    lines.forEach((line, lineIndex) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      if (/^QSO:/i.test(trimmed)) {
-        parseQsoTokens(trimmed.replace(/^QSO:\s*/i, '').split(/\s+/), lineIndex, trimmed);
-      } else if (/^QTC:/i.test(trimmed)) {
-        parseQtcTokens(trimmed.replace(/^QTC:\s*/i, '').split(/\s+/), lineIndex, trimmed);
-      } else {
-        const idx = trimmed.indexOf(':');
-        if (idx === -1) return;
-        const key = trimmed.slice(0, idx).trim().toUpperCase();
-        const value = trimmed.slice(idx + 1).trim();
-        if (!key) return;
-        if (header[key] == null) header[key] = value;
-        else if (Array.isArray(header[key])) header[key].push(value);
-        else header[key] = [header[key], value];
-      }
-    });
+    qsoLines.forEach(({ tokens, lineIndex, rawLine }) => parseQsoTokens(tokens, lineIndex, rawLine));
+    qtcLines.forEach(({ tokens, lineIndex, rawLine }) => parseQtcTokens(tokens, lineIndex, rawLine));
 
     return { header, qsos, qtcs };
   }
@@ -1765,7 +1807,7 @@
       const parts = cleaned.split(/[\t;]+/).map((p) => p.trim());
       if (parts.length < 5) continue;
       const fields = parts.length >= 5 ? parts : line.split(',').map((p) => p.trim());
-      const [date, time, call, bandOrFreq, mode, rstSent, rstRcvd, exchSent, exchRcvd, operator, grid, cqz, ituz] = fields;
+      const [date, time, call, bandOrFreq, mode, rstSent, rstRcvd, exchSent, exchRcvd, operator, grid, cqz, ituz, txId] = fields;
       const freqInfo = parseCabrilloFreqToken(bandOrFreq);
       const band = freqInfo.band || normalizeBandToken(bandOrFreq);
       const freq = Number.isFinite(freqInfo.freqMHz) ? freqInfo.freqMHz : null;
@@ -1783,7 +1825,8 @@
         OPERATOR: operator,
         GRIDSQUARE: grid,
         CQZ: cqz,
-        ITUZ: ituz
+        ITUZ: ituz,
+        TX_ID: txId
       });
     }
     return qsos;
@@ -1838,6 +1881,7 @@
         eventType: 'QSO',
         lineIndex: Number.isFinite(r.LINE_INDEX) ? r.LINE_INDEX : null,
         rawLine: r.RAW_LINE || '',
+        txId: normalizeTransmitterId(r.TX_ID),
         raw: Object.assign({}, sharedRaw, r)
       }));
       const stationCall = normalizeCall(sharedRaw.STATION_CALLSIGN);
@@ -1909,6 +1953,7 @@
         srx: firstNonNull(r.SRX_STRING, r.SRX),
         stx: firstNonNull(r.STX_STRING, r.STX),
         comment: r.COMMENT || r.NOTES,
+        txId: normalizeTransmitterId(firstNonNull(r.TX_ID, r.TRANSMITTER_ID, r.RADIO_ID, r.RADIO, r.APP_N1MM_RADIO_NR)),
         raw: r
       }));
       return { type: 'ADIF', qsos, qtcs: [], events: qsos.slice() };
@@ -1934,6 +1979,7 @@
         srx: firstNonNull(r.EXCH_RCVD, r.SRX),
         stx: firstNonNull(r.EXCH_SENT, r.STX),
         comment: r.COMMENT || r.NOTES,
+        txId: normalizeTransmitterId(firstNonNull(r.TX_ID, r.TRANSMITTER_ID, r.RADIO_ID, r.RADIO, r.APP_N1MM_RADIO_NR)),
         raw: r
       }));
       return { type: 'CBF', qsos, qtcs: [], events: qsos.slice() };
@@ -1955,6 +2001,7 @@
         exchSent: firstNonNull(r.STX_STRING, r.STX),
         exchRcvd: firstNonNull(r.SRX_STRING, r.SRX, r.APP_N1MM_EXCHANGE1),
         points: parseInt(firstNonNull(r.APP_N1MM_POINTS, r.QSO_PTS, r.QSO_POINTS, r.POINTS), 10),
+        txId: normalizeTransmitterId(firstNonNull(r.TX_ID, r.TRANSMITTER_ID, r.RADIO_ID, r.RADIO, r.APP_N1MM_RADIO_NR)),
         raw: r
       }));
       return { type: 'ADIF', qsos, qtcs: [], events: qsos.slice() };
@@ -3746,7 +3793,7 @@
         const powerEligible = !/(?:HIGH|HP)/.test(station.stationCategoryPower || '');
         let bandLockEligible = true;
         if (station.stationIsMultiOperator) {
-          const txId = String(q?.raw?.TX_ID ?? '');
+          const txId = String(q?.txId ?? q?.raw?.TX_ID ?? '');
           if (!txId) {
             assumptions.add('NAQP M2 QSO lacks Cabrillo transmitter ID; the 10-minute band lock could not be verified for that QSO.');
           } else {
@@ -3773,7 +3820,7 @@
         let operationallyEligible = true;
         const isMost = station.stationIsMultiOperator && /(?:ONE|SINGLE)/.test(station.stationCategoryTransmitter || '');
         if (isMost) {
-          const txId = String(q?.raw?.TX_ID ?? '');
+          const txId = String(q?.txId ?? q?.raw?.TX_ID ?? '');
           if (!txId) {
             assumptions.add('RAC MOST QSO lacks Cabrillo transmitter ID; 10-minute band and multiplier-station restrictions could not be verified.');
           } else {

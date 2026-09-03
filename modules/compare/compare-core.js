@@ -39,6 +39,7 @@
     const fieldFilter = filters.fieldFilter || '';
     const bandFilter = filters.bandFilter || '';
     const modeFilter = filters.modeFilter || '';
+    const radioFilter = String(filters.radioFilter || '').trim().toUpperCase();
     const opFilter = filters.opFilter || '';
     const callLenFilter = Number.isFinite(filters.callLenFilter)
       ? filters.callLenFilter
@@ -60,6 +61,12 @@
       if (fieldFilter && (!q.grid || !q.grid.startsWith(fieldFilter))) continue;
       if (bandFilter && (!q.band || q.band.toUpperCase() !== bandFilter)) continue;
       if (modeFilter && modeFilter !== 'All' && modeBucket(q.mode) !== modeFilter) continue;
+      if (radioFilter) {
+        const rawRadio = q?.txId ?? q?.raw?.TX_ID ?? q?.raw?.TRANSMITTER_ID ?? q?.raw?.RADIO_ID ?? q?.raw?.RADIO;
+        const candidate = String(rawRadio == null ? '' : rawRadio).trim().toUpperCase();
+        const radioId = /^[A-Z0-9][A-Z0-9._-]{0,15}$/.test(candidate) ? candidate : '';
+        if (radioFilter === '__MISSING__' ? Boolean(radioId) : radioId !== radioFilter) continue;
+      }
       if (opFilter && (!q.op || q.op.toUpperCase() !== opFilter)) continue;
       if (Number.isFinite(callLenFilter) && (!q.call || q.call.length !== callLenFilter)) continue;
       if (callStructFilter && (!q.call || classifyCallStructure(q.call) !== callStructFilter)) continue;

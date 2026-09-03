@@ -2,6 +2,18 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.28 (2026-09-03)
+- Promote Cabrillo/ADIF/CBF transmitter identifiers to `q.txId` while preserving `raw.TX_ID`, raw QSO lines, worker propagation, session state, and existing NAQP/RAC scoring behavior.
+- Add an unobtrusive global Radio filter and per-Log Radio filtering; Radio is the final standard and compare Log column and missing values remain explicit.
+- Add per-radio context to existing analytical views plus Radio timeline, Radio coordination, Possible radio handoffs, Transmitter-rule audit, and Band-pair heatmap reports.
+- Add reusable completeness, workload, activity, idle-gap, multiplier, collision, and M/2 single-ID diagnostics; archived MB5Q is correctly Suspicious while MB5O/MB4G/MB1T are Complete.
+- Add radio regression coverage and documentation without modifying archive logs or protected contest scoring rules.
+- Harden Cabrillo parsing so omitted IDs do not consume exchanges, preserve RAC multi-single 0/1 enforcement, and recognize N1MM ADIF radio numbers.
+- Replace nested compare rendering with one panel per log, add visual timeline lanes and aligned radio series, collapse optional existing-report splits, and make coordination/audit CSV exports report-specific.
+- Keep Radio reports and CSV exports aligned with active band/time filters, use shared UTC and intensity scales in timeline comparisons, preserve explicit gaps in rate charts, and explain heterogeneous heatmap fallbacks.
+- Improve Radio accessibility with semantic tables, visible band legends, keyboard-focusable lane summaries, synchronized filter controls, and expanded Radio details in HTML/PDF exports.
+- Attribute spot/RBN matches and transmitter IDs from the same nearest QSO, count multiple multiplier credits correctly, and make possible-handoff detection near-linear while excluding simultaneous or ordinary alternating activity.
+
 ## v6.3.27 (2026-09-01)
 - Render TTC-SPCWC archive entries by weekly round date instead of collapsing them into seasonal mode groups.
 - Add TTC-SPCWC weekly archive-tree regression coverage alongside OK1WC Memorial.

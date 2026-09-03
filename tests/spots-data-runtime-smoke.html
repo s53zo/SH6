@@ -196,8 +196,8 @@
           },
           qsoData: {
             qsos: [
-              { ts: spotOfUsMs, band: '20M', call: 'K1ABC' },
-              { ts: spotByUsMs, band: '20M', call: 'K1ABC' }
+              { ts: spotOfUsMs, band: '20M', call: 'K1ABC', txId: '0' },
+              { ts: spotByUsMs, band: '20M', call: 'K1ABC', txId: '1' }
             ]
           },
           spotsState: createBaseSpotsState(),
@@ -281,7 +281,9 @@
               && state.spotsState.totalOfUs === 1
               && state.spotsState.totalByUs === 1
               && state.spotsState.stats?.ofUsMatched === 1
-              && state.spotsState.stats?.byUsMatchedDx === 1,
+              && state.spotsState.stats?.byUsMatchedDx === 1
+              && state.spotsState.stats?.ofUsSpots?.[0]?.matchedRadioId === '0'
+              && state.spotsState.stats?.byUsSpots?.[0]?.matchedRadioId === '1',
             JSON.stringify({
               status: state.spotsState.status,
               totalOfUs: state.spotsState.totalOfUs,
@@ -296,7 +298,9 @@
             state.rbnState.status === 'ready'
               && state.rbnState.raw?.ofUsSpots?.[0]?.band === '20M'
               && state.rbnState.raw?.byUsSpots?.[0]?.comment?.includes('SNR 20 dB')
-              && state.rbnState.stats?.byUsMatchedDx === 1,
+              && state.rbnState.stats?.byUsMatchedDx === 1
+              && state.rbnState.stats?.ofUsSpots?.[0]?.matchedRadioId === '0'
+              && state.rbnState.stats?.byUsSpots?.[0]?.matchedRadioId === '1',
             JSON.stringify({
               status: state.rbnState.status,
               band: state.rbnState.raw?.ofUsSpots?.[0]?.band,
@@ -307,6 +311,28 @@
         } finally {
           globalThis.fetch = originalFetch;
         }
+
+        const ambiguityState = createBaseSpotsState();
+        ambiguityState.raw = {
+          ofUsSpots: [{ spotter: 'K9SPOT', dxCall: 'S55OO', ts: spotOfUsMs, band: '20M' }],
+          byUsSpots: [{ spotter: 'S55OO', dxCall: 'TARGET', ts: spotByUsMs, band: '20M' }]
+        };
+        const originalQsos = state.qsoData.qsos;
+        state.qsoData.qsos = [
+          { ts: spotOfUsMs, band: '20M', call: 'NOID' },
+          { ts: spotByUsMs - 1000, band: '20M', call: 'OTHER', txId: '0' },
+          { ts: spotByUsMs + 2000, band: '20M', call: 'TARGET', txId: '1' }
+        ];
+        runtime.computeSpotsStats(state, ambiguityState);
+        add(
+          'Spot attribution keeps missing IDs missing and prefers the exact DX QSO over a nearer other-radio QSO',
+          ambiguityState.stats?.ofUsSpots?.[0]?.matched === true
+            && ambiguityState.stats?.ofUsSpots?.[0]?.matchedRadioId == null
+            && ambiguityState.stats?.byUsSpots?.[0]?.matchedDx === true
+            && ambiguityState.stats?.byUsSpots?.[0]?.matchedRadioId === '1',
+          JSON.stringify(ambiguityState.stats)
+        );
+        state.qsoData.qsos = originalQsos;
 
         add(
           'Spots loaders notify the UI hooks',

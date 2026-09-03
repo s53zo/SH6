@@ -26,6 +26,11 @@
     { id: 'points_by_minute', title: 'Points by minute' },
     { id: 'one_minute_rates', title: 'One minute rates' },
     { id: 'one_minute_point_rates', title: 'One minute point rates' },
+    { id: 'radio_timeline', title: 'Radio timeline' },
+    { id: 'radio_coordination', title: 'Radio coordination' },
+    { id: 'radio_handoffs', title: 'Possible radio handoffs' },
+    { id: 'radio_audit', title: 'Transmitter-rule audit' },
+    { id: 'radio_band_pairs', title: 'Band-pair heatmap' },
     { id: 'prefixes', title: 'Prefixes' },
     { id: 'distance', title: 'Distance' },
     { id: 'breaks', title: 'Break time' },
@@ -108,6 +113,11 @@
     points_by_minute: 'rate_time',
     one_minute_rates: 'rate_time',
     one_minute_point_rates: 'rate_time',
+    radio_timeline: 'rate_time',
+    radio_coordination: 'rate_time',
+    radio_handoffs: 'rate_time',
+    radio_audit: 'quality_review',
+    radio_band_pairs: 'maps_charts',
     run_sp_inband: 'rate_time',
     breaks: 'rate_time',
 
@@ -166,7 +176,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.27';
+  const APP_VERSION = 'v6.3.28';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -287,7 +297,7 @@
   const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.22';
   const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.22';
   const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.22';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.26';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.28';
   const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.22';
   const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.22';
   const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.22';
@@ -295,12 +305,13 @@
   const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.22';
   const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.22';
   const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.22';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.26';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.22';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.22';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.28';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.28';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.28';
   const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.23';
   const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.26';
   const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.26';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.28';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -460,6 +471,13 @@
     'qtc_series',
     'qtc_quality',
     'qtc_export'
+  ]);
+  const RADIO_REPORT_IDS = new Set([
+    'radio_timeline',
+    'radio_coordination',
+    'radio_handoffs',
+    'radio_audit',
+    'radio_band_pairs'
   ]);
 
   function cloneCompareFocus(source = DEFAULT_COMPARE_FOCUS) {
@@ -690,6 +708,7 @@
     state.logFieldFilter = f.fieldFilter || '';
     state.logBandFilter = f.bandFilter || '';
     state.logModeFilter = f.modeFilter || '';
+    state.logRadioFilter = f.radioFilter || '';
     state.logOpFilter = f.opFilter || '';
     state.logCallLenFilter = Number.isFinite(f.callLenFilter) ? f.callLenFilter : null;
     state.logCallStructFilter = f.callStructFilter || '';
@@ -838,6 +857,11 @@
     state.compareTimeRangeLock = cloneTsRange(rawPerspective.compareTimeRangeLock);
     state.compareFocus = cloneCompareFocus(rawPerspective.compareFocus || DEFAULT_COMPARE_FOCUS);
     state.globalBandFilter = rawPerspective.globalBandFilter || '';
+    state.globalRadioFilter = rawPerspective.globalRadioFilter || '';
+    state.logRadioFilter = state.globalRadioFilter;
+    state.radioHeatMetric = ['minutes', 'qsos', 'points', 'multipliers', 'combinedRate'].includes(rawPerspective.radioHeatMetric) ? rawPerspective.radioHeatMetric : 'minutes';
+    state.radioHeatA = String(rawPerspective.radioHeatA || '');
+    state.radioHeatB = String(rawPerspective.radioHeatB || '');
     state.logTimeRange = cloneTsRange(rawPerspective.logTimeRange);
     updateBandRibbon();
     const reportId = String(rawPerspective.reportId || '');
@@ -873,6 +897,10 @@
     const scoring = slot.derived.scoring || {};
     const contestMeta = slot.derived.contestMeta || {};
     const years = slot.derived.timeRange?.minTs ? new Date(slot.derived.timeRange.minTs).getUTCFullYear() : null;
+    const radioModel = radioRuntime ? getRadioRuntime().buildRadioModel(slot.qsoData.qsos || [], contestMeta, {
+      pointsByIndex: getEffectivePointsByIndex(slot.derived, slot.qsoData.qsos || []),
+      scoring
+    }) : null;
     return {
       slotId,
       label,
@@ -881,6 +909,13 @@
       contestId: contestMeta.contestId || '',
       year: years,
       qsoCount: Array.isArray(slot.qsoData.qsos) ? slot.qsoData.qsos.length : 0,
+      radio: radioModel?.visible ? {
+        status: radioModel.diagnostics.status,
+        missingCount: radioModel.diagnostics.missingCount,
+        ids: radioModel.diagnostics.ids.slice(),
+        concurrentPct: radioModel.coordination.concurrentPct,
+        rows: radioModel.rows.map((row) => ({ id: row.id, qsos: row.qsos, points: row.points, firstMultipliers: row.multipliers, peakMinute: row.peakMinute, idleMinutesInferred: row.idleMinutes }))
+      } : null,
       scoring: {
         supported: Boolean(scoring.supported),
         confidence: scoring.confidence || 'unknown',
@@ -1138,6 +1173,10 @@
       syncLoadPanelFlowForAnalysisMode();
       state.compareFocus = migrated.compareFocus || state.compareFocus;
       state.globalBandFilter = migrated.globalBandFilter || '';
+      state.globalRadioFilter = migrated.globalRadioFilter || '';
+      state.radioHeatMetric = ['minutes', 'qsos', 'points', 'multipliers', 'combinedRate'].includes(migrated.radioHeatMetric) ? migrated.radioHeatMetric : 'minutes';
+      state.radioHeatA = String(migrated.radioHeatA || '');
+      state.radioHeatB = String(migrated.radioHeatB || '');
       state.globalYearsFilter = normalizePeriodYears(migrated.globalYearsFilter);
       state.globalMonthsFilter = normalizePeriodMonths(migrated.globalMonthsFilter);
       state.breakThreshold = Number(migrated.breakThreshold) || state.breakThreshold;
@@ -1148,6 +1187,9 @@
       if (Number.isFinite(migrated.compareLogWindowSize)) state.compareLogWindowSize = migrated.compareLogWindowSize;
       state.wpxColumnMode = normalizeWpxColumnMode(migrated.wpxColumnMode);
       applySessionFilters(migrated.logFilters);
+      const restoredRadioFilter = state.globalRadioFilter || state.logRadioFilter || '';
+      state.globalRadioFilter = restoredRadioFilter;
+      state.logRadioFilter = restoredRadioFilter;
       const slotPayloads = Array.isArray(migrated.slots) ? migrated.slots : [];
       const payloadMap = new Map(slotPayloads.map((s) => [String(s.id || '').toUpperCase(), s]));
       for (const id of ['A', 'B', 'C', 'D']) {
@@ -1370,9 +1412,14 @@
     logHeadingRange: null,
     logStationQsoRange: null,
     logDistanceRange: null,
+    logRadioFilter: '',
     breakThreshold: 15,
     passedQsoWindow: 10,
     globalBandFilter: '',
+    globalRadioFilter: '',
+    radioHeatMetric: 'minutes',
+    radioHeatA: '',
+    radioHeatB: '',
     globalYearsFilter: [],
     globalMonthsFilter: [],
     fullQsoData: null,
@@ -1532,6 +1579,9 @@
   let exportRuntime = null;
   let qtcRuntimeModulePromise = null;
   let qtcRuntime = null;
+  let radioRuntimeModulePromise = null;
+  let radioRuntime = null;
+  const radioModelCache = new WeakMap();
   let engineTaskWorker = null;
   let engineTaskSeq = 0;
   let engineTaskWorkerStartMs = 0;
@@ -1610,6 +1660,7 @@
     compareHelper: document.getElementById('compareHelper'),
     appVersion: document.getElementById('appVersion'),
     bandRibbon: document.getElementById('bandRibbon'),
+    radioFilterRibbon: document.getElementById('radioFilterRibbon'),
     periodFilterRibbon: document.getElementById('periodFilterRibbon'),
     loadPanelSubtitle: document.getElementById('loadPanelSubtitle'),
     loadStepAnalysisTitle: document.getElementById('loadStepAnalysisTitle'),
@@ -2827,6 +2878,25 @@
     return qtcRuntime;
   }
 
+  function loadRadioRuntimeModule() {
+    if (!radioRuntimeModulePromise) {
+      radioRuntimeModulePromise = import(RADIO_RUNTIME_MODULE_URL)
+        .then((mod) => {
+          if (!mod || typeof mod.buildRadioModel !== 'function' || typeof mod.renderRadioReport !== 'function') {
+            throw new Error('radio runtime module unavailable');
+          }
+          radioRuntime = mod;
+          return mod;
+        });
+    }
+    return radioRuntimeModulePromise;
+  }
+
+  function getRadioRuntime() {
+    if (!radioRuntime) throw new Error('radio runtime not loaded');
+    return radioRuntime;
+  }
+
   async function ensureDurableStorageReady() {
     return getStorageRuntime().ensureDurableStorageReady();
   }
@@ -3558,12 +3628,38 @@
     return getLoadPanelRuntime().updateLoadSummary();
   }
 
-  function getActiveCompareSnapshots() {
-    return getActiveCompareSlots().map((entry) => ({
-      ...entry,
-      snapshot: buildSlotSnapshot(entry.slot),
-      ready: !!entry.slot?.qsoData
-    }));
+  function getActiveCompareSnapshots(options = {}) {
+    const applyGlobalRadio = options.applyGlobalRadio !== false;
+    return getActiveCompareSlots().map((entry) => {
+      let snapshot = buildSlotSnapshot(entry.slot);
+      const radio = applyGlobalRadio ? String(state.globalRadioFilter || '').trim().toUpperCase() : '';
+      if (radio && radioRuntime && entry.slot?.qsoData) {
+        const source = entry.slot.fullQsoData?.qsos || entry.slot.qsoData.qsos || [];
+        entry.slot.radioDerivedCache ||= new Map();
+        const key = `${entry.slot.logVersion || 0}|${derivedRecomputeSeq}|${analysisResourcesVersion}|${radio}`;
+        let cached = entry.slot.radioDerivedCache.get(key);
+        if (!cached) {
+          const qsos = getRadioRuntime().filterQsosByRadio(source, radio);
+          const derived = buildDerived(qsos, {
+            logFile: entry.slot.logFile,
+            sourcePath: entry.slot.logFile?.path || '',
+            analysisMode: state.analysisMode,
+            qtcs: [],
+            events: qsos
+          });
+          cached = { qsos, derived };
+          entry.slot.radioDerivedCache.clear();
+          entry.slot.radioDerivedCache.set(key, cached);
+        }
+        const { qsos, derived } = cached;
+        snapshot = {
+          ...snapshot,
+          qsoData: { ...(entry.slot.fullQsoData || entry.slot.qsoData), qsos, qtcs: [], events: qsos.slice() },
+          derived
+        };
+      }
+      return { ...entry, snapshot, ready: !!entry.slot?.qsoData };
+    });
   }
 
   const renderers = {};
@@ -3711,6 +3807,42 @@
       html += `<a href="#" class="band-pill${isActive ? ' active' : ''}" data-band="${bandAttr}">${label}</a>`;
     });
     dom.bandRibbon.innerHTML = html;
+    updateRadioRibbon();
+  }
+
+  function getAvailableRadioIds() {
+    if (!radioRuntime) return [];
+    const ids = new Set();
+    getActiveCompareSlots().forEach(({ slot }) => {
+      getRadioRuntime().discoverRadioIds(slot?.fullQsoData?.qsos || slot?.qsoData?.qsos || []).forEach((id) => ids.add(id));
+    });
+    return Array.from(ids).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+  }
+
+  function updateRadioRibbon() {
+    if (!dom.radioFilterRibbon || !radioRuntime) return;
+    const ids = getAvailableRadioIds();
+    if (!ids.length) {
+      state.globalRadioFilter = '';
+      state.logRadioFilter = '';
+      dom.radioFilterRibbon.innerHTML = '';
+      dom.radioFilterRibbon.hidden = true;
+      return;
+    }
+    dom.radioFilterRibbon.hidden = false;
+    const allQsos = getActiveCompareSlots().flatMap(({ slot }) => slot?.fullQsoData?.qsos || slot?.qsoData?.qsos || []);
+    const hasMissing = allQsos.some((q) => !getRadioRuntime().getQsoRadioId(q));
+    const selected = String(state.globalRadioFilter || '').trim().toUpperCase();
+    if (selected && selected !== getRadioRuntime().RADIO_MISSING_FILTER && !ids.includes(selected)) state.globalRadioFilter = '';
+    if (selected === getRadioRuntime().RADIO_MISSING_FILTER && !hasMissing) state.globalRadioFilter = '';
+    const active = String(state.globalRadioFilter || '').trim().toUpperCase();
+    state.logRadioFilter = active;
+    const pills = [
+      `<a href="#" role="radio" aria-checked="${active ? 'false' : 'true'}" class="radio-pill${active ? '' : ' active'}" data-radio="">All</a>`,
+      ...ids.map((id) => `<a href="#" role="radio" aria-checked="${active === id ? 'true' : 'false'}" class="radio-pill${active === id ? ' active' : ''}" data-radio="${escapeAttr(id)}">${escapeHtml(getRadioRuntime().formatRadioLabel(id))}</a>`),
+      ...(hasMissing ? [`<a href="#" role="radio" aria-checked="${active === getRadioRuntime().RADIO_MISSING_FILTER ? 'true' : 'false'}" class="radio-pill${active === getRadioRuntime().RADIO_MISSING_FILTER ? ' active' : ''}" data-radio="${escapeAttr(getRadioRuntime().RADIO_MISSING_FILTER)}">Missing</a>`] : [])
+    ];
+    dom.radioFilterRibbon.innerHTML = `<span class="radio-label">Radio:</span>${pills.join('')}`;
   }
 
   function updatePeriodRibbon() {
@@ -4227,10 +4359,19 @@
     return getLoadedCompareSlots().some((entry) => entry.slot?.derived?.scoring?.multiplierModelSupported === true);
   }
 
+  function slotHasRadioData(slot) {
+    return Boolean(radioRuntime && getRadioRuntime().discoverRadioIds(slot?.fullQsoData?.qsos || slot?.qsoData?.qsos || []).length);
+  }
+
+  function shouldShowRadioReports() {
+    return getActiveCompareSlots().some((entry) => slotHasRadioData(entry.slot));
+  }
+
   function buildReportsList() {
     const list = [];
     const showWpxHourSheet = isCqWpxContest();
     const showQtcReports = shouldShowQtcReports();
+    const showRadioReports = shouldShowRadioReports();
     BASE_REPORTS.forEach((r) => {
       if (state.analysisMode === ANALYSIS_MODE_DXER && DXER_HIDDEN_REPORTS.has(r.id)) return;
       if (state.analysisMode === ANALYSIS_MODE_CONTESTER && CONTESTER_HIDDEN_REPORTS.has(r.id)) return;
@@ -4238,6 +4379,7 @@
       if (r.id === 'compare_insights' && getLoadedCompareSlots().length < 2) return;
       if (r.id === 'multiplier_opportunities' && !shouldShowMultiplierOpportunities()) return;
       if (QTC_REPORT_IDS.has(r.id) && !showQtcReports) return;
+      if (RADIO_REPORT_IDS.has(r.id) && !showRadioReports) return;
       list.push(r);
     });
     return list;
@@ -6518,7 +6660,8 @@
       callCount: q.callCount,
       isDupe: Boolean(q.isDupe),
       operatingStyleRole: q.operatingStyleRole || '',
-      operatingStyleBand: q.operatingStyleBand || q.band || ''
+      operatingStyleBand: q.operatingStyleBand || q.band || '',
+      txId: q.txId ?? null
     }));
   }
 
@@ -7021,6 +7164,11 @@ function syncEngineCompareLogForSlot(slot) {
     return shouldBandFilterControls(reportId) && !!state.globalBandFilter;
   }
 
+  function shouldRadioFilterReport(reportId) {
+    const baseId = String(reportId || '').split('::')[0];
+    return !new Set(['load_logs', 'raw_log', 'comments', 'sh6_info', 'session', 'export', ...RADIO_REPORT_IDS]).has(baseId);
+  }
+
   function shouldBandFilterControls(reportId) {
     const baseId = String(reportId || '').split('::')[0];
     const excluded = new Set([
@@ -7078,7 +7226,8 @@ function syncEngineCompareLogForSlot(slot) {
     const monthKey = (normalizePeriodMonths(months).length ? normalizePeriodMonths(months).join(',') : 'all');
     const bandKey = String(band || '').toUpperCase();
     const sourceKey = `${state.logVersion || 0}`;
-    return `${sourceKey}|y:${yearKey}|m:${monthKey}|b:${bandKey}`;
+    const radioKey = String(state.globalRadioFilter || '').trim().toUpperCase();
+    return `${sourceKey}|y:${yearKey}|m:${monthKey}|b:${bandKey}|r:${radioKey}`;
   }
 
   function withPeriodContext(reportId, fn) {
@@ -7139,18 +7288,27 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   function withBandContext(reportId, fn) {
-    if (!state.globalBandFilter || !shouldBandFilterReport(reportId)) {
+    const band = state.globalBandFilter && shouldBandFilterReport(reportId) ? state.globalBandFilter : '';
+    const radio = state.globalRadioFilter && shouldRadioFilterReport(reportId) ? state.globalRadioFilter : '';
+    if (!band && !radio) {
       return withPeriodContext(reportId, fn);
     }
-    const band = state.globalBandFilter;
     const cache = state.bandDerivedCache || new Map();
     if (!state.bandDerivedCache) state.bandDerivedCache = cache;
-    let derived = cache.get(band);
-    let qsos;
-    let qtcs;
+    const cacheKey = `band:${band || '*'}|radio:${radio || '*'}`;
+    let derived = cache.get(cacheKey);
+    let qsos = state.fullQsoData?.qsos || state.qsoData?.qsos || [];
+    let qtcs = state.fullQsoData?.qtcs || state.qsoData?.qtcs || [];
+    if (band) {
+      qsos = getBandFilteredQsosFrom(qsos, band);
+      qtcs = getBandFilteredQsosFrom(qtcs, band);
+    }
+    if (radio) {
+      qsos = getRadioRuntime().filterQsosByRadio(qsos, radio);
+      // QTC records do not contain a transmitter identifier and cannot be assigned safely.
+      qtcs = [];
+    }
     if (!derived) {
-      qsos = getBandFilteredQsos(band);
-      qtcs = getBandFilteredQtcs(band);
       const events = [...qsos, ...qtcs].sort((a, b) => (a?.ts || 0) - (b?.ts || 0));
       derived = buildDerived(qsos, {
         logFile: state.logFile,
@@ -7159,10 +7317,7 @@ function syncEngineCompareLogForSlot(slot) {
         qtcs,
         events
       });
-      cache.set(band, derived);
-    } else {
-      qsos = getBandFilteredQsos(band);
-      qtcs = getBandFilteredQtcs(band);
+      cache.set(cacheKey, derived);
     }
     const prevQso = state.qsoData;
     const prevDerived = state.derived;
@@ -7177,6 +7332,31 @@ function syncEngineCompareLogForSlot(slot) {
     state.qsoData = prevQso;
     state.derived = prevDerived;
     return out;
+  }
+
+  function withRadioTimeContext(fn) {
+    const range = cloneTsRange(state.compareEnabled ? state.compareTimeRangeLock : state.logTimeRange)
+      || cloneTsRange(state.logTimeRange);
+    if (!range) return fn();
+    const prevQsoData = state.qsoData;
+    const prevDerived = state.derived;
+    const qsos = (prevQsoData?.qsos || []).filter((q) => Number.isFinite(q?.ts) && q.ts >= range.startTs && q.ts <= range.endTs);
+    const qtcs = (prevQsoData?.qtcs || []).filter((qtc) => Number.isFinite(qtc?.ts) && qtc.ts >= range.startTs && qtc.ts <= range.endTs);
+    const events = [...qsos, ...qtcs].sort((a, b) => (a?.ts || 0) - (b?.ts || 0));
+    state.qsoData = { ...(prevQsoData || {}), qsos, qtcs, events };
+    state.derived = buildDerived(qsos, {
+      logFile: state.logFile,
+      sourcePath: state.logFile?.path || '',
+      analysisMode: state.analysisMode,
+      qtcs,
+      events
+    });
+    try {
+      return fn();
+    } finally {
+      state.qsoData = prevQsoData;
+      state.derived = prevDerived;
+    }
   }
 
   async function fetchResource(url, onStatus, options = {}) {
@@ -12878,6 +13058,7 @@ function syncEngineCompareLogForSlot(slot) {
       fieldFilter: (state.logFieldFilter || '').trim().toUpperCase(),
       bandFilter: (state.logBandFilter || '').trim().toUpperCase(),
       modeFilter: (state.logModeFilter || '').trim(),
+      radioFilter: (state.logRadioFilter || state.globalRadioFilter || '').trim().toUpperCase(),
       opFilter: (state.logOpFilter || '').trim().toUpperCase(),
       callLenFilter: Number.isFinite(state.logCallLenFilter) ? state.logCallLenFilter : (state.logCallLenFilter != null ? Number(state.logCallLenFilter) : null),
       callStructFilter: (state.logCallStructFilter || '').trim(),
@@ -12910,6 +13091,9 @@ function syncEngineCompareLogForSlot(slot) {
     }
     if (filters.modeFilter && filters.modeFilter !== 'All') {
       filtered = filtered.filter((q) => modeBucket(q.mode) === filters.modeFilter);
+    }
+    if (filters.radioFilter && radioRuntime) {
+      filtered = getRadioRuntime().filterQsosByRadio(filtered, filters.radioFilter);
     }
     if (filters.opFilter) {
       filtered = filtered.filter((q) => q.op && q.op.toUpperCase() === filters.opFilter);
@@ -13009,7 +13193,8 @@ function syncEngineCompareLogForSlot(slot) {
     { id: 'cq', label: 'CQ' },
     { id: 'itu', label: 'ITU' },
     { id: 'grid', label: 'Grid' },
-    { id: 'flags', label: 'Flags' }
+    { id: 'flags', label: 'Flags' },
+    { id: 'radio', label: 'Radio' }
   ];
 
   function formatTimeOnly(ts, fallback) {
@@ -13024,16 +13209,18 @@ function syncEngineCompareLogForSlot(slot) {
 
   function getLogCompareColumnConfig(count) {
     const total = Math.max(1, Number(count) || 1);
+    const showRadio = shouldShowRadioReports();
     let columns = LOG_COMPARE_COLUMNS.map((c) => c.id);
     let timeOnly = false;
     if (total >= 4) {
-      columns = ['num', 'time', 'band', 'mode', 'freq', 'call'];
+      columns = showRadio ? ['num', 'time', 'band', 'mode', 'call', 'radio'] : ['num', 'time', 'band', 'mode', 'freq', 'call'];
       timeOnly = true;
     } else if (total === 3) {
       columns = columns.filter((c) => !['exchSent', 'exchRcvd', 'country', 'op', 'cq', 'itu', 'grid', 'flags'].includes(c));
     } else if (total === 2) {
       columns = columns.filter((c) => !['rstS', 'rstR', 'exchSent', 'exchRcvd', 'country', 'grid', 'flags'].includes(c));
     }
+    if (!showRadio) columns = columns.filter((id) => id !== 'radio');
     return { columns, timeOnly };
   }
 
@@ -13080,6 +13267,10 @@ function syncEngineCompareLogForSlot(slot) {
       case 'flags': {
         const flags = q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim();
         return `<td class="tl">${escapeHtml(flags)}</td>`;
+      }
+      case 'radio': {
+        const id = getRadioRuntime().getQsoRadioId(q);
+        return `<td>${escapeHtml(id ? getRadioRuntime().formatRadioLabel(id) : '—')}</td>`;
       }
       default:
         return '<td></td>';
@@ -13254,6 +13445,7 @@ function syncEngineCompareLogForSlot(slot) {
       filters.fieldFilter || '',
       filters.bandFilter || '',
       filters.modeFilter || '',
+      filters.radioFilter || '',
       filters.opFilter || '',
       Number.isFinite(filters.callLenFilter) ? filters.callLenFilter : '',
       filters.callStructFilter || '',
@@ -13402,6 +13594,13 @@ function syncEngineCompareLogForSlot(slot) {
       return '<p>No logs loaded for comparison yet.</p>';
     }
     const filters = getLogFilters();
+    const compareRadioIds = getAvailableRadioIds();
+    const compareHasMissingRadio = compareRadioIds.length > 0 && slotEntries.some(({ slot }) => (slot?.qsoData?.qsos || []).some((q) => !getRadioRuntime().getQsoRadioId(q)));
+    const compareRadioOptions = compareRadioIds.length ? [
+      '<option value="">All radios</option>',
+      ...compareRadioIds.map((id) => `<option value="${escapeAttr(id)}"${filters.radioFilter === id ? ' selected' : ''}>${escapeHtml(getRadioRuntime().formatRadioLabel(id))}</option>`),
+      ...(compareHasMissingRadio ? [`<option value="${escapeAttr(getRadioRuntime().RADIO_MISSING_FILTER)}"${filters.radioFilter === getRadioRuntime().RADIO_MISSING_FILTER ? ' selected' : ''}>Missing</option>`] : [])
+    ].join('') : '';
     const compareKey = buildCompareLogKey(filters);
     if (!state.compareLogData || state.compareLogData.key !== compareKey) {
       requestCompareLogData(compareKey, filters);
@@ -13429,6 +13628,7 @@ function syncEngineCompareLogForSlot(slot) {
     const dataNote = `<p>${(state.ctyTable && state.ctyTable.length) ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${(state.masterSet && state.masterSet.size) ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const safeBand = escapeHtml(filters.bandFilter ? formatBandLabel(filters.bandFilter) : 'All bands');
     const safeMode = escapeHtml(filters.modeFilter || '');
+    const safeRadio = escapeHtml(filters.radioFilter === getRadioRuntime().RADIO_MISSING_FILTER ? 'Missing' : (filters.radioFilter ? getRadioRuntime().formatRadioLabel(filters.radioFilter) : ''));
     const safeOp = escapeHtml(filters.opFilter || '');
     const safeLen = Number.isFinite(filters.callLenFilter) ? formatNumberSh6(filters.callLenFilter) : '';
     const safeStruct = escapeHtml(filters.callStructFilter || '');
@@ -13440,8 +13640,8 @@ function syncEngineCompareLogForSlot(slot) {
     const distanceRange = filters.distanceRange;
     const styleFilter = filters.operatingStyleFilter;
     const styleLabel = styleFilter ? formatOperatingStyleFilterLabel(styleFilter) : '';
-    const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange || stationRange || distanceRange || styleFilter
-      ? `<p class="log-filter-note">Filter applied to all logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${styleLabel ? ` ${escapeHtml(styleLabel)}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)}${filters.rangeFilter.excludeDupes ? ' non-dupes only' : ''})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+    const filterNote = filters.search || filters.fieldFilter || filters.bandFilter || filters.modeFilter || filters.radioFilter || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || filters.countryFilter || filters.continentFilter || filters.cqFilter || filters.ituFilter || filters.rangeFilter || filters.timeRange || filters.headingRange || stationRange || distanceRange || styleFilter
+      ? `<p class="log-filter-note">Filter applied to all logs: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeRadio ? ` Radio ${safeRadio}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${styleLabel ? ` ${escapeHtml(styleLabel)}` : ''} ${filters.headingRange ? ` Bearing ${filters.headingRange.start}-${filters.headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${filters.rangeFilter ? `(QSO #${formatNumberSh6(filters.rangeFilter.start)}-${formatNumberSh6(filters.rangeFilter.end)}${filters.rangeFilter.excludeDupes ? ' non-dupes only' : ''})` : ''} ${filters.timeRange ? `(Time ${formatDateSh6(filters.timeRange.startTs)} - ${formatDateSh6(filters.timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const note = `<p>${slotEntries.map((entry, idx) => `${entry.label}: ${formatNumberSh6(counts[idx] || 0)} QSOs`).join(' · ')}</p>`;
     const missingSlots = slotEntries.filter((entry) => !entry.slot?.qsoData).map((entry) => entry.label);
@@ -13490,6 +13690,7 @@ function syncEngineCompareLogForSlot(slot) {
           <input type="submit" value="Search">
           <button type="button" id="logSearchClear">Clear</button>
         </form>
+        ${compareRadioIds.length ? `<label class="no-print log-radio-filter">Radio: <select id="logRadioFilter">${compareRadioOptions}</select></label>` : ''}
       </div>
       <div class="compare-log-wrap">
         <table class="mtc log-table compare-log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
@@ -13526,6 +13727,7 @@ function syncEngineCompareLogForSlot(slot) {
     const fieldFilter = filters.fieldFilter;
     const bandFilter = filters.bandFilter;
     const modeFilter = filters.modeFilter;
+    const radioFilter = filters.radioFilter;
     const countryFilter = filters.countryFilter;
     const continentFilter = filters.continentFilter;
     const cqFilter = filters.cqFilter;
@@ -13539,6 +13741,14 @@ function syncEngineCompareLogForSlot(slot) {
     if (page !== state.logPage) state.logPage = page;
     const start = page * state.logPageSize;
     const end = start + state.logPageSize;
+    const radioIds = radioRuntime ? getRadioRuntime().discoverRadioIds(state.fullQsoData?.qsos || state.qsoData.qsos) : [];
+    const showRadioColumn = radioIds.length > 0;
+    const hasMissingRadio = showRadioColumn && (state.fullQsoData?.qsos || state.qsoData.qsos).some((q) => !getRadioRuntime().getQsoRadioId(q));
+    const radioOptions = showRadioColumn ? [
+      '<option value="">All radios</option>',
+      ...radioIds.map((id) => `<option value="${escapeAttr(id)}"${radioFilter === id ? ' selected' : ''}>${escapeHtml(getRadioRuntime().formatRadioLabel(id))}</option>`),
+      ...(hasMissingRadio ? [`<option value="${escapeAttr(getRadioRuntime().RADIO_MISSING_FILTER)}"${radioFilter === getRadioRuntime().RADIO_MISSING_FILTER ? ' selected' : ''}>Missing</option>`] : [])
+    ].join('') : '';
     const rowList = filtered.slice(start, end).map((q, idx) => {
       const call = escapeCall(q.call || '');
       const op = escapeHtml(q.op || '');
@@ -13571,6 +13781,7 @@ function syncEngineCompareLogForSlot(slot) {
         <td>${itu}</td>
         <td class="tl">${grid}</td>
         <td class="tl">${flags}</td>
+        ${showRadioColumn ? `<td>${escapeHtml(getRadioRuntime().getQsoRadioId(q) ? getRadioRuntime().formatRadioLabel(getRadioRuntime().getQsoRadioId(q)) : '—')}</td>` : ''}
       </tr>
     `;
     });
@@ -13578,14 +13789,15 @@ function syncEngineCompareLogForSlot(slot) {
       rows: rowList,
       rowHeight: 28,
       overscan: 10,
-      colspan: 17,
-      emptyHtml: '<tr class="td1"><td colspan="17">No QSOs match current filter.</td></tr>'
+      colspan: showRadioColumn ? 18 : 17,
+      emptyHtml: `<tr class="td1"><td colspan="${showRadioColumn ? 18 : 17}">No QSOs match current filter.</td></tr>`
     });
     const note = `<p>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(Math.min(end, filtered.length))} of ${formatNumberSh6(filtered.length)} QSOs (page ${page + 1} / ${totalPages}).</p>`;
     const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
     const emptyNote = filtered.length ? '' : '<p>No QSOs match current filter.</p>';
     const safeBand = escapeHtml(bandFilter ? formatBandLabel(bandFilter) : 'All bands');
     const safeMode = escapeHtml(modeFilter || '');
+    const safeRadio = escapeHtml(radioFilter === getRadioRuntime().RADIO_MISSING_FILTER ? 'Missing' : (radioFilter ? getRadioRuntime().formatRadioLabel(radioFilter) : ''));
     const safeOp = escapeHtml(filters.opFilter || '');
     const safeLen = Number.isFinite(filters.callLenFilter) ? formatNumberSh6(filters.callLenFilter) : '';
     const safeStruct = escapeHtml(filters.callStructFilter || '');
@@ -13597,8 +13809,8 @@ function syncEngineCompareLogForSlot(slot) {
     const distanceRange = filters.distanceRange;
     const styleFilter = filters.operatingStyleFilter;
     const styleLabel = styleFilter ? formatOperatingStyleFilterLabel(styleFilter) : '';
-    const filterNote = bandFilter || modeFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter || headingRange || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || stationRange || distanceRange || styleFilter
-      ? `<p class="log-filter-note">Filter: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${styleLabel ? ` ${escapeHtml(styleLabel)}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)}${rangeFilter.excludeDupes ? ' non-dupes only' : ''})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
+    const filterNote = bandFilter || modeFilter || radioFilter || rangeFilter || countryFilter || timeRange || continentFilter || cqFilter || ituFilter || headingRange || filters.opFilter || Number.isFinite(filters.callLenFilter) || filters.callStructFilter || stationRange || distanceRange || styleFilter
+      ? `<p class="log-filter-note">Filter: ${safeBand} ${safeMode ? `/${safeMode}` : ''} ${safeRadio ? ` Radio ${safeRadio}` : ''} ${safeOp ? ` OP ${safeOp}` : ''} ${safeLen ? ` Len ${safeLen}` : ''} ${safeStruct ? ` Struct ${safeStruct}` : ''} ${safeCountry ? ` ${safeCountry}` : ''} ${safeContinent ? ` ${safeContinent}` : ''} ${safeCq ? ` CQ${safeCq}` : ''} ${safeItu ? ` ITU${safeItu}` : ''} ${styleLabel ? ` ${escapeHtml(styleLabel)}` : ''} ${headingRange ? ` Bearing ${headingRange.start}-${headingRange.end}°` : ''} ${stationRange ? ` Station QSOs ${stationRange.min}-${stationRange.max}` : ''} ${distanceRange ? ` Distance ${distanceRange.start}-${distanceRange.end} km` : ''} ${rangeFilter ? `(QSO #${formatNumberSh6(rangeFilter.start)}-${formatNumberSh6(rangeFilter.end)}${rangeFilter.excludeDupes ? ' non-dupes only' : ''})` : ''} ${timeRange ? `(Time ${formatDateSh6(timeRange.startTs)} - ${formatDateSh6(timeRange.endTs)})` : ''} <span class="log-filter-hint">(click entries to drill down)</span> <a href="#" id="logClearFilters">clear filters</a></p>`
       : '';
     const pageLinks = Array.from({ length: totalPages }, (_, i) => {
       const from = i * state.logPageSize + 1;
@@ -13618,11 +13830,12 @@ function syncEngineCompareLogForSlot(slot) {
           <input type="submit" value="Search">
           <button type="button" id="logSearchClear">Clear</button>
         </form>
+        ${showRadioColumn ? `<label class="no-print log-radio-filter">Radio: <select id="logRadioFilter">${radioOptions}</select></label>` : ''}
         <div class="log-pages">Pages: ${pageLinks}</div>
       </div>
       <div class="virtual-table-shell" data-virtual-table="log">
         <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
+          <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>${showRadioColumn ? '<th>Radio</th>' : ''}</tr>
           <tbody data-virtual-body="log"></tbody>
         </table>
       </div>
@@ -13689,6 +13902,7 @@ function syncEngineCompareLogForSlot(slot) {
 
   function renderDupesContent() {
     if (!state.derived) return renderPlaceholder({ id: 'dupes', title: 'Dupes' });
+    const showRadio = slotHasRadioData(state);
     const rowList = state.derived.dupes.map((q, idx) => {
       const time = escapeHtml(q.time || '');
       const band = escapeHtml(formatBandLabel(q.band || ''));
@@ -13701,6 +13915,7 @@ function syncEngineCompareLogForSlot(slot) {
         <td class="${bandClass(q.band)}">${band}</td>
         <td class="${modeClass(q.mode)}">${mode}</td>
         <td><a href="#" class="log-call" data-call="${callAttr}">${call}</a></td>
+        ${showRadio ? `<td>${escapeHtml(getRadioRuntime().getQsoRadioId(q) ? getRadioRuntime().formatRadioLabel(getRadioRuntime().getQsoRadioId(q)) : '—')}</td>` : ''}
       </tr>
     `;
     });
@@ -13712,9 +13927,9 @@ function syncEngineCompareLogForSlot(slot) {
         rows: rowList,
         rowHeight: 28,
         overscan: 10,
-        columnCount: 4,
-        emptyHtml: '<tr class="td1"><td colspan="4">No duplicate QSOs detected.</td></tr>',
-        headerHtml: '<tr class="thc"><th>Time</th><th>Band</th><th>Mode</th><th>Call</th></tr>'
+        columnCount: showRadio ? 5 : 4,
+        emptyHtml: `<tr class="td1"><td colspan="${showRadio ? 5 : 4}">No duplicate QSOs detected.</td></tr>`,
+        headerHtml: `<tr class="thc"><th>Time</th><th>Band</th><th>Mode</th><th>Call</th>${showRadio ? '<th>Radio</th>' : ''}</tr>`
       })}
     `;
   }
@@ -14099,6 +14314,7 @@ function syncEngineCompareLogForSlot(slot) {
     const truncated = Boolean(spotsState.truncatedOfUs || spotsState.truncatedByUs);
     const capPerSide = Number.isFinite(spotsState.capPerSide) ? spotsState.capPerSide : null;
     const summaryOnly = Boolean(spotsState.summaryOnly);
+    const showSpotRadio = slotHasRadioData(state);
     const truncatedNote = truncated
       ? `Large dataset detected. Showing first ${formatNumberSh6(capPerSide || SPOT_TABLE_LIMIT)} per side; stats are based on this sample.`
       : '';
@@ -14235,6 +14451,28 @@ function syncEngineCompareLogForSlot(slot) {
         </table>
       `;
     };
+    const renderRadioSpotAttributionTable = (ofUsSpots, byUsSpots) => {
+      if (!showSpotRadio) return '';
+      const ids = getRadioRuntime().discoverRadioIds(state.qsoData?.qsos || []);
+      const countByRadio = (spots) => {
+        const counts = new Map(ids.map((id) => [id, 0]));
+        (spots || []).forEach((spot) => {
+          const id = getRadioRuntime().normalizeRadioId(spot?.matchedRadioId);
+          if (id && counts.has(id)) counts.set(id, (counts.get(id) || 0) + 1);
+        });
+        return counts;
+      };
+      const ofUs = countByRadio(ofUsSpots);
+      const byUs = countByRadio(byUsSpots);
+      const ofUsTotal = Array.from(ofUs.values()).reduce((sum, value) => sum + value, 0);
+      const byUsTotal = Array.from(byUs.values()).reduce((sum, value) => sum + value, 0);
+      const rows = ids.map((id, index) => {
+        const ofCount = ofUs.get(id) || 0;
+        const byCount = byUs.get(id) || 0;
+        return `<tr class="${index % 2 === 0 ? 'td1' : 'td0'}"><td>${escapeHtml(getRadioRuntime().formatRadioLabel(id))}</td><td>${formatNumberSh6(ofCount)}</td><td>${ofUsTotal ? `${(ofCount / ofUsTotal * 100).toFixed(1)}%` : '—'}</td><td>${formatNumberSh6(byCount)}</td><td>${byUsTotal ? `${(byCount / byUsTotal * 100).toFixed(1)}%` : '—'}</td></tr>`;
+      }).join('');
+      return `<div class="export-actions export-note"><b>Matched-QSO attribution by radio (inferred)</b></div><div class="export-actions export-note">Only matched spots can be associated with a recorded transmitter ID. Shares use matched, attributable spots as the denominator; they are not physical-radio detection or conversion rates for unmatched spots.</div><table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;"><tr class="thc"><th>Radio</th><th>Spots of you matched</th><th>Share</th><th>Spots by you matched</th><th>Share</th></tr>${rows}</table>`;
+    };
     const renderResponseHistogram = (values, windowMinutes) => {
       if (!values || !values.length) return '<p>No matched spots to analyze.</p>';
       const maxWindow = Math.max(1, Number(windowMinutes) || 15);
@@ -14302,6 +14540,7 @@ function syncEngineCompareLogForSlot(slot) {
               <td>${freq}</td>
               <td>${escapeHtml(s.spotter || '')}</td>
               <td class="tl">${comment}</td>
+              ${showSpotRadio ? `<td>${escapeHtml(s.matchedRadioId ? getRadioRuntime().formatRadioLabel(s.matchedRadioId) : '—')}</td>` : ''}
             </tr>
           `;
         }
@@ -14312,12 +14551,13 @@ function syncEngineCompareLogForSlot(slot) {
             <td>${freq}</td>
             <td>${escapeHtml(s.dxCall || '')}</td>
             <td class="tl">${comment}</td>
+            ${showSpotRadio ? `<td>${escapeHtml(s.matchedRadioId ? getRadioRuntime().formatRadioLabel(s.matchedRadioId) : '—')}</td>` : ''}
           </tr>
         `;
       }).join('');
       const headers = isOfUs
-        ? '<tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>Spotter</th><th>Comment</th></tr>'
-        : '<tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>DX</th><th>Comment</th></tr>';
+        ? `<tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>Spotter</th><th>Comment</th>${showSpotRadio ? '<th>Matched radio (inferred)</th>' : ''}</tr>`
+        : `<tr class="thc"><th>Time (UTC)</th><th>Band</th><th>Freq</th><th>DX</th><th>Comment</th>${showSpotRadio ? '<th>Matched radio (inferred)</th>' : ''}</tr>`;
       const note = truncated ? `<div class="export-actions export-note">Showing first ${formatNumberSh6(limit)} of ${formatNumberSh6(spots.length)} rows.</div>` : '';
       return `
         ${note}
@@ -14473,6 +14713,8 @@ function syncEngineCompareLogForSlot(slot) {
 
         <div class="export-actions export-note"><b>Conversion by band</b></div>
         ${renderBandConversionTable(stats.bandStats)}
+
+        ${renderRadioSpotAttributionTable(stats.ofUsSpots, stats.byUsSpots)}
 
         <div class="export-actions export-note"><b>Response time distribution (minutes)</b></div>
         ${renderResponseHistogram(stats.responseTimes, windowMinutes)}
@@ -18057,6 +18299,7 @@ function syncEngineCompareLogForSlot(slot) {
     if (!derived) return renderPlaceholder({ id: 'possible_errors', title: 'Possible errors' });
     if (!derived.possibleErrors || !derived.possibleErrors.length) return '<p>No possible errors detected.</p>';
     const filtered = filterPossibleErrors(derived.possibleErrors, excludeSet);
+    const showRadio = filtered.some((entry) => getRadioRuntime().getQsoRadioId(entry.q));
     const note = noteText ? `<p class="log-filter-note">${escapeHtml(noteText)}</p>` : '';
     if (!filtered.length) return `${note}<p>No possible errors detected.</p>`;
     const byCall = new Map();
@@ -18088,6 +18331,7 @@ function syncEngineCompareLogForSlot(slot) {
           <td>${call ? `<a href="#" class="log-call" data-call="${callAttr}">${call}</a>` : ''}</td>
           <td>${callCount}</td>
           <td class="wrap-cell">${sugg}</td>
+          ${showRadio ? `<td>${escapeHtml(getRadioRuntime().getQsoRadioId(e.q) ? getRadioRuntime().formatRadioLabel(getRadioRuntime().getQsoRadioId(e.q)) : '—')}</td>` : ''}
         </tr>
       `;
     });
@@ -18097,9 +18341,9 @@ function syncEngineCompareLogForSlot(slot) {
         rows,
         rowHeight: 30,
         overscan: 10,
-        columnCount: 4,
-        emptyHtml: '<tr class="td1"><td colspan="4">No possible errors detected.</td></tr>',
-        headerHtml: '<tr class="thc"><th>#</th><th>Callsign in log</th><th>QSOs</th><th>Callsign(s) in master database</th></tr>'
+        columnCount: showRadio ? 5 : 4,
+        emptyHtml: `<tr class="td1"><td colspan="${showRadio ? 5 : 4}">No possible errors detected.</td></tr>`,
+        headerHtml: `<tr class="thc"><th>#</th><th>Callsign in log</th><th>QSOs</th><th>Callsign(s) in master database</th>${showRadio ? '<th>Radio</th>' : ''}</tr>`
       })}
     `;
   }
@@ -18672,6 +18916,7 @@ function syncEngineCompareLogForSlot(slot) {
   function renderPassedQsosForList(qsos, options = {}) {
     const windowMinutes = Math.max(1, Number(state.passedQsoWindow) || 10);
     const pairs = buildPassedQsoPairs(qsos, windowMinutes);
+    const showRadio = getRadioRuntime().discoverRadioIds(qsos).length > 0;
     const calls = new Set(pairs.map((pair) => pair.from.call));
     const showControls = options.showControls !== false;
     const slider = showControls ? `
@@ -18721,6 +18966,7 @@ function syncEngineCompareLogForSlot(slot) {
         <td class="${bandClass(to.band)}">${toBand}</td>
         <td class="${modeClass(to.mode)}">${toMode}</td>
         <td>${delay}</td>
+        ${showRadio ? `<td>${escapeHtml(getRadioRuntime().getQsoRadioId(from) ? getRadioRuntime().formatRadioLabel(getRadioRuntime().getQsoRadioId(from)) : '—')}</td><td>${escapeHtml(getRadioRuntime().getQsoRadioId(to) ? getRadioRuntime().formatRadioLabel(getRadioRuntime().getQsoRadioId(to)) : '—')}</td>` : ''}
       </tr>
     `;
     });
@@ -18732,9 +18978,9 @@ function syncEngineCompareLogForSlot(slot) {
         rows,
         rowHeight: 28,
         overscan: 10,
-        columnCount: 10,
-        emptyHtml: '<tr class="td1"><td colspan="10">No passed QSO pairs detected.</td></tr>',
-        headerHtml: '<tr class="thc"><th>Call</th><th>From #</th><th>From time</th><th>From band</th><th>From mode</th><th>To #</th><th>To time</th><th>To band</th><th>To mode</th><th>Delay</th></tr>'
+        columnCount: showRadio ? 12 : 10,
+        emptyHtml: `<tr class="td1"><td colspan="${showRadio ? 12 : 10}">No passed QSO pairs detected.</td></tr>`,
+        headerHtml: `<tr class="thc"><th>Call</th><th>From #</th><th>From time</th><th>From band</th><th>From mode</th><th>To #</th><th>To time</th><th>To band</th><th>To mode</th><th>Delay</th>${showRadio ? '<th>From radio</th><th>To radio</th>' : ''}</tr>`
       })}
     `;
   }
@@ -19252,7 +19498,133 @@ function syncEngineCompareLogForSlot(slot) {
     return renderComparePanels(slots, htmlBlocks, 'graphs_points_by_hour');
   }
 
-  function renderReportSingle(report) {
+  function buildRadioModelForContext(context = state, options = {}) {
+    if (!radioRuntime) return null;
+    const qsos = context?.qsoData?.qsos || [];
+    const derived = context?.derived || null;
+    const selectedRadioIds = Array.isArray(options.radioIds) ? options.radioIds.filter(Boolean) : [state.radioHeatA, state.radioHeatB].filter(Boolean);
+    const cacheKey = `${derived?.scoring?.computedScore ?? ''}|${derived?.scoring?.computedMultiplierTotal ?? ''}|${selectedRadioIds.join('|')}`;
+    const cached = radioModelCache.get(qsos);
+    if (cached?.key === cacheKey && cached.derived === derived) return cached.model;
+    const model = getRadioRuntime().buildRadioModel(qsos, derived?.contestMeta || {}, {
+      pointsByIndex: getEffectivePointsByIndex(derived, qsos),
+      scoring: derived?.scoring || null,
+      radioIds: selectedRadioIds
+    });
+    radioModelCache.set(qsos, { key: cacheKey, derived, model });
+    return model;
+  }
+
+  function renderRadioAnalysisReport(reportId) {
+    if (!state.compareEnabled) {
+      let model = null;
+      withBandContext(reportId, () => withRadioTimeContext(() => { model = buildRadioModelForContext(); }));
+      const exportButton = `<p class="no-print"><button type="button" class="button radio-csv-export" data-radio-report="${escapeAttr(reportId)}" data-slot="A">Export CSV</button></p>`;
+      if (reportId !== 'radio_band_pairs') return `${exportButton}${getRadioRuntime().renderRadioReport(reportId, model)}`;
+      const ids = model?.diagnostics?.ids || [];
+      const a = model?.heatmap?.radioA || ids[0] || '';
+      const b = model?.heatmap?.radioB || ids.find((id) => id !== a) || '';
+      const options = (selected) => ids.map((id) => `<option value="${escapeAttr(id)}"${id === selected ? ' selected' : ''}>${escapeHtml(getRadioRuntime().formatRadioLabel(id))}</option>`).join('');
+      const metric = ['minutes', 'qsos', 'points', 'multipliers', 'combinedRate'].includes(state.radioHeatMetric) ? state.radioHeatMetric : 'minutes';
+      return `${exportButton}<div class="radio-heat-controls no-print"><label>Row radio <select id="radioHeatA">${options(a)}</select></label><label>Column radio <select id="radioHeatB">${options(b)}</select></label><label>Metric <select id="radioHeatMetric">${[['minutes','Active minutes'],['qsos','QSOs'],['points','QSO points'],['multipliers','First multipliers'],['combinedRate','Combined Q/h']].map(([value,label]) => `<option value="${value}"${metric === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label></div>${getRadioRuntime().renderBandPairHeatmap(model, metric)}`;
+    }
+    const slots = getActiveCompareSnapshots({ applyGlobalRadio: false });
+    const unionIds = Array.from(new Set(slots.flatMap((entry) => getRadioRuntime().discoverRadioIds(entry.snapshot.qsoData?.qsos || [])))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const selectedA = unionIds.includes(state.radioHeatA) ? state.radioHeatA : (unionIds[0] || '');
+    const selectedB = unionIds.includes(state.radioHeatB) && state.radioHeatB !== selectedA ? state.radioHeatB : (unionIds.find((id) => id !== selectedA) || '');
+    const selectedIds = [selectedA, selectedB].filter(Boolean);
+    const modeled = slots.map((entry) => {
+      if (!entry.ready) return { ...entry, model: null };
+      let model = null;
+      withSlotState(entry.snapshot, () => withBandContext(reportId, () => withRadioTimeContext(() => { model = buildRadioModelForContext(state, { radioIds: selectedIds }); })), { slotId: entry.id });
+      return { ...entry, model };
+    });
+    if (reportId === 'radio_timeline') {
+      const recorded = modeled.flatMap((entry) => (entry.model?.timeline || []).filter((row) => !row.idle && Number.isFinite(row.start)));
+      if (recorded.length) {
+        const displayRange = {
+          minTs: Math.min(...recorded.map((row) => row.start)),
+          maxTs: Math.max(...recorded.map((row) => row.start + 5 * 60000))
+        };
+        const displayMaxQsos = Math.max(1, ...recorded.map((row) => Number(row.qsos) || 0));
+        modeled.forEach((entry) => {
+          if (!entry.model) return;
+          entry.model.displayRange = displayRange;
+          entry.model.displayMaxQsos = displayMaxQsos;
+        });
+      }
+    }
+    const blocks = modeled.map((entry) => {
+      if (!entry.ready) return `<p>No ${escapeHtml(entry.label)} loaded.</p>`;
+      const localIds = entry.model?.diagnostics?.ids || [];
+      const unsupported = reportId === 'radio_band_pairs' && selectedIds.length === 2 && !selectedIds.every((id) => localIds.includes(id));
+      const note = unsupported ? `<p class="state-card state-info">${escapeHtml(entry.label)} does not contain both selected IDs; its local pair ${escapeHtml(entry.model?.heatmap?.radioA ? getRadioRuntime().formatRadioLabel(entry.model.heatmap.radioA) : '—')} / ${escapeHtml(entry.model?.heatmap?.radioB ? getRadioRuntime().formatRadioLabel(entry.model.heatmap.radioB) : '—')} is shown instead.</p>` : '';
+      return `<p class="no-print"><button type="button" class="button radio-csv-export" data-radio-report="${escapeAttr(reportId)}" data-slot="${escapeAttr(entry.id)}">Export ${escapeHtml(entry.label)} CSV</button></p>${note}${getRadioRuntime().renderRadioReport(reportId, entry.model)}`;
+    });
+    let controls = '';
+    if (reportId === 'radio_band_pairs') {
+      const options = (selected) => unionIds.map((id) => `<option value="${escapeAttr(id)}"${id === selected ? ' selected' : ''}>${escapeHtml(getRadioRuntime().formatRadioLabel(id))}</option>`).join('');
+      const metric = ['minutes', 'qsos', 'points', 'multipliers', 'combinedRate'].includes(state.radioHeatMetric) ? state.radioHeatMetric : 'minutes';
+      controls = `<div class="radio-heat-controls no-print"><label>Row radio <select id="radioHeatA">${options(selectedA)}</select></label><label>Column radio <select id="radioHeatB">${options(selectedB)}</select></label><label>Metric <select id="radioHeatMetric">${[['minutes','Active minutes'],['qsos','QSOs'],['points','QSO points'],['multipliers','First multipliers'],['combinedRate','Combined Q/h']].map(([value,label]) => `<option value="${value}"${metric === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label></div>`;
+    }
+    return `${controls}${renderComparePanels(slots, blocks, reportId)}`;
+  }
+
+  const RADIO_DECORATED_REPORTS = new Set([
+    'main', 'summary', 'compare_insights', 'multiplier_opportunities', 'competitor_coach', 'agent_briefing',
+    'rates', 'qs_by_hour_sheet',
+    'graphs_qs_by_hour', 'points_by_hour_sheet', 'wpx_by_hour_sheet', 'graphs_points_by_hour',
+    'qs_by_minute', 'points_by_minute', 'one_minute_rates', 'one_minute_point_rates',
+    'breaks', 'run_sp_inband', 'charts_qs_by_band'
+  ]);
+
+  function renderRadioReportContext(reportId) {
+    if (!radioRuntime || !RADIO_DECORATED_REPORTS.has(reportId)) return '';
+    const model = buildRadioModelForContext();
+    if (!model?.visible) return '';
+    if (reportId === 'main' || reportId === 'summary') return getRadioRuntime().renderRadioSummary(model);
+    const parts = [];
+    if (['compare_insights', 'multiplier_opportunities', 'agent_briefing', 'rates'].includes(reportId)) parts.push(getRadioRuntime().renderRadioBreakdown(model));
+    if (['rates', 'charts_qs_by_band', 'run_sp_inband'].includes(reportId)) parts.push(getRadioRuntime().renderRadioMatrices(model));
+    if (reportId === 'rates') {
+      parts.push(getRadioRuntime().renderRadioSeries(model, 'qsos', 'five-minute'));
+      parts.push(getRadioRuntime().renderRadioSeries(model, 'points', 'five-minute'));
+    }
+    if (['qs_by_hour_sheet', 'graphs_qs_by_hour'].includes(reportId)) {
+      parts.push(getRadioRuntime().renderRadioSeries(model, 'qsos', 'hour'));
+      parts.push(getRadioRuntime().renderRadioHourly(model, 'qsos'));
+    }
+    if (['points_by_hour_sheet', 'graphs_points_by_hour'].includes(reportId)) {
+      parts.push(getRadioRuntime().renderRadioSeries(model, 'points', 'hour'));
+      parts.push(getRadioRuntime().renderRadioHourly(model, 'points'));
+    }
+    if (['qs_by_minute', 'one_minute_rates'].includes(reportId)) {
+      parts.push(getRadioRuntime().renderRadioSeries(model, 'qsos', 'minute'));
+      parts.push(getRadioRuntime().renderRadioMinutePeaks(model, 'qsos'));
+    }
+    if (['points_by_minute', 'one_minute_point_rates'].includes(reportId)) {
+      parts.push(getRadioRuntime().renderRadioSeries(model, 'points', 'minute'));
+      parts.push(getRadioRuntime().renderRadioMinutePeaks(model, 'points'));
+    }
+    if (reportId === 'breaks') parts.push(getRadioRuntime().renderRadioCoordination(model));
+    if (reportId === 'competitor_coach') parts.push(getRadioRuntime().renderRadioCoach(model));
+    return parts.length ? `<details class="radio-context-details"><summary>Radio split</summary>${parts.join('')}</details>` : '';
+  }
+
+  function renderRadioCompareContext(reportId) {
+    if (!radioRuntime || !RADIO_DECORATED_REPORTS.has(reportId)) return '';
+    const slots = getActiveCompareSnapshots();
+    const blocks = slots.map((entry) => {
+      if (!entry.ready) return '';
+      let html = '';
+      withSlotState(entry.snapshot, () => withBandContext(reportId, () => withRadioTimeContext(() => { html = renderRadioReportContext(reportId); })), { slotId: entry.id });
+      return html;
+    });
+    if (!blocks.some(Boolean)) return '';
+    return `<section class="radio-compare-context report-card"><h3>Radio comparison</h3><div class="compare-grid">${blocks.map((html, index) => `<section class="compare-panel radio-context-panel"><h4>${escapeHtml(slots[index]?.label || `Log ${index + 1}`)}</h4>${html}</section>`).join('')}</div></section>`;
+  }
+
+  function renderReportSingleBase(report) {
     return withBandContext(report.id, () => {
       if (report.parentId === 'countries_by_time') {
         return renderCountriesByTime(report.band || null);
@@ -19297,6 +19669,11 @@ function syncEngineCompareLogForSlot(slot) {
         case 'points_by_minute': return renderPointsByMinute();
         case 'one_minute_rates': return renderOneMinuteRates();
         case 'one_minute_point_rates': return renderOneMinutePointRates();
+        case 'radio_timeline':
+        case 'radio_coordination':
+        case 'radio_handoffs':
+        case 'radio_audit':
+        case 'radio_band_pairs': return renderRadioAnalysisReport(report.id);
         case 'run_sp_inband': return renderOperatingStyleReport();
         case 'prefixes': return renderPrefixes();
         case 'callsign_length': return renderCallsignLength();
@@ -19330,6 +19707,13 @@ function syncEngineCompareLogForSlot(slot) {
         default: return renderPlaceholder(report);
       }
     });
+  }
+
+  function renderReportSingle(report) {
+    const html = renderReportSingleBase(report);
+    let context = '';
+    if (!state.compareEnabled) withBandContext(report.id, () => withRadioTimeContext(() => { context = renderRadioReportContext(report.id); }));
+    return context ? `${context}${html}` : html;
   }
 
   function withSlotState(slot, fn, options = {}) {
@@ -19449,7 +19833,7 @@ function syncEngineCompareLogForSlot(slot) {
     const slots = getActiveCompareSnapshots();
     const htmlBlocks = slots.map((entry) => (
       entry.ready
-        ? withSlotState(entry.snapshot, () => withStaticVirtualTableRender(() => renderSlotContent(entry)), { slotId: entry.id })
+        ? withSlotState(entry.snapshot, () => withBandContext(reportId, () => withStaticVirtualTableRender(() => renderSlotContent(entry))), { slotId: entry.id })
         : `<p>No ${entry.label} loaded.</p>`
     ));
     return renderComparePanels(slots, htmlBlocks, reportId);
@@ -20330,6 +20714,7 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   function renderReportCompare(report) {
+    if (RADIO_REPORT_IDS.has(report.id)) return renderRadioAnalysisReport(report.id);
     if (report.id === 'compare_insights') {
       return renderCompareInsights();
     }
@@ -20463,9 +20848,15 @@ function syncEngineCompareLogForSlot(slot) {
 
   function renderReport(report) {
     if (QTC_REPORT_IDS.has(report.id)) return renderQtcReport(report);
-    if (SINGLE_INSTANCE_REPORT_IDS.has(report.id)) return renderReportSingle(report);
+    if (SINGLE_INSTANCE_REPORT_IDS.has(report.id)) {
+      const html = renderReportSingle(report);
+      const context = state.compareEnabled ? renderRadioCompareContext(report.id) : '';
+      return context ? `${context}${html}` : html;
+    }
     if (state.compareEnabled) {
-      return renderReportCompare(report);
+      const html = renderReportCompare(report);
+      const context = renderRadioCompareContext(report.id);
+      return context ? `${context}${html}` : html;
     }
     return renderReportSingle(report);
   }
@@ -20667,6 +21058,34 @@ function syncEngineCompareLogForSlot(slot) {
         });
       });
     }
+    if (reportId === 'radio_band_pairs') {
+      ['radioHeatA', 'radioHeatB', 'radioHeatMetric'].forEach((id) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        select.addEventListener('change', () => {
+          state.radioHeatA = String(document.getElementById('radioHeatA')?.value || '');
+          state.radioHeatB = String(document.getElementById('radioHeatB')?.value || '');
+          state.radioHeatMetric = String(document.getElementById('radioHeatMetric')?.value || 'minutes');
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      });
+    }
+    if (RADIO_REPORT_IDS.has(reportId)) {
+      dom.viewContainer.querySelectorAll('.radio-csv-export').forEach((button) => {
+        button.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          const slotId = String(button.dataset.slot || 'A').toUpperCase();
+          const slot = getSlotById(slotId);
+          if (!slot?.qsoData) return;
+          let model = null;
+          withSlotState(buildSlotSnapshot(slot), () => withBandContext(reportId, () => withRadioTimeContext(() => { model = buildRadioModelForContext(); })), { slotId });
+          const csv = getRadioRuntime().buildRadioCsv(reportId, model);
+          const call = slot.derived?.contestMeta?.stationCallsign || slotId;
+          downloadBlobFile(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${sanitizeFilenameToken(call)}_${sanitizeFilenameToken(reportId)}.csv`);
+          trackEvent('download_radio_csv', { slot: slotId, report_id: reportId });
+        });
+      });
+    }
     if (reportId === 'qsl_labels') {
       const btn = document.querySelector('.qsl-open-btn');
       if (btn) {
@@ -20723,7 +21142,19 @@ function syncEngineCompareLogForSlot(slot) {
       const searchForm = document.getElementById('logSearchForm');
       const searchInput = document.getElementById('logSearchInput');
       const searchClear = document.getElementById('logSearchClear');
+      const radioFilterSelect = document.getElementById('logRadioFilter');
       const clearFilters = document.getElementById('logClearFilters');
+      if (radioFilterSelect) {
+        radioFilterSelect.addEventListener('change', () => {
+          state.logRadioFilter = String(radioFilterSelect.value || '').trim().toUpperCase();
+          state.globalRadioFilter = state.logRadioFilter;
+          updateRadioRibbon();
+          state.logPage = 0;
+          state.compareLogWindowStart = 0;
+          invalidateCompareLogData();
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      }
       if (prev) prev.addEventListener('click', () => {
         if (state.logPage > 0) {
           state.logPage -= 1;
@@ -20735,6 +21166,7 @@ function syncEngineCompareLogForSlot(slot) {
         const fieldFilter = (state.logFieldFilter || '').trim().toUpperCase();
         const bandFilter = (state.logBandFilter || '').trim().toUpperCase();
         const modeFilter = (state.logModeFilter || '').trim();
+        const radioFilter = (state.logRadioFilter || state.globalRadioFilter || '').trim().toUpperCase();
         const opFilter = (state.logOpFilter || '').trim().toUpperCase();
         const callLenFilter = Number.isFinite(state.logCallLenFilter)
           ? state.logCallLenFilter
@@ -20762,6 +21194,7 @@ function syncEngineCompareLogForSlot(slot) {
         if (modeFilter && modeFilter !== 'All') {
           filtered = filtered.filter((q) => modeBucket(q.mode) === modeFilter);
         }
+        if (radioFilter && radioRuntime) filtered = getRadioRuntime().filterQsosByRadio(filtered, radioFilter);
         if (opFilter) {
           filtered = filtered.filter((q) => q.op && q.op.toUpperCase() === opFilter);
         }
@@ -20838,6 +21271,9 @@ function syncEngineCompareLogForSlot(slot) {
           state.logFieldFilter = '';
           state.logBandFilter = '';
           state.logModeFilter = '';
+          state.logRadioFilter = '';
+          state.globalRadioFilter = '';
+          updateRadioRibbon();
           state.logOpFilter = '';
           state.logCallLenFilter = null;
           state.logCallStructFilter = '';
@@ -20861,6 +21297,9 @@ function syncEngineCompareLogForSlot(slot) {
           state.logFieldFilter = '';
           state.logBandFilter = '';
           state.logModeFilter = '';
+          state.logRadioFilter = '';
+          state.globalRadioFilter = '';
+          updateRadioRibbon();
           state.logOpFilter = '';
           state.logCallLenFilter = null;
           state.logCallStructFilter = '';
@@ -20885,6 +21324,9 @@ function syncEngineCompareLogForSlot(slot) {
           state.logFieldFilter = '';
           state.logBandFilter = '';
           state.logModeFilter = '';
+          state.logRadioFilter = '';
+          state.globalRadioFilter = '';
+          updateRadioRibbon();
           state.logOpFilter = '';
           state.logCallLenFilter = null;
           state.logCallStructFilter = '';
@@ -22153,6 +22595,7 @@ function syncEngineCompareLogForSlot(slot) {
     const comparePerspectiveReady = loadComparePerspectiveModule();
     const exportRuntimeReady = loadExportRuntimeModule();
     const qtcRuntimeReady = loadQtcRuntimeModule();
+    const radioRuntimeReady = loadRadioRuntimeModule();
     const storageRuntimeReady = loadStorageRuntimeModule();
 
     await awaitInitRuntime('retained runtime', retainedRuntimeReady, { critical: true });
@@ -22177,6 +22620,7 @@ function syncEngineCompareLogForSlot(slot) {
     await awaitInitRuntime('rbn compare runtime', rbnCompareRuntimeReady);
     await awaitInitRuntime('investigation actions runtime', investigationActionsRuntimeReady);
     await awaitInitRuntime('QTC runtime', qtcRuntimeReady, { critical: true });
+    await awaitInitRuntime('radio runtime', radioRuntimeReady, { critical: true });
 
     setupFileInput(dom.fileInput, dom.fileStatus, 'A');
     setupFileInput(dom.fileInputB, dom.fileStatusB, 'B');
@@ -22257,6 +22701,43 @@ function syncEngineCompareLogForSlot(slot) {
         state.periodFilterCache = new Map();
         syncPeriodFiltersWithAvailableData();
         renderActiveReport();
+      });
+    }
+    if (dom.radioFilterRibbon) {
+      dom.radioFilterRibbon.addEventListener('click', (evt) => {
+        const target = evt.target;
+        if (!(target instanceof HTMLElement) || !target.classList.contains('radio-pill')) return;
+        evt.preventDefault();
+        state.globalRadioFilter = String(target.dataset.radio || '').trim().toUpperCase();
+        state.logRadioFilter = state.globalRadioFilter;
+        state.bandDerivedCache = new Map();
+        state.periodFilterCache = new Map();
+        getActiveCompareSlots().forEach(({ slot }) => {
+          slot.radioDerivedCache = new Map();
+          slot.bandDerivedCache = new Map();
+          slot.periodFilterCache = new Map();
+        });
+        updateRadioRibbon();
+        renderActiveReport();
+      });
+      dom.radioFilterRibbon.addEventListener('keydown', (evt) => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(evt.key)) return;
+        const target = evt.target;
+        if (!(target instanceof HTMLElement) || !target.classList.contains('radio-pill')) return;
+        const pills = Array.from(dom.radioFilterRibbon.querySelectorAll('.radio-pill'));
+        const current = pills.indexOf(target);
+        if (current < 0 || !pills.length) return;
+        evt.preventDefault();
+        let next = current;
+        if (evt.key === 'Home') next = 0;
+        else if (evt.key === 'End') next = pills.length - 1;
+        else if (evt.key === 'ArrowLeft' || evt.key === 'ArrowUp') next = (current - 1 + pills.length) % pills.length;
+        else next = (current + 1) % pills.length;
+        pills[next].click();
+        requestAnimationFrame(() => {
+          const replacement = Array.from(dom.radioFilterRibbon.querySelectorAll('.radio-pill'))[next];
+          replacement?.focus();
+        });
       });
     }
     // Export actions are handled in the Export report page.

@@ -85,6 +85,10 @@ const state = {
     points_by_minute: ['A', 'D']
   }),
   globalBandFilter: '20M',
+  globalRadioFilter: '1',
+  radioHeatMetric: 'combinedRate',
+  radioHeatA: '0',
+  radioHeatB: '1',
   breakThreshold: 20,
   passedQsoWindow: 12,
   globalYearsFilter: [2025],
@@ -97,6 +101,7 @@ const state = {
   logFieldFilter: '599',
   logBandFilter: '20M',
   logModeFilter: 'CW',
+  logRadioFilter: '1',
   logOpFilter: 'S53ZO',
   logCallLenFilter: 5,
   logCallStructFilter: 'LLNLL',
@@ -180,6 +185,8 @@ const add = (name, passed, details = null) => checks.push({ name, passed: Boolea
 
 const payload = codec.buildSessionPayload(true);
 add('Session payload stores analysisMode', payload.analysisMode === 'dxer', payload.analysisMode);
+add('Session payload stores synchronized radio filters', payload.globalRadioFilter === '1' && payload.logFilters?.radioFilter === '1', { global: payload.globalRadioFilter, log: payload.logFilters?.radioFilter });
+add('Session payload stores radio heatmap settings', payload.radioHeatMetric === 'combinedRate' && payload.radioHeatA === '0' && payload.radioHeatB === '1', { metric: payload.radioHeatMetric, a: payload.radioHeatA, b: payload.radioHeatB });
 add('Session payload stores multiplier opportunity settings', payload.multiplierOpportunities?.referenceSlotId === 'B' && payload.multiplierOpportunities?.windowMinutes === 30, payload.multiplierOpportunities);
 add('Session payload includes raw slot text when requested', payload.slots[0].rawText === 'RAW-A', payload.slots[0].rawText);
 add('Session payload preserves WRTC 2022 scoring override', payload.slots[0].scoringRuleOverride === 'wrtc_2022', payload.slots[0]);
@@ -212,6 +219,8 @@ add('Permalink encoding prefers compact v2 prefix', encoded.startsWith('v2.'), e
 const parsed = codec.parsePermalinkState(`?state=${encoded}`);
 add('Permalink parse restores analysisMode', parsed?.analysisMode === 'dxer', parsed?.analysisMode);
 add('Permalink parse restores compare count', parsed?.compareCount === 4, parsed?.compareCount);
+add('Permalink parse restores synchronized radio filters', parsed?.globalRadioFilter === '1' && parsed?.logFilters?.radioFilter === '1', { global: parsed?.globalRadioFilter, log: parsed?.logFilters?.radioFilter });
+add('Permalink parse restores radio heatmap settings', parsed?.radioHeatMetric === 'combinedRate' && parsed?.radioHeatA === '0' && parsed?.radioHeatB === '1', { metric: parsed?.radioHeatMetric, a: parsed?.radioHeatA, b: parsed?.radioHeatB });
 add('Permalink parse restores multiplier opportunity settings', parsed?.multiplierOpportunities?.referenceSlotId === 'B' && parsed?.multiplierOpportunities?.windowMinutes === 30 && parsed?.multiplierOpportunities?.filters?.confidence === 'High' && parsed?.multiplierOpportunities?.filters?.evidence === 'RBN' && parsed?.multiplierOpportunities?.filters?.status === 'Plausible opportunity', parsed?.multiplierOpportunities);
 add('Permalink parse restores slot archive path', parsed?.slots?.[0]?.archivePath === 'ZRS_KVP/2025/jesen/S55OO.log', parsed?.slots?.[0]);
 add('Permalink parse restores WRTC 2022 scoring override', parsed?.slots?.[0]?.scoringRuleOverride === 'wrtc_2022', parsed?.slots?.[0]);

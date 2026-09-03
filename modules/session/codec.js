@@ -91,6 +91,10 @@ export function createSessionCodec(deps = {}) {
         : state.wpxColumnMode,
       compareFocus: state.compareFocus,
       globalBandFilter: state.globalBandFilter || '',
+      globalRadioFilter: state.globalRadioFilter || '',
+      radioHeatMetric: state.radioHeatMetric || 'minutes',
+      radioHeatA: state.radioHeatA || '',
+      radioHeatB: state.radioHeatB || '',
       breakThreshold: state.breakThreshold,
       passedQsoWindow: state.passedQsoWindow,
       globalYearsFilter: state.globalYearsFilter || [],
@@ -104,6 +108,7 @@ export function createSessionCodec(deps = {}) {
         fieldFilter: state.logFieldFilter || '',
         bandFilter: state.logBandFilter || '',
         modeFilter: state.logModeFilter || '',
+        radioFilter: state.globalRadioFilter || state.logRadioFilter || '',
         opFilter: state.logOpFilter || '',
         callLenFilter: Number.isFinite(state.logCallLenFilter) ? state.logCallLenFilter : null,
         callStructFilter: state.logCallStructFilter || '',
@@ -128,6 +133,7 @@ export function createSessionCodec(deps = {}) {
       fieldFilter: '',
       bandFilter: '',
       modeFilter: '',
+      radioFilter: '',
       opFilter: '',
       callLenFilter: null,
       callStructFilter: '',
@@ -234,6 +240,7 @@ export function createSessionCodec(deps = {}) {
     if (f.fieldFilter) compact.f = f.fieldFilter;
     if (f.bandFilter) compact.b = f.bandFilter;
     if (f.modeFilter) compact.m = f.modeFilter;
+    if (f.radioFilter) compact.j = f.radioFilter;
     if (f.opFilter) compact.o = f.opFilter;
     if (Number.isFinite(f.callLenFilter)) compact.l = Number(f.callLenFilter);
     if (f.callStructFilter) compact.t = f.callStructFilter;
@@ -267,6 +274,7 @@ export function createSessionCodec(deps = {}) {
     if (typeof compact.f === 'string') out.fieldFilter = compact.f;
     if (typeof compact.b === 'string') out.bandFilter = compact.b;
     if (typeof compact.m === 'string') out.modeFilter = compact.m;
+    if (typeof compact.j === 'string') out.radioFilter = compact.j;
     if (typeof compact.o === 'string') out.opFilter = compact.o;
     if (Number.isFinite(Number(compact.l))) out.callLenFilter = Number(compact.l);
     if (typeof compact.t === 'string') out.callStructFilter = compact.t;
@@ -412,6 +420,12 @@ export function createSessionCodec(deps = {}) {
     const focus = compactCompareFocus(payload.compareFocus);
     if (focus) compact.f = focus;
     if (payload.globalBandFilter) compact.g = payload.globalBandFilter;
+    if (payload.globalRadioFilter) compact.gr = payload.globalRadioFilter;
+    const radioHeat = {};
+    if (payload.radioHeatMetric && payload.radioHeatMetric !== 'minutes') radioHeat.m = payload.radioHeatMetric;
+    if (payload.radioHeatA) radioHeat.a = payload.radioHeatA;
+    if (payload.radioHeatB) radioHeat.b = payload.radioHeatB;
+    if (Object.keys(radioHeat).length) compact.rh = radioHeat;
     const breakThreshold = Number(payload.breakThreshold);
     if (Number.isFinite(breakThreshold) && breakThreshold !== 15) compact.b = breakThreshold;
     const passedQsoWindow = Number(payload.passedQsoWindow);
@@ -485,6 +499,10 @@ export function createSessionCodec(deps = {}) {
       compareTimeRangeLock,
       compareFocus: inflateCompareFocus(compact.f),
       globalBandFilter: typeof compact.g === 'string' ? compact.g : '',
+      globalRadioFilter: typeof compact.gr === 'string' ? compact.gr : '',
+      radioHeatMetric: ['minutes', 'qsos', 'points', 'multipliers', 'combinedRate'].includes(compact.rh?.m) ? compact.rh.m : 'minutes',
+      radioHeatA: typeof compact.rh?.a === 'string' ? compact.rh.a : '',
+      radioHeatB: typeof compact.rh?.b === 'string' ? compact.rh.b : '',
       globalYearsFilter: normalizePeriodYears(compact[periodFilterCompactYears]),
       globalMonthsFilter: normalizePeriodMonths(compact[periodFilterCompactMonths]),
       breakThreshold: Number.isFinite(breakThreshold) ? breakThreshold : 15,

@@ -1,5 +1,5 @@
-import '../analysis/core.js?v=6.3.23';
-import '../compare/compare-core.js?v=6.3.22';
+import '../analysis/core.js?v=6.3.28';
+import '../compare/compare-core.js?v=6.3.28';
 
 let analysisResources = {};
 const compareLogsBySlot = new Map();
@@ -47,7 +47,8 @@ function buildCompareLog(qsos) {
     callCount: q.callCount,
     isDupe: Boolean(q.isDupe),
     operatingStyleRole: q.operatingStyleRole || '',
-    operatingStyleBand: q.operatingStyleBand || q.band || ''
+    operatingStyleBand: q.operatingStyleBand || q.band || '',
+    txId: q.txId ?? null
   }));
 }
 

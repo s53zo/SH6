@@ -24,8 +24,8 @@ function assert(condition, message, details) {
 }
 
 const filterFixture = [
-  { i: 0, call: 'K1AAA', op: 'OP1', qsoNumber: 1, ts: Date.UTC(2025, 0, 4, 23, 50), isDupe: false },
-  { i: 1, call: 'K1BBB', op: 'OP2', qsoNumber: 2, ts: Date.UTC(2025, 0, 5, 0, 0), isDupe: true }
+  { i: 0, call: 'K1AAA', op: 'OP1', txId: null, qsoNumber: 1, ts: Date.UTC(2025, 0, 4, 23, 50), isDupe: false },
+  { i: 1, call: 'K1BBB', op: 'OP2', txId: '1', qsoNumber: 2, ts: Date.UTC(2025, 0, 5, 0, 0), isDupe: true }
 ];
 assert(
   core.applyLogFilters(filterFixture, { opFilter: 'OP1' }).map((qso) => qso.i).join(',') === '0',
@@ -37,6 +37,8 @@ assert(
   }).map((qso) => qso.i).join(',') === '0',
   'Range filtering with excludeDupes must remove duplicate QSOs.'
 );
+assert(core.applyLogFilters(filterFixture, { radioFilter: '1' }).map((qso) => qso.i).join(',') === '1', 'Radio filtering must retain the requested transmitter ID.');
+assert(core.applyLogFilters(filterFixture, { radioFilter: '__MISSING__' }).map((qso) => qso.i).join(',') === '0', 'Missing-radio filtering must retain only QSOs without a transmitter ID.');
 
 const rowsPerSlot = 40000;
 const start = Date.UTC(2025, 0, 4, 23, 50);

@@ -146,6 +146,7 @@ export function createExportRuntime(deps = {}) {
   function stripLinks(html) {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
+    wrapper.querySelectorAll('details').forEach((details) => details.setAttribute('open', ''));
     wrapper.querySelectorAll('a').forEach((link) => {
       const span = document.createElement('span');
       span.textContent = link.textContent || '';

@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.29 (2026-09-07)
+- EDI review hardening: retain overflow diagnostics, reject oversized EDI uploads, bound parser lines/records/remarks/warnings, and avoid returning duplicated source text and full header metadata in worker results.
+- EDI correctness: keep PBand as a band designation without fabricating exact frequencies, preserve original bytes through saved sessions and durable autosave metadata, and retain source duplicate flags separately.
+- Independent SWE review: address parser correctness, memory, security, persistence, and regression coverage findings from multiple review lanes.
+- Version bump to `v6.3.29` and refresh cache-busting references after integrating upstream v6.3.28 radio and archive updates.
+
 ## v6.3.28 (2026-09-03)
 - Promote Cabrillo/ADIF/CBF transmitter identifiers to `q.txId` while preserving `raw.TX_ID`, raw QSO lines, worker propagation, session state, and existing NAQP/RAC scoring behavior.
 - Add an unobtrusive global Radio filter and per-Log Radio filtering; Radio is the final standard and compare Log column and missing values remain explicit.

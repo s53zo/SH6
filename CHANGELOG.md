@@ -35,6 +35,14 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 - Add conditional QTC Overview, Timeline, Efficiency, Partners, Series, Quality, and CSV Export reports.
 - Add WAE CW, SSB, and RTTY fixtures plus QTC parsing, rules, scoring, off-time, and UI regressions.
 
+## v6.3.23 (2026-09-07)
+- EDI: add native Region 1 EDI parsing for `.edi` uploads and signature-detected content across all compare slots.
+- EDI fields: preserve headers, remarks, all 15 QSO columns, mode codes 0–9 with TX/RX modes, UTC dates, serials, exchanges, locators, points, N flags, source duplicates, ERROR rows, and parser warnings.
+- EDI analysis: retain station/grid/contest metadata, logged points, claimed totals, distance and map inputs, while excluding ERROR rows from derived contact totals and leaving frequency-dependent reports unavailable when PBand is only a designation.
+- EDI export/session: preserve original text and filename through sessions and export the original source with an `.edi` extension.
+- Regression coverage: add all-mode, date-boundary, malformed-row, line-ending, warning, and real-file reconciliation tests. The real `aavhf2020.edi` reconciles 545 declared and parsed records.
+- Version bump to `v6.3.23` and refresh cache-busting references.
+
 ## v6.3.22 (2026-07-12)
 - Compare Insights formatting: keep long callsigns, insight titles, explanations, filter context, provenance, and action labels wrapped inside their cards and header boxes.
 - Compare workspace formatting: allow long slot summaries, insight chips, jumps, and toggles to wrap without forcing their containers wider.

@@ -391,8 +391,8 @@
     './MASTER.DTA',
     '/MASTER.DTA'
   ];
-  const LOG_EXTENSIONS = new Set(['adi', 'adif', 'cbf', 'cbr', 'log']);
-  const LOG_EXTENSIONS_LABEL = '.adi, .adif, .cbf, .cbr, .log';
+  const LOG_EXTENSIONS = new Set(['adi', 'adif', 'edi', 'cbf', 'cbr', 'log']);
+  const LOG_EXTENSIONS_LABEL = '.edi, .adi, .adif, .cbf, .cbr, .log';
   const COMPARE_SLOT_IDS = ['B', 'C', 'D'];
   const COMPARE_SLOT_LABELS = {
     A: 'Log A',
@@ -621,6 +621,7 @@
     state.qsoData = null;
     state.qsoLite = null;
     state.rawLogText = '';
+    state.rawLogBytes = null;
     state.scoringRuleOverride = '';
     state.derived = null;
     state.logPage = 0;
@@ -2993,6 +2994,7 @@
     'parseMasterDta',
     'parseCabrillo',
     'parseCabrilloFreqToken',
+    'parseEdi',
     'normalizeScoringRuleOverride',
     'isWrtcScoringRuleId',
     'getWrtcScoringRuleLabel',
@@ -6334,6 +6336,10 @@
     return getAnalysisCore().parseCabrillo(text);
   }
 
+  function parseEdi(text) {
+    return getAnalysisCore().parseEdi(text);
+  }
+
   function parseAdif(text) {
     // Minimal ADIF parser: splits on <eor> and extracts <field:length[:type]>value
     const records = [];
@@ -6566,18 +6572,20 @@
     try {
       const startedAt = performanceNow();
       recordPerformanceEvent('file_load_start', { inputBytes: Number(file.size) || 0, slotId: String(slotId || 'A') });
-      const text = await file.text();
+      const fileBytes = await file.arrayBuffer();
+      const isEdiFile = /\.edi$/i.test(String(file.name || ''));
+      const text = new TextDecoder(isEdiFile ? 'windows-1252' : 'utf-8', { fatal: false }).decode(fileBytes);
       recordPerformanceEvent('file_read_ready', {
         durationMs: performanceNow() - startedAt,
         inputBytes: Number(file.size) || String(text || '').length,
         slotId: String(slotId || 'A')
       });
-      const parsed = await applyLoadedLogToSlot(slotId, text, file.name, file.size, sourceLabel || 'Uploaded', statusEl);
+      const parsed = await applyLoadedLogToSlot(slotId, text, file.name, file.size, sourceLabel || 'Uploaded', statusEl, undefined, { rawBytes: fileBytes });
       if (parsed && parsed.type === 'unknown') {
         showInvalidFileAlert('Invalid log file. The format could not be recognized.');
         return null;
       } else if (parsed && parsed.qsos && parsed.qsos.length === 0) {
-        showInvalidFileAlert('No QSOs parsed. Check that the file is a valid ADIF or CBF log.');
+        showInvalidFileAlert('No QSOs parsed. Check that the file is a valid EDI, ADIF, CBF, or Cabrillo log.');
         return null;
       }
       if (parsed) resolvePermalinkLogPromptForSlot(slotId);
@@ -6704,6 +6712,9 @@ function syncEngineCompareLogForSlot(slot) {
     }
     const statusTarget = statusEl || getStatusElBySlot(slotId);
     target.rawLogText = text;
+    target.rawLogBytes = renderOptions?.rawBytes instanceof ArrayBuffer
+      ? new Uint8Array(renderOptions.rawBytes)
+      : (ArrayBuffer.isView(renderOptions?.rawBytes) ? new Uint8Array(renderOptions.rawBytes.buffer.slice(0)) : null);
     target.scoringRuleOverride = renderOptions?.scoringRuleOverride === 'standard'
       ? 'standard'
       : normalizeScoringRuleOverride(renderOptions?.scoringRuleOverride);
@@ -6780,7 +6791,10 @@ function syncEngineCompareLogForSlot(slot) {
     } else if (statusTarget) {
       const qtcCount = target.qsoData.qtcs?.length || 0;
       const qtcSuffix = qtcCount ? ` and ${formatNumberSh6(qtcCount)} QTCs` : '';
-      statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(target.qsoData.qsos.length)} QSOs${qtcSuffix} as ${target.qsoData.type}`;
+      const warningCount = Array.isArray(target.qsoData.warnings) ? target.qsoData.warnings.length : 0;
+      const qtcSuffix = qtcCount ? ` and ${formatNumberSh6(qtcCount)} QTCs` : '';
+      statusTarget.textContent = `Loaded ${filename} (${formatNumberSh6(safeSize)} bytes) – parsed ${formatNumberSh6(target.qsoData.qsos.length)} QSOs${qtcSuffix} as ${target.qsoData.type}${warningCount ? ` · ${formatNumberSh6(warningCount)} parser warning${warningCount === 1 ? '' : 's'}` : ''}`;
+      if (warningCount) statusTarget.title = target.qsoData.warnings.map((warning) => `Line ${warning.line ?? '?'}: ${warning.message}`).join('\n');
     }
     updateSlotStatus(slotId);
     if (sourceLabel === 'Archive') {
@@ -13265,7 +13279,7 @@ function syncEngineCompareLogForSlot(slot) {
       case 'grid':
         return `<td class="tl">${escapeHtml(q.grid || '')}</td>`;
       case 'flags': {
-        const flags = q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim();
+        const flags = q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.sourceDuplicate ? ' SOURCE-DUP' : ''}${q.isDupe ? ' DUPE' : ''}`.trim();
         return `<td class="tl">${escapeHtml(flags)}</td>`;
       }
       case 'radio': {
@@ -13757,7 +13771,7 @@ function syncEngineCompareLogForSlot(slot) {
       const mode = escapeHtml(q.mode || '');
       const band = escapeHtml(formatBandLabel(q.band || ''));
       const cont = escapeHtml(q.continent || '');
-      const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
+      const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.sourceDuplicate ? ' SOURCE-DUP' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       const time = escapeHtml(q.time || '');
       const freq = escapeHtml(formatFrequency(q.freq));
       const cq = escapeHtml(q.cqZone || '');
@@ -13953,7 +13967,7 @@ function syncEngineCompareLogForSlot(slot) {
     const loadedSlots = getActiveCompareSlots().filter((entry) => entry.slot?.rawLogText);
     const cbrButtons = loadedSlots.length
       ? loadedSlots.map((entry) => (
-        `<button type="button" class="button export-action" data-export="cbr" data-slot="${escapeAttr(entry.id)}">Export ${escapeHtml(entry.label)} CBR</button>`
+        `<button type="button" class="button export-action" data-export="cbr" data-slot="${escapeAttr(entry.id)}">Export ${escapeHtml(entry.label)} ${String(entry.slot?.qsoData?.type || '').toUpperCase() === 'EDI' ? 'EDI' : 'CBR'}</button>`
       )).join(' ')
       : '';
     return `
@@ -13975,8 +13989,8 @@ function syncEngineCompareLogForSlot(slot) {
           <button type="button" class="button export-action utility-primary-btn" data-export="html">Export HTML</button>
         </div>
         <div class="utility-block utility-cbr-block">
-          <h4>CBR export</h4>
-          <p>CBR export saves the original raw log text SH6 loaded for each slot.</p>
+          <h4>Original log export</h4>
+          <p>Saves the original raw log text SH6 loaded for each slot, preserving EDI as <code>.edi</code> and Cabrillo as <code>.cbr</code>.</p>
           <div class="utility-slot-actions">
             ${cbrButtons || '<span>No loaded raw logs available for CBR export.</span>'}
           </div>

@@ -1832,8 +1832,342 @@
     return qsos;
   }
 
+  // Region 1 EDI (Electronic Contest Log Exchange) is a line-oriented format
+  // used for VHF and above contests.  Keep this parser deliberately separate
+  // from the whitespace-oriented Cabrillo parser: empty fields in an EDI QSO
+  // are significant and must never be collapsed.
+  const EDI_MODE_MAP = Object.freeze({
+    '0': { tx: '', rx: '', label: '' },
+    '1': { tx: 'SSB', rx: 'SSB', label: 'SSB' },
+    '2': { tx: 'CW', rx: 'CW', label: 'CW' },
+    '3': { tx: 'SSB', rx: 'CW', label: 'SSB/CW' },
+    '4': { tx: 'CW', rx: 'SSB', label: 'CW/SSB' },
+    '5': { tx: 'AM', rx: 'AM', label: 'AM' },
+    '6': { tx: 'FM', rx: 'FM', label: 'FM' },
+    '7': { tx: 'RTTY', rx: 'RTTY', label: 'RTTY' },
+    '8': { tx: 'SSTV', rx: 'SSTV', label: 'SSTV' },
+    '9': { tx: 'ATV', rx: 'ATV', label: 'ATV' }
+  });
+  const EDI_QSO_FIELD_NAMES = Object.freeze([
+    'DATE', 'TIME', 'CALL', 'MODE_CODE', 'RST_SENT', 'SENT_QSO_NUMBER',
+    'RST_RCVD', 'RECEIVED_QSO_NUMBER', 'RECEIVED_EXCHANGE', 'RECEIVED_WWL',
+    'QSO_POINTS', 'NEW_EXCHANGE', 'NEW_WWL', 'NEW_DXCC', 'DUPLICATE_QSO'
+  ]);
+  const EDI_PBAND_MHZ_ALIASES = Object.freeze({
+    '50': '6M',
+    '70': '4M',
+    '145': '2M',
+    '435': '70CM'
+  });
+  const EDI_PBAND_GHZ_ALIASES = Object.freeze({
+    '1.3': '23CM',
+    '2.3': '13CM',
+    '3.4': '9CM',
+    '5.7': '6CM',
+    '10': '3CM',
+    '24': '1.25CM',
+    '47': '6MM',
+    '76': '4MM',
+    '120': '2.5MM',
+    '144': '2MM',
+    '248': '1MM'
+  });
+
+  function parseEdiNumber(value) {
+    const raw = String(value == null ? '' : value).trim().replace(',', '.');
+    if (!raw) return null;
+    const valueNumber = Number(raw);
+    return Number.isFinite(valueNumber) ? valueNumber : null;
+  }
+
+  function parseEdiBand(rawBand) {
+    const original = String(rawBand == null ? '' : rawBand).trim();
+    if (!original) return { band: '', freqMHz: null, raw: original };
+    // EDI uses decimal commas in a few published examples (for example
+    // "1,3 GHz").  A PBand is a designation, so only set freqMHz when the
+    // value unambiguously contains an actual frequency; normalized band text
+    // remains available even when the designation is outside BAND_DEFS.
+    const normalized = original.replace(/(\d),(?=\d)/g, '$1.');
+    const aliasMatch = normalized.match(/^\s*(\d+(?:\.\d+)?)\s*(?:M(?:HZ)?|G(?:HZ)?)\s*$/i);
+    if (aliasMatch) {
+      const number = aliasMatch[1];
+      const unit = normalized.match(/[A-Z]+$/i)?.[0].toUpperCase() || '';
+      const alias = unit.startsWith('G') ? EDI_PBAND_GHZ_ALIASES[number] : EDI_PBAND_MHZ_ALIASES[number];
+      if (alias) {
+        const freqMHz = unit.startsWith('G') ? Number(number) * 1000 : Number(number);
+        return { band: alias, freqMHz: Number.isFinite(freqMHz) ? freqMHz : null, raw: original };
+      }
+    }
+    const freqInfo = parseCabrilloFreqToken(normalized);
+    if (freqInfo.band || Number.isFinite(freqInfo.freqMHz)) {
+      return { band: freqInfo.band || normalizeBandToken(normalized), freqMHz: freqInfo.freqMHz, raw: original };
+    }
+    const band = normalizeBandToken(normalized);
+    return { band, freqMHz: null, raw: original };
+  }
+
+  function parseEdiHeaderDateRange(rawDate) {
+    const dates = String(rawDate == null ? '' : rawDate).split(';').map((value) => value.trim());
+    const parseFull = (value) => {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length !== 8) return null;
+      const year = parseInt(digits.slice(0, 4), 10);
+      const month = parseInt(digits.slice(4, 6), 10);
+      const day = parseInt(digits.slice(6, 8), 10);
+      const daysInMonth = month >= 1 && month <= 12 ? new Date(Date.UTC(year, month, 0)).getUTCDate() : 0;
+      if (!Number.isInteger(year) || month < 1 || month > 12 || day < 1 || day > daysInMonth) return null;
+      return { year, month, day, value: `${String(year).padStart(4, '0')}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}` };
+    };
+    return {
+      start: parseFull(dates[0] || ''),
+      end: parseFull(dates[1] || dates[0] || '')
+    };
+  }
+
+  function resolveEdiDate(dateValue, dateRange) {
+    const digits = String(dateValue == null ? '' : dateValue).trim().replace(/\D/g, '');
+    if (digits.length !== 6) return null;
+    const yy = parseInt(digits.slice(0, 2), 10);
+    const month = parseInt(digits.slice(2, 4), 10);
+    const day = parseInt(digits.slice(4, 6), 10);
+    const daysInMonth = month >= 1 && month <= 12 ? new Date(Date.UTC(2000 + yy, month, 0)).getUTCDate() : 0;
+    if (!Number.isInteger(yy) || month < 1 || month > 12 || day < 1 || day > daysInMonth) return null;
+    const startYear = dateRange?.start?.year;
+    const endYear = dateRange?.end?.year || startYear;
+    const candidates = [];
+    if (Number.isInteger(startYear)) {
+      const century = Math.floor(startYear / 100) * 100;
+      for (let offset = -1; offset <= 1; offset += 1) candidates.push(century + offset * 100 + yy);
+    } else {
+      // EDI examples use both 19xx and 20xx records.  This is only a fallback
+      // for files without a valid TDate; keep it explicit in parse warnings.
+      candidates.push(yy < 70 ? 2000 + yy : 1900 + yy);
+    }
+    const inRange = candidates.find((year) => {
+      if (!Number.isInteger(startYear)) return false;
+      const low = startYear - 1;
+      const high = (Number.isInteger(endYear) ? endYear : startYear) + 1;
+      return year >= low && year <= high;
+    });
+    const year = inRange || candidates
+      .slice()
+      .sort((a, b) => Math.abs(a - (startYear || (yy < 70 ? 2000 + yy : 1900 + yy))) - Math.abs(b - (startYear || (yy < 70 ? 2000 + yy : 1900 + yy))))[0];
+    return `${String(year).padStart(4, '0')}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+  }
+
+  function parseEdiDateTime(dateValue, timeValue, dateRange) {
+    const fullDate = resolveEdiDate(dateValue, dateRange);
+    if (!fullDate) return { date: null, ts: null };
+    const timeDigits = String(timeValue == null ? '' : timeValue).trim().replace(/\D/g, '');
+    if (timeDigits.length !== 4 && timeDigits.length !== 6) return { date: fullDate, ts: null };
+    const hh = parseInt(timeDigits.slice(0, 2), 10);
+    const mm = parseInt(timeDigits.slice(2, 4), 10);
+    const ss = timeDigits.length >= 6 ? parseInt(timeDigits.slice(4, 6), 10) : 0;
+    if (hh > 23 || mm > 59 || ss > 59) return { date: fullDate, ts: null };
+    const ts = parseDateTime(fullDate, `${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}${String(ss).padStart(2, '0')}`);
+    return { date: fullDate, ts };
+  }
+
+  function parseEdi(text) {
+    const sourceText = String(text == null ? '' : text);
+    const lines = sourceText.replace(/^\uFEFF/, '').split(/\r\n|\n|\r/);
+    const warnings = [];
+    const header = {};
+    const remarks = [];
+    const qsos = [];
+    let signature = '';
+    let version = null;
+    let section = 'header';
+    let qsoExpected = null;
+    let qsoStartLine = null;
+    let qsoRecordsRead = 0;
+    let dateRange = { start: null, end: null };
+    const warn = (line, code, message) => warnings.push({ line: Number.isInteger(line) ? line : null, code, message });
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+      const lineNumber = lineIndex + 1;
+      const line = String(lines[lineIndex] == null ? '' : lines[lineIndex]);
+      const trimmed = line.trim();
+      if (!trimmed && section !== 'qso') continue;
+      const signatureMatch = trimmed.match(/^\[REG1TEST\s*;\s*([^\]]+)\]$/i);
+      if (signatureMatch && !signature) {
+        signature = trimmed;
+        version = signatureMatch[1].trim();
+        if (version !== '1') warn(lineNumber, 'unsupported-version', `Unsupported EDI version "${version}"; parsed with version 1 field rules.`);
+        continue;
+      }
+      const qsoSectionMatch = trimmed.match(/^\[QSORecords(?:\s*;\s*(\d+))?\]$/i);
+      if (qsoSectionMatch) {
+        section = 'qso';
+        qsoStartLine = lineNumber;
+        qsoExpected = qsoSectionMatch[1] == null ? null : parseInt(qsoSectionMatch[1], 10);
+        if (qsoExpected == null) warn(lineNumber, 'missing-record-count', 'QSORecords section has no declared record count.');
+        continue;
+      }
+      if (/^\[Remarks\]$/i.test(trimmed)) {
+        section = 'remarks';
+        continue;
+      }
+      if (section === 'qso') {
+        // The declared count is the count of following records, including a
+        // malformed line.  Blank lines are harmless formatting around a file.
+        if (!trimmed) continue;
+        if (qsoExpected != null && qsoRecordsRead >= qsoExpected) continue;
+        if (/^\[END(?:;|\])/i.test(trimmed)) break;
+        const fields = line.split(';');
+        const padded = fields.slice(0, EDI_QSO_FIELD_NAMES.length);
+        while (padded.length < EDI_QSO_FIELD_NAMES.length) padded.push('');
+        const raw = {};
+        EDI_QSO_FIELD_NAMES.forEach((name, idx) => { raw[name] = (padded[idx] || '').trim(); });
+        raw.EDI_FIELDS = fields.slice();
+        raw.EDI_LINE = lineNumber;
+        if (fields.length !== EDI_QSO_FIELD_NAMES.length) {
+          warn(lineNumber, 'field-count', `Expected ${EDI_QSO_FIELD_NAMES.length} EDI QSO fields, received ${fields.length}.`);
+        }
+        const dateTime = parseEdiDateTime(raw.DATE, raw.TIME, dateRange);
+        if (!dateTime.date) warn(lineNumber, 'invalid-date', `Invalid EDI QSO date "${raw.DATE}".`);
+        else if (dateRange.start == null) warn(lineNumber, 'date-century-fallback', 'QSO year resolved with the 1970/2000 fallback because TDate is missing or invalid.');
+        if (dateTime.date && dateTime.ts == null) warn(lineNumber, 'invalid-time', `Invalid EDI QSO UTC time "${raw.TIME}".`);
+        const modeCode = raw.MODE_CODE;
+        const modeInfo = EDI_MODE_MAP[modeCode] || { tx: '', rx: '', label: '' };
+        if (modeCode && !EDI_MODE_MAP[modeCode]) warn(lineNumber, 'unknown-mode', `Unknown EDI mode code "${modeCode}" preserved as unspecified.`);
+        const errorRecord = raw.CALL.toUpperCase() === 'ERROR';
+        if (errorRecord) {
+          warn(lineNumber, 'error-record', 'EDI ERROR record retained for audit and excluded from usable contacts.');
+        } else if (!raw.CALL) {
+          warn(lineNumber, 'missing-call', 'EDI QSO record has no callsign.');
+        }
+        const points = parseEdiNumber(raw.QSO_POINTS);
+        if (raw.QSO_POINTS && points == null) warn(lineNumber, 'invalid-points', `Invalid EDI QSO points "${raw.QSO_POINTS}".`);
+        const sourceDuplicate = raw.DUPLICATE_QSO.toUpperCase() === 'D';
+        const shared = {
+          DATE: raw.DATE,
+          TIME: raw.TIME,
+          QSO_DATE: dateTime.date || raw.DATE,
+          TIME_ON: raw.TIME,
+          MODE: modeInfo.label,
+          TX_MODE: modeInfo.tx,
+          RX_MODE: modeInfo.rx,
+          MODE_CODE: modeCode,
+          CALL: raw.CALL,
+          RST_SENT: raw.RST_SENT,
+          RST_RCVD: raw.RST_RCVD,
+          SENT_QSO_NUMBER: raw.SENT_QSO_NUMBER,
+          RECEIVED_QSO_NUMBER: raw.RECEIVED_QSO_NUMBER,
+          RECEIVED_EXCHANGE: raw.RECEIVED_EXCHANGE,
+          RECEIVED_WWL: raw.RECEIVED_WWL,
+          QSO_POINTS: raw.QSO_POINTS,
+          NEW_EXCHANGE: raw.NEW_EXCHANGE,
+          NEW_WWL: raw.NEW_WWL,
+          NEW_DXCC: raw.NEW_DXCC,
+          DUPLICATE_QSO: raw.DUPLICATE_QSO,
+          IS_ERROR: errorRecord,
+          SOURCE_DUPLICATE: sourceDuplicate,
+          EDI_FIELDS: raw.EDI_FIELDS,
+          EDI_LINE: lineNumber
+        };
+        const qso = {
+          id: qsos.length,
+          qsoNumber: qsos.length + 1,
+          call: errorRecord ? '' : normalizeCall(raw.CALL),
+          band: '',
+          mode: modeInfo.label,
+          freq: null,
+          time: `${dateTime.date || raw.DATE} ${raw.TIME}`.trim(),
+          ts: dateTime.ts,
+          op: '',
+          grid: raw.RECEIVED_WWL,
+          rstSent: raw.RST_SENT,
+          rstRcvd: raw.RST_RCVD,
+          exchSent: '',
+          exchRcvd: raw.RECEIVED_EXCHANGE,
+          points: points == null ? 0 : points,
+          srx: raw.RECEIVED_QSO_NUMBER,
+          stx: raw.SENT_QSO_NUMBER,
+          sourceDuplicate,
+          isError: errorRecord,
+          txMode: modeInfo.tx,
+          rxMode: modeInfo.rx,
+          ediModeCode: modeCode,
+          raw: shared
+        };
+        qsos.push(qso);
+        qsoRecordsRead += 1;
+        continue;
+      }
+      if (section === 'remarks') {
+        remarks.push(line);
+        continue;
+      }
+      if (!signature && !trimmed.startsWith('[')) {
+        warn(lineNumber, 'missing-signature', 'EDI content appeared before the REG1TEST signature.');
+      }
+      const headerMatch = line.match(/^\s*([^=\s]+)\s*=\s?(.*)$/);
+      if (headerMatch) {
+        const key = headerMatch[1].trim().toUpperCase();
+        header[key] = headerMatch[2].trim();
+        if (key === 'TDATE') dateRange = parseEdiHeaderDateRange(header[key]);
+      } else if (trimmed && trimmed.startsWith('[')) {
+        warn(lineNumber, 'unknown-section', `Unknown EDI section "${trimmed}".`);
+      }
+    }
+
+    if (!signature) warn(1, 'missing-signature', 'Missing [REG1TEST;1] EDI signature.');
+    if (qsoExpected != null && qsoRecordsRead !== qsoExpected) {
+      warn(qsoStartLine, 'record-count-mismatch', `Declared ${qsoExpected} EDI QSO records but parsed ${qsoRecordsRead}.`);
+    }
+    const bandInfo = parseEdiBand(header.PBAND || '');
+    const operators = [header.MOPE1, header.MOPE2].filter(Boolean).join(';');
+    const metadata = {
+      STATION_CALLSIGN: header.PCALL || header.RCALL || null,
+      MY_GRIDSQUARE: header.PWWLO || null,
+      STATION_LOC: header.PWWLO || null,
+      GRID: header.PWWLO || null,
+      CONTEST: header.TNAME || null,
+      CONTEST_NAME: header.TNAME || null,
+      CATEGORY: header.PSECT || null,
+      CATEGORY_OPERATOR: header.PSECT || null,
+      CATEGORY_BAND: header.PBAND || null,
+      CATEGORY_POWER: header.SPOWE || null,
+      CLUB: header.PCLUB || null,
+      OPERATORS: operators || null,
+      CLAIMED_SCORE: header.CTOSC || null,
+      CLAIMED_QSOS: header.CQSOS || null,
+      CLAIMED_QSO_POINTS: header.CQSOP || null,
+      EDI_BAND: bandInfo.raw,
+      EDI_PBAND: header.PBAND || null,
+      EDI_TDATE: header.TDATE || null,
+      EDI_VERSION: version,
+      EDI_HEADER: Object.assign({}, header),
+      EDI_REMARKS: remarks.slice(),
+      EDI_DECLARED_RECORDS: qsoExpected,
+      EDI_PARSED_RECORDS: qsoRecordsRead,
+      EDI_WARNINGS: warnings.slice()
+    };
+    qsos.forEach((qso) => {
+      qso.band = bandInfo.band || '';
+      qso.raw = Object.assign({}, metadata, qso.raw);
+      qso.op = '';
+    });
+    return {
+      type: 'EDI',
+      qsos,
+      header,
+      remarks,
+      metadata,
+      warnings,
+      declaredRecords: qsoExpected,
+      parsedRecords: qsoRecordsRead,
+      rawText: sourceText,
+      band: bandInfo.band || '',
+      freqMHz: bandInfo.freqMHz
+    };
+  }
+
   function parseLogFile(text, filename) {
     const lower = String(filename || '').toLowerCase();
+    const ediSignature = /^\s*\[REG1TEST\s*;\s*[^\]]+\]/im.test(String(text || ''));
+    if (lower.endsWith('.edi') || ediSignature) return parseEdi(text);
     if (lower.endsWith('.log') || lower.endsWith('.cbr') || /START-OF-LOG:/i.test(text) || /^QSO:/im.test(text)) {
       const cab = parseCabrillo(text);
       const metaRaw = cab.header || {};
@@ -6457,6 +6791,7 @@
     const callMetaCache = new Map();
 
     qsos.forEach((q) => {
+      if (q?.isError) return;
       if (q.call) calls.add(q.call);
       if (typeof q.ts === 'number') {
         if (minTs === null || q.ts < minTs) minTs = q.ts;
@@ -7107,6 +7442,7 @@
     parseLogFile,
     parseCabrillo,
     parseCabrilloFreqToken,
+    parseEdi,
     normalizeScoringRuleOverride,
     isWrtcScoringRuleId,
     getWrtcScoringRuleLabel,

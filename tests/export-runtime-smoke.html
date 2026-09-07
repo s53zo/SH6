@@ -190,7 +190,9 @@
             }
           }],
           ['C', {
-            rawLogText: '',
+            rawLogText: '[REG1TEST;1]\n',
+            logFile: { name: 'S57K.edi' },
+            qsoData: { type: 'EDI', qsos: [] },
             derived: {
               contestMeta: {
                 stationCallsign: 'S57K',
@@ -305,7 +307,7 @@
         add('CBR export shows a success notice', notices.some((entry) => entry.includes('Exported')), notices.join(' | '));
 
         runtime.exportCbrForSlot('C');
-        add('Missing raw log export surfaces a notice', notices.some((entry) => entry.includes('No raw log available in Log C.')), notices.join(' | '));
+        add('EDI original export preserves the .edi extension', downloads.some((entry) => entry.download.endsWith('_C.edi')), JSON.stringify(downloads));
 
         HTMLAnchorElement.prototype.click = nativeAnchorClick;
         URL.createObjectURL = nativeCreateObjectURL;

@@ -14,6 +14,7 @@ SH6 is a static HTML/JS app that parses contest logs in your browser, fetches `c
 - Open reports from the left menu
 
 ## Supported formats
+- Region 1 EDI: `.edi`
 - Cabrillo: `.log`, `.cbr`
 - ADIF: `.adi`, `.adif`
 - CBF: `.cbf`

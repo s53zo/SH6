@@ -62,7 +62,7 @@ export function createExportRuntime(deps = {}) {
   }
 
   function downloadTextFile(text, filename, mimeType = 'text/plain;charset=utf-8') {
-    const blob = new Blob([String(text || '')], { type: mimeType });
+    const blob = new Blob([text instanceof Uint8Array ? text : String(text || '')], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -82,7 +82,7 @@ export function createExportRuntime(deps = {}) {
       const mode = escapeHtml(q.mode || '');
       const band = escapeHtml(formatBandLabel(q.band || ''));
       const cont = escapeHtml(q.continent || '');
-      const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
+      const flags = escapeHtml(q.isQtc ? 'QTC' : `${q.inMaster === false ? 'NOT-IN-MASTER' : ''}${q.sourceDuplicate ? ' SOURCE-DUP' : ''}${q.isDupe ? ' DUPE' : ''}`.trim());
       const time = escapeHtml(q.time || '');
       const freq = escapeHtml(formatFrequency(q.freq));
       const cq = escapeHtml(q.cqZone || '');
@@ -126,8 +126,12 @@ export function createExportRuntime(deps = {}) {
       showOverlayNotice?.(`No raw log available in Log ${key}.`, 2400);
       return;
     }
-    const filename = buildExportFilenameForSlot('cbr', key);
-    downloadTextFile(rawText, filename, 'text/plain;charset=utf-8');
+    const sourceName = String(slot?.logFile?.name || '').trim();
+    const sourceExt = sourceName.includes('.') ? sourceName.split('.').pop().toLowerCase() : '';
+    const isEdi = sourceExt === 'edi' || String(slot?.qsoData?.type || '').toUpperCase() === 'EDI';
+    const outputExt = isEdi ? 'edi' : 'cbr';
+    const filename = buildExportFilenameForSlot(outputExt, key);
+    downloadTextFile(slot?.rawLogBytes || rawText, filename, 'text/plain;charset=utf-8');
 
     const compareSlots = getActiveCompareSlots?.() || [];
     const logParams = {};

@@ -278,6 +278,7 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
+<<<<<<< HEAD
   const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.22';
   const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.22';
   const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.22';
@@ -312,6 +313,38 @@
   const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.26';
   const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.26';
   const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.28';
+=======
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.24';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.24';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.24';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.24';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.24';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.24';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.24';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.24';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.24';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.24';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.24';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.24';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.24';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.24';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.24';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.24';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.24';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.24';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.24';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.24';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.24';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.24';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.24';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.24';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.24';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.24';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.24';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.24';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.24';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.24';
+>>>>>>> 5d84d51 (Harden EDI parsing after independent SWE review)
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -367,6 +400,7 @@
   const QRZ_CACHE_TTL = 1000 * 60 * 60 * 24 * 7;
   const QRZ_MAX_CONCURRENCY = 3;
   const COMPARE_PROGRESS_THRESHOLD = 20000;
+  const EDI_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
   const RECONSTRUCTED_NOTICE = 'THIS LOG IS RECONSTRUCTED. For contests where not all stations submitted logs, the repo can generate reconstructed mock logs. These are built by inferring QSOs for missing stations from logs that were submitted. They are not official submissions and are not complete logs.';
   const DEMO_ARCHIVE_PATH = 'CQWW/cw/2025/tk0c.log';
   const DEMO_ARCHIVE_LABEL = 'TK0C CQWW CW 2025';
@@ -1218,7 +1252,8 @@
         if (data.rawText) {
           await applyLoadedLogToSlot(id, data.rawText, data.file?.name || `${id}.log`, data.file?.size || data.rawText.length, 'Session', null, data.archivePath || '', {
             deferUiRefresh: true,
-            scoringRuleOverride: data.scoringRuleOverride || ''
+            scoringRuleOverride: data.scoringRuleOverride || '',
+            rawBytes: decodeRawBytes(data.rawBytesBase64)
           });
           applySpotSettings(getSlotById(id), data);
           continue;
@@ -1228,7 +1263,8 @@
           if (cachedRaw && cachedRaw.text) {
             await applyLoadedLogToSlot(id, cachedRaw.text, data.file?.name || `${id}.log`, data.file?.size || cachedRaw.text.length, 'Autosave', null, data.archivePath || '', {
               deferUiRefresh: true,
-              scoringRuleOverride: data.scoringRuleOverride || ''
+              scoringRuleOverride: data.scoringRuleOverride || '',
+              rawBytes: decodeRawBytes(cachedRaw.rawBytesBase64)
             });
             applySpotSettings(getSlotById(id), data);
             continue;
@@ -1609,6 +1645,20 @@
     while (text.length % 4) text += '=';
     return decodeURIComponent(escape(atob(text)));
   };
+
+  function decodeRawBytes(value) {
+    if (!value || typeof atob !== 'function') return null;
+    try {
+      let text = String(value).replace(/-/g, '+').replace(/_/g, '/');
+      while (text.length % 4) text += '=';
+      const binary = atob(text);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    } catch (err) {
+      return null;
+    }
+  }
 
   function trackEvent(name, params) {
     if (typeof window.gtag === 'function') {
@@ -6569,6 +6619,12 @@
       showInvalidFileAlert(`Invalid file type. Please upload ${LOG_EXTENSIONS_LABEL}.`);
       return null;
     }
+    if (/\.edi$/i.test(String(file.name || '')) && Number(file.size) > EDI_MAX_UPLOAD_BYTES) {
+      const message = `EDI files are limited to ${formatNumberSh6(EDI_MAX_UPLOAD_BYTES / (1024 * 1024))} MB for browser memory safety.`;
+      if (statusEl) statusEl.textContent = message;
+      showInvalidFileAlert(message);
+      return null;
+    }
     try {
       const startedAt = performanceNow();
       recordPerformanceEvent('file_load_start', { inputBytes: Number(file.size) || 0, slotId: String(slotId || 'A') });
@@ -6714,7 +6770,9 @@ function syncEngineCompareLogForSlot(slot) {
     target.rawLogText = text;
     target.rawLogBytes = renderOptions?.rawBytes instanceof ArrayBuffer
       ? new Uint8Array(renderOptions.rawBytes)
-      : (ArrayBuffer.isView(renderOptions?.rawBytes) ? new Uint8Array(renderOptions.rawBytes.buffer.slice(0)) : null);
+      : (ArrayBuffer.isView(renderOptions?.rawBytes)
+        ? new Uint8Array(renderOptions.rawBytes.buffer.slice(renderOptions.rawBytes.byteOffset, renderOptions.rawBytes.byteOffset + renderOptions.rawBytes.byteLength))
+        : null);
     target.scoringRuleOverride = renderOptions?.scoringRuleOverride === 'standard'
       ? 'standard'
       : normalizeScoringRuleOverride(renderOptions?.scoringRuleOverride);

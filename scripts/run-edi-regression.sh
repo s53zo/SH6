@@ -121,6 +121,7 @@ check('preserves station callsign metadata', String(value(allModes, 'PCall')).to
 check('preserves full contest dates', String(value(allModes, 'TDate')) === '19991231;20000101', metadata(allModes));
 check('preserves decimal-comma GHz PBand text', String(value(allModes, 'PBand')) === '1,3 GHz', metadata(allModes));
 check('normalizes decimal-comma GHz PBand to a stable band label', modeQsoBandIs(allModes, '23CM'), (allModes.qsos || []).map((qso) => qso.band));
+check('does not fabricate an exact frequency from PBand', allModes.freqMHz == null && (allModes.qsos || []).every((qso) => qso.freq == null), { freqMHz: allModes.freqMHz, freqs: (allModes.qsos || []).map((qso) => qso.freq) });
 const unsupportedVersion = core.parseLogFile(allModesText.replace('[REG1TEST;1]', '[REG1TEST;2]'), 'unsupported-version.edi');
 check('does not silently accept unsupported EDI versions', unsupportedVersion.type === 'unknown'
   || warnings(unsupportedVersion).some((warning) => /version|unsupported|identifier/i.test(String(warning.code || warning.message || warning))), unsupportedVersion);
@@ -155,6 +156,11 @@ check('reports malformed record with actionable warning', warnings(malformed).le
 check('reports declared/actual mismatch or malformed count', Number(malformed.declaredRecords || value(malformed, 'declaredRecordCount') || value(malformed, 'qsoRecordsDeclared') || malformed.recordCount?.declared) === 5
   && Number(malformed.parsedRecords || value(malformed, 'actualRecordCount') || malformed.recordCount?.actual || malformed.qsos?.length) === 4
   && warnings(malformed).some((warning) => /count|record/i.test(String(warning.code || warning.message || warning))), malformed);
+
+const overflow = core.parseLogFile(`[REG1TEST;1]\nTDate=20240101;20240101\nPCall=TEST\nPBand=144 MHz\n[QSORecords;1]\n240101;1200;S51AAA;1;59;001;59;001;;JN76AA;10;;;;\n240101;1201;S52BBB;1;59;002;59;002;;JN76AB;10;;;;\n[END]\n`, 'overflow.edi');
+check('does not silently discard records beyond declared count', overflow.qsos?.length === 2 && warnings(overflow).some((warning) => warning.code === 'record-count-overflow'), { count: overflow.qsos?.length, warnings: warnings(overflow) });
+const longLine = core.parseLogFile(`[REG1TEST;1]\nTDate=20240101;20240101\nPCall=TEST\n[QSORecords;1]\n240101;1200;S51AAA;1;59;001;59;001;${'X'.repeat(5000)};JN76AA;10;;;;\n`, 'long-line.edi');
+check('bounds oversized EDI lines with a warning', warnings(longLine).some((warning) => warning.code === 'line-too-long'), warnings(longLine));
 
 // The parser must tolerate all line ending forms and an optional UTF-8 BOM.
 for (const [label, transformed] of [

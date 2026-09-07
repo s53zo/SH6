@@ -24,6 +24,16 @@ export function createSessionCodec(deps = {}) {
     base64UrlDecode
   } = deps;
 
+  function encodeRawBytes(bytes) {
+    if (!(bytes instanceof Uint8Array) || !bytes.length || typeof btoa !== 'function') return '';
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, Math.min(bytes.length, offset + chunkSize)));
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
   function serializeSpotSettings(spotState) {
     if (!spotState) return { windowMinutes: 15, bandFilter: [] };
     return {
@@ -68,6 +78,8 @@ export function createSessionCodec(deps = {}) {
       };
       if (includeRaw) {
         data.rawText = slot.rawLogText || '';
+        const rawBytes = encodeRawBytes(slot.rawLogBytes);
+        if (rawBytes) data.rawBytesBase64 = rawBytes;
       }
       return data;
     });
@@ -349,6 +361,7 @@ export function createSessionCodec(deps = {}) {
       const rbn = compactSpotSettingsData(slot.rbn, true);
       if (rbn) item.r = rbn;
       if (includeRaw && typeof slot.rawText === 'string' && slot.rawText) item.x = slot.rawText;
+      if (includeRaw && typeof slot.rawBytesBase64 === 'string' && slot.rawBytesBase64) item.b = slot.rawBytesBase64;
       out.push(item);
     });
     return out;
@@ -385,6 +398,7 @@ export function createSessionCodec(deps = {}) {
           rbn: inflateSpotSettingsData(item.r, true)
         };
         if (typeof item.x === 'string' && item.x) slot.rawText = item.x;
+        if (typeof item.b === 'string' && item.b) slot.rawBytesBase64 = item.b;
         byId.set(id, slot);
       });
     }

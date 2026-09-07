@@ -1872,6 +1872,10 @@
     '144': '2MM',
     '248': '1MM'
   });
+  const EDI_MAX_QSO_RECORDS = 250000;
+  const EDI_MAX_LINE_LENGTH = 4096;
+  const EDI_MAX_REMARK_LINES = 2000;
+  const EDI_MAX_WARNINGS = 2000;
 
   function parseEdiNumber(value) {
     const raw = String(value == null ? '' : value).trim().replace(',', '.');
@@ -1895,12 +1899,12 @@
       const alias = unit.startsWith('G') ? EDI_PBAND_GHZ_ALIASES[number] : EDI_PBAND_MHZ_ALIASES[number];
       if (alias) {
         const freqMHz = unit.startsWith('G') ? Number(number) * 1000 : Number(number);
-        return { band: alias, freqMHz: Number.isFinite(freqMHz) ? freqMHz : null, raw: original };
+        return { band: alias, freqMHz: null, raw: original };
       }
     }
     const freqInfo = parseCabrilloFreqToken(normalized);
     if (freqInfo.band || Number.isFinite(freqInfo.freqMHz)) {
-      return { band: freqInfo.band || normalizeBandToken(normalized), freqMHz: freqInfo.freqMHz, raw: original };
+      return { band: freqInfo.band || normalizeBandToken(normalized), freqMHz: null, raw: original };
     }
     const band = normalizeBandToken(normalized);
     return { band, freqMHz: null, raw: original };
@@ -1982,13 +1986,20 @@
     let qsoStartLine = null;
     let qsoRecordsRead = 0;
     let dateRange = { start: null, end: null };
-    const warn = (line, code, message) => warnings.push({ line: Number.isInteger(line) ? line : null, code, message });
+    const warn = (line, code, message) => {
+      if (warnings.length < EDI_MAX_WARNINGS) warnings.push({ line: Number.isInteger(line) ? line : null, code, message });
+    };
 
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
       const lineNumber = lineIndex + 1;
       const line = String(lines[lineIndex] == null ? '' : lines[lineIndex]);
       const trimmed = line.trim();
       if (!trimmed && section !== 'qso') continue;
+      if (line.length > EDI_MAX_LINE_LENGTH) {
+        warn(lineNumber, 'line-too-long', `EDI line exceeds ${EDI_MAX_LINE_LENGTH} characters and was skipped.`);
+        if (section === 'qso') qsoRecordsRead += 1;
+        continue;
+      }
       const signatureMatch = trimmed.match(/^\[REG1TEST\s*;\s*([^\]]+)\]$/i);
       if (signatureMatch && !signature) {
         signature = trimmed;
@@ -2012,8 +2023,14 @@
         // The declared count is the count of following records, including a
         // malformed line.  Blank lines are harmless formatting around a file.
         if (!trimmed) continue;
-        if (qsoExpected != null && qsoRecordsRead >= qsoExpected) continue;
+        if (qsoRecordsRead >= EDI_MAX_QSO_RECORDS) {
+          warn(lineNumber, 'record-limit', `EDI parsing stopped at ${EDI_MAX_QSO_RECORDS} records.`);
+          break;
+        }
         if (/^\[END(?:;|\])/i.test(trimmed)) break;
+        if (qsoExpected != null && qsoRecordsRead >= qsoExpected) {
+          warn(lineNumber, 'record-count-overflow', `Additional EDI QSO record found after declared count ${qsoExpected}.`);
+        }
         const fields = line.split(';');
         const padded = fields.slice(0, EDI_QSO_FIELD_NAMES.length);
         while (padded.length < EDI_QSO_FIELD_NAMES.length) padded.push('');
@@ -2096,7 +2113,8 @@
         continue;
       }
       if (section === 'remarks') {
-        remarks.push(line);
+        if (remarks.length < EDI_MAX_REMARK_LINES) remarks.push(line);
+        else if (remarks.length === EDI_MAX_REMARK_LINES) warn(lineNumber, 'remarks-limit', `EDI remarks truncated at ${EDI_MAX_REMARK_LINES} lines.`);
         continue;
       }
       if (!signature && !trimmed.startsWith('[')) {
@@ -2144,9 +2162,9 @@
       EDI_PARSED_RECORDS: qsoRecordsRead,
       EDI_WARNINGS: warnings.slice()
     };
-    qsos.forEach((qso) => {
+    qsos.forEach((qso, index) => {
       qso.band = bandInfo.band || '';
-      qso.raw = Object.assign({}, metadata, qso.raw);
+      qso.raw = index === 0 ? Object.assign({}, metadata, qso.raw) : qso.raw;
       qso.op = '';
     });
     return {
@@ -2158,7 +2176,6 @@
       warnings,
       declaredRecords: qsoExpected,
       parsedRecords: qsoRecordsRead,
-      rawText: sourceText,
       band: bandInfo.band || '',
       freqMHz: bandInfo.freqMHz
     };

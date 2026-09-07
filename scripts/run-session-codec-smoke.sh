@@ -121,6 +121,7 @@ const slotMap = new Map([
     qsoData: { qsos: [1, 2] },
     logFile: { name: 'S55OO.log', size: 14535, source: 'Archive', path: 'ZRS_KVP/2025/jesen/S55OO.log' },
     rawLogText: 'RAW-A',
+    rawLogBytes: new Uint8Array([0, 159, 146, 150]),
     scoringRuleOverride: 'wrtc_2022',
     skipped: false,
     spotsState: { windowMinutes: 20, bandFilter: ['20M'] },
@@ -189,12 +190,15 @@ add('Session payload stores synchronized radio filters', payload.globalRadioFilt
 add('Session payload stores radio heatmap settings', payload.radioHeatMetric === 'combinedRate' && payload.radioHeatA === '0' && payload.radioHeatB === '1', { metric: payload.radioHeatMetric, a: payload.radioHeatA, b: payload.radioHeatB });
 add('Session payload stores multiplier opportunity settings', payload.multiplierOpportunities?.referenceSlotId === 'B' && payload.multiplierOpportunities?.windowMinutes === 30, payload.multiplierOpportunities);
 add('Session payload includes raw slot text when requested', payload.slots[0].rawText === 'RAW-A', payload.slots[0].rawText);
+add('Session payload includes original raw bytes when requested', typeof payload.slots[0].rawBytesBase64 === 'string' && payload.slots[0].rawBytesBase64.length > 0, payload.slots[0].rawBytesBase64);
 add('Session payload preserves WRTC 2022 scoring override', payload.slots[0].scoringRuleOverride === 'wrtc_2022', payload.slots[0]);
 add('Session payload preserves WRTC 2026 scoring override', payload.slots[1].scoringRuleOverride === 'wrtc_2026', payload.slots[1]);
 
 const compact = codec.buildCompactSessionPayload(payload, true);
 add('Compact payload saves analysisMode', compact.am === 'dxer', compact);
 add('Compact payload keeps compare focus overrides', Array.isArray(compact.f?.r) && compact.f.r[1] === 'C', compact.f);
+const compactSlotA = codec.inflateCompactSessionPayload(compact).slots.find((slot) => slot.id === 'A');
+add('Compact session preserves original raw byte payload', typeof compactSlotA?.rawBytesBase64 === 'string' && compactSlotA.rawBytesBase64 === payload.slots[0].rawBytesBase64, compactSlotA?.rawBytesBase64);
 
 const historicalCompact = { ...compact };
 delete historicalCompact.x;

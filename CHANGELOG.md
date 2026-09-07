@@ -35,6 +35,15 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 - Add conditional QTC Overview, Timeline, Efficiency, Partners, Series, Quality, and CSV Export reports.
 - Add WAE CW, SSB, and RTTY fixtures plus QTC parsing, rules, scoring, off-time, and UI regressions.
 
+## v6.3.24 (2026-09-07)
+- EDI hardening: detect and report records beyond the declared QSO count instead of silently dropping them.
+- EDI correctness: keep PBand as a band designation without fabricating an exact operating frequency.
+- EDI memory: avoid returning the full source text and repeated full header metadata in every parsed QSO result sent through the worker.
+- EDI persistence: retain original bytes in saved sessions and durable autosave metadata for faithful original-log export after restore.
+- EDI safety: reject `.edi` uploads above 100 MB before decoding and bound line, remark, warning, and record processing to limit browser memory use.
+- Regression coverage: add overflow, oversized-line, and no-fabricated-frequency checks; EDI regression now passes 44 checks.
+- Version bump to `v6.3.24` and refresh cache-busting references.
+
 ## v6.3.23 (2026-09-07)
 - EDI: add native Region 1 EDI parsing for `.edi` uploads and signature-detected content across all compare slots.
 - EDI fields: preserve headers, remarks, all 15 QSO columns, mode codes 0–9 with TX/RX modes, UTC dates, serials, exchanges, locators, points, N flags, source duplicates, ERROR rows, and parser warnings.

@@ -10,6 +10,16 @@ export function createStorageRuntime(deps = {}) {
   let durableStorageReadyPromise = null;
   let autosaveSessionTimer = null;
 
+  function encodeRawBytes(bytes) {
+    if (!(bytes instanceof Uint8Array) || !bytes.length || typeof btoa !== 'function') return '';
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, Math.min(bytes.length, offset + chunkSize)));
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
   async function ensureDurableStorageReady() {
     if (!durableStorageReadyPromise) {
       durableStorageReadyPromise = (async () => {
@@ -32,7 +42,9 @@ export function createStorageRuntime(deps = {}) {
     const storage = await ensureDurableStorageReady().catch(() => null);
     if (!storage || typeof storage.loadRawLog !== 'function') return null;
     const record = await storage.loadRawLog(String(slotId || '').toUpperCase()).catch(() => null);
-    return record && typeof record.text === 'string' ? record : null;
+    return record && typeof record.text === 'string'
+      ? { ...record, ...(record.meta && typeof record.meta === 'object' ? record.meta : {}) }
+      : null;
   }
 
   function persistDurableSlotLog(slotId, slot, text) {
@@ -47,6 +59,8 @@ export function createStorageRuntime(deps = {}) {
       source: file.source || '',
       path: file.path || ''
     };
+    const rawBytesBase64 = encodeRawBytes(slot?.rawLogBytes);
+    if (rawBytesBase64) meta.rawBytesBase64 = rawBytesBase64;
     ensureDurableStorageReady().then((storage) => {
       if (!storage) return;
       storage.saveRawLog?.(safeSlotId, safeText, meta).catch(() => {});

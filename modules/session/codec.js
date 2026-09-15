@@ -1,3 +1,5 @@
+import { normalizeMultiplierSettings } from '../multipliers/settings.js';
+
 export function createSessionCodec(deps = {}) {
   const historicalCompareLogWindowSize = 1000;
   const {
@@ -90,6 +92,7 @@ export function createSessionCodec(deps = {}) {
       analysisMode: state.analysisMode,
       compareCount: state.compareCount,
       compareScoreMode: state.compareScoreMode,
+      multiplierOverview: normalizeMultiplierSettings(state.multiplierOverview),
       multiplierOpportunities: {
         referenceSlotId: state.multiplierOpportunitiesReferenceSlotId || 'A',
         windowMinutes: Number(state.multiplierOpportunitiesWindowMinutes) || 15,
@@ -411,6 +414,8 @@ export function createSessionCodec(deps = {}) {
     const compareCount = Number(payload.compareCount);
     if (Number.isFinite(compareCount) && compareCount !== 1) compact.c = compareCount;
     if (payload.compareScoreMode && payload.compareScoreMode !== compareScoreModeComputed) compact.cs = payload.compareScoreMode;
+    const multiplierOverview = normalizeMultiplierSettings(payload.multiplierOverview);
+    if (Object.keys(multiplierOverview).length) compact.mv = multiplierOverview;
     if (payload.multiplierOpportunities && typeof payload.multiplierOpportunities === 'object') {
       const opportunity = payload.multiplierOpportunities;
       const compactOpportunity = {};
@@ -494,6 +499,7 @@ export function createSessionCodec(deps = {}) {
       analysisMode,
       compareCount,
       compareScoreMode,
+      multiplierOverview: normalizeMultiplierSettings(compact.mv),
       multiplierOpportunities: {
         referenceSlotId: slotIds.includes(String(compact.mo?.r || '').toUpperCase()) ? String(compact.mo.r).toUpperCase() : 'A',
         windowMinutes: [5, 10, 15, 30, 60].includes(Number(compact.mo?.w)) ? Number(compact.mo.w) : 15,
@@ -575,6 +581,7 @@ export function createSessionCodec(deps = {}) {
   }
 
   return {
+    normalizeMultiplierSettings,
     buildCompactSessionPayload,
     buildPermalink,
     buildSessionPayload,

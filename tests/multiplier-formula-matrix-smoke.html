@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Multiplier formula matrix</title></head>
+<body><div id="status">RUNNING</div><pre id="result"></pre><iframe id="app" src="../index.html" hidden title="SH6 scoring fixtures"></iframe>
+<script type="module">
+import { createScoreAdapter, emptyScoreState, addScoreContribution } from '../modules/multipliers/score-adapter.js';
+const frame = document.getElementById('app');
+try {
+  await new Promise((resolve) => frame.addEventListener('load', resolve, { once: true }));
+  const app = frame.contentWindow;
+  const deadline = Date.now() + 30000;
+  while (!app.SH6?.runScoringRegressionChecks && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
+  const core = app.SH6AnalysisCore;
+  const original = core.computeContestScoringSummary;
+  const cases = []; const failures = []; const unavailable = [];
+  core.computeContestScoringSummary = function (events, meta, context, resources) {
+    const scoring = original(events, meta, context, resources);
+    const adapter = createScoreAdapter(scoring);
+    if (!adapter.supported) { unavailable.push({ rule: scoring.ruleId, reason: adapter.reason }); return scoring; }
+    const credits = new Map();
+    for (const credit of scoring.multiplierCredits || []) { if (!credits.has(credit.qsoIndex)) credits.set(credit.qsoIndex, []); credits.get(credit.qsoIndex).push(credit); }
+    const state = emptyScoreState();
+    let prefixes = 0;
+    for (let index = 0; index < events.length; index += 1) {
+      addScoreContribution(state, scoring.computedPointsByIndex[index], scoring.analyticalMetadata.contributions[index], credits.get(index));
+      const expected = original(events.slice(0, index + 1), meta, context, resources);
+      const actual = adapter.score(state);
+      prefixes += 1;
+      if (actual !== expected.computedScore) failures.push({ rule: scoring.ruleId, prefix: index + 1, expected: expected.computedScore, actual });
+    }
+    if (adapter.score(state) !== scoring.computedScore) failures.push({ rule: scoring.ruleId, final: true, expected: scoring.computedScore, actual: adapter.score(state) });
+    cases.push({ rule: scoring.ruleId, family: adapter.family, events: events.length, prefixes, score: scoring.computedScore });
+    return scoring;
+  };
+  let existing;
+  try { existing = app.SH6.runScoringRegressionChecks(); } finally { core.computeContestScoringSummary = original; }
+  const passed = existing.passed && failures.length === 0 && cases.length > 20;
+  document.getElementById('result').textContent = JSON.stringify({ passed, existingChecks: existing.checks.length, existingFailures: existing.checks.filter((check) => !check.passed), cases, prefixes: cases.reduce((sum, entry) => sum + entry.prefixes, 0), failures, unavailable }, null, 2);
+  document.getElementById('status').textContent = passed ? 'PASS' : 'FAIL';
+} catch (error) { document.getElementById('result').textContent = JSON.stringify({ error: error.stack }); document.getElementById('status').textContent = 'FAIL'; }
+</script></body></html>

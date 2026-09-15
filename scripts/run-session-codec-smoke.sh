@@ -70,6 +70,7 @@ const base64UrlDecode = (value) => {
 };
 
 const state = {
+  multiplierOverview: { view: 'tradeoff', windowMinutes: 30, mode: 'CW', group: 'country', tradeoffBySlot: { A: { at: 1700000000000, targetBand: '20M', horizonMinutes: 15, scenarios: { run: { rate: '60', averagePoints: '2', credits: '0', probability: '0', searchMinutes: '0' } } }, D: { scenarios: { hunt: { credits: '', probability: null } } } } },
   analysisMode: 'dxer',
   compareCount: 4,
   compareScoreMode: 'logged',
@@ -185,6 +186,7 @@ const checks = [];
 const add = (name, passed, details = null) => checks.push({ name, passed: Boolean(passed), details });
 
 const payload = codec.buildSessionPayload(true);
+add('Multiplier overview session snapshot is independent', JSON.stringify(payload.multiplierOverview) === JSON.stringify(state.multiplierOverview) && payload.multiplierOverview !== state.multiplierOverview, payload.multiplierOverview);
 add('Session payload stores analysisMode', payload.analysisMode === 'dxer', payload.analysisMode);
 add('Session payload stores synchronized radio filters', payload.globalRadioFilter === '1' && payload.logFilters?.radioFilter === '1', { global: payload.globalRadioFilter, log: payload.logFilters?.radioFilter });
 add('Session payload stores radio heatmap settings', payload.radioHeatMetric === 'combinedRate' && payload.radioHeatA === '0' && payload.radioHeatB === '1', { metric: payload.radioHeatMetric, a: payload.radioHeatA, b: payload.radioHeatB });
@@ -195,6 +197,12 @@ add('Session payload preserves WRTC 2022 scoring override', payload.slots[0].sco
 add('Session payload preserves WRTC 2026 scoring override', payload.slots[1].scoringRuleOverride === 'wrtc_2026', payload.slots[1]);
 
 const compact = codec.buildCompactSessionPayload(payload, true);
+const undatedSettings = codec.normalizeMultiplierSettings({ view: 'undated', tradeoffBySlot: { B: { targetMode: 'SSB' } } });
+add('Undated view and target mode persist', undatedSettings.view === 'undated' && undatedSettings.tradeoffBySlot.B.targetMode === 'SSB', undatedSettings);
+add('Multiplier overview compact round trip preserves per-slot zero and empty assumptions', JSON.stringify(codec.inflateCompactSessionPayload(compact).multiplierOverview) === JSON.stringify(payload.multiplierOverview), compact.mv);
+add('Legacy compact session defaults multiplier settings safely', JSON.stringify(codec.inflateCompactSessionPayload({ v: 2 }).multiplierOverview) === '{}', null);
+const malformedMultiplier = codec.normalizeMultiplierSettings({ view: 'bad', windowMinutes: 2, cache: [1, 2], tradeoffBySlot: { X: { horizonMinutes: 15 }, A: { targetGroup: 'x'.repeat(1000), scenarios: { unknown: { rate: 10 }, run: { rate: Infinity, probability: 0 } } } } });
+add('Multiplier settings are bounded and reject unknown keys', !malformedMultiplier.view && !malformedMultiplier.cache && !malformedMultiplier.tradeoffBySlot.X && malformedMultiplier.tradeoffBySlot.A.targetGroup.length === 160 && !('rate' in malformedMultiplier.tradeoffBySlot.A.scenarios.run) && malformedMultiplier.tradeoffBySlot.A.scenarios.run.probability === 0, malformedMultiplier);
 add('Compact payload saves analysisMode', compact.am === 'dxer', compact);
 add('Compact payload keeps compare focus overrides', Array.isArray(compact.f?.r) && compact.f.r[1] === 'C', compact.f);
 const compactSlotA = codec.inflateCompactSessionPayload(compact).slots.find((slot) => slot.id === 'A');
@@ -235,6 +243,7 @@ const permalink = codec.buildPermalink();
 add('buildPermalink uses canonical public origin', permalink.startsWith('https://s53m.com/SH6/?state='), permalink);
 
 const savedCurrent = perspectiveStore.saveCurrentComparePerspective();
+add('Saved perspective retains multiplier settings', JSON.stringify(savedCurrent.multiplierOverview) === JSON.stringify(state.multiplierOverview), savedCurrent.multiplierOverview);
 add('saveCurrentComparePerspective creates an entry', Boolean(savedCurrent?.id), savedCurrent);
 add('Perspective storage persists current report id', savedCurrent?.reportId === 'points_by_minute', savedCurrent?.reportId);
 

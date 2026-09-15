@@ -244,6 +244,17 @@
           escapeAttr: escape
         };
         const runtime = exportModule.createExportRuntime(runtimeDeps);
+        const focusQso = { qsoNumber: 99, call: 'FOCUS-B', band: '20M', mode: 'CW', txId: '1' };
+        const focusState = { ...state, multiplierLogFocus: { slotId: 'B', index: 0, logVersion: 7 } };
+        const focusRuntime = exportModule.createExportRuntime({ ...runtimeDeps, getState: () => focusState, getSlotById: () => ({ logVersion: 7, fullQsoData: { qsos: [focusQso] } }) });
+        const focusHtml = focusRuntime.renderLogExport();
+        add('Focused Log export uses source slot and Radio-last', focusHtml.includes('Multiplier source: Log B') && focusHtml.includes('FOCUS-B') && focusHtml.includes('<th>Flags</th><th>Radio</th>') && (focusHtml.match(/<tr /g) || []).length === 2, focusHtml);
+        const staticRuntime = exportModule.createExportRuntime({ ...runtimeDeps, renderMultiplierExport: () => '<div><label>Rate <input value="60"></label><button class="no-print">Export</button><button>99</button><details><summary>Values</summary>All rows</details></div>' });
+        const staticHtml = staticRuntime.renderReportExport({ id: 'multipliers' });
+        add('Multiplier HTML export freezes assumptions and removes controls', !/<input|<select|<button/.test(staticHtml) && staticHtml.includes('60') && staticHtml.includes('99') && staticHtml.includes('<details open'), staticHtml);
+        const tabsRuntime = exportModule.createExportRuntime({ ...runtimeDeps, renderMultiplierExport: () => '<div class="multiplier-view-tabs no-print"><button id="multiplier-tab-rate" aria-selected="true">Rate</button></div><div id="multiplier-view-panel" role="tabpanel" tabindex="0" aria-labelledby="multiplier-tab-rate"><p>Selected rate data</p></div>' });
+        const tabsHtml = tabsRuntime.renderReportExport({ id: 'multipliers' });
+        add('Multiplier tab export retains view heading without orphaned tab semantics', tabsHtml.includes('<h3>Rate</h3>') && !/role="tabpanel"|aria-labelledby|tabindex|<button/.test(tabsHtml), tabsHtml);
 
         const reportHtml = runtime.renderReportExport({ id: 'summary', title: 'Summary' });
         add('renderReportExport strips links from exported report HTML', reportHtml.includes('<span') && !reportHtml.includes('<a '), reportHtml);

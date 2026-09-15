@@ -1,5 +1,5 @@
-import '../analysis/core.js?v=6.3.29';
-import '../compare/compare-core.js?v=6.3.29';
+import '../analysis/core.js?v=6.3.30';
+import '../compare/compare-core.js?v=6.3.30';
 
 let analysisResources = {};
 const compareLogsBySlot = new Map();

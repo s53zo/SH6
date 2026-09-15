@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PORT="${RADIO_UI_SMOKE_PORT:-8831}"
-URL="http://127.0.0.1:${PORT}/tests/radio-ui-smoke.html"
+URL="http://127.0.0.1:${PORT}/tests/${SH6_UI_SMOKE_PAGE:-radio-ui-smoke.html}"
 SESSION="sh6-radio-ui-$RANDOM-$RANDOM"
 SERVER_LOG="${RADIO_UI_SMOKE_SERVER_LOG:-/tmp/sh6-radio-ui-smoke.log}"
 HTTP_PID=""

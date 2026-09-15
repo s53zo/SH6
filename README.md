@@ -46,6 +46,20 @@ The archived WRTC 2026 MB5Q file is a known source-data example: it declares two
 
 The Radio timeline leads with aligned five-minute lanes for simultaneous activity; its exact bucket table is collapsed as an accessible detail view. Additional radio splits in ordinary reports are likewise collapsed to keep the primary report readable. Compare mode renders one panel per loaded log.
 
+## Multipliers
+
+Use the six wrapping tabs: **Hourly**, **Rate**, **Cumulative**, **Band & type**, **Timeline**, and **Efficiency**. Arrow keys move between tabs; Enter or Space opens the focused view. The Rolling window setting appears only in Rate.
+
+Multipliers is item **11 in Rates & Time**. Charts use bars; rate bars span the selected 15/30/60-minute rolling window and show non-overlapping samples, while tables/CSV retain all rolling samples. The Y maximum slider controls every multiplier chart without filtering the underlying analysis; Reset Y restores automatic scaling. Charts always show the full selected time range. The Y setting is saved with the other multiplier settings.
+
+Open **Multipliers** in the report menu. Select hourly totals, rolling 15/30/60-minute rates, cumulative progress, band/type breakdown, exact credit timeline, or operating efficiency. Compare mode shows one panel per log, with shared scales only for compatible rules and station perspectives. The existing **Multiplier Opportunities** report remains the place to explore missing entities. The strategy and missing-time views have been removed; older saved selections open the hourly overview instead.
+
+Credits come from the complete scored log before band, mode, time, type, or radio filters. Raw credits, weighted scoring units, and multiplier-bearing QSOs are distinct. Cumulative selections retain their opening balance; elapsed UTC rates disclose partial evidence and gaps. Records without usable timestamps remain excluded from time-based totals; inspect original records in Log. Timeline links open the exact source QSO; Radio remains the last Log column.
+
+Operating styles are inferred, radio IDs are not operators, and occupied-radio-minute efficiency is a proxy rather than measured search time. Sparse evidence is labeled. Existing bundled ARRL/EU scoring remains heuristic. For non-Russian RDA entrants, existing country credits are displayed but do not contribute to the district-only score formula; that pre-existing discrepancy has not been changed.
+
+Per-log settings persist in sessions and saved perspectives. CSV exports retain all selected rows even when interactive tables paginate; HTML/PDF output contains static assumptions and expanded details. Dense charts use bounded endpoint/extrema sampling while tables and CSV remain exact. Implementation and validation evidence are recorded in [the implementation notes](docs/multiplier-overview-implementation.md).
+
 ## Running locally
 Serve the repository over HTTP/HTTPS and open `index.html`.
 

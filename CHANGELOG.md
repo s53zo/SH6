@@ -2,6 +2,18 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.30 (2026-09-15)
+
+- Add Multipliers at Rates & Time position 11 with six wrapping, keyboard-accessible tabs: Hourly, Rate, Cumulative, Band & type, Timeline, and Efficiency. Compare up to four logs with one panel per log.
+- Use bar charts with rolling-window-width rate bars; show Rolling window only in Rate. Keep a shared Y slider and Reset Y, ignoring retired X zoom/position settings.
+- Remove the experimental strategy and missing-time views at user request; previously saved selections fall back to hourly. Keep missing-time exclusion safeguards and the underlying analytical helpers.
+- Preserve full-log first-credit attribution through filters and exact QSO drilldowns; distinguish raw credits, weighted totals, and multiplier-bearing QSOs.
+- Add scorer-consistent historical replay for hourly and operating-efficiency score growth, with explicit formula limitations and order-dependent event attribution. Preserve the existing contest rules and final scores.
+- Preserve settings in sessions and perspectives; add complete CSV/static HTML/PDF exports, responsive controls, keyboard-focus restoration, and bounded charts/tables.
+- Add synthetic formula, browser, export, performance, and protected-scoring coverage plus read-only archive validation and three independent SWE review lanes. Existing contest scoring rules/results are unchanged; bundled heuristic scoring and the non-Russian RDA credit discrepancy are disclosed.
+- Final independent release review: retain the last rolling-rate window in long logs, align comparison axes to shared bar extents, retain selected-tab headings in static exports, and pin the pre-release bundle-scoring regression baseline.
+- Bump application and cache references to `v6.3.30`.
+
 ## v6.3.29 (2026-09-07)
 - EDI review hardening: retain overflow diagnostics, reject oversized EDI uploads, bound parser lines/records/remarks/warnings, and avoid returning duplicated source text and full header metadata in worker results.
 - EDI correctness: keep PBand as a band designation without fabricating exact frequencies, preserve original bytes through saved sessions and durable autosave metadata, and retain source duplicate flags separately.

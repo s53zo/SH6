@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Multiplier UI smoke</title></head>
+<body><div id="status">RUNNING</div><pre id="result"></pre><iframe id="app" src="../index.html" style="width:1400px;height:900px"></iframe>
+<script>
+(async () => {
+  const checks = [];
+  const check = (name, passed, details = '') => checks.push({ name, passed: Boolean(passed), details });
+  const waitFor = async (fn) => {
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) { if (fn()) return; await new Promise((r) => setTimeout(r, 50)); }
+    throw new Error('Timed out waiting for UI');
+  };
+  try {
+    const frame = document.getElementById('app');
+    await new Promise((resolve) => frame.addEventListener('load', resolve, { once: true }));
+    const win = frame.contentWindow; const doc = frame.contentDocument;
+    const browserErrors = [];
+    win.addEventListener('error', (event) => browserErrors.push(event.message));
+    win.addEventListener('unhandledrejection', (event) => browserErrors.push(String(event.reason)));
+    await waitFor(() => win.SH6 && doc.querySelectorAll('#navList [data-index]').length > 5);
+    const text = await fetch('./fixtures/radio-m2.log').then((r) => r.text());
+    const load = async (id) => {
+      const input = doc.getElementById(`fileInput${id === 'A' ? '' : id}`);
+      const transfer = new win.DataTransfer();
+      transfer.items.add(new win.File([text], `radio-m2-${id}.log`, { type: 'text/plain' }));
+      input.files = transfer.files; input.dispatchEvent(new win.Event('change', { bubbles: true }));
+      await waitFor(() => win.SH6.getSlotById(id)?.qsoData?.qsos?.length === 3);
+    };
+    const report = async (title) => {
+      const item = [...doc.querySelectorAll('#navList [data-index]')].find((el) => el.textContent.trim() === title);
+      if (!item) throw new Error(`Missing report: ${title}`);
+      item.click();
+      await waitFor(() => doc.getElementById('viewTitle').textContent.trim() === title && doc.getElementById('viewContainer').getAttribute('aria-busy') === 'false');
+    };
+    const view = async (name) => {
+      const tab = doc.querySelector(`[data-mult-view="${name}"]`);
+      tab.click();
+      await waitFor(() => doc.querySelector(`[data-mult-view="${name}"]`)?.getAttribute('aria-selected') === 'true' && doc.getElementById('viewContainer').getAttribute('aria-busy') === 'false');
+    };
+    await load('A'); await report('Multipliers');
+    check('Single log renders one multiplier panel', doc.querySelectorAll('.multiplier-overview-panel').length === 1);
+    check('Six tabs replace the view dropdown', doc.querySelectorAll('.multiplier-view-tabs [role="tab"]').length === 6 && !doc.querySelector('select[data-mult-overview-setting="view"]'));
+    const firstTab = doc.querySelector('[data-mult-view="hourly"]');
+    firstTab.focus(); firstTab.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    check('Arrow key moves tab focus without changing the view', doc.activeElement?.dataset.multView === 'rate' && firstTab.getAttribute('aria-selected') === 'true');
+    check('Hourly score growth is present', doc.getElementById('viewContainer').textContent.includes('Station-wide score growth'));
+    check('Rolling window is hidden in hourly view', !doc.querySelector('[data-mult-overview-setting="windowMinutes"]'));
+    const multiplierNav = [...doc.querySelectorAll('#navList [data-index]')].find((el) => el.textContent.trim() === 'Multipliers');
+    check('Multipliers occupies menu position 11 in Rates & Time', [...multiplierNav.parentElement.children].indexOf(multiplierNav) === 10);
+    await view('rate');
+    check('Active tab retains focus and labels the panel', doc.activeElement?.dataset.multView === 'rate' && doc.querySelector('#multiplier-view-panel')?.getAttribute('aria-labelledby') === 'multiplier-tab-rate', { active: doc.activeElement?.tagName, label: doc.querySelector('#multiplier-view-panel')?.getAttribute('aria-labelledby') });
+    check('Rolling window is available in rate view', Boolean(doc.querySelector('[data-mult-overview-setting="windowMinutes"]')));
+    check('Rate charts use window-width bars', [...doc.querySelectorAll('.multiplier-bar')].length > 0 && [...doc.querySelectorAll('.multiplier-bar')].every((bar) => Number(bar.dataset.end) - Number(bar.dataset.start) === 30 * 60000));
+    const chartBefore = doc.querySelector('.multiplier-chart').textContent;
+    const totalsBefore = doc.querySelector('.multiplier-overview-panel > p').textContent;
+    check('X controls are absent', !doc.querySelector('[data-mult-overview-setting="xZoom"]') && !doc.querySelector('[data-mult-overview-setting="xPosition"]'));
+    for (const [key, value] of [['yScale', '2']]) {
+      const slider = doc.querySelector(`[data-mult-overview-setting="${key}"]`);
+      check(`${key} is an accessible range slider`, slider?.type === 'range' && Boolean(slider.closest('label')));
+      slider.value = value; slider.dispatchEvent(new win.Event('change', { bubbles: true }));
+      await waitFor(() => !slider.isConnected && doc.getElementById('viewContainer').getAttribute('aria-busy') === 'false');
+    }
+    check('Axis sliders change viewport without changing totals', doc.querySelector('.multiplier-chart').textContent !== chartBefore && doc.querySelector('.multiplier-overview-panel > p').textContent === totalsBefore);
+    doc.querySelector('#multiplier-reset-axes').click();
+    await waitFor(() => doc.querySelector('[data-mult-overview-setting="yScale"]')?.value === '1' && doc.getElementById('viewContainer').getAttribute('aria-busy') === 'false');
+    check('Removed views are absent', !doc.querySelector('[data-mult-view="tradeoff"]') && !doc.querySelector('[data-mult-view="undated"]'));
+    for (const name of ['rate', 'cumulative', 'breakdown', 'efficiency', 'timeline']) {
+      await view(name);
+      check(`Rolling window visibility matches ${name}`, Boolean(doc.querySelector('[data-mult-overview-setting="windowMinutes"]')) === (name === 'rate'));
+      check(`${name} renders without placeholder or exception`, !/being implemented|ReferenceError|TypeError/.test(doc.getElementById('viewContainer').textContent));
+    }
+    for (const retired of ['tradeoff', 'undated']) {
+      win.SH6.getSlotById('A').multiplierOverview = { view: retired };
+      await report('Main'); await report('Multipliers');
+      check(`Saved ${retired} selection falls back to hourly`, doc.querySelector('[data-mult-view="hourly"]')?.getAttribute('aria-selected') === 'true' && !doc.querySelector('[data-mult-tradeoff]'));
+    }
+    await view('timeline');
+    const state = win.SH6.getSlotById('A');
+    const staleOpportunities = () => {
+      state.multiplierOpportunitiesReferenceSlotId = 'D';
+      state.multiplierOpportunitiesFilters = { search: 'STALE', comparison: 'D', group: 'old', band: '40M', mode: 'SSB', confidence: 'old', evidence: 'old', status: 'old' };
+      state.multiplierOpportunitiesSelectedKey = 'stale-candidate';
+    };
+    const checkOpportunityHandoff = async (slotId, selector) => {
+      staleOpportunities();
+      state.globalBandFilter = '20M';
+      state.multiplierOverview = { ...state.multiplierOverview, mode: 'CW', group: state.fullDerived.scoring.multiplierCredits[0].group };
+      await view('breakdown');
+      doc.querySelector(selector).click();
+      await waitFor(() => doc.getElementById('viewTitle').textContent.trim() === 'Multiplier Opportunities' && doc.getElementById('viewContainer').getAttribute('aria-busy') === 'false');
+      const filters = state.multiplierOpportunitiesFilters;
+      check(`Opportunity handoff references ${slotId} and carries current filters`, state.multiplierOpportunitiesReferenceSlotId === slotId && filters.band === '20M' && filters.mode === 'CW' && filters.group === state.multiplierOverview.group);
+      check(`Opportunity handoff ${slotId} clears stale destination selection`, ['search', 'comparison', 'confidence', 'evidence', 'status'].every((key) => filters[key] === '') && state.multiplierOpportunitiesSelectedKey === '');
+      check(`Opportunity handoff ${slotId} explains full-log evidence`, doc.getElementById('viewContainer').textContent.includes('overview time and radio selections do not constrain'));
+      state.globalBandFilter = '';
+      state.multiplierOverview = { ...state.multiplierOverview, mode: '', group: '' };
+      await report('Multipliers'); await view('timeline');
+    };
+    await checkOpportunityHandoff('A', '#multiplier-open-opportunities');
+    state.logBandFilter = '40M'; state.logModeFilter = 'SSB'; state.logCountryFilter = 'JAPAN';
+    const firstLink = doc.querySelector('.multiplier-qso-link');
+    check('Timeline has exact source links', Boolean(firstLink));
+    firstLink.click();
+    await waitFor(() => doc.getElementById('viewTitle').textContent.trim() === 'Log' && doc.querySelector('#multiplier-clear-log-focus'));
+    check('Source focus renders a visible QSO', doc.querySelectorAll('[data-virtual-body="log"] tr').length > 0, doc.getElementById('viewContainer').textContent.slice(0, 800));
+    check('Radio remains last Log column', [...doc.querySelectorAll('.log-table tr.thc th')].at(-1)?.textContent.trim() === 'Radio');
+    doc.querySelector('#multiplier-clear-log-focus').click();
+    for (const count of [2, 4]) {
+      const toggle = doc.querySelector(`input[name="compareCount"][value="${count}"]`);
+      toggle.checked = true; toggle.dispatchEvent(new win.Event('change', { bubbles: true }));
+      for (const id of (count === 2 ? ['B'] : ['C', 'D'])) { await waitFor(() => doc.getElementById(`fileInput${id}`)); await load(id); }
+      await report('Multipliers'); await view('timeline');
+      check(`${count} logs render exact panel cardinality`, doc.querySelectorAll('.multiplier-overview-panel').length === count);
+      check(`${count} logs have no nested compare workspace`, doc.querySelectorAll('.multiplier-overview-panel .compare-workspace').length === 0);
+      const opportunitySlot = count === 2 ? 'B' : 'D';
+      await checkOpportunityHandoff(opportunitySlot, `[data-mult-opportunities-slot="${opportunitySlot}"]`);
+      const target = doc.querySelector(`.multiplier-qso-link[data-slot="${count === 2 ? 'B' : 'D'}"]`);
+      target.click();
+      await waitFor(() => doc.querySelector('#multiplier-clear-log-focus'));
+      check(`${count}-log source focus identifies correct slot`, doc.getElementById('viewContainer').textContent.includes(`Multiplier source: Log ${count === 2 ? 'B' : 'D'}`));
+      await waitFor(() => [...doc.querySelectorAll('.compare-log-table td')].some((cell) => cell.textContent.trim() === 'HB2T'));
+      check(`${count}-log source focus excludes matching contacts in other slots`, [...doc.querySelectorAll('.compare-log-table td')].filter((cell) => cell.textContent.trim() === 'HB2T').length === 1);
+      doc.querySelector('#multiplier-clear-log-focus').click();
+    }
+    await report('Multipliers'); await view('rate');
+    check('No browser errors or unhandled rejections', browserErrors.length === 0, browserErrors);
+  } catch (error) { check('UI execution completed', false, error.stack || String(error)); }
+  document.getElementById('result').textContent = JSON.stringify({ passed: checks.every((c) => c.passed), checks }, null, 2);
+  document.getElementById('status').textContent = checks.every((c) => c.passed) ? 'PASS' : 'FAIL';
+})();
+</script></body></html>

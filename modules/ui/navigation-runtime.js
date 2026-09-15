@@ -24,6 +24,7 @@ export function createNavigationRuntime(deps = {}) {
   let navStickyBottomBound = false;
   let navSearchBound = false;
   let renderSeq = 0;
+  let pendingMultiplierFocus = null;
 
   function escapeHtmlSafe(value) {
     return String(value == null ? '' : value)
@@ -244,6 +245,17 @@ export function createNavigationRuntime(deps = {}) {
   function renderReportWithLoading(report) {
     const dom = getDomSafe();
     const state = getStateSafe();
+    const focused = report?.id === 'multipliers' && dom.viewContainer?.contains(document.activeElement)
+      && document.activeElement.matches('[data-mult-tradeoff], [data-mult-overview-setting], [data-mult-page-action], [data-mult-view]') ? document.activeElement : null;
+    if (focused) {
+      const identity = { ...focused.dataset };
+      if (identity.multPageAction) delete identity.multPage;
+      pendingMultiplierFocus = { identity, selection: typeof focused.selectionStart === 'number' ? [focused.selectionStart, focused.selectionEnd] : null };
+    } else if (report?.id !== 'multipliers' || document.activeElement !== document.body) pendingMultiplierFocus = null;
+    // A superseding render may see BODY because the preceding loading state
+    // removed the control. Carry its identity until a render actually finishes.
+    const focusIdentity = pendingMultiplierFocus?.identity;
+    const selection = pendingMultiplierFocus?.selection;
     const seq = ++renderSeq;
     const title = report?.title || 'report';
     const reportStartedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function')
@@ -274,6 +286,14 @@ export function createNavigationRuntime(deps = {}) {
             dom.viewContainer.innerHTML = html;
           }
           bindReportInteractions?.(report?.id || '');
+          if (focusIdentity && (document.activeElement === document.body || document.activeElement === focused)) {
+            const replacement = Array.from(dom.viewContainer.querySelectorAll('[data-mult-tradeoff], [data-mult-overview-setting], [data-mult-page-action], [data-mult-view]'))
+              .find((element) => Object.entries(focusIdentity).every(([key, value]) => element.dataset[key] === value));
+            (replacement?.disabled ? replacement.closest('nav') : replacement)?.focus({ preventScroll: true });
+            if (selection && typeof replacement?.setSelectionRange === 'function') {
+              try { replacement.setSelectionRange(...selection); } catch { /* Numeric/date inputs do not expose text selection. */ }
+            }
+          }
           if (dom.loadPanel) {
             if (report?.id === 'load_logs') {
               dom.loadPanel.style.display = state.showLoadPanel ? 'block' : 'none';
@@ -313,6 +333,7 @@ export function createNavigationRuntime(deps = {}) {
           }
         } finally {
           if (seq === renderSeq) {
+            pendingMultiplierFocus = null;
             clearLoadingState();
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {

@@ -27,6 +27,7 @@
     { id: 'one_minute_rates', title: 'One minute rates' },
     { id: 'one_minute_point_rates', title: 'One minute point rates' },
     { id: 'radio_timeline', title: 'Radio timeline' },
+    { id: 'multipliers', title: 'Multipliers' },
     { id: 'radio_coordination', title: 'Radio coordination' },
     { id: 'radio_handoffs', title: 'Possible radio handoffs' },
     { id: 'radio_audit', title: 'Transmitter-rule audit' },
@@ -97,6 +98,7 @@
     main: 'load_core',
     compare_insights: 'load_core',
     multiplier_opportunities: 'spots_coach',
+    multipliers: 'rate_time',
     summary: 'load_core',
     log: 'load_core',
     raw_log: 'load_core',
@@ -176,7 +178,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.29';
+  const APP_VERSION = 'v6.3.30';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -278,40 +280,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.29';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.29';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.29';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.29';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.29';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.29';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.29';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.29';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.29';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.29';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.29';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.29';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.29';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.29';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.29';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.29';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.29';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.29';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.29';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.29';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.29';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.29';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.29';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.29';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.29';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.29';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.29';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.29';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.29';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.29';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.29';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.29';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.29';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.29';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.30';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.30';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.30';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.30';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.30';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.30';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.30';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.30';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.30';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.30';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.30';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.30';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.30';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.30';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.30';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.30';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.30';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.30';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.30';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.30';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.30';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.30';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.30';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.30';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.30';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.30';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.30';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.30';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.30';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.30';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.30';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.30';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.30';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.30';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -853,6 +855,7 @@
 
   function applyStoredComparePerspective(rawPerspective) {
     if (!rawPerspective || typeof rawPerspective !== 'object') return false;
+    state.multiplierOverview = getSessionCodec().normalizeMultiplierSettings(rawPerspective.multiplierOverview);
     state.compareScoreMode = normalizeCompareScoreMode(rawPerspective.compareScoreMode);
     state.compareSyncEnabled = rawPerspective.compareSyncEnabled !== false;
     state.compareStickyEnabled = rawPerspective.compareStickyEnabled !== false;
@@ -1138,6 +1141,7 @@
       state.analysisMode = normalizeAnalysisMode(migrated.analysisMode) || ANALYSIS_MODE_DEFAULT;
       state.compareScoreMode = normalizeCompareScoreMode(migrated.compareScoreMode);
       const opportunitySettings = migrated.multiplierOpportunities || {};
+      state.multiplierOverview = getSessionCodec().normalizeMultiplierSettings(migrated.multiplierOverview);
       const opportunityReference = String(opportunitySettings.referenceSlotId || 'A').toUpperCase();
       state.multiplierOpportunitiesReferenceSlotId = ['A', 'B', 'C', 'D'].includes(opportunityReference) ? opportunityReference : 'A';
       state.multiplierOpportunitiesWindowMinutes = [5, 10, 15, 30, 60].includes(Number(opportunitySettings.windowMinutes))
@@ -1463,6 +1467,7 @@
     compareScoreMode: COMPARE_SCORE_MODE_COMPUTED,
     compareInsightsReferenceSlotId: 'B',
     multiplierOpportunitiesReferenceSlotId: 'A',
+    multiplierOverview: {},
     multiplierOpportunitiesWindowMinutes: 15,
     multiplierOpportunitiesFilters: { search: '', comparison: '', group: '', band: '', mode: '', confidence: '', evidence: '', status: '' },
     multiplierOpportunitiesSelectedKey: '',
@@ -1534,6 +1539,8 @@
   let multiplierOpportunitiesCsvBuilder = null;
   let multiplierOpportunitiesView = null;
   let multiplierOpportunitiesModelCache = null;
+  let multiplierOverviewRuntime = null;
+  const multiplierOverviewSources = new WeakMap();
   const multiplierSpotCreditKeyCache = new WeakMap();
   let archiveClientModulePromise = null;
   let archiveClient = null;
@@ -1975,6 +1982,59 @@
       });
     }
     return multiplierOpportunitiesModulePromise;
+  }
+
+  async function loadMultiplierOverviewModule() {
+    const [model, view] = await Promise.all([
+      import('./modules/multipliers/overview-model.js?v=6.3.30'),
+      import('./modules/multipliers/overview-view.js?v=6.3.30')
+    ]);
+    multiplierOverviewRuntime = { ...model, ...view };
+  }
+
+  function getMultiplierOverviewSlots() {
+    const settings = state.multiplierOverview || {};
+    const range = (state.compareEnabled ? cloneTsRange(state.compareTimeRangeLock) : null) || cloneTsRange(state.logTimeRange);
+    return getActiveCompareSlots().map(({ id, label, slot }) => {
+      const data = slot?.fullQsoData || slot?.qsoData;
+      const derived = slot?.fullDerived || slot?.derived;
+      if (!data || !derived) return { id, label, selection: null };
+      let cached = multiplierOverviewSources.get(data);
+      if (!cached || cached.derived !== derived) {
+        cached = { derived, source: multiplierOverviewRuntime.buildMultiplierOverviewSource(data.qsos || [], derived.scoring || {}, derived.contestMeta || {}, data.events || [...(data.qsos || []), ...(data.qtcs || [])]) };
+        cached.source.classifyHistoricalStyles = globalThis.SH6AnalysisCore?.classifyHistoricalOperatingStyles;
+        if (cached.source.classifyHistoricalStyles && cached.source.end != null) {
+          const styles = cached.source.classifyHistoricalStyles(cached.source.dated.map((event) => event.qso), cached.source.end);
+          cached.source.dated.forEach((event, index) => { event.style = styles[index] || 'UNKNOWN'; });
+        }
+        multiplierOverviewSources.set(data, cached);
+      }
+      return { id, label, selection: multiplierOverviewRuntime.selectMultiplierOverview(cached.source, {
+        band: state.globalBandFilter || '', radio: state.globalRadioFilter || '',
+        mode: settings.mode || '', group: settings.group || '', startTs: range?.startTs, endTs: range?.endTs
+      }) };
+    });
+  }
+
+  function renderMultiplierOverviewReport(options = {}) {
+    if (!multiplierOverviewRuntime) return '<p>Multiplier analysis is loading.</p>';
+    if (['tradeoff', 'undated'].includes(state.multiplierOverview?.view)) {
+      state.multiplierOverview = { ...state.multiplierOverview, view: 'hourly' };
+    }
+    const settings = { ...(state.multiplierOverview || {}), ...options };
+    const slots = getMultiplierOverviewSlots();
+    const groups = Array.from(new Set(slots.flatMap((slot) => slot.selection?.source.groups || []))).sort();
+    const select = (key, label, choices, selected) => `<label>${escapeHtml(label)} <select data-mult-overview-setting="${key}">${choices.map(([value, text]) => `<option value="${escapeAttr(value)}"${String(value) === String(selected) ? ' selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`;
+    const activeView = settings.view || 'hourly';
+    const tabLabels = { hourly: 'Hourly', rate: 'Rate', cumulative: 'Cumulative', breakdown: 'Band & type', timeline: 'Timeline', efficiency: 'Efficiency' };
+    const tabs = `<div class="multiplier-view-tabs no-print" role="tablist" aria-label="Multiplier views">${multiplierOverviewRuntime.OVERVIEW_VIEWS.map(([id]) => `<button type="button" role="tab" id="multiplier-tab-${id}" data-mult-view="${id}" aria-controls="multiplier-view-panel" aria-selected="${id === activeView}" tabindex="${id === activeView ? 0 : -1}">${escapeHtml(tabLabels[id])}</button>`).join('')}</div>`;
+    const controls = (settings.view === 'cumulative' ? select('cumulativeBy', 'Progress breakdown', [['total', 'Total credits'], ['band', 'By band'], ['group', 'By multiplier type']], settings.cumulativeBy || 'total') : '')
+      + (settings.view === 'rate' ? select('windowMinutes', 'Rolling window', [[15, '15 minutes'], [30, '30 minutes'], [60, '60 minutes']], settings.windowMinutes || 30) : '')
+      + select('mode', 'Mode', [['', 'All'], ['CW', 'CW'], ['SSB', 'Phone'], ['DIG', 'Digital']], settings.mode || '')
+      + select('group', 'Multiplier type', [['', 'All'], ...groups.map((group) => [group, group.replaceAll('_', ' ')])], settings.group || '')
+      + [['yScale', 'Y maximum (× auto)', 0.1, 4, 0.1, 1]].map(([key, label, min, max, step, fallback]) => `<label>${label}: ${escapeHtml(settings[key] ?? fallback)} <input type="range" data-mult-overview-setting="${key}" min="${min}" max="${max}" step="${step}" value="${escapeAttr(settings[key] ?? fallback)}"></label>`).join('')
+      + '<button type="button" id="multiplier-reset-axes">Reset Y</button><span>The Y slider applies to every multiplier chart; it does not filter the log.</span>';
+    return `${tabs}<div id="multiplier-view-panel" role="tabpanel" aria-labelledby="multiplier-tab-${activeView}" tabindex="0"><div class="multiplier-overview-controls no-print">${controls}<button type="button" id="multiplier-open-opportunities">Multiplier Opportunities</button></div><p>Credits come from the complete scored log. Band, radio, mode, type and time selections show the original credits earned by matching QSOs.</p><div class="multiplier-overview-grid">${multiplierOverviewRuntime.renderMultiplierOverview(slots, settings)}</div></div>`;
   }
 
   function loadRetainedRuntimeModule() {
@@ -2835,6 +2895,7 @@
             throw new Error('export runtime module unavailable');
           }
           exportRuntime = mod.createExportRuntime({
+            renderMultiplierExport: () => renderMultiplierOverviewReport({ exportAll: true }),
             getState: () => state,
             getReports: () => reports,
             getSlotById,
@@ -4401,6 +4462,15 @@
       if (RADIO_REPORT_IDS.has(r.id) && !showRadioReports) return;
       list.push(r);
     });
+    // Menu numbers restart in each section: keep Multipliers at Rates & Time #11.
+    const multiplierIndex = list.findIndex((report) => report.id === 'multipliers');
+    if (multiplierIndex >= 0) {
+      const [multiplier] = list.splice(multiplierIndex, 1);
+      const rateReports = list.filter((report) => NAV_SECTION_BY_REPORT[report.id] === 'rate_time');
+      const anchor = rateReports[10];
+      const insertion = anchor ? list.indexOf(anchor) : rateReports.length ? list.indexOf(rateReports.at(-1)) + 1 : list.length;
+      list.splice(insertion, 0, multiplier);
+    }
     return list;
   }
 
@@ -13113,6 +13183,10 @@ function syncEngineCompareLogForSlot(slot) {
     };
   }
 
+  function getMultiplierFocusedQsos(slotId) {
+    return multiplierOverviewRuntime?.multiplierFocusedQsos(getSlotById(slotId), state.multiplierLogFocus, slotId) || [];
+  }
+
   function applyLogFilters(qsos, filters) {
     if (globalThis.SH6CompareCore && typeof globalThis.SH6CompareCore.applyLogFilters === 'function') {
       return globalThis.SH6CompareCore.applyLogFilters(qsos, filters);
@@ -13479,6 +13553,7 @@ function syncEngineCompareLogForSlot(slot) {
     return [
       state.compareCount || 1,
       slotVersions,
+      state.multiplierLogFocus ? `${state.multiplierLogFocus.slotId}:${state.multiplierLogFocus.index}:${state.multiplierLogFocus.logVersion}` : '',
       filters.search || '',
       filters.fieldFilter || '',
       filters.bandFilter || '',
@@ -13502,7 +13577,10 @@ function syncEngineCompareLogForSlot(slot) {
 
   function buildCompareLogDataSync(filters) {
     const slots = getActiveCompareSlots();
-    const lists = slots.map((entry) => (entry.slot?.qsoData ? applyLogFilters(entry.slot.qsoData.qsos, filters) : []));
+    const lists = slots.map((entry) => {
+      if (state.multiplierLogFocus) return getMultiplierFocusedQsos(entry.id);
+      return entry.slot?.qsoData ? applyLogFilters(entry.slot.qsoData.qsos, filters) : [];
+    });
     const bucketMaps = lists.map((qsos) => buildTenMinuteBuckets(qsos));
     const orderedKeys = buildCompareBucketOrder(bucketMaps, lists);
     const buckets = orderedKeys.map((key) => ({
@@ -13527,7 +13605,7 @@ function syncEngineCompareLogForSlot(slot) {
     state.compareLogData = null;
     const slots = getActiveCompareSlots();
     const totalLoadedQsos = slots.reduce((sum, entry) => sum + (entry.slot?.qsoData?.qsos?.length || 0), 0);
-    if (totalLoadedQsos <= COMPARE_PROGRESS_THRESHOLD) {
+    if (state.multiplierLogFocus || totalLoadedQsos <= COMPARE_PROGRESS_THRESHOLD) {
       const data = buildCompareLogDataSync(filters);
       state.compareLogData = { key: compareKey, ...data };
       state.compareLogPendingKey = null;
@@ -13773,7 +13851,7 @@ function syncEngineCompareLogForSlot(slot) {
     const rangeFilter = filters.rangeFilter;
     const timeRange = filters.timeRange;
     const headingRange = filters.headingRange;
-    const filtered = applyLogFilters(state.qsoData.qsos, filters);
+    const filtered = state.multiplierLogFocus ? getMultiplierFocusedQsos('A') : applyLogFilters(state.qsoData.qsos, filters);
     const totalPages = Math.max(1, Math.ceil(filtered.length / state.logPageSize));
     const page = Math.min(state.logPage, totalPages - 1);
     if (page !== state.logPage) state.logPage = page;
@@ -20030,6 +20108,7 @@ function syncEngineCompareLogForSlot(slot) {
     if (state.multiplierOpportunitiesRbnStatus === 'ready') dataNotice += ` Candidate-specific RBN evidence was retrieved for ${state.multiplierOpportunitiesRbnCalls.size} calls.`;
     else if (state.multiplierOpportunitiesRbnStatus === 'error') dataNotice += ` RBN retrieval is partial: ${state.multiplierOpportunitiesRbnError}`;
     else dataNotice += ' RBN data is partial because the service is callsign-scoped; use Load candidate RBN to query the highest-value calls.';
+    dataNotice += ' Opportunities examines full-log, station-wide evidence; overview time and radio selections do not constrain this report.';
     return multiplierOpportunitiesView.render(model, {
       slots,
       filters: {
@@ -20885,6 +20964,14 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   function renderReport(report) {
+    if (report.id === 'log' && state.multiplierLogFocus) {
+      const focus = state.multiplierLogFocus;
+      const qso = getMultiplierFocusedQsos(focus.slotId)[0];
+      if (qso) return `<p class="state-card">Multiplier source: Log ${escapeHtml(focus.slotId)}, QSO ${escapeHtml(qso.qsoNumber ?? focus.index + 1)}, ${escapeHtml(qso.call || '')}. Other log filters are suspended for this exact-QSO focus. <button type="button" class="no-print" id="multiplier-clear-log-focus">Return to normal Log view</button></p>${renderLog()}`;
+      state.multiplierLogFocus = null;
+      invalidateCompareLogData();
+    }
+    if (report.id === 'multipliers') return renderMultiplierOverviewReport();
     if (QTC_REPORT_IDS.has(report.id)) return renderQtcReport(report);
     if (SINGLE_INSTANCE_REPORT_IDS.has(report.id)) {
       const html = renderReportSingle(report);
@@ -20900,12 +20987,114 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   function bindReportInteractions(reportId) {
+    dom.viewContainer.querySelector('#multiplier-clear-log-focus')?.addEventListener('click', () => {
+      state.multiplierLogFocus = null;
+      applySessionFilters({});
+      invalidateCompareLogData();
+      renderActiveReport();
+    });
     invokeOptionalRuntime('rbn compare runtime', () => getRbnCompareRuntime().teardownIfInactive(reportId));
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
     invokeOptionalRuntime('compare controller runtime', () => getCompareControllerRuntime().bindWorkspaceInteractions(reportId));
     attachLongReportJumpBar(dom.viewContainer, reportId);
     bindVirtualTable(reportId);
+    if (reportId === 'multipliers') {
+      dom.viewContainer.querySelectorAll('[data-mult-page]').forEach((button) => button.addEventListener('click', () => {
+        const settings = state.multiplierOverview || {};
+        state.multiplierOverview = { ...settings, tablePages: { ...settings.tablePages, [button.dataset.slot]: Math.max(0, Number(button.dataset.multPage) || 0) } };
+        renderActiveReport();
+      }));
+      dom.viewContainer.querySelectorAll('[data-mult-tradeoff-reset]').forEach((button) => button.addEventListener('click', () => {
+        const settings = state.multiplierOverview || {};
+        const tradeoffBySlot = { ...settings.tradeoffBySlot };
+        delete tradeoffBySlot[button.dataset.multTradeoffReset];
+        state.multiplierOverview = { ...settings, tradeoffBySlot };
+        renderActiveReport();
+        scheduleAutosaveSession();
+      }));
+      dom.viewContainer.querySelectorAll('[data-mult-tradeoff]').forEach((input) => {
+        input.addEventListener('change', () => {
+          const { slot, strategy, multTradeoff: key } = input.dataset;
+          const settings = state.multiplierOverview || {};
+          const previous = settings.tradeoffBySlot?.[slot] || {};
+          const value = key === 'at' ? Date.parse(`${input.value}Z`) : input.value;
+          const next = strategy ? { ...previous, scenarios: { ...previous.scenarios, [strategy]: { ...previous.scenarios?.[strategy], [key]: value } } } : { ...previous, [key]: value };
+          state.multiplierOverview = { ...settings, tradeoffBySlot: { ...settings.tradeoffBySlot, [slot]: next } };
+          // Let Tab/click finish moving focus before the navigation renderer
+          // snapshots the destination control and replaces the report DOM.
+          setTimeout(() => { if (reports[state.activeIndex]?.id === 'multipliers') renderActiveReport(); }, 0);
+          scheduleAutosaveSession();
+        });
+      });
+      dom.viewContainer.querySelector('#multiplier-reset-axes')?.addEventListener('click', () => {
+        state.multiplierOverview = { ...state.multiplierOverview, yScale: 1 };
+        renderActiveReport(); scheduleAutosaveSession();
+      });
+      const viewTabs = [...dom.viewContainer.querySelectorAll('[data-mult-view]')];
+      viewTabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => {
+          tab.focus();
+          if ((state.multiplierOverview?.view || 'hourly') === tab.dataset.multView) return;
+          state.multiplierOverview = { ...state.multiplierOverview, tablePages: {}, view: tab.dataset.multView };
+          renderActiveReport(); scheduleAutosaveSession();
+        });
+        tab.addEventListener('keydown', (event) => {
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? viewTabs.length - 1 : event.key === 'ArrowRight' ? (index + 1) % viewTabs.length : event.key === 'ArrowLeft' ? (index + viewTabs.length - 1) % viewTabs.length : -1;
+          if (next < 0) return;
+          event.preventDefault();
+          viewTabs.forEach((item, i) => { item.tabIndex = i === next ? 0 : -1; });
+          viewTabs[next].focus();
+        });
+      });
+      dom.viewContainer.querySelectorAll('[data-mult-overview-setting]').forEach((select) => {
+        select.addEventListener('change', () => {
+          state.multiplierOverview = { ...(state.multiplierOverview || {}), tablePages: {}, [select.dataset.multOverviewSetting]: select.value };
+          renderActiveReport();
+          scheduleAutosaveSession();
+        });
+      });
+      dom.viewContainer.querySelectorAll('#multiplier-open-opportunities, [data-mult-opportunities-slot]').forEach((button) => button.addEventListener('click', () => {
+        const slots = getMultiplierOverviewSlots();
+        const source = button.dataset.multOpportunitiesSlot
+          ? slots.find((entry) => entry.id === button.dataset.multOpportunitiesSlot && entry.selection?.source.supported)
+          : slots.find((entry) => entry.selection?.source.supported);
+        if (!source) return;
+        const filters = source.selection.filters;
+        state.multiplierOpportunitiesReferenceSlotId = source.id;
+        state.multiplierOpportunitiesFilters = {
+          search: '', comparison: '', group: filters.group || '', band: filters.band || '', mode: filters.mode || '',
+          confidence: '', evidence: '', status: ''
+        };
+        state.multiplierOpportunitiesSelectedKey = '';
+        multiplierOpportunitiesModelCache = null;
+        const index = reports.findIndex((report) => report.id === 'multiplier_opportunities');
+        if (index >= 0) setActiveReport(index);
+        scheduleAutosaveSession();
+      }));
+      dom.viewContainer.querySelectorAll('.multiplier-overview-csv').forEach((button) => button.addEventListener('click', () => {
+        const slot = getMultiplierOverviewSlots().find((entry) => entry.id === button.dataset.slot);
+        if (!slot?.selection) return;
+        const settings = state.multiplierOverview || {};
+        const exportView = button.dataset.multExport || settings.view || 'hourly';
+        const csv = multiplierOverviewRuntime.multiplierOverviewCsv(slot.selection, exportView, { ...settings, ...(settings.tradeoffBySlot?.[slot.id] || {}) });
+        downloadBlobFile(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `multipliers_${slot.id}_${exportView}.csv`);
+      }));
+      dom.viewContainer.querySelectorAll('.multiplier-qso-link').forEach((button) => button.addEventListener('click', () => {
+        const slot = getSlotById(button.dataset.slot);
+        const qso = (slot?.fullQsoData || slot?.qsoData)?.qsos?.[Number(button.dataset.qsoIndex)];
+        if (!qso) return;
+        applySessionFilters({});
+        state.multiplierLogFocus = { slotId: button.dataset.slot, index: Number(button.dataset.qsoIndex), logVersion: slot.logVersion };
+        invalidateCompareLogData();
+        state.logSearch = qso.call || '';
+        state.logRange = { start: Number(qso.qsoNumber), end: Number(qso.qsoNumber) };
+        state.logTimeRange = Number.isFinite(qso.ts) ? { startTs: qso.ts, endTs: qso.ts } : null;
+        state.logPage = 0;
+        const index = reports.findIndex((report) => report.id === 'log');
+        if (index >= 0) setActiveReport(index);
+      }));
+    }
     if (reportId === 'multiplier_opportunities') {
       const referenceSelect = dom.viewContainer.querySelector('#mult-op-reference');
       const windowSelect = dom.viewContainer.querySelector('#mult-op-window');
@@ -21357,6 +21546,7 @@ function syncEngineCompareLogForSlot(slot) {
       }
       if (clearFilters) {
         clearFilters.addEventListener('click', (evt) => {
+          state.multiplierLogFocus = null;
           evt.preventDefault();
           state.logSearch = '';
           state.logFieldFilter = '';
@@ -22613,6 +22803,7 @@ function syncEngineCompareLogForSlot(slot) {
     const compareWorkspaceReady = loadCompareWorkspaceModule();
     const compareInsightsReady = loadCompareInsightsModule();
     const multiplierOpportunitiesReady = loadMultiplierOpportunitiesModule();
+    const multiplierOverviewReady = loadMultiplierOverviewModule();
     const coachRuntimeReady = loadCoachRuntimeModule();
     const canvasZoomRuntimeReady = loadCanvasZoomRuntimeModule();
     const rbnSignalExportRuntimeReady = loadRbnSignalExportRuntimeModule();
@@ -22642,6 +22833,7 @@ function syncEngineCompareLogForSlot(slot) {
     const analysisControlsLoaded = await awaitInitRuntime('analysis controls runtime', analysisControlsRuntimeReady);
     await awaitInitRuntime('compare controller runtime', compareControllerReady);
     await awaitInitRuntime('multiplier opportunities runtime', multiplierOpportunitiesReady, { critical: true });
+    await awaitInitRuntime('multiplier overview runtime', multiplierOverviewReady, { critical: true });
     await awaitInitRuntime('coach runtime', coachRuntimeReady);
     await awaitInitRuntime('canvas zoom runtime', canvasZoomRuntimeReady);
     await awaitInitRuntime('rbn signal export runtime', rbnSignalExportRuntimeReady);

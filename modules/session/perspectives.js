@@ -1,3 +1,5 @@
+import { normalizeMultiplierSettings } from '../multipliers/settings.js';
+
 export function createComparePerspectiveStore(deps = {}) {
   const {
     getState,
@@ -42,6 +44,7 @@ export function createComparePerspectiveStore(deps = {}) {
       savedAt,
       label: `${new Date(savedAt).toISOString().slice(0, 16).replace('T', ' ')} · ${reportId}`,
       reportId,
+      multiplierOverview: normalizeMultiplierSettings(state.multiplierOverview),
       compareScoreMode: normalizeCompareScoreMode(state.compareScoreMode),
       compareSyncEnabled: Boolean(state.compareSyncEnabled),
       compareStickyEnabled: Boolean(state.compareStickyEnabled),
@@ -69,6 +72,7 @@ export function createComparePerspectiveStore(deps = {}) {
       savedAt,
       label,
       reportId,
+      multiplierOverview: normalizeMultiplierSettings(input.multiplierOverview ?? state.multiplierOverview),
       compareScoreMode: normalizeCompareScoreMode(input.compareScoreMode || state.compareScoreMode),
       compareSyncEnabled: Object.prototype.hasOwnProperty.call(input, 'compareSyncEnabled')
         ? input.compareSyncEnabled !== false

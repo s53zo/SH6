@@ -3957,6 +3957,7 @@
     const scoreDuplicates = duplicatePolicy === 'include_all_dupes';
     const pointsByIndex = new Array((qsos || []).length).fill(0);
     const duplicateByIndex = new Array((qsos || []).length).fill(false);
+    const analyticalContributions = new Array((qsos || []).length).fill(null);
     const uniqueCalls = new Set();
     let qsoPointsTotal = 0;
     let weightedQsoPointsTotal = 0;
@@ -4022,6 +4023,8 @@
     (qsos || []).forEach((q, idx) => {
       const facts = buildQsoScoringFacts(q, station, runtime);
       const isDuplicate = isScoringDuplicate(duplicatePolicy, q, facts, runtime);
+      const analyticalBefore = { qsoCount, positiveQsoCount, qtcCount, avhfcDistanceBonus, ubaValidQsoCount, ubaBelgianQsoCount, ubaBelgianQsoPoints };
+      const sarlBandsBefore = sarlHfBandsByCall.get(facts.call)?.size || 0;
       duplicateByIndex[idx] = isDuplicate;
       if (facts.call && (!isDuplicate || scoreDuplicates)) uniqueCalls.add(facts.call);
       if (isDuplicate && !scoreDuplicates) {
@@ -5215,10 +5218,23 @@
       if (String(rule?.id || '') === 'aegean_vhf_legacy' && !facts.isQtc) {
         bandQsoCounts[bandKey] = (bandQsoCounts[bandKey] || 0) + 1;
       }
+      analyticalContributions[idx] = {
+        band: bandKey, mode: facts.modeKey,
+        qsoCount: qsoCount - analyticalBefore.qsoCount,
+        positiveQsoCount: positiveQsoCount - analyticalBefore.positiveQsoCount,
+        qtcCount: qtcCount - analyticalBefore.qtcCount,
+        bandQsoCount: String(rule?.id || '') === 'aegean_vhf_legacy' && !facts.isQtc ? 1 : 0,
+        distanceBonus: avhfcDistanceBonus - analyticalBefore.avhfcDistanceBonus,
+        ubaValidCount: ubaValidQsoCount - analyticalBefore.ubaValidQsoCount,
+        ubaBelgianCount: ubaBelgianQsoCount - analyticalBefore.ubaBelgianQsoCount,
+        ubaBelgianPoints: ubaBelgianQsoPoints - analyticalBefore.ubaBelgianQsoPoints,
+        threeBandBonus: sarlBandsBefore < 3 && (sarlHfBandsByCall.get(facts.call)?.size || 0) >= 3 ? 2 : 0
+      };
       markScoringRuntime(facts, runtime);
     });
     return {
       pointsByIndex,
+      analyticalContributions,
       duplicateByIndex,
       qsoPointsTotal,
       weightedQsoPointsTotal,
@@ -5781,6 +5797,32 @@
     };
   }
 
+  // Observational scenario descriptors only. These do not award/reject credits
+  // or change the scoring formula. Unknown eligibility remains explicit.
+  function multiplierTargetDescriptors(rule, station, perspective) {
+    let groups = perspective.groups.slice();
+    if (rule.id === 'jidx_cw' || rule.id === 'jidx_ssb') groups = groups.filter((group) => station.stationIsJa ? group !== 'jidx_prefecture_for_dx' : group === 'jidx_prefecture_for_dx');
+    if (rule.id === 'rda' && !station.stationIsRu) groups = groups.filter((group) => group === 'rda_district');
+    const capacities = { bartg_continent: 6, sp_dx_rtty_continent: 6, jidx_cq_zone_for_ja: 40, jidx_prefecture_for_dx: 50, rac_canadian_province: 13 };
+    const points = rule.qso_points || {};
+    const excludedBands = (points.excluded_bands || []).map((band) => String(band).toUpperCase());
+    const excludedModes = (points.excluded_modes || []).map((mode) => String(mode).toUpperCase());
+    let modes = Array.isArray(points.eligible_modes) ? Array.from(new Set(points.eligible_modes.filter((mode) => !excludedModes.includes(String(mode).toUpperCase())).map(modeKeyForScoring))) : null;
+    if (Array.isArray(points.eligible_mode_groups) && points.eligible_mode_groups.length) modes = (modes || ['CW', 'SSB', 'DIG']).filter((mode) => points.eligible_mode_groups.includes(mode));
+    return {
+      version: 1,
+      groups: groups.map((id) => ({ id, capacity: capacities[id] ?? null })),
+      bands: Array.isArray(points.eligible_bands) ? points.eligible_bands.filter((band) => !excludedBands.includes(String(band).toUpperCase())) : null,
+      excludedBands,
+      modes,
+      rawModes: points.eligible_modes || null,
+      excludedModes,
+      countingScope: perspective.countingScope,
+      bandWeights: rule.multipliers?.model === 'weighted_mults' ? { ...(rule.multipliers.band_weights || {}) } : null,
+      limitation: 'Hypothetical new-credit units, not verified available stations. Exchange, frequency, category and operating restrictions still apply; an unspecified eligible-entity universe is not proof that new targets remain.'
+    };
+  }
+
   function computeRuleMultipliers(rule, qsos, station, pointState, assumptions) {
     const model = String(rule?.multipliers?.model || '');
     const configuredGroups = Array.isArray(rule?.multipliers?.groups) ? rule.multipliers.groups : [];
@@ -6163,6 +6205,36 @@
     return '';
   }
 
+  function bundleAnalytics(resolved, qsos, station, group, scope, formula) {
+    const variant = resolved.bundle.subeventId || resolved.bundle.subeventModelId;
+    const stationPerspective = ['arrl_dx', 'arrl_160m'].includes(variant) ? (station.stationIsWVe ? 'w_ve' : 'non_w_ve') : 'common';
+    const perspective = {
+      ruleId: resolved.ruleId, model: group ? 'single_group' : 'none_multiplicative', countingScope: scope,
+      groups: group ? [group] : [], stationPerspective,
+      compatibilityKey: [resolved.ruleId, variant, group, scope, stationPerspective].join('|')
+    };
+    const contributions = (qsos || []).map(() => ({}));
+    const credits = []; const rejections = [];
+    return {
+      contributions, credits, rejections, perspective,
+      metadata: { version: 1, rule: resolved.rule, contributions, bundleFormula: formula, bundleVariant: variant,
+        targetDescriptors: { version: 1, groups: group ? [{ id: group, capacity: null }] : [], bands: null, modes: null, countingScope: scope, bandWeights: null,
+          limitation: 'Existing bundled scorer uses heuristic rules. These are hypothetical new-credit units under that implementation, not verified organizer eligibility or target availability.' } },
+      contribution(index, facts, extra = {}) { contributions[index] = { band: facts.bandNorm, mode: facts.modeKey, qsoCount: facts.isQtc ? 0 : 1, ...extra }; },
+      add(set, key, entityKey, scopeKey, facts, q, index) {
+        const seen = set.has(key);
+        // Keep the scorer's original Set operation and identity exactly.
+        set.add(key);
+        const record = { ruleId: resolved.ruleId, group, entityKey, entityLabel: entityKey, countingScope: scope, scopeKey,
+          band: facts.bandNorm || 'UNKNOWN', mode: facts.modeKey || 'UNKNOWN', qsoIndex: index,
+          qsoNumber: Number(q?.qsoNumber || index + 1), callsign: facts.call || '', timestamp: q?.ts == null ? null : Number(q.ts),
+          source: 'scoring_engine_bundle', validQso: Boolean(facts.validQso), duplicate: Boolean(q?.isDupe) };
+        if (seen) rejections.push({ ...record, reason: 'already_credited' });
+        else credits.push({ ...record, rawCredit: 1, weight: 1, weightedCredit: 1 });
+      }
+    };
+  }
+
   function scoreArrlBundle(resolved, qsos, contestMeta, assumptions) {
     const subeventId = String(resolved?.bundle?.subeventId || '');
     const station = buildStationScoringProfile(qsos, contestMeta);
@@ -6174,6 +6246,9 @@
     const multPerBand = new Set();
     const multPerMode = { CW: new Set(), SSB: new Set(), DIG: new Set() };
     const uniqueCalls = new Set();
+    const group = ({ arrl_dx: 'arrl_dx_station_dependent_entity', arrl_sweepstakes: 'arrl_section', arrl_10m: 'arrl_10m_mixed_entity', arrl_160m: 'arrl_160m_station_dependent_entity', arrl_rtty_roundup: 'arrl_roundup_entity', arrl_vhf_jan_jun_sep: 'arrl_grid4', arrl_eme: 'arrl_grid4' })[subeventId] || '';
+    const scope = ['arrl_dx', 'arrl_vhf_jan_jun_sep', 'arrl_eme'].includes(subeventId) ? 'per_band' : subeventId === 'arrl_10m' ? 'per_mode' : 'once_total';
+    const analytical = bundleAnalytics(resolved, qsos, station, group, scope, group ? 'product-min-one' : subeventId === 'arrl_10ghz_up' ? 'points-unique-bonus' : 'points');
     let qsoPointsTotal = 0;
     let multiplierTotal = 0;
 
@@ -6184,36 +6259,38 @@
         markScoringRuntime(facts, runtime);
         return;
       }
+      const uniqueCallBonus = uniqueCalls.has(facts.call) ? 0 : 100;
       uniqueCalls.add(facts.call);
+      analytical.contribution(idx, facts, { uniqueCallBonus: subeventId === 'arrl_10ghz_up' ? uniqueCallBonus : 0 });
       const distance = Number(q?.distance);
       let points = 0;
       if (subeventId === 'arrl_dx') {
         points = 3;
         const multVal = station.stationIsWVe ? facts.qCountryKey : (facts.exchangeWVeQth || facts.qCountryKey);
-        if (multVal) multPerBand.add(`${facts.bandNorm}|${multVal}`);
+        if (multVal) analytical.add(multPerBand, `${facts.bandNorm}|${multVal}`, multVal, facts.bandNorm, facts, q, idx);
       } else if (subeventId === 'arrl_sweepstakes') {
         points = 2;
         const multVal = facts.exchangeWVeQth || facts.exchangeRegion;
-        if (multVal) multOnce.add(multVal);
+        if (multVal) analytical.add(multOnce, multVal, multVal, 'ALL', facts, q, idx);
       } else if (subeventId === 'arrl_10m') {
         points = facts.modeKey === 'CW' ? 4 : 2;
         const baseVals = [facts.exchangeWVeQth, facts.qCountryKey, facts.qItuZone != null ? String(facts.qItuZone) : ''].filter(Boolean);
-        baseVals.forEach((value) => multPerMode[facts.modeKey].add(value));
+        baseVals.forEach((value) => analytical.add(multPerMode[facts.modeKey], value, value, facts.modeKey, facts, q, idx));
       } else if (subeventId === 'arrl_160m') {
         points = (station.stationIsWVe && facts.qIsWVe) ? 2 : 5;
         const multVal = station.stationIsWVe ? (facts.exchangeWVeQth || facts.qCountryKey) : (facts.exchangeWVeQth || '');
-        if (multVal) multOnce.add(multVal);
+        if (multVal) analytical.add(multOnce, multVal, multVal, 'ALL', facts, q, idx);
       } else if (subeventId === 'arrl_rtty_roundup') {
         points = 1;
         const multVal = facts.exchangeWVeQth || facts.qCountryKey;
-        if (multVal) multOnce.add(multVal);
+        if (multVal) analytical.add(multOnce, multVal, multVal, 'ALL', facts, q, idx);
       } else if (subeventId === 'arrl_intl_digital') {
         const bonus = Number.isFinite(distance) ? Math.max(1, Math.ceil(distance / 500)) : 1;
         points = 1 + bonus;
       } else if (subeventId === 'arrl_vhf_jan_jun_sep') {
         points = arlVhfBandFactor(facts.bandNorm);
         const grid4 = firstGrid4FromFacts(facts);
-        if (grid4) multPerBand.add(`${facts.bandNorm}|${grid4}`);
+        if (grid4) analytical.add(multPerBand, `${facts.bandNorm}|${grid4}`, grid4, facts.bandNorm, facts, q, idx);
       } else if (subeventId === 'arrl_222_up_distance') {
         points = Number.isFinite(distance) ? Math.round(distance * arlVhfBandFactor(facts.bandNorm)) : 0;
       } else if (subeventId === 'arrl_10ghz_up') {
@@ -6221,7 +6298,7 @@
       } else if (subeventId === 'arrl_eme') {
         points = 100;
         const grid4 = firstGrid4FromFacts(facts);
-        if (grid4) multPerBand.add(`${facts.bandNorm}|${grid4}`);
+        if (grid4) analytical.add(multPerBand, `${facts.bandNorm}|${grid4}`, grid4, facts.bandNorm, facts, q, idx);
       } else {
         points = Number.isFinite(q?.points) ? q.points : 0;
         assumptions.add('ARRL subevent fallback to logged points because subevent pattern was not matched.');
@@ -6249,7 +6326,7 @@
     }
 
     assumptions.add('ARRL bundle scorer uses heuristic interpretation from bundled rules metadata.');
-    return { qsoPointsTotal, multiplierTotal, computedScore, pointsByIndex };
+    return { qsoPointsTotal, multiplierTotal, computedScore, pointsByIndex, analytical };
   }
 
   function scoreEuVhfBundle(resolved, qsos, contestMeta, assumptions) {
@@ -6260,11 +6337,13 @@
     const scoreDuplicates = duplicatePolicy === 'include_all_dupes';
     const pointsByIndex = new Array((qsos || []).length).fill(0);
     const multPerBand = new Set();
+    const analytical = bundleAnalytics(resolved, qsos, station, modelId === 'distance_times_multipliers' ? 'eu_vhf_grid4' : '', 'per_band', modelId === 'distance_times_multipliers' ? 'product-min-one' : 'points');
     let qsoPointsTotal = 0;
 
     (qsos || []).forEach((q, idx) => {
       const facts = buildQsoScoringFacts(q, station, runtime);
       if (q?.isDupe && !scoreDuplicates) return;
+      analytical.contribution(idx, facts);
       const distance = Number(q?.distance);
       let points = 0;
       if (modelId === 'distance_only') {
@@ -6272,7 +6351,7 @@
       } else if (modelId === 'distance_times_multipliers') {
         points = Number.isFinite(distance) ? Math.max(1, Math.round(distance)) : 1;
         const grid4 = firstGrid4FromFacts(facts);
-        if (grid4) multPerBand.add(`${facts.bandNorm}|${grid4}`);
+        if (grid4) analytical.add(multPerBand, `${facts.bandNorm}|${grid4}`, grid4, facts.bandNorm, facts, q, idx);
       } else if (modelId === 'band_weighted_distance') {
         points = Number.isFinite(distance) ? Math.max(0, Math.round(distance * euVhfBandFactor(facts.bandNorm))) : 0;
       } else {
@@ -6290,7 +6369,7 @@
       computedScore = multiplierTotal > 0 ? (qsoPointsTotal * multiplierTotal) : qsoPointsTotal;
     }
     assumptions.add('EU VHF bundle scorer uses heuristic interpretation from bundled model hints.');
-    return { qsoPointsTotal, multiplierTotal, computedScore, pointsByIndex };
+    return { qsoPointsTotal, multiplierTotal, computedScore, pointsByIndex, analytical };
   }
 
   function computeContestScoringSummary(qsos, contestMeta, context = {}) {
@@ -6374,11 +6453,12 @@
         loggedPointsTotal,
         computedQsoPointsTotal: Number.isFinite(bundleScore?.qsoPointsTotal) ? Math.round(bundleScore.qsoPointsTotal) : null,
         computedMultiplierTotal: Number.isFinite(bundleScore?.multiplierTotal) ? Number(bundleScore.multiplierTotal) : null,
-        computedRawMultiplierTotal: null,
-        multiplierModelSupported: false,
-        multiplierCredits: [],
-        multiplierRejections: [],
-        multiplierPerspective: null,
+        computedRawMultiplierTotal: bundleScore?.analytical ? bundleScore.analytical.credits.length : null,
+        multiplierModelSupported: Boolean(bundleScore?.analytical?.perspective.groups.length),
+        multiplierCredits: bundleScore?.analytical?.credits || [],
+        multiplierRejections: bundleScore?.analytical?.rejections || [],
+        multiplierPerspective: bundleScore?.analytical?.perspective || null,
+        analyticalMetadata: bundleScore?.analytical?.metadata || null,
         computedScore,
         scoreDeltaAbs: deltaAbs,
         scoreDeltaPct: deltaPct,
@@ -6459,6 +6539,15 @@
       multiplierCredits: Array.isArray(scored.multState.credits) ? scored.multState.credits : [],
       multiplierRejections: Array.isArray(scored.multState.rejections) ? scored.multState.rejections : [],
       multiplierPerspective: scored.multState.perspective || null,
+      analyticalMetadata: {
+        version: 1,
+        contributions: scored.pointState.analyticalContributions,
+        rule: resolved.rule,
+        targetDescriptors: multiplierTargetDescriptors(resolved.rule, scored.station, scored.multState.perspective),
+        stationBelgian: scored.station.stationCountryKey === 'BELGIUM' || /^(?:ON|OO|OP|OQ|OR|OS|OT)/.test(scored.station.stationCall || ''),
+        stationIsRu: Boolean(scored.station.stationIsRu),
+        operatorQrpBonus: /\/QRP/i.test(scored.station.stationCall || '') ? 20 : 0
+      },
       computedScore,
       scoreDeltaAbs: deltaAbs,
       scoreDeltaPct: deltaPct,
@@ -7486,6 +7575,13 @@
     buildQtcAnalysis: (qtcs, qsos, contestMeta, resources = {}) => (
       withAnalysisEnv(resources, () => buildQtcAnalysis(qtcs, qsos, contestMeta))
     ),
+    classifyHistoricalOperatingStyles: (qsos, at) => withAnalysisEnv({}, () => {
+      // Isolated prefix: full-log inferred labels and future spot anchors must
+      // not leak into historical operating assumptions or mutate the log.
+      const prefix = (qsos || []).filter((q) => Number.isFinite(q?.ts) && q.ts <= at).map((q) => ({ ...q, operatingStyleRole: undefined, operatingStyleRunFreq: undefined }));
+      buildOperatingStyleSummary(prefix);
+      return prefix.map((q) => q.operatingStyleRole || 'UNKNOWN');
+    }),
     buildDerived,
     analyzeLogText,
     deriveLog

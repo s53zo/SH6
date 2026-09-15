@@ -1,3 +1,5 @@
+import { multiplierFocusedQsos, multiplierRadio } from '../multipliers/overview-model.js';
+
 export function createExportRuntime(deps = {}) {
   const {
     getState,
@@ -7,6 +9,7 @@ export function createExportRuntime(deps = {}) {
     withBandContext,
     withStaticVirtualTableRender,
     renderReport,
+    renderMultiplierExport,
     renderPlaceholder,
     showOverlayNotice,
     trackEvent,
@@ -74,7 +77,11 @@ export function createExportRuntime(deps = {}) {
   function renderLogExport() {
     const state = getStateSafe();
     if (!state.qsoData) return renderPlaceholder({ id: 'log', title: 'Log' });
-    const rows = state.qsoData.qsos.map((q, idx) => {
+    const focus = state.multiplierLogFocus;
+    const source = focus ? getSlotById?.(focus.slotId) : state;
+    const qsos = focus ? multiplierFocusedQsos(source, focus, focus.slotId) : state.qsoData.qsos;
+    const showRadio = (source?.fullQsoData?.qsos || source?.qsoData?.qsos || []).some((q) => multiplierRadio(q) !== '__MISSING__');
+    const rows = qsos.map((q, idx) => {
       const call = escapeCall(q.call || '');
       const op = escapeHtml(q.op || '');
       const country = escapeCountry(q.country || '');
@@ -106,12 +113,14 @@ export function createExportRuntime(deps = {}) {
         <td>${itu}</td>
         <td class="tl">${grid}</td>
         <td class="tl">${flags}</td>
+        ${showRadio ? `<td>${escapeHtml(multiplierRadio(q) === '__MISSING__' ? 'Missing' : /^R/.test(multiplierRadio(q)) ? multiplierRadio(q) : `R${multiplierRadio(q)}`)}</td>` : ''}
       </tr>
     `;
     }).join('');
     return `
       <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-        <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th></tr>
+        ${focus ? `<caption>Multiplier source: Log ${escapeHtml(focus.slotId)}, original QSO ${escapeHtml(String(qsos[0]?.qsoNumber ?? focus.index + 1))}${qsos.length ? '' : ' — source no longer available'}</caption>` : ''}
+        <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>${showRadio ? '<th>Radio</th>' : ''}</tr>
         ${rows}
       </table>
     `;
@@ -147,10 +156,30 @@ export function createExportRuntime(deps = {}) {
     showOverlayNotice?.(`Exported ${filename}.`, 1800);
   }
 
-  function stripLinks(html) {
+  function stripLinks(html, staticMultiplier = false) {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
     wrapper.querySelectorAll('details').forEach((details) => details.setAttribute('open', ''));
+    if (staticMultiplier) {
+      const activeTab = wrapper.querySelector('.multiplier-view-tabs [aria-selected="true"]');
+      const panel = wrapper.querySelector('#multiplier-view-panel');
+      if (panel) {
+        if (activeTab) {
+          const heading = document.createElement('h3');
+          heading.textContent = activeTab.textContent;
+          panel.prepend(heading);
+        }
+        panel.removeAttribute('role');
+        panel.removeAttribute('aria-labelledby');
+        panel.removeAttribute('tabindex');
+      }
+      wrapper.querySelectorAll('.no-print').forEach((element) => element.remove());
+      wrapper.querySelectorAll('input, select, button').forEach((control) => {
+        const span = document.createElement('span');
+        span.textContent = control.tagName === 'SELECT' ? control.selectedOptions[0]?.textContent || '' : control.tagName === 'INPUT' ? control.value || 'Not specified' : control.textContent || '';
+        control.replaceWith(span);
+      });
+    }
     wrapper.querySelectorAll('a').forEach((link) => {
       const span = document.createElement('span');
       span.textContent = link.textContent || '';
@@ -163,6 +192,7 @@ export function createExportRuntime(deps = {}) {
 
   function renderReportExport(report) {
     if (report.id === 'log') return renderLogExport();
+    if (report.id === 'multipliers' && renderMultiplierExport) return stripLinks(renderMultiplierExport(), true);
     if (report.id === 'map_view') {
       return '<p>Map view is interactive and not included in exports. Use the in-app map or KMZ files.</p>';
     }

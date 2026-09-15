@@ -84,7 +84,7 @@
           import('../modules/ui/navigation-runtime.js')
         ]);
 
-        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.29';"));
+        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.30';"));
         add('Main.js loads navigation runtime before nav setup', mainSource.includes('const navigationRuntimeReady = loadNavigationRuntimeModule();') && mainSource.includes('await navigationRuntimeReady;'));
         add('Main.js delegates initNavigation to the navigation runtime', mainSource.includes('return getNavigationRuntime().initNavigation();'));
         add('Main.js delegates setActiveReport to the navigation runtime', mainSource.includes('return getNavigationRuntime().setActiveReport(idx);'));
@@ -237,6 +237,30 @@
           dom.viewTitle.textContent === 'Map' && dom.viewContainer.innerHTML.includes('Map content') && bindCalls.includes('map_view'),
           JSON.stringify({ title: dom.viewTitle.textContent, bindCalls })
         );
+
+        const focusMarkup = '<input data-mult-tradeoff="rate" data-slot="A" data-strategy="run"><nav tabindex="-1"><button data-mult-page-action="next" data-mult-page="2" data-slot="A">Next</button></nav>';
+        const focusRuntime = navModule.createNavigationRuntime({ getDom: () => dom, getState: () => ({}), renderReport: () => focusMarkup });
+        const finishFocusRender = async () => {
+          const deadline = Date.now() + 2000;
+          while (dom.viewContainer.getAttribute('aria-busy') !== 'false' && Date.now() < deadline) await wait(10);
+        };
+        dom.viewContainer.innerHTML = focusMarkup;
+        dom.viewContainer.querySelector('input').focus();
+        focusRuntime.renderReportWithLoading({ id: 'multipliers' });
+        focusRuntime.renderReportWithLoading({ id: 'multipliers' });
+        await finishFocusRender();
+        add('Superseding multiplier renders preserve pending field focus', document.activeElement?.dataset.multTradeoff === 'rate');
+        const pageButton = dom.viewContainer.querySelector('button');
+        pageButton.dataset.multPage = '1'; pageButton.focus();
+        focusRuntime.renderReportWithLoading({ id: 'multipliers' });
+        await finishFocusRender();
+        add('Multiplier pagination focus follows action rather than changing page number', document.activeElement?.dataset.multPageAction === 'next' && document.activeElement?.dataset.multPage === '2');
+        dom.viewContainer.querySelector('input').focus();
+        focusRuntime.renderReportWithLoading({ id: 'multipliers' });
+        dom.navSearchInput.focus();
+        focusRuntime.renderReportWithLoading({ id: 'multipliers' });
+        await finishFocusRender();
+        add('Pending multiplier focus never steals focus from another control', document.activeElement === dom.navSearchInput);
 
         const failed = checks.filter((entry) => !entry.ok);
         setResult(failed.length === 0, {

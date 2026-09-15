@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Multiplier export layout</title></head>
+<body><div id="status">RUNNING</div><pre id="result"></pre>
+<script src="../modules/analysis/core.js"></script>
+<script type="module">
+import { buildMultiplierOverviewSource, selectMultiplierOverview } from '../modules/multipliers/overview-model.js';
+import { renderMultiplierOverview } from '../modules/multipliers/overview-view.js';
+import { createExportRuntime } from '../modules/export/runtime.js';
+try {
+  const [log, spec, cty, css] = await Promise.all(['./fixtures/radio-m2.log', '../data/contest_scoring_spec.json', '../cty.dat', '../style.css'].map((url) => fetch(url).then((r) => r.text())));
+  const core = window.SH6AnalysisCore;
+  const parsed = core.parseLogFile(log, 'radio-m2.log');
+  const derived = core.buildDerived(parsed.qsos, { events: parsed.events, qtcs: parsed.qtcs, scoringRuleOverride: 'wrtc_2026' }, { scoringSpec: JSON.parse(spec), ctyTable: core.parseCtyDat(cty), masterCalls: [] });
+  const selection = selectMultiplierOverview(buildMultiplierOverviewSource(parsed.qsos, derived.scoring, derived.contestMeta, parsed.events));
+  let currentSlots; let currentSettings;
+  const runtime = createExportRuntime({ renderMultiplierExport: () => renderMultiplierOverview(currentSlots, { ...currentSettings, exportAll: true }) });
+  const cases = [];
+  const checks = [];
+  for (const [name, view, count] of [['hourly-four-logs', 'hourly', 4], ['cumulative-single-log', 'cumulative', 1], ['timeline-all-rows', 'timeline', 1]]) {
+    const selected = view === 'timeline' ? { ...selection, timeline: Array.from({ length: 205 }, (_, index) => ({ ...selection.timeline[index % selection.timeline.length], qsoNumber: index + 1 })) } : selection;
+    currentSlots = ['A', 'B', 'C', 'D'].slice(0, count).map((id) => ({ id, label: `Log ${id}`, selection: selected }));
+    currentSettings = { view };
+    const content = runtime.renderReportExport({ id: 'multipliers' });
+    const container = document.createElement('div'); container.innerHTML = content;
+    checks.push({ name: `${name}: exact panels and static controls`, passed: container.querySelectorAll('.multiplier-overview-panel').length === count && !container.querySelector('input,select,button') });
+    if (view === 'timeline') checks.push({ name: 'Export bypasses 200-row interactive pagination', passed: container.querySelectorAll('tbody tr').length === 205 });
+    cases.push({ name, html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${name}</title><style>${css}</style></head><body><div class="export-doc"><section class="export-section"><h1>Multipliers — ${name}</h1>${content}</section></div></body></html>` });
+  }
+  window.__SH6_PRINT_CASES__ = cases;
+  const passed = checks.every((check) => check.passed);
+  document.querySelector('#result').textContent = JSON.stringify({ passed, checks }, null, 2);
+  document.querySelector('#status').textContent = passed ? 'PASS' : 'FAIL';
+} catch (error) { document.querySelector('#result').textContent = JSON.stringify({ error: error.stack }); document.querySelector('#status').textContent = 'FAIL'; }
+</script></body></html>

@@ -84,7 +84,7 @@
           import('../modules/ui/load-panel-runtime.js')
         ]);
 
-        add('Main.js imports the load panel runtime module', mainSource.includes("const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.31';"));
+        add('Main.js imports the load panel runtime module', mainSource.includes("const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.32';"));
         const initStartIdx = mainSource.indexOf('async function init() {');
         const startupHookIdx = mainSource.indexOf("document.addEventListener('DOMContentLoaded'", initStartIdx);
         const initSource = initStartIdx >= 0 && startupHookIdx > initStartIdx
@@ -300,6 +300,19 @@
             && getSlotPanel('B').querySelector('.slot-choice[data-action="demo"]').classList.contains('is-active'),
           JSON.stringify({ loadDemoCalls, slotBPanel: getSlotPanel('B').innerHTML })
         );
+
+        const dynamicDemo = document.createElement('button');
+        dynamicDemo.type = 'button';
+        dynamicDemo.className = 'demo-log-btn';
+        dynamicDemo.textContent = 'Demo log';
+        document.body.appendChild(dynamicDemo);
+        dynamicDemo.click();
+        add(
+          'Dynamically rendered empty-report Demo button invokes the main-slot loader',
+          loadDemoCalls.length === 2 && loadDemoCalls[1] === 'A',
+          JSON.stringify(loadDemoCalls)
+        );
+        dynamicDemo.remove();
 
         const failed = checks.filter((entry) => !entry.ok);
         setResult(failed.length === 0, {

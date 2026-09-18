@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.32 (2026-09-18)
+
+- Fix the dynamically rendered `Demo log` button on empty report pages by delegating the action through the load-panel runtime instead of binding only buttons present during startup.
+- Add browser regression coverage for Demo buttons inserted after startup and verify the full empty-LOG-to-loaded-demo workflow.
+- Bump application and cache references to `v6.3.32`.
+
 ## v6.3.31 (2026-09-18)
 
 - Add versioned `v3.` permalinks using explicitly indexed positional JSON, synchronous raw DEFLATE, and unpadded Base64URL while retaining legacy and `v2.` restoration.

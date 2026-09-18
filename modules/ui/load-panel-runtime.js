@@ -147,13 +147,13 @@ export function createLoadPanelRuntime(deps = {}) {
         focusArchiveSearchInput?.(slotId);
       });
     });
-    document.querySelectorAll('.demo-log-btn').forEach((btn) => {
-      btn.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        const slotId = btn.dataset.slot || 'A';
-        setSlotAction(slotId, 'demo');
-        loadDemoLog?.(slotId);
-      });
+    document.addEventListener('click', (evt) => {
+      const target = evt.target instanceof Element ? evt.target.closest('.demo-log-btn') : null;
+      if (!(target instanceof HTMLElement)) return;
+      evt.preventDefault();
+      const slotId = target.dataset.slot || 'A';
+      setSlotAction(slotId, 'demo');
+      loadDemoLog?.(slotId);
     });
     (Array.isArray(slotIds) ? slotIds : ['A', 'B', 'C', 'D']).forEach((slotId) => {
       const panel = getSlotPanel?.(slotId) || null;

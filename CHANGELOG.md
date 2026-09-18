@@ -2,6 +2,17 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.31 (2026-09-18)
+
+- Add versioned `v3.` permalinks using explicitly indexed positional JSON, synchronous raw DEFLATE, and unpadded Base64URL while retaining legacy and `v2.` restoration.
+- Generate both `v2` and `v3` states and use `v3` only when it is shorter; the supplied mixed four-log state falls from 505 to 181 characters (64.2%).
+- Preserve all current session filters, report settings, slots, scoring overrides, Unicode, zero/false/null/empty values, and four-slot behavior without placing uploaded raw log content in URLs.
+- Bound Base64URL, compressed and decompressed sizes, nesting, collections, strings, nodes, and slots; malformed links fail safely with a non-blocking notice.
+- Vendor the 8.9 KB raw-DEFLATE subset of fflate 0.8.3 under MIT for synchronous, offline operation and add compatibility, corruption, decompression-limit, deterministic round-trip, and size/performance diagnostics.
+- Complete three independent codec, security, and browser-integration reviews; fail closed on malformed tuple types/lengths and unknown future compact fields, retain explicit-null multiplier settings, and cover full-app restore/copy/error paths.
+- Document the wire schema, evolution rules, safety policy, backward compatibility, dependency, CBOR/MessagePack tradeoff, and representative results.
+- Bump application and cache references to `v6.3.31`.
+
 ## v6.3.30 (2026-09-15)
 
 - Add Multipliers at Rates & Time position 11 with six wrapping, keyboard-accessible tabs: Hourly, Rate, Cumulative, Band & type, Timeline, and Efficiency. Compare up to four logs with one panel per log.

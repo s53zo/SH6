@@ -34,7 +34,11 @@ SH6 is a static HTML/JS app that parses contest logs in your browser, fetches `c
 - Chart metric mode toggle (`Absolute` vs `Normalized %`) for fair compare across unequal log sizes
 - Map view (Leaflet/OpenStreetMap) + KMZ exports
 - **EXPORT PDF, HTML, CBR** menu for report and raw-log exports
-- Save/load session and permalink support
+- Save/load session support and shorter compressed `v3` permalinks, with legacy and `v2` links retained
+
+## Permalinks
+
+SH6 chooses the shorter of its existing `v2` compact JSON and the new `v3` compressed positional JSON whenever a permalink is copied. Restoration remains synchronous and offline; old non-prefixed and `v2.` links continue to work. The wire schema, safety limits, dependency information, compatibility policy, and reproducible size results are documented in [the permalink v3 notes](docs/permalink-v3.md).
 
 ## Radio / transmitter IDs
 

@@ -1,4 +1,10 @@
 import { normalizeMultiplierSettings } from '../multipliers/settings.js';
+import {
+  PERMALINK_V3_PREFIX,
+  decodeV3State,
+  encodeV3State,
+  inspectV3Encoding
+} from './permalink-v3.js';
 
 export function createSessionCodec(deps = {}) {
   const historicalCompareLogWindowSize = 1000;
@@ -546,11 +552,54 @@ export function createSessionCodec(deps = {}) {
     try {
       const compactPayload = buildCompactSessionPayload(payload, false);
       const compactEncoded = `${permalinkCompactPrefix}${base64UrlEncode(JSON.stringify(compactPayload))}`;
-      if (compactEncoded.length < legacyEncoded.length) return compactEncoded;
+      let shortest = compactEncoded;
+      try {
+        const compressedEncoded = encodeV3State(compactPayload);
+        if (compressedEncoded.length < shortest.length) shortest = compressedEncoded;
+      } catch (err) {
+        /* v2 remains the synchronous, backward-compatible fallback */
+      }
+      if (shortest.length < legacyEncoded.length) return shortest;
     } catch (err) {
       /* fall back to legacy encoding */
     }
     return legacyEncoded;
+  }
+
+  function getPermalinkDiagnostics(payload) {
+    const fullJson = JSON.stringify(payload);
+    const compactPayload = buildCompactSessionPayload(payload, false);
+    const v2State = `${permalinkCompactPrefix}${base64UrlEncode(JSON.stringify(compactPayload))}`;
+    const encodeStarted = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+    const v3 = inspectV3Encoding(compactPayload);
+    const encodeMs = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now()) - encodeStarted;
+    const decodeStarted = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+    const decoded = decodeV3State(v3.state);
+    const decodeMs = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now()) - decodeStarted;
+    if (!decoded) throw new Error('v3 diagnostic round trip failed');
+    const selected = v3.state.length < v2State.length ? v3.state : v2State;
+    return {
+      fullJsonBytes: new TextEncoder().encode(fullJson).length,
+      v2StateLength: v2State.length,
+      positionalJsonBytes: v3.positionalJsonBytes,
+      compressedBytes: v3.compressedBytes,
+      v3StateLength: v3.state.length,
+      selectedEncoding: selected.startsWith(PERMALINK_V3_PREFIX) ? 'v3' : 'v2',
+      selectedStateLength: selected.length,
+      reductionPercent: v2State.length
+        ? Number((((v2State.length - selected.length) / v2State.length) * 100).toFixed(1))
+        : 0,
+      encodeMs: Number(encodeMs.toFixed(3)),
+      decodeMs: Number(decodeMs.toFixed(3))
+    };
   }
 
   function buildPermalink() {
@@ -566,13 +615,20 @@ export function createSessionCodec(deps = {}) {
     const params = new URLSearchParams(search || '');
     const encoded = params.get('state');
     if (!encoded) return null;
+    if (encoded.length > 131072) return null;
     try {
+      if (encoded.startsWith(PERMALINK_V3_PREFIX)) {
+        const compact = decodeV3State(encoded);
+        return compact ? inflateCompactSessionPayload(compact) : null;
+      }
       if (encoded.startsWith(permalinkCompactPrefix)) {
         const json = base64UrlDecode(encoded.slice(permalinkCompactPrefix.length));
         const compact = JSON.parse(json);
         const inflated = inflateCompactSessionPayload(compact);
         if (inflated) return inflated;
+        return null;
       }
+      if (/^v\d+\./.test(encoded)) return null;
       const json = base64UrlDecode(encoded);
       return JSON.parse(json);
     } catch (err) {
@@ -587,6 +643,7 @@ export function createSessionCodec(deps = {}) {
     buildSessionPayload,
     createDefaultLogFilters,
     encodePermalinkState,
+    getPermalinkDiagnostics,
     inflateCompactSessionPayload,
     parsePermalinkState,
     serializeRbnSettings,

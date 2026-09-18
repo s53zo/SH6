@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SH6 permalink v3 browser smoke</title>
+</head>
+<body>
+  <div id="status">RUNNING</div>
+  <pre id="result"></pre>
+  <script type="module">
+    import {
+      PERMALINK_V3_LIMITS,
+      base64UrlToBytes,
+      bytesToBase64Url,
+      compactStateToPositional,
+      decodeV3State,
+      encodeV3State,
+      positionalToCompactState
+    } from '../modules/session/permalink-v3.js?v=6.3.31';
+
+    const checks = [];
+    const add = (name, passed, details = null) => checks.push({ name, passed: Boolean(passed), details });
+    try {
+      const compact = {
+        v: 2,
+        c: 4,
+        sy: 0,
+        gr: '0',
+        mv: { view: 'rate', windowMinutes: 60, yScale: 0.5 },
+        l: { s: 'Živjo 日本語', r: [0, 10], rd: 1 },
+        s: [
+          { i: 'A', n: 'S53M.log', z: 0, o: 'Archive', p: 'CQWW/cw/2025/S53M.log', t: 'a' },
+          { i: 'C', k: 1 }
+        ]
+      };
+      const encoded = encodeV3State(compact);
+      const decoded = decodeV3State(encoded);
+      add('Browser creates a v3 state', encoded.startsWith('v3.'), encoded.slice(0, 12));
+      add('Browser restores Unicode and zero values', decoded?.l?.s === compact.l.s && decoded?.s?.[0]?.z === 0 && decoded?.sy === 0, decoded);
+      add('Browser output is deterministic', encoded === encodeV3State(compact), encoded.length);
+      const utf8 = new TextEncoder().encode('S53M · Živjo · 日本語');
+      add('Browser Base64URL byte conversion is exact', new TextDecoder().decode(base64UrlToBytes(bytesToBase64Url(utf8))) === 'S53M · Živjo · 日本語');
+      const positional = compactStateToPositional(compact);
+      add('Browser accepts bounded future trailing fields', positionalToCompactState([...positional, 'future'])?.c === 4);
+      add('Browser rejects a future schema version', positionalToCompactState([99]) === null);
+      add('Browser rejects malformed compressed data', decodeV3State('v3.AAAA') === null);
+      add('Browser rejects oversized encoded data', decodeV3State(`v3.${'A'.repeat(PERMALINK_V3_LIMITS.encodedChars + 1)}`) === null);
+    } catch (error) {
+      add('Browser test completed without exception', false, error?.stack || String(error));
+    }
+    const failed = checks.filter((check) => !check.passed);
+    document.querySelector('#status').textContent = failed.length ? 'FAIL' : 'PASS';
+    document.querySelector('#result').textContent = JSON.stringify({ passed: failed.length === 0, checks }, null, 2);
+  </script>
+</body>
+</html>

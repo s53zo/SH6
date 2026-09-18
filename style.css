@@ -2633,6 +2633,10 @@ body.analysis-mode-dxer .load-tip-badge {
   color: #c62828;
 }
 
+.status-warning {
+  color: #ef6c00;
+}
+
 .status-qrx {
   color: #ef6c00;
   animation: statusPulse 1.2s ease-in-out infinite;

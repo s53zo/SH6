@@ -72,7 +72,7 @@ check_restored_app() {
   FORMAT_LABEL="${format_label}" APP_JSON="${app_json}" node <<'EOF'
 let value = JSON.parse(process.env.APP_JSON || '{}');
 if (typeof value === 'string') value = JSON.parse(value);
-const passed = value.version === 'v6.3.32' && value.dxer === true && value.a === 'Skipped' && value.b === 'Skipped';
+const passed = value.version === 'v6.3.33' && value.dxer === true && value.a === 'Skipped' && value.b === 'Skipped';
 if (!passed) {
   console.error(`[permalink-v3-browser-smoke] ${process.env.FORMAT_LABEL} app restoration failed: ${JSON.stringify(value)}`);
   process.exit(1);

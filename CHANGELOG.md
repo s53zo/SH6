@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.33 (2026-09-18)
+
+- Report CQ API enrichment as `partial` instead of `OK` when score/history data is usable but one or more record-scope lookups fail.
+- Keep successful CQ score data visible, show the failed scopes and API error in the status tooltip, and suppress the green source checkmark for partial responses.
+- Add regression coverage for partial CQ API results and bump application and cache references to `v6.3.33`.
+
 ## v6.3.32 (2026-09-18)
 
 - Fix the dynamically rendered `Demo log` button on empty report pages by delegating the action through the load-panel runtime instead of binding only buttons present during startup.

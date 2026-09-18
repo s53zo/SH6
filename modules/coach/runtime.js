@@ -505,6 +505,21 @@ export function createCoachRuntime(deps = {}) {
     updateDataStatusSafe();
   }
 
+  function summarizeCqApiPartialFailure(result) {
+    const failedRecords = (Array.isArray(result?.recordsByScope) ? result.recordsByScope : [])
+      .filter((entry) => !entry?.row && String(entry?.statusMessage || '').trim());
+    if (!failedRecords.length) return '';
+    const scopes = failedRecords
+      .map((entry) => String(entry?.scopeLabel || entry?.scope || '').trim())
+      .filter(Boolean);
+    const messages = dedupeValuesSafe(failedRecords
+      .map((entry) => String(entry?.statusMessage || '').trim())
+      .filter(Boolean));
+    const scopeText = scopes.length ? ` (${scopes.join(', ')})` : '';
+    const detail = messages.length ? `: ${messages.join('; ')}` : '';
+    return `Record lookup incomplete${scopeText}${detail}`;
+  }
+
   function isRateLimitText(value) {
     const msg = String(value || '');
     return /\b429\b/i.test(msg) || /rate\s*limit/i.test(msg) || /Transient API status 429/i.test(msg);
@@ -578,14 +593,16 @@ export function createCoachRuntime(deps = {}) {
       if (!slot.apiEnrichment || slot.apiEnrichment.requestKey !== token) return;
 
       if (result?.ok) {
+        const partialFailure = summarizeCqApiPartialFailure(result);
         slot.apiEnrichment = {
           ...createApiState(),
           status: 'ready',
+          warning: partialFailure || null,
           source: result.source || null,
           helperActive: Boolean(result.helperActive),
           data: result
         };
-        setCqApiStatus('ok', result.source || cqApiProxyBase, null);
+        setCqApiStatus(partialFailure ? 'partial' : 'ok', result.source || cqApiProxyBase, partialFailure || null);
       } else if (result?.unsupported) {
         slot.apiEnrichment = {
           ...createApiState(),
@@ -989,6 +1006,7 @@ export function createCoachRuntime(deps = {}) {
     normalizeCoachScopeType,
     formatCoachScopeTitle,
     buildCqApiRequest,
+    summarizeCqApiPartialFailure,
     ensureCqApiClient,
     buildCompetitorCoachContext,
     buildCoachRowKey,

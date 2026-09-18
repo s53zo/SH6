@@ -99,6 +99,7 @@
         const compareCounts = [];
         const slotActions = [];
         const appliedLoads = [];
+        let enrichmentRecordFailure = false;
 
         window.SH6_API_DEBUG = false;
         window.SH6CqApi = {
@@ -139,6 +140,9 @@
                       category: 'SO AB HP'
                     }
                   ],
+                  recordsByScope: enrichmentRecordFailure
+                    ? [{ scope: 'world', scopeLabel: 'World', row: null, statusMessage: 'Transient API status 500: Database error' }]
+                    : [{ scope: 'world', scopeLabel: 'World', row: { callsign: 'S50A' }, statusMessage: '' }],
                   labels: {
                     catlist: [
                       { category: 'SO AB HP', label: 'Single Op All Band High Power' }
@@ -433,6 +437,38 @@
             dataStatusCalls
           })
         );
+
+        const partialMessage = runtime.summarizeCqApiPartialFailure({
+          recordsByScope: [
+            { scope: 'dxcc', scopeLabel: 'DXCC', row: null, statusMessage: 'Invalid JSON (HTTP 200)' },
+            { scope: 'continent', scopeLabel: 'Continent', row: null, statusMessage: 'Transient API status 500: Database error' }
+          ]
+        });
+        add(
+          'CQ API record failures are classified as partial instead of healthy',
+          partialMessage.includes('DXCC')
+            && partialMessage.includes('Continent')
+            && partialMessage.includes('Database error'),
+          partialMessage
+        );
+
+        enrichmentRecordFailure = true;
+        await runtime.triggerCqApiEnrichmentForSlot(state, 'A');
+        add(
+          'triggerCqApiEnrichmentForSlot exposes partial CQ API health while retaining usable data',
+          state.apiEnrichment.status === 'ready'
+            && state.apiEnrichment.data?.currentScore?.score === 10500
+            && state.cqApiStatus === 'partial'
+            && state.cqApiError?.includes('Database error')
+            && dataStatusCalls.includes('partial'),
+          JSON.stringify({
+            apiStatus: state.apiEnrichment.status,
+            cqApiStatus: state.cqApiStatus,
+            cqApiError: state.cqApiError
+          })
+        );
+        enrichmentRecordFailure = false;
+        await runtime.triggerCqApiEnrichmentForSlot(state, 'A');
 
         const context = runtime.buildCompetitorCoachContext(state.cqApiClient);
         add(

@@ -197,7 +197,7 @@ export function createExportRuntime(deps = {}) {
       return '<p>Map view is interactive and not included in exports. Use the in-app map or KMZ files.</p>';
     }
     const html = withStaticVirtualTableRender(() => renderReport(report));
-    return stripLinks(html);
+    return stripLinks(html, report.id === 'run_sp_inband' || report.id === 'breaks');
   }
 
   function resolveExportReports(reportIds) {

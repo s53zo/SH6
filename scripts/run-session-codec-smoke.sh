@@ -11,6 +11,7 @@ import { createComparePerspectiveStore } from './modules/session/perspectives.js
 import { deflateRawSync } from 'node:zlib';
 import {
   PERMALINK_V3_LIMITS,
+  POSITIONAL_TOP_LEVEL_FIELDS,
   base64UrlToBytes,
   bytesToBase64Url,
   compactStateToPositional,
@@ -290,7 +291,9 @@ add('Legacy non-prefixed permalink remains readable', JSON.stringify(codec.parse
 add('Unknown future permalink prefix is rejected', codec.parsePermalinkState('?state=v99.AAAA') === null, null);
 
 const positional = compactStateToPositional(codec.buildCompactSessionPayload(payload, false));
-const positionalWithFutureFields = [...positional, 'future-field', 0, false];
+const positionalWithFutureFields = [...positional];
+while (positionalWithFutureFields.length < POSITIONAL_TOP_LEVEL_FIELDS.length) positionalWithFutureFields.push(null);
+positionalWithFutureFields.push('future-field', 0, false);
 const futureCompact = positionalToCompactState(positionalWithFutureFields);
 add('Bounded unknown trailing positional fields are ignored', futureCompact?.c === 4 && futureCompact?.s?.length === 3, futureCompact);
 const requiredOnlyCompact = positionalToCompactState([3]);

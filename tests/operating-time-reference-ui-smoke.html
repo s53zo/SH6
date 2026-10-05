@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Reference operating time UI</title></head><body>
+<div id="status">RUNNING</div><pre id="result"></pre>
+<iframe id="app" style="width:1400px;height:900px" src="../index.html?state=v3.izbWySvNydExglA0JqKjlRyVkPiGhhbGRoYGEI6Sc2B4uH5yub6RgZGpfmqaRZFeTn66UqxOtJITiiYDEwtzQ6iDUTUlF1omQjTFxgIA"></iframe>
+<script type="module">
+const checks=[];
+const check=(name,value)=>{checks.push({name,passed:Boolean(value)});if(!value)throw new Error(name);};
+const wait=async fn=>{const end=Date.now()+60000;while(Date.now()<end){if(fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error('Timeout');};
+try {
+ const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
+ const win=frame.contentWindow,doc=frame.contentDocument;
+ await wait(()=>win.SH6?.getSlotById('A')?.derived && win.SH6?.getSlotById('B')?.derived);
+ check('reference logs restored',win.SH6.getSlotById('A').qsoData.qsos.length===12991 && win.SH6.getSlotById('B').qsoData.qsos.length===11520);
+ const report=Array.from(doc.querySelectorAll('#navList [data-index]')).find(el=>el.textContent.trim()==='RUN vs S&P vs INBAND');report.click();
+ await wait(()=>doc.querySelectorAll('.operating-time-summary').length===2 && doc.getElementById('viewContainer').getAttribute('aria-busy')==='false');
+ check('reference comparison renders',doc.querySelectorAll('.operating-time-summary').length===2);
+ check('one shared slider',doc.querySelectorAll('.operating-time-gap').length===1);
+ check('48 hourly bars per reference log',doc.querySelectorAll('.operating-time-stack').length===96);
+ check('reference dual RUN evidence rendered',doc.getElementById('viewContainer').textContent.includes('Possible 2BSIQ') && doc.getElementById('viewContainer').textContent.includes('R0, R1'));
+} catch(e){checks.push({name:e.stack,passed:false});}
+document.getElementById('status').textContent=checks.every(c=>c.passed)?'PASS':'FAIL';document.getElementById('result').textContent=JSON.stringify({checks},null,2);
+</script></body></html>

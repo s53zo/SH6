@@ -10,13 +10,14 @@
   <script type="module">
     import {
       PERMALINK_V3_LIMITS,
+      POSITIONAL_TOP_LEVEL_FIELDS,
       base64UrlToBytes,
       bytesToBase64Url,
       compactStateToPositional,
       decodeV3State,
       encodeV3State,
       positionalToCompactState
-    } from '../modules/session/permalink-v3.js?v=6.3.33';
+    } from '../modules/session/permalink-v3.js?v=6.3.38';
 
     const checks = [];
     const add = (name, passed, details = null) => checks.push({ name, passed: Boolean(passed), details });
@@ -41,6 +42,7 @@
       const utf8 = new TextEncoder().encode('S53M · Živjo · 日本語');
       add('Browser Base64URL byte conversion is exact', new TextDecoder().decode(base64UrlToBytes(bytesToBase64Url(utf8))) === 'S53M · Živjo · 日本語');
       const positional = compactStateToPositional(compact);
+      while (positional.length < POSITIONAL_TOP_LEVEL_FIELDS.length) positional.push(null);
       add('Browser accepts bounded future trailing fields', positionalToCompactState([...positional, 'future'])?.c === 4);
       add('Browser rejects a future schema version', positionalToCompactState([99]) === null);
       add('Browser rejects malformed compressed data', decodeV3State('v3.AAAA') === null);

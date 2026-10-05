@@ -45,7 +45,8 @@ export const POSITIONAL_TOP_LEVEL_FIELDS = Object.freeze([
   'py',            // 20 selected years
   'pm',            // 21 selected months
   'l',             // 22 log-filter tuple
-  's'              // 23 slot tuples
+  's',             // 23 slot tuples
+  'og'             // 24 maximum operating activity gap
 ]);
 
 export const POSITIONAL_SLOT_FIELDS = Object.freeze([
@@ -462,7 +463,7 @@ function validateKnownV3Schema(tuple) {
     RADIO_HEAT_FIELDS.map(() => validateString),
     'radio heatmap'
   ));
-  [13, 14, 15, 16, 17, 18].forEach((index) => validateOptional(tuple, index, (value) => validateNumber(value, POSITIONAL_TOP_LEVEL_FIELDS[index])));
+  [13, 14, 15, 16, 17, 18, 24].forEach((index) => validateOptional(tuple, index, (value) => validateNumber(value, POSITIONAL_TOP_LEVEL_FIELDS[index])));
   validateOptional(tuple, 19, (value) => validateString(value, 'WPX column mode'));
   validateOptional(tuple, 20, (value) => validateNumberList(value, 'selected years'));
   validateOptional(tuple, 21, (value) => validateNumberList(value, 'selected months'));

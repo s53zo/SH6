@@ -178,7 +178,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.34';
+  const APP_VERSION = 'v6.3.38';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -280,40 +280,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.33';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.33';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.33';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.33';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.33';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.33';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.33';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.34';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.33';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.33';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.33';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.33';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.33';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.33';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.33';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.33';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.33';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.33';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.33';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.33';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.33';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.33';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.33';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.33';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.33';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.33';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.33';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.33';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.33';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.33';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.33';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.33';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.33';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.33';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.38';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.38';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.38';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.38';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.38';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.38';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.38';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.38';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.38';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.38';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.38';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.38';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.38';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.38';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.38';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.38';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.38';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.38';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.38';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.38';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.38';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.38';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.38';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.38';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.38';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.38';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.38';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.38';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.38';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.38';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.38';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.38';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.38';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.38';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -867,6 +867,8 @@
     state.radioHeatMetric = ['minutes', 'qsos', 'points', 'multipliers', 'combinedRate'].includes(rawPerspective.radioHeatMetric) ? rawPerspective.radioHeatMetric : 'minutes';
     state.radioHeatA = String(rawPerspective.radioHeatA || '');
     state.radioHeatB = String(rawPerspective.radioHeatB || '');
+    state.operatingTimeGap = window.SH6OperatingTime.normalizeGap(rawPerspective.operatingTimeGap);
+    state.breakThreshold = Number(rawPerspective.breakThreshold) || 15;
     state.logTimeRange = cloneTsRange(rawPerspective.logTimeRange);
     updateBandRibbon();
     const reportId = String(rawPerspective.reportId || '');
@@ -1186,6 +1188,7 @@
       state.globalYearsFilter = normalizePeriodYears(migrated.globalYearsFilter);
       state.globalMonthsFilter = normalizePeriodMonths(migrated.globalMonthsFilter);
       state.breakThreshold = Number(migrated.breakThreshold) || state.breakThreshold;
+      state.operatingTimeGap = window.SH6OperatingTime.normalizeGap(migrated.operatingTimeGap);
       state.passedQsoWindow = Number(migrated.passedQsoWindow) || state.passedQsoWindow;
       if (Number.isFinite(migrated.logPageSize)) state.logPageSize = migrated.logPageSize;
       if (Number.isFinite(migrated.logPage)) state.logPage = migrated.logPage;
@@ -1422,6 +1425,7 @@
     logDistanceRange: null,
     logRadioFilter: '',
     breakThreshold: 15,
+    operatingTimeGap: 5,
     passedQsoWindow: 10,
     globalBandFilter: '',
     globalRadioFilter: '',
@@ -1986,8 +1990,8 @@
 
   async function loadMultiplierOverviewModule() {
     const [model, view] = await Promise.all([
-      import('./modules/multipliers/overview-model.js?v=6.3.33'),
-      import('./modules/multipliers/overview-view.js?v=6.3.33')
+      import('./modules/multipliers/overview-model.js?v=6.3.38'),
+      import('./modules/multipliers/overview-view.js?v=6.3.38')
     ]);
     multiplierOverviewRuntime = { ...model, ...view };
   }
@@ -6068,7 +6072,7 @@
   }
 
   function buildBreakReportMetrics(derived, threshold) {
-    const minutesMap = new Map((derived?.minuteSeries || []).map((m) => [m.minute, m.qsos]));
+    const minutesMap = new Map((derived?.activityMinuteSeries || derived?.minuteSeries || []).map((m) => [m.minute, m.qsos]));
     const breakSummary = computeBreakSummary(minutesMap, threshold);
     const minTs = Number(derived?.timeRange?.minTs);
     const maxTs = Number(derived?.timeRange?.maxTs);
@@ -17035,51 +17039,10 @@ function syncEngineCompareLogForSlot(slot) {
     `;
   }
 
-  function renderOperatingStyleQsoLog(qsos) {
-    const list = Array.isArray(qsos) ? qsos : [];
-    if (!list.length) return '';
-    const rows = list.map((q, idx) => {
-      const rowClass = idx % 2 === 0 ? 'td1' : 'td0';
-      const qsoNumber = formatNumberHtmlSh6(q.qsoNumber || q.raw?.QSO_NUMBER || '');
-      const time = escapeHtml(q.ts ? formatDateSh6(q.ts) : (q.time || ''));
-      const band = escapeHtml(formatBandLabel(q.band || ''));
-      const mode = escapeHtml(q.mode || '');
-      const freq = escapeHtml(formatFrequency(q.freq));
-      const call = escapeHtml(q.call || '');
-      const style = escapeHtml(formatOperatingStyleRoleLabel(q.operatingStyleRole));
-      return `
-        <tr class="${rowClass}">
-          <td class="log-qso c1">${qsoNumber}</td>
-          <td>${time}</td>
-          <td class="${bandClass(q.band)}">${band}</td>
-          <td class="${modeClass(q.mode)}">${mode}</td>
-          <td class="${bandClass(q.band)}">${freq}</td>
-          <td class="tl">${call}</td>
-          <td>${style}</td>
-        </tr>
-      `;
-    }).join('');
-    return `
-      <div class="export-actions export-note"><b>QSO audit</b>: compact log with the operating style assigned to each QSO in the current analysis context.</div>
-      <div class="table-wrap table-wrap--tall">
-        <table class="mtc log-table operating-style-qso-log" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>Operating style</th></tr>
-          ${rows}
-        </table>
-      </div>
-    `;
-  }
 
   function renderOperatingStyleReportForDerived(derived, qsos = [], options = {}) {
     const operatingStyle = derived?.operatingStyle || null;
     const bands = Array.isArray(operatingStyle?.bands) ? operatingStyle.bands : [];
-    if (!bands.length) {
-      return renderStateCard({
-        type: 'info',
-        title: 'RUN vs S&P vs INBAND unavailable',
-        message: 'This report needs QSOs with valid time and frequency values.'
-      });
-    }
     const totals = operatingStyle?.totals || {};
     const meta = operatingStyle?.meta || {};
     const excluded = Number(operatingStyle?.excludedQsoCount || 0);
@@ -17111,75 +17074,20 @@ function syncEngineCompareLogForSlot(slot) {
       ? `<div class="export-actions export-note">Excluded from this analysis: ${formatNumberSh6(excluded)} QSOs without valid time or frequency.</div>`
       : '';
     return `
+      <div class="operating-style-report">
       ${intro}
       <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>
       <div class="export-actions export-note"><b>Anchors</b>: ${escapeHtml(anchorText)}</div>
       <div class="export-actions export-note"><b>Definition</b>: INBAND means an S&amp;P QSO on a band where SH6 infers an active RUN stream. S&amp;P = INBAND + Off-band S&amp;P; visible percentages are computed over all classified QSOs.</div>
       ${excludedNote}
-      ${renderOperatingStyleTable(operatingStyle)}
-      ${options.showAudit === false ? '' : renderOperatingStyleQsoLog(qsos)}
+      ${options.showControls === false ? '' : window.SH6OperatingTime.controls(state.operatingTimeGap)}
+      <p class="no-print"><button type="button" class="operating-time-csv" data-slot="${escapeAttr(options.slot || 'A')}">Export time and dual RUN CSV</button></p>
+      ${window.SH6OperatingTime.render(buildOperatingTimeModel(qsos, derived, options.qtcs), { slot: options.slot || 'A' })}
+      <details><summary>QSO classifications by band</summary>${renderOperatingStyleTable(operatingStyle)}</details>
+      </div>
     `;
   }
 
-  function buildOperatingStyleCompareData(slotEntries) {
-    const lists = (slotEntries || []).map((entry) => entry.slot?.qsoData?.qsos || []);
-    const bucketMaps = lists.map((qsos) => buildTenMinuteBuckets(qsos));
-    const orderedKeys = buildCompareBucketOrder(bucketMaps, lists);
-    const buckets = orderedKeys.map((key) => ({
-      key,
-      lists: bucketMaps.map((map) => map.get(key) || [])
-    }));
-    const totalRows = buckets.reduce((sum, bucket) => {
-      const lengths = bucket.lists.map((list) => list.length);
-      return sum + Math.max(1, ...lengths);
-    }, 0);
-    return {
-      totalRows,
-      buckets
-    };
-  }
-
-  function renderOperatingStyleCompareRows(buckets, start, end, slotEntries, columns, options) {
-    let rows = '';
-    let globalIndex = 0;
-    for (const bucket of buckets || []) {
-      const lists = bucket.lists || [];
-      const max = Math.max(1, ...lists.map((list) => list.length));
-      const bucketStart = globalIndex;
-      const bucketEnd = globalIndex + max;
-      if (bucketEnd <= start) {
-        globalIndex = bucketEnd;
-        continue;
-      }
-      if (bucketStart >= end) break;
-      const key = bucket.key;
-      const bucketLabel = key === 'unknown'
-        ? 'Unknown time bucket'
-        : (() => {
-          const [dayStr, slotStr] = String(key).split('-');
-          const day = Number(dayStr);
-          const slot = Number(slotStr);
-          const dayLabel = WEEKDAY_LABELS[Number.isFinite(day) ? day : 0] || '';
-          return `${dayLabel} ${formatTimeOfDay(slot * 10)} - ${formatTimeOfDay(slot * 10 + 9)}`;
-        })();
-      rows += `<tr class="compare-bucket" data-compare-row-key="bucket-${escapeAttr(String(key))}"><td colspan="${columns.length * slotEntries.length}">${escapeHtml(bucketLabel)}</td></tr>`;
-      const from = Math.max(0, start - bucketStart);
-      const to = Math.min(max, end - bucketStart);
-      for (let i = from; i < to; i += 1) {
-        const rowIndex = bucketStart + i + 1;
-        const cls = rowIndex % 2 === 0 ? 'td1' : 'td0';
-        const rowCells = slotEntries.map((entry, slotIdx) => {
-          const list = lists[slotIdx] || [];
-          const qIdx = list[i];
-          const q = (qIdx != null && entry.slot?.qsoData?.qsos) ? entry.slot.qsoData.qsos[qIdx] : null;
-          return renderLogCells(q, columns, options);
-        }).join('');
-        rows += `<tr class="${cls}">${rowCells}</tr>`;
-      }
-      globalIndex = bucketEnd;
-    }
-    return rows;
-  }
 
   function renderOperatingStyleCompareAligned() {
     const slots = getActiveCompareSnapshots();
@@ -17189,60 +17097,18 @@ function syncEngineCompareLogForSlot(slot) {
 
     const summaryBlocks = slots.map((entry) => (
       entry.ready
-        ? renderOperatingStyleReportForDerived(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [], { showAudit: false })
+        ? renderOperatingStyleReportForDerived(entry.snapshot.derived, entry.snapshot.qsoData?.qsos || [], { showAudit: false, showControls: false, slot: entry.id, qtcs: entry.snapshot.qsoData?.qtcs || [] })
         : `<p>No ${entry.label} loaded.</p>`
     ));
     const summaryHtml = renderComparePanels(slots, summaryBlocks, 'run_sp_inband', { hideToolbar: false });
-    const compareData = buildOperatingStyleCompareData(slotEntries);
-    const totalRows = compareData.totalRows || 0;
-    const windowSize = Math.min(Math.max(1, Number(state.operatingStyleCompareWindowSize) || 100), 100);
-    state.operatingStyleCompareWindowSize = windowSize;
-    const maxStart = Math.max(0, totalRows - windowSize);
-    const start = Math.min(Math.max(0, state.operatingStyleCompareWindowStart || 0), maxStart);
-    const end = Math.min(totalRows, start + windowSize);
-    state.operatingStyleCompareWindowStart = start;
-    const columns = ['num', 'time', 'band', 'mode', 'freq', 'call', 'style'];
-    const columnConfig = { columns, timeOnly: slotEntries.length >= 3 };
-    const rows = renderOperatingStyleCompareRows(compareData.buckets, start, end, slotEntries, columns, columnConfig);
-    const prevDisabled = start <= 0;
-    const nextDisabled = end >= totalRows;
-    const windowNote = totalRows > 0
-      ? `
-      <div class="compare-window-controls operating-style-compare-window">
-        <div class="compare-window-text">
-          Showing aligned audit rows ${formatNumberSh6(start + 1)}-${formatNumberSh6(end)} of ${formatNumberSh6(totalRows)} (10-minute buckets, window ${formatNumberSh6(windowSize)}).
-        </div>
-        <div class="compare-window-actions">
-          <button type="button" class="compare-window-btn" data-dir="prev" ${prevDisabled ? 'disabled' : ''}>&#9664; Prev ${formatNumberSh6(windowSize)}</button>
-          <button type="button" class="compare-window-btn" data-dir="next" ${nextDisabled ? 'disabled' : ''}>Next ${formatNumberSh6(windowSize)} &#9654;</button>
-        </div>
-      </div>
-      `
-      : '';
-    const table = `
-      <div class="export-actions export-note"><b>Aligned QSO audit</b>: QSOs are grouped into shared 10-minute contest-time buckets so each loaded log can be compared by similar time.</div>
-      ${windowNote}
-      <div class="compare-log-wrap operating-style-compare-audit">
-        <table class="mtc log-table compare-log-table operating-style-qso-log operating-style-compare-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc">
-            ${slotEntries.map((entry) => {
-              const call = escapeHtml(entry.slot?.derived?.contestMeta?.stationCallsign || 'N/A');
-              return `<th colspan="${columns.length}">${escapeHtml(entry.label)}: ${call}</th>`;
-            }).join('')}
-          </tr>
-          <tr class="thc">
-            ${slotEntries.map(() => columns.map((colId) => {
-              if (colId === 'style') return '<th>Style</th>';
-              const def = LOG_COMPARE_COLUMNS.find((c) => c.id === colId);
-              return `<th>${escapeHtml(def ? def.label : '')}</th>`;
-            }).join('')).join('')}
-          </tr>
-          ${rows || ''}
-        </table>
-      </div>
-      ${windowNote}
-    `;
-    return `${summaryHtml}${table}`;
+    return `${window.SH6OperatingTime.controls(state.operatingTimeGap)}${summaryHtml}`;
+  }
+
+  function buildOperatingTimeModel(qsos, derived, qtcs = state.qsoData?.qtcs || []) {
+    return window.SH6OperatingTime.build([...qsos, ...qtcs], derived?.contestMeta || {}, {
+      gapMinutes: state.operatingTimeGap,
+      breakThreshold: state.breakThreshold
+    });
   }
 
   function renderOperatingStyleReport() {
@@ -22590,6 +22456,33 @@ function syncEngineCompareLogForSlot(slot) {
       }
       initLeafletMap(state.mapContext);
     }
+    if (reportId === 'breaks' || reportId === 'run_sp_inband') {
+      dom.viewContainer.querySelectorAll('.operating-time-gap').forEach((slider) => {
+        slider.addEventListener('input', () => {
+          state.operatingTimeGap = window.SH6OperatingTime.normalizeGap(slider.value);
+          dom.viewContainer.querySelectorAll('.operating-time-gap-value').forEach(el => { el.textContent = state.operatingTimeGap; });
+        });
+        slider.addEventListener('change', () => {
+          scheduleAutosaveSession();
+          renderReportWithLoading(reports[state.activeIndex]);
+        });
+      });
+      dom.viewContainer.querySelectorAll('.operating-time-csv').forEach(button => button.addEventListener('click', () => {
+        const slotId = button.dataset.slot || 'A';
+        const slot = getSlotById(slotId);
+        if (!slot?.derived) return;
+        withSlotState(buildSlotSnapshot(slot), () => withBandContext(reportId, () => {
+          const csv = window.SH6OperatingTime.csv(buildOperatingTimeModel(state.qsoData?.qsos || [], state.derived));
+          downloadBlobFile(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `operating_time_${slotId}.csv`);
+        }), { slotId });
+      }));
+      dom.viewContainer.querySelectorAll('.operating-time-drill').forEach(button => button.addEventListener('click', () => {
+        state.logTimeRange = { startTs: Number(button.dataset.start), endTs: Number(button.dataset.end)-1 };
+        state.operatingStyleFilter = null;
+        const index = reports.findIndex(report => report.id === 'log');
+        if (index >= 0) setActiveReport(index);
+      }));
+    }
     if (reportId === 'breaks') {
       const sliders = dom.viewContainer.querySelectorAll('.break-threshold');
       const values = dom.viewContainer.querySelectorAll('.break-threshold-value');
@@ -22641,6 +22534,8 @@ function syncEngineCompareLogForSlot(slot) {
     const breakSummary = metrics.breakSummary;
     const slotAttr = slotLabel ? ` data-break-slot="${slotLabel}"` : '';
     const showControls = options.showControls !== false;
+    const timeQsos = options.qsos || state.qsoData?.qsos || [];
+    const timeModel = buildOperatingTimeModel(timeQsos, derived, options.qtcs);
     const slider = showControls ? `
       <div class="break-controls"${slotAttr}>
         Break threshold (minutes):
@@ -22649,13 +22544,15 @@ function syncEngineCompareLogForSlot(slot) {
       </div>
     ` : '';
     const totalHours = `${Math.floor(breakSummary.totalBreakMin / 60)}:${String(breakSummary.totalBreakMin % 60).padStart(2, '0')} (${breakSummary.totalBreakMin} min)`;
-    const onAirText = metrics.onAirMin != null
-      ? `${formatMinutes(metrics.onAirMin)} (${metrics.onAirMin} min)`
+    const estimatedOnAir = timeModel.available ? timeModel.elapsedMinutes - timeModel.rows.find(row => row.role === 'BREAK').minutes : metrics.onAirMin;
+    const onAirText = estimatedOnAir != null
+      ? `${formatMinutes(estimatedOnAir)} (${estimatedOnAir} min)`
       : 'N/A';
     const summaryHtml = `
       <p>Total break time (&gt;${threshold} min gaps): ${totalHours}</p>
       <p><strong>ON AIR time</strong>: ${onAirText}</p>
     `;
+    const timeSummary = `${showControls ? window.SH6OperatingTime.controls(state.operatingTimeGap) : ''}<p class="no-print"><button type="button" class="operating-time-csv" data-slot="${escapeAttr(slotLabel || 'A')}">Export time CSV</button></p>${window.SH6OperatingTime.render(timeModel, { compact: true, slot: slotLabel || 'A' })}`;
     const operatorSummary = Array.isArray(metrics.operatorBreakSummary) ? metrics.operatorBreakSummary : [];
     const showOperatorBreaks = Boolean(derived?.hasPerQsoOperator) && operatorSummary.length > 0;
     let operatorHtml = '';
@@ -22678,6 +22575,7 @@ function syncEngineCompareLogForSlot(slot) {
       return `
         ${slider}
         ${summaryHtml}
+        ${timeSummary}
         ${operatorHtml}
         <p>No breaks detected.</p>
       `;
@@ -22695,6 +22593,7 @@ function syncEngineCompareLogForSlot(slot) {
     return `
       ${slider}
       ${summaryHtml}
+      ${timeSummary}
       ${operatorHtml}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;text-align:right;">
         <tr class="thc"><th>#</th><th>From</th><th>To</th><th>Break time,HH:mm</th><th>Accum.HH:mm</th></tr>
@@ -22710,7 +22609,7 @@ function syncEngineCompareLogForSlot(slot) {
   function renderBreaksCompare() {
     const slots = getActiveCompareSnapshots();
     const htmlBlocks = slots.map((entry) => (
-      entry.ready ? renderBreaksForDerived(entry.snapshot.derived, entry.id, { showControls: false }) : `<p>No ${entry.label} loaded.</p>`
+      entry.ready ? renderBreaksForDerived(entry.snapshot.derived, entry.id, { showControls: false, qsos: entry.snapshot.qsoData?.qsos || [], qtcs: entry.snapshot.qsoData?.qtcs || [] }) : `<p>No ${entry.label} loaded.</p>`
     ));
     const slider = `
       <div class="break-controls">
@@ -22719,7 +22618,7 @@ function syncEngineCompareLogForSlot(slot) {
         <span class="break-threshold-value">${state.breakThreshold || 60}</span>
       </div>
     `;
-    return `${slider}${renderComparePanels(slots, htmlBlocks, 'breaks')}`;
+    return `${slider}${window.SH6OperatingTime.controls(state.operatingTimeGap)}${renderComparePanels(slots, htmlBlocks, 'breaks')}`;
   }
 
   function setupRepoSearch(slotId) {

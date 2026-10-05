@@ -117,6 +117,7 @@ export function createSessionCodec(deps = {}) {
       radioHeatA: state.radioHeatA || '',
       radioHeatB: state.radioHeatB || '',
       breakThreshold: state.breakThreshold,
+      operatingTimeGap: Math.max(1, Math.min(15, Number(state.operatingTimeGap) || 5)),
       passedQsoWindow: state.passedQsoWindow,
       globalYearsFilter: state.globalYearsFilter || [],
       globalMonthsFilter: state.globalMonthsFilter || [],
@@ -453,6 +454,8 @@ export function createSessionCodec(deps = {}) {
     if (Object.keys(radioHeat).length) compact.rh = radioHeat;
     const breakThreshold = Number(payload.breakThreshold);
     if (Number.isFinite(breakThreshold) && breakThreshold !== 15) compact.b = breakThreshold;
+    const operatingTimeGap = Math.max(1, Math.min(15, Number(payload.operatingTimeGap) || 5));
+    if (operatingTimeGap !== 5) compact.og = operatingTimeGap;
     const passedQsoWindow = Number(payload.passedQsoWindow);
     if (Number.isFinite(passedQsoWindow) && passedQsoWindow !== 10) compact.p = passedQsoWindow;
     const logPageSize = Number(payload.logPageSize);
@@ -532,6 +535,7 @@ export function createSessionCodec(deps = {}) {
       globalYearsFilter: normalizePeriodYears(compact[periodFilterCompactYears]),
       globalMonthsFilter: normalizePeriodMonths(compact[periodFilterCompactMonths]),
       breakThreshold: Number.isFinite(breakThreshold) ? breakThreshold : 15,
+      operatingTimeGap: Math.max(1, Math.min(15, Number(compact.og) || 5)),
       passedQsoWindow: Number.isFinite(passedQsoWindow) ? passedQsoWindow : 10,
       logPageSize: Number.isFinite(logPageSize) ? logPageSize : 1000,
       logPage: Number.isFinite(logPage) ? logPage : 0,

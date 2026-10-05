@@ -55,6 +55,8 @@ export function createComparePerspectiveStore(deps = {}) {
       radioHeatMetric: state.radioHeatMetric || 'minutes',
       radioHeatA: state.radioHeatA || '',
       radioHeatB: state.radioHeatB || '',
+      operatingTimeGap: Math.max(1, Math.min(15, Number(state.operatingTimeGap) || 5)),
+      breakThreshold: Number(state.breakThreshold) || 15,
       logTimeRange: cloneTsRange(state.logTimeRange)
     };
   }
@@ -87,6 +89,8 @@ export function createComparePerspectiveStore(deps = {}) {
       radioHeatMetric: ['minutes', 'qsos', 'points', 'multipliers', 'combinedRate'].includes(input.radioHeatMetric) ? input.radioHeatMetric : (state.radioHeatMetric || 'minutes'),
       radioHeatA: typeof input.radioHeatA === 'string' ? input.radioHeatA : (state.radioHeatA || ''),
       radioHeatB: typeof input.radioHeatB === 'string' ? input.radioHeatB : (state.radioHeatB || ''),
+      operatingTimeGap: Math.max(1, Math.min(15, Number(input.operatingTimeGap ?? state.operatingTimeGap) || 5)),
+      breakThreshold: Number(input.breakThreshold ?? state.breakThreshold) || 15,
       logTimeRange: explicitLogRange
     };
   }

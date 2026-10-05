@@ -1,0 +1,70 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Operating time UI smoke</title></head><body>
+<div id="status">RUNNING</div><pre id="result"></pre><iframe id="app" src="../index.html" style="width:1400px;height:900px"></iframe>
+<script type="module">
+const checks=[];
+let printableHtml='';
+const check=(name,value)=>{checks.push({name,passed:Boolean(value)});if(!value)throw new Error(name);};
+const wait=async fn=>{const end=Date.now()+30000;while(Date.now()<end){if(fn())return;await new Promise(r=>setTimeout(r,80));}throw new Error('Timeout');};
+try {
+ const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
+ const win=frame.contentWindow,doc=frame.contentDocument;
+ await wait(()=>win.SH6 && doc.querySelector('#navList [data-index]') && doc.getElementById('viewTitle').textContent.trim()==='Start');
+ const lines=['START-OF-LOG: 3.0','CALLSIGN: TEST1','CONTEST: CQ-WW-CW','CATEGORY-OPERATOR: SINGLE-OP','CATEGORY-TRANSMITTER: ONE','CATEGORY-MODE: CW'];
+ for(let m=0;m<8;m++)for(const band of [14020,7020])lines.push(`QSO: ${band} CW 2025-11-29 00${String(m).padStart(2,'0')} TEST1 599 15 K${m}${band===14020?'AA':'BB'} 599 05 ${band===14020?0:1}`);
+ lines.push('END-OF-LOG:');const text=lines.join('\n');
+ const upload=async id=>{const dt=new win.DataTransfer();dt.items.add(new win.File([text],`dual-${id}.log`));const input=doc.getElementById(id==='A'?'fileInput':`fileInput${id}`);input.files=dt.files;input.dispatchEvent(new win.Event('change',{bubbles:true}));await wait(()=>win.SH6.getSlotById(id)?.qsoData?.qsos?.length===16);};
+ const report=async title=>{await wait(()=>doc.getElementById('viewContainer').getAttribute('aria-busy')!=='true');const el=Array.from(doc.querySelectorAll('#navList [data-index]')).find(el=>el.textContent.trim()===title);if(!el)throw new Error(title);el.click();await wait(()=>doc.getElementById('viewTitle').textContent.trim()===title && doc.getElementById('viewContainer').getAttribute('aria-busy')==='false');};
+ await upload('A');await report('RUN vs S&P vs INBAND');
+ check('one shared slider defaults to five',doc.querySelectorAll('.operating-time-gap').length===1 && doc.querySelector('.operating-time-gap').value==='5');
+ check('possible 2BSIQ rendered',doc.getElementById('viewContainer').textContent.includes('Possible 2BSIQ'));
+ check('elapsed minutes reconcile in UI',doc.querySelector('.operating-time-summary').textContent.includes('Estimated elapsed time: 8 min'));
+ check('bars and per-band breakdown present',doc.querySelector('.operating-time-stack') && doc.querySelector('.operating-time-summary details'));
+ check('2BSIQ is a separate bar portion and subset row',doc.querySelector('.operating-time-stack .operating-time-dual') && doc.querySelector('.operating-time-table').textContent.includes('subset of RUN'));
+ check('timeline has outlined blocks, minute grid and ruler',doc.querySelector('.operating-time-block') && doc.querySelector('.operating-time-minute-grid') && doc.querySelector('.operating-time-axis'));
+ check('single-log report keeps band classifications without sessions or audit',doc.getElementById('viewContainer').textContent.includes('QSO classifications by band') && !doc.getElementById('viewContainer').textContent.includes('dual RUN sessions') && !doc.querySelector('.operating-style-qso-log'));
+ const slider=doc.querySelector('.operating-time-gap');slider.value='3';slider.dispatchEvent(new win.Event('input',{bubbles:true}));slider.dispatchEvent(new win.Event('change',{bubbles:true}));
+ await wait(()=>doc.querySelector('.operating-time-gap')?.value==='3' && doc.getElementById('viewContainer').getAttribute('aria-busy')==='false');
+ await report('Break time');check('Break time shares the gap setting',doc.querySelector('.operating-time-gap').value==='3');check('Break time contains compact time summary',doc.querySelector('.operating-time-summary'));
+ // Inspect the actual static exporter with the rendered report body and CSS.
+ const {createExportRuntime}=await import('../modules/export/runtime.js');
+ const exports=createExportRuntime({getState:()=>({}),getReports:()=>[{id:'run_sp_inband',title:'RUN vs S&P vs INBAND'}],getActiveCompareSlots:()=>[],withBandContext:(_,fn)=>fn(),withStaticVirtualTableRender:fn=>fn(),renderReport:()=>doc.getElementById('viewContainer').innerHTML,escapeHtml:v=>String(v),escapeAttr:v=>String(v)});
+ await report('RUN vs S&P vs INBAND');
+ check('CSV includes time and dual RUN',win.SH6OperatingTime.csv(win.SH6OperatingTime.build(win.SH6.getSlotById('A').qsoData.qsos,win.SH6.getSlotById('A').derived.contestMeta)).includes('dual RUN'));
+ const current=doc.getElementById('viewContainer').innerHTML;
+ check('static HTML has complete time sections',current.includes('operating-time-summary') && current.includes('Possible 2BSIQ'));
+ const staticHtml=exports.renderReportExport({id:'run_sp_inband'});
+ printableHtml=staticHtml;
+ const wrapper=document.createElement('div');wrapper.innerHTML=staticHtml;
+ check('HTML/PDF export opens details and removes inert controls',staticHtml.includes('Possible 2BSIQ') && wrapper.querySelector('details[open]') && !wrapper.querySelector('.operating-time-gap,.operating-time-drill,.operating-time-csv'));
+ doc.querySelector('.operating-time-drill').click();
+ await wait(()=>doc.getElementById('viewTitle').textContent.trim()==='Log' && doc.getElementById('viewContainer').getAttribute('aria-busy')==='false' && doc.getElementById('viewContainer').textContent.includes('K0AA'));
+ check('time drilldown opens Log',doc.getElementById('viewContainer').textContent.includes('K0AA'));
+ await report('Save&Load session');
+ let savedBlob=null;const originalUrl=win.URL.createObjectURL;
+ win.URL.createObjectURL=blob=>{savedBlob=blob;return originalUrl.call(win.URL,blob);};
+ doc.querySelector('.session-save').click();win.URL.createObjectURL=originalUrl;
+ check('saved session contains gap setting',savedBlob && JSON.parse(await savedBlob.text()).operatingTimeGap===3);
+ const savedText=await savedBlob.text();
+ await report('RUN vs S&P vs INBAND');
+ const changed=doc.querySelector('.operating-time-gap');changed.value='9';changed.dispatchEvent(new win.Event('input',{bubbles:true}));changed.dispatchEvent(new win.Event('change',{bubbles:true}));
+ await report('Save&Load session');
+ const sessionInput=doc.getElementById('sessionFileInput'),sessionFiles=new win.DataTransfer();sessionFiles.items.add(new win.File([savedText],'session.json',{type:'application/json'}));sessionInput.files=sessionFiles.files;sessionInput.dispatchEvent(new win.Event('change',{bubbles:true}));
+ await wait(()=>sessionInput.value==='');await report('RUN vs S&P vs INBAND');
+ check('loading session restores gap setting',doc.querySelector('.operating-time-gap').value==='3');
+ const compare=doc.querySelector('input[name="compareCount"][value="2"]');compare.checked=true;compare.dispatchEvent(new win.Event('change',{bubbles:true}));await wait(()=>doc.getElementById('fileInputB'));await upload('B');await report('RUN vs S&P vs INBAND');
+ check('two comparison time summaries',doc.querySelectorAll('.operating-time-summary').length===2);
+ check('comparison uses one shared slider',doc.querySelectorAll('.operating-time-gap').length===1);
+ check('each comparison panel has own CSV',doc.querySelectorAll('.operating-time-csv').length===2);
+ const four=doc.querySelector('input[name="compareCount"][value="4"]');four.checked=true;four.dispatchEvent(new win.Event('change',{bubbles:true}));await wait(()=>doc.getElementById('fileInputD'));await upload('C');await upload('D');await report('RUN vs S&P vs INBAND');
+ check('four comparison time summaries',doc.querySelectorAll('.operating-time-summary').length===4);
+ const compareExport=document.createElement('div');compareExport.innerHTML=exports.renderReportExport({id:'run_sp_inband'});
+ check('four-log report and export retain classifications without sessions or audit',compareExport.querySelectorAll('.operating-time-summary').length===4 && Array.from(compareExport.querySelectorAll('summary')).filter(el=>el.textContent==='QSO classifications by band').length===4 && !compareExport.querySelector('.operating-style-qso-log') && !doc.querySelector('.operating-style-qso-log') && !compareExport.textContent.includes('dual RUN sessions'));
+ if(new URLSearchParams(location.search).get('print')==='compare') printableHtml=exports.renderReportExport({id:'run_sp_inband'});
+ await report('Break time');check('four compact break time summaries',doc.querySelectorAll('.operating-time-summary').length===4);check('one activity slider distinct from break slider',doc.querySelectorAll('.operating-time-gap').length===1 && doc.querySelectorAll('.break-threshold').length===1);
+} catch(e){checks.push({name:e.stack,passed:false});}
+const passed=checks.every(c=>c.passed);document.getElementById('status').textContent=passed?'PASS':'FAIL';document.getElementById('result').textContent=JSON.stringify({passed,checks},null,2);
+if(passed && new URLSearchParams(location.search).has('print')) {
+ const style=document.createElement('style');style.textContent=await (await fetch('../style.css')).text();document.head.append(style);
+ document.body.innerHTML=`<div id="status" class="no-print">PASS</div><div class="export-doc"><section class="export-section"><h1>Operating-style time export QA</h1>${printableHtml}</section></div>`;
+}
+</script></body></html>

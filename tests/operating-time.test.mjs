@@ -1,0 +1,82 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import { encodeV3State, decodeV3State } from '../modules/session/permalink-v3.js';
+import { createSessionCodec } from '../modules/session/codec.js';
+import { createComparePerspectiveStore } from '../modules/session/perspectives.js';
+
+vm.runInThisContext(fs.readFileSync(new URL('../operating-time.js', import.meta.url), 'utf8'));
+const model = globalThis.SH6OperatingTime;
+const start = Date.UTC(2025,10,29);
+const q = (minute,band='20M',role='RUN', extra={}) => ({ts:start+minute*60000,band,freq:band==='20M'?14.02:7.02,mode:'CW',operatingStyleRole:role,...extra});
+const build=(list,options={},meta={categoryOperator:'SINGLE-OP'})=>model.build(list,meta,options);
+const minutes=(m,role)=>m.rows.find(r=>r.role===role)?.minutes || 0;
+const reconcile=m=>assert.equal(m.rows.reduce((n,r)=>n+r.minutes,0),m.elapsedMinutes);
+assert.equal(build([]).available,false);
+assert.equal(build([{ts:null}]).missingTime,1);
+const single=build([q(0)]); assert.equal(single.elapsedMinutes,1); assert.equal(minutes(single,'RUN'),1);
+const bridged=build([q(0),q(4)]);reconcile(bridged);assert.equal(minutes(bridged,'RUN'),5);
+const unbridged=build([q(0),q(4)],{gapMinutes:1});assert.equal(minutes(unbridged,'UNKNOWN'),3);
+const transition=build([q(0),q(4,'20M','SEARCH')]);assert.equal(minutes(transition,'UNKNOWN'),3);
+const changedFrequency=build([q(0),q(4,'20M','RUN',{freq:14.04})]);assert.equal(minutes(changedFrequency,'UNKNOWN'),3);
+const mixed=build([q(0),q(4),q(0,'40M','SEARCH'),q(4,'40M','SEARCH')]);reconcile(mixed);assert.equal(minutes(mixed,'MIXED'),5);assert.equal(mixed.dualMinutes,0);
+const broken=build([q(0),q(20)],{breakThreshold:15});reconcile(broken);assert.equal(minutes(broken,'BREAK'),19);assert.equal(minutes(broken,'UNKNOWN'),0);
+const qtcs=build([q(0),q(10,'20M','RUN',{isQtc:true}),q(20)],{breakThreshold:15});assert.equal(minutes(qtcs,'BREAK'),0);assert.equal(minutes(qtcs,'UNKNOWN'),19);
+const seconds=build([q(.75),q(2+1/6)]);assert.equal(seconds.elapsedMinutes,3);assert.equal(seconds.end,start+3*60000);
+assert.equal(minutes(build([q(.75),q(5.75)]),'RUN'),6,'exact second-precision gap qualifies');
+assert.equal(minutes(build([q(.75),q(5.75+1/60)]),'UNKNOWN'),4,'one second beyond gap must not bridge');
+const unknownFreq=build([q(0,'20M','RUN',{freq:null})]);assert.equal(minutes(unknownFreq,'UNKNOWN'),1);
+const duplicates=build([q(0),q(0,'20M','RUN',{isDupe:true})]);assert.equal(duplicates.rows[0].qsos,2);assert.equal(duplicates.elapsedMinutes,1);
+const dual=[];
+for(let m=0;m<8;m++){dual.push(q(m,'20M','RUN',{qsoNumber:2*m+1,radioId:'0'}),q(m,'40M','RUN',{qsoNumber:2*m+2,radioId:'0'}));}
+const dualModel=build(dual);reconcile(dualModel);assert.equal(dualModel.dualMinutes,8);assert.equal(minutes(dualModel,'RUN'),8);assert.equal(dualModel.bands.reduce((n,b)=>n+b.minutes,0),16);assert.equal(dualModel.periods[0].label,'Possible 2BSIQ');assert.deepEqual(dualModel.periods[0].radios,['0']);
+const ids=build(dual.map(q=>({...q,radioId:q.band==='40M'?'1':'0'})));assert.deepEqual(ids.periods[0].radios,['0','1']);
+assert.equal(build(dual.map(({radioId,...q})=>q)).dualMinutes,8);
+assert.equal(build(dual,{}, {categoryOperator:'MULTI-OP'}).periods[0].label,'Dual RUN');
+assert.equal(build(dual,{}, {}).periods[0].operatorKind,'unknown');
+assert.equal(build(dual.filter(q=>q.band==='20M'||q.ts===start)).periods.length,0);
+assert.equal(build(dual.filter(q=>(q.ts<start+4*60000)===(q.band==='20M'))).periods.length,0);
+assert.equal(build(dual.map((q,i)=>({...q,freq:q.freq+(i%4)*.01}))).periods.length,0,'unstable frequencies must not qualify');
+const triple=build([...dual,...dual.filter(q=>q.band==='40M').map(q=>({...q,band:'15M',freq:21.02}))]);
+assert.equal(triple.periods.length,3);assert.equal(triple.dualMinutes,8,'union overlapping pair periods');
+assert.equal(triple.sessions.length,1);assert.equal(triple.sessions[0].minutes,8);
+assert.equal(dualModel.dualRow.minutes,8);assert.equal(dualModel.dualRow.qsos,16);
+assert.equal(dualModel.hours[0].DUAL,8);assert.equal(dualModel.hours[0].RUN,8,'RUN total still includes subset');
+assert.equal(dualModel.bands[0].dualRow.minutes,8);
+const switched=[...dual,q(8,'40M'),...dual.map(q=>({...q,ts:q.ts+9*60000,band:q.band==='20M'?'80M':'40M',freq:q.band==='20M'?3.52:7.02}))];
+const grouped=build(switched);reconcile(grouped);
+assert.equal(grouped.periods.length,2);assert.equal(grouped.sessions.length,1);
+assert.equal(grouped.sessions[0].minutes,16);assert.equal(grouped.sessions[0].spanMinutes,17);assert.equal(grouped.sessions[0].transitionMinutes,1);
+assert.equal(grouped.dualRow.minutes,16);assert.equal(minutes(grouped,'RUN'),17,'transition stays ordinary RUN');
+assert.equal(build([...switched,q(8,'15M','SEARCH',{freq:21.02})]).sessions.length,2,'mixed transition cannot bridge sessions');
+assert.equal(build([...dual,...dual.map(q=>({...q,ts:q.ts+14*60000}))]).sessions.length,2,'unsupported long gap cannot bridge sessions');
+const csv=model.csv(ids);assert.match(csv,/dual RUN/);assert.match(csv,/hourly/);assert.match(csv,/Maximum activity gap/);
+const html=model.render(ids);assert.match(html,/Possible 2BSIQ/);assert.match(html,/operating-time-stack/);assert.match(html,/data-start=/);
+assert.match(html,/operating-time-dual/);assert.match(html,/RUN \(other\)/);assert.match(csv,/elapsed subset/);assert.match(csv,/dual RUN session/);
+assert.doesNotMatch(html,/dual RUN sessions|operating-time-session-evidence/);
+assert.deepEqual(ids.hours[0].timeline,[{role:'DUAL',offset:0,minutes:8}]);
+const timeline=build([q(10),q(11,'20M','SEARCH'),q(12),q(61)]);
+assert.deepEqual(timeline.hours[0].timeline.slice(0,3),[
+  {role:'RUN',offset:10,minutes:1},{role:'SEARCH',offset:11,minutes:1},{role:'RUN',offset:12,minutes:1}
+]);
+assert.deepEqual(timeline.hours[1].timeline,[{role:'BREAK',offset:0,minutes:1},{role:'RUN',offset:1,minutes:1}]);
+for(const h of timeline.hours) {
+  assert.equal(h.timeline.reduce((n,r)=>n+r.minutes,0),Object.keys({RUN:0,INBAND:0,SEARCH:0,MIXED:0,UNKNOWN:0,BREAK:0}).reduce((n,k)=>n+h[k],0));
+  assert.ok(h.timeline.every(r=>r.offset>=0 && r.offset+r.minutes<=60));
+}
+const timelineHtml=model.render(timeline);
+assert.match(timelineHtml,/Hourly operating-style timeline/);
+assert.match(timelineHtml,/operating-time-minute-grid/);
+assert.match(timelineHtml,/left:16\.666666666666664%;width:1\.6666666666666667%/);
+const before=JSON.stringify(dual); build(dual,{gapMinutes:1});assert.equal(JSON.stringify(dual),before,'must not mutate QSO classifications');
+
+const state={operatingTimeGap:9,breakThreshold:15};
+const codec=createSessionCodec({getState:()=>state,getSlotById:()=>null,slotIds:[],defaultCompareFocus:{},periodFilterCompactYears:'py',periodFilterCompactMonths:'pm',normalizePeriodYears:v=>v||[],normalizePeriodMonths:v=>v||[],normalizeAnalysisMode:v=>v||'contester',normalizeCompareScoreMode:v=>v||'computed',cloneCompareFocus:v=>v||{},cloneTsRange:v=>v||null});
+const compact=codec.buildCompactSessionPayload({analysisMode:'contester',operatingTimeGap:9});assert.equal(compact.og,9);
+assert.equal(codec.inflateCompactSessionPayload(decodeV3State(encodeV3State(compact))).operatingTimeGap,9);
+assert.equal(codec.inflateCompactSessionPayload({v:2,s:[]}).operatingTimeGap,5);
+assert.equal(decodeV3State(encodeV3State({v:2,og:9,s:[]})).og,9);
+const store=createComparePerspectiveStore({getState:()=>state,getCurrentReportId:()=> 'run_sp_inband',normalizeCompareScoreMode:v=>v,cloneCompareFocus:v=>v,cloneTsRange:v=>v});
+assert.equal(store.buildCurrentComparePerspective().operatingTimeGap,9);
+assert.equal(store.normalizeGeneratedComparePerspective({operatingTimeGap:3}).operatingTimeGap,3);
+console.log('Operating-time model, dual RUN, export, and settings tests PASS');

@@ -2,6 +2,33 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.38 (2026-10-05)
+
+- Simplify RUN vs S&P vs INBAND: remove the dual-RUN sessions section and QSO audit tables from single-log, comparison and static reports; retain QSO classifications by band.
+- Keep operating-style time summaries, chronological outlined timelines with minute markers, and Possible 2BSIQ as a RUN subset. Detection and CSV evidence remain available without changing scoring or QSO classification.
+- Add report-cleanup regression checks and bump application/cache references to v6.3.38.
+
+## v6.3.37 (2026-10-05)
+
+- Group nearby qualifying dual-RUN segments into sessions across RUN-only transitions within the activity-gap limit, retaining band-pair evidence and separate detected minutes versus session span.
+- Show Possible 2BSIQ / Dual RUN as an explicit subset of RUN in station and per-band time tables, Break time, hourly stacked bars and CSV exports. Transition minutes are not credited as dual RUN; rates and overlapping sessions avoid double-counting.
+- Add session-grouping, transition, overlapping-band, subset-accounting and reference-log regression checks; bump runtime and cache references to v6.3.37.
+- Replace category-grouped hourly bars with chronological, outlined activity blocks, minute/5-minute grid lines and UTC interval tooltips. Partial hours retain their true positions.
+
+## v6.3.36 (2026-10-05)
+
+- Bump the application version and runtime/test cache references to v6.3.36.
+- Retain separate dual-RUN evidence periods for different band pairs; no detection or scoring rules changed.
+
+## v6.3.35 (2026-10-05)
+
+- Add estimated operating-style minutes to Break time and RUN vs S&P vs INBAND, with a shared 1–15 minute maximum-activity-gap slider (default 5), exclusive station-time accounting, overlapping per-band minutes, rates and hourly stacked bars.
+- Identify sustained dual-band RUN periods; label single-op evidence Possible 2BSIQ, multi-op evidence Dual RUN, and expose unknown categories. Radio IDs support the analysis but distinct IDs are not required.
+- Preserve existing QSO classifications and contest scoring; include QTC activity in station break accounting without inventing an operating style.
+- Support up to four comparison panels, time-period QSO drilldowns, CSV and static HTML/PDF report content, and backward-compatible session, perspective and permalink settings.
+- Add synthetic, full-app and read-only EF8R/CQ9A reference-log validation. Document estimation rules, thresholds and limitations in docs/operating-style-time.md.
+- Bump runtime and cache references to v6.3.35.
+
 ## v6.3.34 (2026-09-27)
 
 - Find portable archive calls using either slash or filename underscore notation, so `YU/S55OO` finds the indexed `YU_S55OO.log` entry.

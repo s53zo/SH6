@@ -2637,6 +2637,49 @@ body.analysis-mode-dxer .load-tip-badge {
   color: #ef6c00;
 }
 
+.operating-time-table { width: 100%; text-align: right; margin: 8px 0; }
+.operating-time-table td:first-child { text-align: left; }
+.operating-time-table details, .operating-time-table summary, .operating-time-table li { white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.operating-time-session-evidence { white-space: normal; overflow-wrap: anywhere; margin: 8px 0; }
+.operating-time-summary p, .operating-style-report p, .operating-style-report .export-note { white-space: normal; overflow-wrap: anywhere; }
+.operating-time-controls { margin: 12px 0; }
+.operating-time-controls label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.operating-time-controls p { margin: 5px 0; }
+.operating-time-hour { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.operating-time-hour > span:first-child { flex: 0 0 150px; }
+.operating-time-stack { position: relative; height: 26px; flex: 1; background: #f1f5f9; min-width: 60px; border: 1px solid #64748b; box-sizing: border-box; }
+.operating-time-block { position: absolute; top: 0; bottom: 0; box-sizing: border-box; border: 1px solid rgba(15,23,42,.65); overflow: hidden; }
+.operating-time-block-label { display: block; padding: 3px 4px; color: white; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.operating-time-minute-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(to right,rgba(15,23,42,.18) 1px,transparent 1px),linear-gradient(to right,rgba(15,23,42,.4) 1px,transparent 1px); background-size: calc(100% / 60) 100%,calc(100% / 12) 100%; }
+.operating-time-axis { display: flex; justify-content: space-between; flex: 1; min-width: 60px; font-size: 11px; }
+.operating-time-hour .operating-time-drill { flex: 0 0 48px; }
+.operating-time-hour > .operating-time-ruler-spacer { flex: 0 0 48px; }
+.operating-time-run { background: #2563eb; }
+.operating-time-dual { background: #0891b2; }
+.operating-time-inband { background: #16a34a; }
+.operating-time-search { background: #f59e0b; }
+.operating-time-mixed { background: #9333ea; }
+.operating-time-unknown { background: #94a3b8; }
+.operating-time-break { background: #334155; }
+.operating-time-legend { display: flex; flex-wrap: wrap; gap: 12px; }
+.operating-time-legend i { display: inline-block; height: 12px; width: 12px; margin-right: 4px; }
+@media print { .operating-time-stack, .operating-time-legend i { print-color-adjust: exact; -webkit-print-color-adjust: exact; } .operating-time-summary details { display: block; } }
+@media print {
+  .export-section:has(.operating-time-summary) { break-inside: auto; page-break-inside: auto; }
+  .export-section:has(.operating-time-summary) .compare-grid { display: block; }
+  .export-section:has(.operating-time-summary) .compare-panel { overflow: visible; margin-bottom: 12pt; }
+  .export-section:has(.operating-time-summary) .compare-panel + .compare-panel { break-before: page; }
+  .export-section:has(.operating-time-summary) .compare-scroll { overflow: visible; max-height: none; }
+  .export-section:has(.operating-time-summary) .compare-head { position: static; }
+  .export-doc .operating-style-report .table-wrap { display: block; width: 100%; overflow: visible; max-width: none; }
+  .export-doc .operating-style-report table { width: 100% !important; min-width: 0 !important; table-layout: fixed; page-break-inside: auto; }
+  .export-doc .operating-style-report .operating-time-table { display: table; width: 100% !important; min-width: 0 !important; table-layout: fixed; }
+  .export-doc .operating-style-report th, .export-doc .operating-style-report td { font-size: 8pt; padding: 3pt; white-space: normal; overflow-wrap: anywhere; }
+  .export-doc .operating-time-hour { break-inside: avoid; }
+  .export-doc .operating-time-summary h3 { break-after: avoid; }
+  .export-doc .operating-style-export-audits section, .export-doc .operating-style-report details { break-inside: avoid; }
+}
+
 .status-qrx {
   color: #ef6c00;
   animation: statusPulse 1.2s ease-in-out infinite;

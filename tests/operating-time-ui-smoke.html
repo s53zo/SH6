@@ -25,6 +25,7 @@ try {
  check('QSO classifications by band precedes minutes overview',
    !!(doc.querySelector('.operating-style-band-classifications').compareDocumentPosition(doc.querySelector('.operating-time-summary')) & win.Node.DOCUMENT_POSITION_FOLLOWING));
  check('band classifications are visible without a disclosure',doc.querySelector('.operating-style-band-classifications table') && !doc.querySelector('.operating-style-band-classifications').closest('details'));
+ check('visible band heading qualifies classifications as inferred',doc.querySelector('.operating-style-band-classifications h3').textContent==='QSO classifications by band (inferred)');
  check('2BSIQ is a separate bar portion and subset row',doc.querySelector('.operating-time-stack .operating-time-dual') && doc.querySelector('.operating-time-table').textContent.includes('subset of RUN'));
  check('timeline has outlined blocks, minute grid and ruler',doc.querySelector('.operating-time-block') && doc.querySelector('.operating-time-minute-grid') && doc.querySelector('.operating-time-axis'));
  check('single-log report keeps band classifications without sessions or audit',doc.getElementById('viewContainer').textContent.includes('QSO classifications by band') && !doc.getElementById('viewContainer').textContent.includes('dual RUN sessions') && !doc.querySelector('.operating-style-qso-log'));

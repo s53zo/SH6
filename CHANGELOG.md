@@ -4,6 +4,7 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 
 ## v6.3.40 (2026-10-05)
 
+- Follow-up review: version the virtual-table module import to invalidate cached scrolling code, and keep the inferred qualifier visible on QSO classifications by band.
 - Keep virtualized table rows consistent with spacer heights, preventing blank gaps while scrolling compact reports.
 - Show QSO classifications by band as an always-visible table above the operating-time minutes overview, including comparison reports and exports.
 - Restrict 2BSIQ terminology and explanations to single-op logs; use Dual RUN for multi-op logs and recognize M/S category notation.

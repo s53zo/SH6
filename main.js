@@ -1802,7 +1802,7 @@
 
   function loadVirtualTableModule() {
     if (!virtualTableModulePromise) {
-      virtualTableModulePromise = import('./modules/ui/virtual-table.js');
+      virtualTableModulePromise = import(`./modules/ui/virtual-table.js?v=${APP_VERSION.replace(/^v/, '')}`);
     }
     return virtualTableModulePromise;
   }
@@ -17069,7 +17069,7 @@ function syncEngineCompareLogForSlot(slot) {
       ${excludedNote}
       ${options.showControls === false ? '' : window.SH6OperatingTime.controls(state.operatingTimeGap)}
       <p class="no-print"><button type="button" class="operating-time-csv" data-slot="${escapeAttr(options.slot || 'A')}">Export time and dual RUN CSV</button></p>
-      <section class="operating-style-band-classifications"><h3>QSO classifications by band</h3>${renderOperatingStyleTable(operatingStyle)}</section>
+      <section class="operating-style-band-classifications"><h3>QSO classifications by band (inferred)</h3>${renderOperatingStyleTable(operatingStyle)}</section>
       ${window.SH6OperatingTime.render(timeModel, { slot: options.slot || 'A', showNotes: false })}
       <details class="operating-analysis-details"><summary>Analysis details</summary>
       <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>

@@ -87,6 +87,7 @@
         add('Main.js delegates retained report shell rendering', mainSource.includes('getRetainedRuntime().renderRetainedReportShell(reportId, html)'));
         add('Main.js delegates retained virtual table rendering', mainSource.includes('getRetainedRuntime().renderRetainedVirtualTable(reportId, options)'));
         add('Main.js delegates virtual table binding', mainSource.includes('getRetainedRuntime().bindVirtualTable(reportId)'));
+        add('Virtual table import uses the application version for cache invalidation', mainSource.includes("import(`./modules/ui/virtual-table.js?v=${APP_VERSION.replace(/^v/, '')}`)"));
         add('Retained runtime module exports the factory', moduleSource.includes('export function createRetainedReportRuntime'));
         add('Virtual table module exports the sanitizer', typeof virtualTableModule.sanitizeTableHtmlFragment === 'function');
 

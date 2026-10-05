@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.40 (2026-10-05)
+
+- Keep virtualized table rows consistent with spacer heights, preventing blank gaps while scrolling compact reports.
+- Show QSO classifications by band as an always-visible table above the operating-time minutes overview, including comparison reports and exports.
+- Restrict 2BSIQ terminology and explanations to single-op logs; use Dual RUN for multi-op logs and recognize M/S category notation.
+- Add compact-table scrolling and visible-table ordering regressions; bump application/cache references to v6.3.40.
+
 ## v6.3.39 (2026-10-05)
 
 - Remove Compare Workspace bars and repeated score/multiplier banners throughout reports; keep log panels and move comparison settings into collapsed bottom More sections.

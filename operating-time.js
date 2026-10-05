@@ -82,7 +82,7 @@
       return lo;
     };
     const category=String(meta.categoryOperator || meta.category || '').toUpperCase();
-    const operatorKind=category.includes('MULTI') || /^M[\/ ]?[12M]/.test(category)?'multi':category.includes('SINGLE') || /^SO\b/.test(category)?'single':'unknown';
+    const operatorKind=category.includes('MULTI') || /^M[\/ ]?[12MS]/.test(category)?'multi':category.includes('SINGLE') || /^SO\b/.test(category)?'single':'unknown';
     const finish=(key,segment)=>{
       if(segment.end-segment.start+1<3) return;
       const supporting=valid.slice(lowerBound(segment.start*MINUTE),lowerBound((segment.end+1)*MINUTE)).filter(q=>!q.isQtc && q.operatingStyleRole==='RUN' && segment.bands.includes(q.band));
@@ -182,7 +182,7 @@
     const sp=model.rows.filter(r=>['INBAND','SEARCH'].includes(r.role)).reduce((n,r)=>n+r.minutes,0);
     return `<p>Estimated elapsed time: ${num(model.elapsedMinutes)} min (${utc(model.start)} to ${utc(model.end)}, end exclusive). S&amp;P subtotal: ${num(sp)} min. Activity gap: ${model.gap} min; break threshold: ${model.threshold} min. Completed contacts provide minute-resolution activity estimates, including the first and last occupied minutes. RUN already includes its dual-RUN subset.</p>${compact?'':`
       <p>Rates count contacts in the corresponding category’s minutes, including duplicates. Mixed activity retains its own contacts. QTCs are unclassified and interrupt breaks. Records without time excluded: ${model.missingTime}.</p>
-      <p>2BSIQ: one operator synchronizes exchanges on two RUN bands, transmitting one signal at a time. <a href="https://www.qsl.net/ct1boh/2bsiq/" target="_blank" rel="noopener">CT1BOH explanation</a>.</p>`}`;
+      ${model.operatorKind==='single'?'<p>2BSIQ: one operator synchronizes exchanges on two RUN bands, transmitting one signal at a time. <a href="https://www.qsl.net/ct1boh/2bsiq/" target="_blank" rel="noopener">CT1BOH explanation</a>.</p>':'<p>Dual RUN indicates concurrent RUN activity on different bands, not a single-operator technique.</p>'}`}`;
   }
   function render(model,{compact=false,slot='A',showNotes=true}={}) {
     if(!model.available) return `<p>${esc(model.reason || 'No timed activity available for time analysis.')}</p>`;

@@ -22,6 +22,9 @@ try {
  check('explanations are collapsed under More at the report end',analysisDetails.querySelector('summary').textContent.trim()==='More' && !analysisDetails.open && analysisDetails===doc.querySelector('.operating-style-report').lastElementChild && ['Heuristic','Anchors','Definition','Estimated elapsed time','Rates count','CT1BOH explanation'].every(text=>analysisDetails.textContent.includes(text)));
  analysisDetails.querySelector('summary').click();check('analysis details open on click',analysisDetails.open);analysisDetails.querySelector('summary').click();
  check('bars and per-band breakdown present',doc.querySelector('.operating-time-stack') && doc.querySelector('.operating-time-summary details'));
+ check('QSO classifications by band precedes minutes overview',
+   !!(doc.querySelector('.operating-style-band-classifications').compareDocumentPosition(doc.querySelector('.operating-time-summary')) & win.Node.DOCUMENT_POSITION_FOLLOWING));
+ check('band classifications are visible without a disclosure',doc.querySelector('.operating-style-band-classifications table') && !doc.querySelector('.operating-style-band-classifications').closest('details'));
  check('2BSIQ is a separate bar portion and subset row',doc.querySelector('.operating-time-stack .operating-time-dual') && doc.querySelector('.operating-time-table').textContent.includes('subset of RUN'));
  check('timeline has outlined blocks, minute grid and ruler',doc.querySelector('.operating-time-block') && doc.querySelector('.operating-time-minute-grid') && doc.querySelector('.operating-time-axis'));
  check('single-log report keeps band classifications without sessions or audit',doc.getElementById('viewContainer').textContent.includes('QSO classifications by band') && !doc.getElementById('viewContainer').textContent.includes('dual RUN sessions') && !doc.querySelector('.operating-style-qso-log'));
@@ -61,7 +64,7 @@ try {
  const four=doc.querySelector('input[name="compareCount"][value="4"]');four.checked=true;four.dispatchEvent(new win.Event('change',{bubbles:true}));await wait(()=>doc.getElementById('fileInputD'));await upload('C');await upload('D');await report('RUN vs S&P vs INBAND');
  check('four comparison time summaries',doc.querySelectorAll('.operating-time-summary').length===4);
  const compareExport=document.createElement('div');compareExport.innerHTML=exports.renderReportExport({id:'run_sp_inband'});
- check('four-log report and export retain classifications without sessions or audit',compareExport.querySelectorAll('.operating-time-summary').length===4 && Array.from(compareExport.querySelectorAll('summary')).filter(el=>el.textContent==='QSO classifications by band').length===4 && !compareExport.querySelector('.operating-style-qso-log') && !doc.querySelector('.operating-style-qso-log') && !compareExport.textContent.includes('dual RUN sessions'));
+ check('four-log report and export retain classifications without sessions or audit',compareExport.querySelectorAll('.operating-time-summary').length===4 && compareExport.querySelectorAll('.operating-style-band-classifications').length===4 && !compareExport.querySelector('.operating-style-qso-log') && !doc.querySelector('.operating-style-qso-log') && !compareExport.textContent.includes('dual RUN sessions'));
  if(new URLSearchParams(location.search).get('print')==='compare') printableHtml=exports.renderReportExport({id:'run_sp_inband'});
  await report('Break time');check('four compact break time summaries',doc.querySelectorAll('.operating-time-summary').length===4);check('one activity slider distinct from break slider',doc.querySelectorAll('.operating-time-gap').length===1 && doc.querySelectorAll('.break-threshold').length===1);
 } catch(e){checks.push({name:e.stack,passed:false});}

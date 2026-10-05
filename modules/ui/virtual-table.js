@@ -229,6 +229,13 @@ export function mountVirtualTable(config = {}) {
     if (bottomSpacer) fragment.append(bottomSpacer);
 
     tableBody.replaceChildren(fragment);
+    // Spacer arithmetic assumes this minimum height. Compact theme cells must
+    // not shrink real rows below it, leaving unrendered gaps in the viewport.
+    Array.from(tableBody.children).forEach((row) => {
+      if (!row.classList.contains('virtual-spacer-row')) {
+        row.style.height = `${state.rowHeight}px`;
+      }
+    });
   }
 
   function render(force = false) {

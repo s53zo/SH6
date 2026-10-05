@@ -178,7 +178,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.39';
+  const APP_VERSION = 'v6.3.40';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -280,40 +280,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.39';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.39';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.39';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.39';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.39';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.39';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.39';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.39';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.39';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.39';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.39';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.39';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.39';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.39';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.39';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.39';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.39';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.39';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.39';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.39';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.39';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.39';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.39';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.39';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.39';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.39';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.39';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.39';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.39';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.39';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.39';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.39';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.39';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.39';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.40';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.40';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.40';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.40';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.40';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.40';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.40';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.40';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.40';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.40';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.40';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.40';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.40';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.40';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.40';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.40';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.40';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.40';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.40';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.40';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.40';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.40';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.40';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.40';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.40';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.40';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.40';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.40';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.40';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.40';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.40';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.40';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.40';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.40';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1990,8 +1990,8 @@
 
   async function loadMultiplierOverviewModule() {
     const [model, view] = await Promise.all([
-      import('./modules/multipliers/overview-model.js?v=6.3.39'),
-      import('./modules/multipliers/overview-view.js?v=6.3.39')
+      import('./modules/multipliers/overview-model.js?v=6.3.40'),
+      import('./modules/multipliers/overview-view.js?v=6.3.40')
     ]);
     multiplierOverviewRuntime = { ...model, ...view };
   }
@@ -17069,8 +17069,8 @@ function syncEngineCompareLogForSlot(slot) {
       ${excludedNote}
       ${options.showControls === false ? '' : window.SH6OperatingTime.controls(state.operatingTimeGap)}
       <p class="no-print"><button type="button" class="operating-time-csv" data-slot="${escapeAttr(options.slot || 'A')}">Export time and dual RUN CSV</button></p>
+      <section class="operating-style-band-classifications"><h3>QSO classifications by band</h3>${renderOperatingStyleTable(operatingStyle)}</section>
       ${window.SH6OperatingTime.render(timeModel, { slot: options.slot || 'A', showNotes: false })}
-      <details><summary>QSO classifications by band</summary>${renderOperatingStyleTable(operatingStyle)}</details>
       <details class="operating-analysis-details"><summary>Analysis details</summary>
       <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>
       <div class="export-actions export-note"><b>Anchors</b>: ${escapeHtml(anchorText)}</div>

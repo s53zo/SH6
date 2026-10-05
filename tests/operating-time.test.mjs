@@ -33,6 +33,12 @@ const dualModel=build(dual);reconcile(dualModel);assert.equal(dualModel.dualMinu
 const ids=build(dual.map(q=>({...q,radioId:q.band==='40M'?'1':'0'})));assert.deepEqual(ids.periods[0].radios,['0','1']);
 assert.equal(build(dual.map(({radioId,...q})=>q)).dualMinutes,8);
 assert.equal(build(dual,{}, {categoryOperator:'MULTI-OP'}).periods[0].label,'Dual RUN');
+for (const categoryOperator of ['MULTI-OP','M/2','M/M','M/S']) {
+  const multi=build(dual,{}, {categoryOperator});
+  assert.equal(multi.operatorKind,'multi');
+  assert.doesNotMatch(model.render(multi)+model.notes(multi)+model.csv(multi),/2BSIQ/i);
+  assert.match(model.render(multi),/Dual RUN/);
+}
 assert.equal(build(dual,{}, {}).periods[0].operatorKind,'unknown');
 assert.equal(build(dual.filter(q=>q.band==='20M'||q.ts===start)).periods.length,0);
 assert.equal(build(dual.filter(q=>(q.ts<start+4*60000)===(q.band==='20M'))).periods.length,0);

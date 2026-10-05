@@ -1,10 +1,12 @@
-# Operating-style time and possible 2BSIQ — v6.3.38
+# Operating-style time and possible 2BSIQ — v6.3.39
 
 ## Using the reports
 
 Open **Break time** for a compact minutes/percentage summary alongside the existing break information. Open **RUN vs S&P vs INBAND** for estimated rates, hourly timelines, and an expandable per-band breakdown. Possible 2BSIQ/dual RUN appears as a RUN subset. QSO classifications by band remain available; session evidence and per-QSO audit tables are no longer displayed on this page or its static exports. Detection and CSV evidence remain unchanged.
 
 Hourly timelines preserve the actual minute order rather than grouping minutes by style. Outlined blocks represent consecutive same-style minutes; thin vertical lines mark each minute and stronger lines mark five minutes. Hover a block for its UTC start/end (exclusive). The minute ruler runs from 00 to 60; blank leading/trailing space in partial hours is outside the analyzed interval, not break or unclassified time. Possible 2BSIQ replaces ordinary RUN only in its detected minutes on the timeline; it remains a subset of RUN in totals.
+
+The report ends with a collapsed **More** section containing heuristic settings, anchor counts, definitions, elapsed-time/rate accounting notes and the CT1BOH explanation link. Click its heading to expand it. Each comparison panel has its own details; comparison controls appear in a separate report-level More. Static exports expand methods, preserve references and remove inert controls.
 
 The shared **Maximum activity gap** slider accepts 1–15 minutes and defaults to 5. It estimates continuity between nearby same-style contacts, not the duration of an individual contact. The separate break threshold decides which station-wide gaps are breaks. Both settings survive sessions and perspectives; the new gap setting also round-trips through v2/v3 permalinks. Old links default to five minutes. The optional v3 positional field is appended at index 24; existing slot index 23 and earlier fields retain their meanings.
 

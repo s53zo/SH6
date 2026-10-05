@@ -529,7 +529,7 @@ export function createInvestigationWorkspaceRenderer(deps = {}) {
           Number.isFinite(quickScoreGap)
             ? `Score swing: ${formatNumberSh6(Math.abs(Math.round(quickScoreGap)))} points. ${buildHoursToCloseHint(quickActionRow)}`
             : 'Score swing estimate unavailable.',
-          'Use the compare workspace with a locked time range to isolate where the swing happened.'
+          'Compare the points-by-hour reports; lock a UTC range to inspect the score swing.'
         ],
         actions: `
           ${quickActionButton}
@@ -599,7 +599,6 @@ export function createInvestigationWorkspaceRenderer(deps = {}) {
       ? `
         <div class="coach-ranked-actions-wrap">
           <h4>Ranked actions</h4>
-          <p class="coach-ranked-note">Start with action 1. Each action ties the current cohort gap to a direct compare load or a report jump.</p>
           <div class="coach-ranked-grid">
             ${rankedActions.map((action, index) => renderRankedCoachActionCard(action, index)).join('')}
           </div>
@@ -723,7 +722,7 @@ export function createInvestigationWorkspaceRenderer(deps = {}) {
 
     const coachIntro = renderReportIntroCard(
       'Competitor coach workspace',
-      'Find nearest rivals in your selected scope and load them directly into compare slots.',
+      '',
       [
         `Scope ${formatCoachScopeTitle(selectedScope)}`,
         `Category mode ${categoryMode === 'all' ? 'All categories' : 'Same category'}`,
@@ -736,7 +735,6 @@ export function createInvestigationWorkspaceRenderer(deps = {}) {
         <div class="gradient">&nbsp;Competitor coach</div>
         <div class="cqapi-body">
           ${coachIntro}
-          <p>Find direct competitors by scope and category, then load any row directly to Log B, C, or D for side-by-side comparison.</p>
           ${context.ok ? '' : `<p class="status-error">${escapeHtml(context.reason || 'Competitor context unavailable.')}</p>`}
           ${renderAnalysisStepHeading(1, 'Filters', 'Choose scope and category mode for your competitor cohort.')}
           <div class="coach-controls">
@@ -813,7 +811,7 @@ export function createInvestigationWorkspaceRenderer(deps = {}) {
     ].map(([keyName, label]) => `<span class="agent-summary-pill"><b>${escapeHtml(label)}</b> ${formatNumberSh6(summary[keyName] || 0)}</span>`).join('');
     const intro = renderReportIntroCard(
       'Agent briefing workspace',
-      'Run SH6 agents against the current session to rank the next analysis steps, trust warnings, and debrief prompts.',
+      '',
       [
         `Station ${escapeHtml(state.derived?.contestMeta?.stationCallsign || 'N/A')}`,
         `Contest ${escapeHtml(state.derived?.contestMeta?.contestId || 'N/A')}`,

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>SH6 report cleanup audit</title>
+<style>body{font:14px system-ui;margin:12px}pre{white-space:pre-wrap}iframe{width:1400px;height:900px;border:1px solid #ddd}#status{font-weight:bold}</style></head>
+<body><div id="status">RUNNING</div><pre id="result"></pre>
+<iframe id="app" title="SH6 under test"></iframe>
+<script type="module">
+const state='v3.izbWySvNydExglA0JqKjlRyVkPiGhhbGRoYGEI6Sc2B4uH5yub6RgZGpfmqaRZFeTn66UqxOtJITiiYDEwtzQ6iDUTUlF1omQjTFxgIA';
+const params=new URLSearchParams(location.search),baseline=params.has('baseline');
+const checks=[],reports=[],errors=[],tabs=[],conditional=[];
+const frame=document.getElementById('app');
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const wait=async (fn,label)=>{const end=Date.now()+120000;while(Date.now()<end){if(fn())return;await pause(100);}throw new Error(`Timeout: ${label}`);};
+const check=(name,ok,detail='')=>{checks.push({name,passed:Boolean(ok),detail});};
+let win,doc;
+function inspect(context){
+ const view=doc.getElementById('viewContainer');
+ const disclosures=Array.from(view.querySelectorAll('details.report-more'));
+ const hidden=disclosures.map(el=>el.textContent.trim());
+ const visible=view.innerText.trim();
+ const workspaceCount=view.querySelectorAll('.compare-workspace,.compare-workspace-toolbar,.compare-toolbar').length;
+ const visibleWorkspace=/COMPARE WORKSPACE/i.test(visible);
+ const misplaced=disclosures.filter(el=>Array.from(el.parentElement.children).slice(Array.from(el.parentElement.children).indexOf(el)+1).some(sibling=>sibling.textContent.trim() && !sibling.matches('script,style')));
+ const nested=disclosures.filter(el=>el.parentElement.closest('details.report-more'));
+ const hiddenAlerts=Array.from(view.querySelectorAll('[role="alert"]')).filter(el=>el.closest('details.report-more:not([open])'));
+ const bounds=view.getBoundingClientRect(),viewport=doc.documentElement.clientWidth;
+ reports.push({...context,navIndex:doc.querySelector('#navList [data-index].active')?.dataset.index,title:doc.getElementById('viewTitle').textContent.trim(),visibleCharacters:visible.length,detailsCharacters:hidden.join('\n').length,moreCount:disclosures.length,workspaceCount,visibleWorkspace,misplacedMore:misplaced.length,nestedMore:nested.length,geometry:{left:bounds.left,right:bounds.right,width:bounds.width,viewport,pageWidth:doc.documentElement.scrollWidth},visibleExcerpt:visible.slice(0,700),moreExcerpts:hidden.map(text=>text.slice(0,400)),visibleAlerts:Array.from(view.querySelectorAll('[role="alert"]')).filter(el=>!el.closest('details:not([open])')).map(el=>el.textContent.trim())});
+ if(!baseline){
+  check(`${context.mode}/${context.report}/${context.variant}: no workspace`,workspaceCount===0 && !visibleWorkspace);
+  check(`${context.mode}/${context.report}/${context.variant}: More initially collapsed`,disclosures.every(el=>!el.open));
+  check(`${context.mode}/${context.report}/${context.variant}: More named and at bottom`,disclosures.every(el=>el.firstElementChild?.tagName==='SUMMARY' && el.firstElementChild.textContent.trim()==='More') && misplaced.length===0,`${misplaced.length} More blocks have following content`);
+  check(`${context.mode}/${context.report}/${context.variant}: no nested More`,nested.length===0);
+  check(`${context.mode}/${context.report}/${context.variant}: alerts outside More`,hiddenAlerts.length===0);
+  if(context.variant==='narrow'){
+   check(`${context.mode}/${context.report}: report fits narrow viewport`,bounds.left>=-1 && bounds.right<=viewport+1,`report ${bounds.left}–${bounds.right}, viewport ${viewport}`);
+   check(`${context.mode}/${context.report}: layout does not force horizontal page scrolling`,doc.documentElement.scrollWidth<=viewport+4,`page ${doc.documentElement.scrollWidth}, viewport ${viewport}; four-pixel tolerance for borders`);
+   check(`${context.mode}/${context.report}: navigation height bounded on narrow viewport`,doc.getElementById('navList').getBoundingClientRect().height<=doc.documentElement.clientHeight*.28+1);
+  }
+ }
+ for(const disclosure of disclosures){
+  const summary=disclosure.querySelector(':scope > summary');
+  summary.click();check(`${context.mode}/${context.report}: More opens with click`,disclosure.open);
+  summary.click();check(`${context.mode}/${context.report}: More closes with click`,!disclosure.open);
+  summary.focus();check(`${context.mode}/${context.report}: summary keyboard focusable`,doc.activeElement===summary);
+ }
+}
+async function navigate(index,title){
+ await wait(()=>doc.getElementById('viewContainer').getAttribute('aria-busy')!=='true','idle before navigation');
+ const item=doc.querySelector(`#navList [data-index="${index}"]`);if(!item)throw new Error(`Missing navigation item ${title}`);
+ item.click();
+ await wait(()=>doc.getElementById('viewTitle').textContent.trim()===title && doc.getElementById('viewContainer').getAttribute('aria-busy')==='false',`render ${title}`);
+ await wait(()=>!/^Preparing .+\.\.\.$/.test(doc.getElementById('viewContainer').innerText.trim()),`async content ${title}`);
+ await pause(60);
+}
+async function setMode(count){
+ const input=doc.querySelector(`input[name="compareCount"][value="${count}"]`);
+ input.checked=true;input.dispatchEvent(new win.Event('change',{bubbles:true}));
+ await wait(()=>doc.getElementById('viewContainer').getAttribute('aria-busy')!=='true',`mode ${count}`);await pause(100);
+}
+async function upload(id,text,expected=0){
+ const inputId=id==='A'?'fileInput':`fileInput${id}`;
+ await wait(()=>doc.getElementById(inputId),`input ${id}`);
+ const input=doc.getElementById(inputId),data=new win.DataTransfer();
+ data.items.add(new win.File([text],`reference-copy-${id}.log`));input.files=data.files;
+ input.dispatchEvent(new win.Event('change',{bubbles:true}));
+ await wait(()=>win.SH6.getSlotById(id)?.derived && (expected?win.SH6.getSlotById(id)?.qsoData?.qsos?.length===expected:win.SH6.getSlotById(id)?.qsoData?.qsos?.length>10000),`parsed ${id}`);
+}
+async function auditTitles(titles,mode,family){
+ for(const title of titles){
+  document.getElementById('status').textContent=`RUNNING ${family}/${mode}: ${title}`;
+  const item=Array.from(doc.querySelectorAll('#navList [data-index]')).find(el=>el.textContent.trim()===title);
+  check(`${family}/${mode}: ${title} reachable`,Boolean(item));if(!item)continue;
+  await navigate(item.dataset.index,title);inspect({mode,report:title,variant:family});
+ }
+}
+window.cleanupAudit={navigate:async title=>{const item=Array.from(doc.querySelectorAll('#navList [data-index]')).find(el=>el.textContent.trim()===title);await navigate(item.dataset.index,title);},setMode,frame};
+try{
+ const loaded=new Promise(resolve=>frame.addEventListener('load',resolve,{once:true}));
+ frame.src=`../index.html?state=${state}`;await loaded;win=frame.contentWindow;doc=frame.contentDocument;
+ win.addEventListener('error',event=>{if(event.error)errors.push(String(event.error.stack||event.message));});
+ win.addEventListener('unhandledrejection',event=>errors.push(String(event.reason?.stack||event.reason)));
+ await wait(()=>win.SH6?.getSlotById('A')?.derived && win.SH6?.getSlotById('B')?.derived,'reference restoration');
+ check('Reference permalink restores EF8R and CQ9A',win.SH6.getSlotById('A').qsoData.qsos.length===12991 && win.SH6.getSlotById('B').qsoData.qsos.length===11520);
+ const rawA=win.SH6.getSlotById('A').rawLogText,rawB=win.SH6.getSlotById('B').rawLogText;
+ const source=await (await fetch('../main.js')).text();
+ const inventory=Array.from(source.slice(source.indexOf('const BASE_REPORTS'),source.indexOf('const ANALYSIS_MODE_CONTESTER')).matchAll(/\{ id: '([^']+)', title: '([^']+)'/g),match=>({id:match[1],title:match[2]}));
+ for(const mode of [2,1,3,4]){
+  await setMode(mode);
+  if(mode>=3 && !win.SH6.getSlotById('C')?.derived)await upload('C',rawA);
+  if(mode===4 && !win.SH6.getSlotById('D')?.derived)await upload('D',rawB);
+  const navigation=Array.from(doc.querySelectorAll('#navList [data-index]')).map(el=>({index:el.dataset.index,title:el.textContent.trim()}));
+  conditional.push({mode,notReachable:inventory.filter(report=>!navigation.some(item=>item.title===report.title))});
+  for(const item of navigation){
+   document.getElementById('status').textContent=`RUNNING ${mode} logs: ${item.title}`;
+   await navigate(item.index,item.title);inspect({mode,report:item.title,variant:'wide'});
+   const tabButtons=Array.from(doc.querySelectorAll('#viewContainer [role="tab"]')).filter(el=>!el.disabled).map(el=>({text:el.textContent.trim(),id:el.id}));
+   for(const tab of tabButtons){
+    const button=Array.from(doc.querySelectorAll('#viewContainer [role="tab"]')).find(el=>tab.id?el.id===tab.id:el.textContent.trim()===tab.text);if(!button)continue;
+    button.click();await wait(()=>doc.getElementById('viewContainer').getAttribute('aria-busy')!=='true',`tab ${tab.text}`);await pause(100);
+    tabs.push({mode,report:item.title,tab:tab.text});inspect({mode,report:item.title,variant:`tab:${tab.text}`});
+   }
+   if(mode===2){frame.style.width='390px';await pause(60);inspect({mode,report:item.title,variant:'narrow'});frame.style.width='1400px';}
+  }
+ }
+ // Conditional reports absent from the reference CQWW session get explicit fixtures.
+ await setMode(1);
+ const radio=await (await fetch('./fixtures/radio-m2.log')).text();
+ await upload('A',radio,3);
+ const radioTitles=['Radio timeline','Radio coordination','Possible radio handoffs','Transmitter-rule audit','Band-pair heatmap'];
+ await auditTitles(radioTitles,1,'radio fixture');
+ await setMode(2);await upload('B',radio,3);await auditTitles(radioTitles,2,'radio fixture');
+ await setMode(1);
+ const wae=await (await fetch('./fixtures/wae-cw-qtc.log')).text();
+ await upload('A',wae,2);
+ const qtcTitles=['Overview','Timeline','Efficiency','Partners','Series','Quality','Export'];
+ await auditTitles(qtcTitles,1,'WAE QTC fixture');
+ await setMode(2);await upload('B',wae,2);await auditTitles(qtcTitles,2,'WAE QTC fixture');
+ await setMode(1);
+ const wpx=radio.replace('CONTEST: IARU-HF','CONTEST: CQ-WPX-CW');
+ await upload('A',wpx,3);await auditTitles(['WPX by hour sheet'],1,'WPX fixture');
+ await setMode(2);await upload('B',wpx,3);await auditTitles(['WPX by hour sheet'],2,'WPX fixture');
+ const dxer=doc.querySelector('input[name="analysisModeNav"][value="dxer"]');
+ dxer.checked=true;dxer.dispatchEvent(new win.Event('change',{bubbles:true}));await pause(500);
+ await auditTitles(['Countries by month','Countries by year','CQ zones by month','CQ zones by year','ITU zones by month','ITU zones by year'],1,'DXer conditional');
+ const contester=doc.querySelector('input[name="analysisModeNav"][value="contester"]');
+ contester.checked=true;contester.dispatchEvent(new win.Event('change',{bubbles:true}));await pause(300);
+ // Restore the actual reference logs for reproducible screenshots/keyboard checks.
+ await setMode(1);await upload('A',rawA,12991);await setMode(2);await upload('B',rawB,11520);
+ const emptyFrame=document.createElement('iframe');emptyFrame.title='SH6 empty state under test';emptyFrame.style.cssText='width:1400px;height:900px';document.body.append(emptyFrame);
+ const emptyLoaded=new Promise(resolve=>emptyFrame.addEventListener('load',resolve,{once:true}));emptyFrame.src='../index.html';await emptyLoaded;
+ const referenceWin=win,referenceDoc=doc;win=emptyFrame.contentWindow;doc=emptyFrame.contentDocument;
+ win.addEventListener('error',event=>{if(event.error)errors.push(String(event.error.stack||event.message));});
+ win.addEventListener('unhandledrejection',event=>errors.push(String(event.reason?.stack||event.reason)));
+ await wait(()=>win.SH6 && doc.querySelector('#navList [data-index]') && doc.getElementById('viewTitle').textContent.trim()==='Start','empty application ready');
+ check('Empty-state fixture has no log',!win.SH6.getSlotById('A')?.qsoData);
+ for(const item of Array.from(doc.querySelectorAll('#navList [data-index]')).map(el=>({index:el.dataset.index,title:el.textContent.trim()}))){await navigate(item.index,item.title);inspect({mode:1,report:item.title,variant:'empty state'});}
+ win=referenceWin;doc=referenceDoc;emptyFrame.remove();
+ check('No uncaught application JavaScript errors',errors.length===0,errors.join('\n'));
+}catch(error){check('Audit completed',false,error.stack);}
+const result={baseline,passed:checks.every(entry=>entry.passed),checks,reports,tabs,conditional,errors};
+window.cleanupAudit.result=result;
+document.getElementById('status').textContent=result.passed?'PASS':'FAIL';
+document.getElementById('result').textContent=JSON.stringify(result,null,2);
+</script></body></html>

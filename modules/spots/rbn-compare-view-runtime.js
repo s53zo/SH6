@@ -109,19 +109,15 @@ export function createRbnCompareViewRuntime(deps = {}) {
 
   function renderReportIntroCardSafe(title, intro, items) {
     if (typeof renderReportIntroCard === 'function') return renderReportIntroCard(title, intro, items);
-    return `<section class="report-intro"><h3>${escapeHtmlSafe(title)}</h3><p>${escapeHtmlSafe(intro)}</p></section>`;
+    return `<p data-report-note>${escapeHtmlSafe(intro)}</p>`;
   }
 
   function renderRbnRecommendationCalloutSafe() {
     if (typeof renderRbnRecommendationCallout === 'function') return renderRbnRecommendationCallout();
     return `
-      <section class="report-recommendation-card">
-        <span class="report-recommendation-kicker">Author recommendation</span>
-        <div class="report-recommendation-body">
+      <div data-report-note>
           <a href="https://s53m.com/RBN" target="_blank" rel="noopener noreferrer">Open the dedicated RBN analysis site</a>
-          <p>Use the standalone RBN workspace for deeper beacon-focused investigation, then return to SH6 for log-integrated analysis.</p>
-        </div>
-      </section>
+      </div>
     `;
   }
 
@@ -255,11 +251,11 @@ export function createRbnCompareViewRuntime(deps = {}) {
       }).filter(Boolean).join(' ');
       const navBtn = '<button type="button" class="button rbn-coach-nav" data-report="competitor_coach">Open Competitor coach</button>';
       const note = buttons
-        ? 'Load a few nearby rivals for side-by-side signal comparison:'
-        : 'Tip: open Competitor coach to select and load rivals into Log B/C/D for compare.';
+        ? 'Load nearby rivals for signal comparison.'
+        : 'Competitor coach can load rivals into Log B, C or D.';
       return `
         <div class="export-actions export-note">
-          <b>Compare tip</b> ${escapeHtmlSafe(note)}
+          <p data-report-note>${escapeHtmlSafe(note)}</p>
           <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">${buttons || ''}${navBtn}</div>
         </div>
       `;

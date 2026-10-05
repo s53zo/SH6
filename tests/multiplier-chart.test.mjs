@@ -24,6 +24,9 @@ function slot(id, minutes) {
 const slots = [slot('A', [0, 20]), slot('B', [20, 100])];
 for (const view of ['hourly', 'rate', 'cumulative']) {
   const html = renderMultiplierOverview(slots, { view, windowMinutes: 30 });
+  assert.ok(html.includes('<details class="report-more"><summary>More</summary>'), `${view}: secondary methodology is disclosed at the bottom`);
+  assert.ok(!html.includes('<details class="report-more" open'), `${view}: More starts collapsed`);
+  assert.ok(html.lastIndexOf('class="report-more"') > html.lastIndexOf('class="multiplier-chart"'), `${view}: More follows the charts`);
   const axes = [...html.matchAll(/<text x="55" y="202">([^<]+).*?<text x="775" y="218" text-anchor="end">([^<]+)/g)].map((match) => match.slice(1));
   assert.equal(axes.length, view === 'rate' ? 6 : 2);
   assert.ok(axes.every((axis) => JSON.stringify(axis) === JSON.stringify(axes[0])), `${view}: compatible logs share the full UTC bar extent`);

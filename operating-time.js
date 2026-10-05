@@ -176,29 +176,36 @@
   const num=v=>Number(v).toFixed(1).replace(/\.0$/,'');
   const utc=ts=>new Date(ts).toISOString().slice(0,16).replace('T',' ')+'Z';
   const table=(heads,rows)=>`<div class="table-wrap"><table class="mtc operating-time-table"><thead><tr class="thc">${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((r,i)=>`<tr class="${i%2?'td0':'td1'}">${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-  function controls(gap=5) { return `<div class="operating-time-controls no-print"><label>Maximum activity gap: <input type="range" class="operating-time-gap" min="1" max="15" step="1" value="${normalizeGap(gap)}"> <output class="operating-time-gap-value">${normalizeGap(gap)}</output> minutes</label><p>Estimate activity between nearby same-style QSOs up to this gap. Style changes and longer unsupported gaps remain unclassified. Break threshold is a separate setting.</p></div>`; }
-  function render(model,{compact=false,slot='A'}={}) {
+  function controls(gap=5) { return `<div class="operating-time-controls no-print"><label>Maximum activity gap: <input type="range" class="operating-time-gap" min="1" max="15" step="1" value="${normalizeGap(gap)}"> <output class="operating-time-gap-value">${normalizeGap(gap)}</output> minutes</label></div><p data-report-note data-note-title="Activity gap">The gap limit bridges nearby same-style QSOs. Style changes and unsupported gaps remain unclassified. The separate break threshold identifies breaks.</p>`; }
+  function notes(model,{compact=false}={}) {
+    if(!model.available) return '';
+    const sp=model.rows.filter(r=>['INBAND','SEARCH'].includes(r.role)).reduce((n,r)=>n+r.minutes,0);
+    return `<p>Estimated elapsed time: ${num(model.elapsedMinutes)} min (${utc(model.start)} to ${utc(model.end)}, end exclusive). S&amp;P subtotal: ${num(sp)} min. Activity gap: ${model.gap} min; break threshold: ${model.threshold} min. Completed contacts provide minute-resolution activity estimates, including the first and last occupied minutes. RUN already includes its dual-RUN subset.</p>${compact?'':`
+      <p>Rates count contacts in the corresponding category’s minutes, including duplicates. Mixed activity retains its own contacts. QTCs are unclassified and interrupt breaks. Records without time excluded: ${model.missingTime}.</p>
+      <p>2BSIQ: one operator synchronizes exchanges on two RUN bands, transmitting one signal at a time. <a href="https://www.qsl.net/ct1boh/2bsiq/" target="_blank" rel="noopener">CT1BOH explanation</a>.</p>`}`;
+  }
+  function render(model,{compact=false,slot='A',showNotes=true}={}) {
     if(!model.available) return `<p>${esc(model.reason || 'No timed activity available for time analysis.')}</p>`;
     const withSubset=(rows,subset)=>rows.flatMap(r=>r.role==='RUN'?[r,subset]:[r]);
-    const summary=table(['Elapsed-time category','Minutes','Time %',...(compact?[]:['QSOs in these minutes','QSOs/hour'])],withSubset(model.rows,model.dualRow).map(r=>[esc(r.subset?'↳ '+r.label:r.label),num(r.minutes),num(r.pct)+'%',...(compact?[]:[num(r.qsos),r.rate==null?'—':num(r.rate)])]));
-    const sp=model.rows.filter(r=>['INBAND','SEARCH'].includes(r.role)).reduce((n,r)=>n+r.minutes,0);
-    const note=`<p>Estimated elapsed time: ${num(model.elapsedMinutes)} min (${utc(model.start)} to ${utc(model.end)}, end exclusive). S&amp;P subtotal: ${num(sp)} min. Maximum activity gap: ${model.gap} min; break threshold: ${model.threshold} min. Each occupied UTC minute is included, including the first and last. Subset rows are already included in RUN; do not add them again. These are activity estimates from completed contacts.</p>`;
-    if(compact) return `<section class="operating-time-summary"><h3>Operating-style time</h3>${summary}${note}</section>`;
+    const summary=table(['Estimated elapsed-time category','Minutes','Time %',...(compact?[]:['QSOs in these minutes','QSOs/hour'])],withSubset(model.rows,model.dualRow).map(r=>[esc(r.subset?'↳ '+r.label:r.label),num(r.minutes),num(r.pct)+'%',...(compact?[]:[num(r.qsos),r.rate==null?'—':num(r.rate)])]));
+    const missingNotice=model.missingTime?`<p class="state-warning">${model.missingTime} records without time excluded from this estimate.</p>`:'';
+    const note=showNotes?`<details class="operating-analysis-details"><summary>Analysis details</summary>${notes(model,{compact})}</details>`:'';
+    if(compact) return `<section class="operating-time-summary"><h3>Operating-style time</h3>${summary}${missingNotice}${note}</section>`;
     const chartLabels={RUN:'RUN (other)',DUAL:model.dualRow.label,...Object.fromEntries(Object.entries(LABELS).filter(([k])=>k!=='RUN'))};
+    const blockLabels={RUN:'RUN',DUAL:model.operatorKind==='single'?'2BSIQ':'Dual RUN',INBAND:'INBAND',SEARCH:'S&P',MIXED:'Mixed',UNKNOWN:'Unclassified',BREAK:'Break'};
     const bars=model.hours.map(h=>{
       const ranges=h.timeline.map(r=>{
         const from=utc((h.minute+r.offset)*MINUTE),to=utc((h.minute+r.offset+r.minutes)*MINUTE);
         const label=`${chartLabels[r.role]}: ${from} to ${to} (exclusive), ${r.minutes} min`;
-        return `<span class="operating-time-block operating-time-${r.role.toLowerCase()}" style="left:${r.offset/60*100}%;width:${r.minutes/60*100}%" title="${esc(label)}"><span class="operating-time-block-label">${esc(chartLabels[r.role])}</span></span>`;
+        return `<span class="operating-time-block operating-time-${r.role.toLowerCase()}" style="left:${r.offset/60*100}%;width:${r.minutes/60*100}%" title="${esc(label)}"><span class="operating-time-block-label">${esc(blockLabels[r.role])}</span></span>`;
       }).join('');
       return `<div class="operating-time-hour"><span>${esc(utc(h.minute*MINUTE))}</span><div class="operating-time-stack" role="img" aria-label="${esc(utc(h.minute*MINUTE)+': '+h.timeline.map(r=>`${chartLabels[r.role]} minute ${r.offset}–${r.offset+r.minutes}`).join(', '))}">${ranges}<span class="operating-time-minute-grid" aria-hidden="true"></span></div><button type="button" class="operating-time-drill no-print" data-slot="${esc(slot)}" data-start="${h.minute*MINUTE}" data-end="${(h.minute+60)*MINUTE}" aria-label="Show QSOs for ${esc(utc(h.minute*MINUTE))}">QSOs</button></div>`;
     }).join('');
     const bandRows=model.bands.flatMap(b=>withSubset(b.rows,b.dualRow).filter(r=>r.minutes).map(r=>[esc(b.band),esc(r.subset?'↳ '+r.label:r.label),num(r.minutes),num(r.pct)+'%',num(r.qsos),r.rate==null?'—':num(r.rate)]));
-    return `<section class="operating-time-summary"><h3>Operating-style time</h3>${summary}${note}
-      <p>Rates count only QSOs inside the corresponding time category; contacts in Mixed activity minutes stay in that category. Duplicates are included as activity. QTC activity is unclassified and interrupts station breaks. ${model.missingTime} records without time excluded.</p>
-      <h3>Hourly operating-style timeline</h3><div class="operating-time-legend">${Object.keys(chartLabels).map(k=>`<span><i class="operating-time-${k.toLowerCase()}"></i>${esc(chartLabels[k])}</span>`).join('')}</div><p>Outlined blocks show activity in chronological order. Thin lines mark each minute; stronger lines mark 5 minutes. Hover a block for its UTC interval. Blank areas lie outside the analyzed log span.</p><div class="operating-time-hour operating-time-ruler" aria-hidden="true"><span>Minute within hour</span><div class="operating-time-axis"><span>00</span><span>15</span><span>30</span><span>45</span><span>60</span></div><span class="operating-time-ruler-spacer no-print"></span></div>${bars}
+    return `<section class="operating-time-summary"><h3>Operating-style time</h3>${summary}${missingNotice}
+      <h3>Hourly operating-style timeline</h3><div class="operating-time-legend">${Object.keys(chartLabels).map(k=>`<span><i class="operating-time-${k.toLowerCase()}"></i>${esc(chartLabels[k])}</span>`).join('')}</div><p data-report-note data-note-title="Timeline key">Thin lines mark minutes; stronger lines mark five minutes. Hover blocks for UTC intervals. Blank areas are outside the observed log span.</p><div class="operating-time-hour operating-time-ruler" aria-hidden="true"><span>Minute within hour</span><div class="operating-time-axis"><span>00</span><span>15</span><span>30</span><span>45</span><span>60</span></div><span class="operating-time-ruler-spacer no-print"></span></div>${bars}
       <details><summary>Per-band activity minutes</summary><p>Band minutes overlap and may exceed elapsed station time. Each band minute is counted once. Subset rows are included in RUN.</p>${table(['Band','Style','Activity min','Band time %','QSOs','QSOs/hour'],bandRows)}</details>
-      <p>2BSIQ: one operator synchronizes exchanges on two RUN bands, transmitting one signal at a time. <a href="https://www.qsl.net/ct1boh/2bsiq/" target="_blank" rel="noopener">CT1BOH explanation</a>.</p></section>`;
+      ${note}</section>`;
   }
   function csv(model) {
     const rows=[['Section','Band/style','From UTC','To UTC exclusive','Minutes','Time percent','QSOs','QSOs/hour','Evidence'],['settings','Maximum activity gap','','',model.gap],['settings','Break threshold','','',model.threshold]];
@@ -212,5 +219,5 @@
     model.periods.forEach(p=>rows.push(['dual RUN',p.bands.join(' + '),utc(p.start),utc(p.end),p.minutes,'',p.qsos,p.rate,`${p.label}; ${p.switches} alternations; radio IDs: ${p.radios.join(', ') || 'unavailable'}`]));
     return rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
   }
-  globalThis.SH6OperatingTime={build,render,controls,csv,normalizeGap};
+  globalThis.SH6OperatingTime={build,render,notes,controls,csv,normalizeGap};
 })();

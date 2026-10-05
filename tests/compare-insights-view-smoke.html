@@ -133,6 +133,9 @@
 
       check('cockpit is a semantic labelled section', cockpit instanceof HTMLElement && cockpit.getAttribute('aria-labelledby') === heading?.id);
       check('cockpit heading asks the contester question', heading?.textContent.trim() === 'Where did I lose points?');
+      const more = cockpit.querySelector('details.report-more');
+      check('methodology is collapsed under bottom More', more?.querySelector('summary')?.textContent === 'More' && !more.open && more === cockpit.lastElementChild);
+      check('inferred score pace qualification stays visible', Array.from(cockpit.querySelectorAll('p')).some((note) => !note.closest('details') && note.textContent.includes('Score pace is inferred')));
       check('insight cards are bounded to eight', cards.length > 0 && cards.length <= 8, String(cards.length));
       check('fact and inference cards are explicitly labelled across deterministic renders', renderedKindLabels.has('Fact') && renderedKindLabels.has('Inference'), JSON.stringify(Array.from(renderedKindLabels)));
       check('every score card exposes provenance', provenance.length === 4 && provenance.every((text) => /^(Computed score|Claimed score|Logged points|Score unavailable)/.test(text)), JSON.stringify(provenance));

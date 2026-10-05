@@ -2,6 +2,14 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.39 (2026-10-05)
+
+- Remove Compare Workspace bars and repeated score/multiplier banners throughout reports; keep log panels and move comparison settings into collapsed bottom More sections.
+- Reduce duplicate introductions and workflow prose; relocate supporting methods and definitions in operating-style, radio, QTC, multiplier, Spots/RBN and comparison-insight reports. Keep active context, estimates, errors and coverage limitations visible.
+- Preserve comparison-setting focus and open More state during same-report updates; retain sessions, perspectives, time locks and permalink compatibility.
+- Clean static exports: expand useful More content, remove inert comparison controls and empty disclosures, and retain external supporting references.
+- Add full report/tab/viewport/conditional-state audits and disclosure/accessibility regressions; bump application/cache references to v6.3.39.
+
 ## v6.3.38 (2026-10-05)
 
 - Simplify RUN vs S&P vs INBAND: remove the dual-RUN sessions section and QSO audit tables from single-log, comparison and static reports; retain QSO classifications by band.

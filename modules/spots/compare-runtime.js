@@ -68,13 +68,9 @@ export function createSpotsCompareRuntime(deps = {}) {
   function renderRbnRecommendationCalloutSafe() {
     if (typeof renderRbnRecommendationCallout === 'function') return renderRbnRecommendationCallout();
     return `
-      <section class="report-recommendation-card">
-        <span class="report-recommendation-kicker">Author recommendation</span>
-        <div class="report-recommendation-body">
+      <div data-report-note>
           <a href="https://s53m.com/RBN" target="_blank" rel="noopener noreferrer">Open the dedicated RBN analysis site</a>
-          <p>Use the standalone RBN workspace for deeper beacon-focused investigation, then return to SH6 for log-integrated analysis.</p>
-        </div>
-      </section>
+      </div>
     `;
   }
 

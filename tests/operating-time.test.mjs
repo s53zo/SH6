@@ -54,6 +54,9 @@ const csv=model.csv(ids);assert.match(csv,/dual RUN/);assert.match(csv,/hourly/)
 const html=model.render(ids);assert.match(html,/Possible 2BSIQ/);assert.match(html,/operating-time-stack/);assert.match(html,/data-start=/);
 assert.match(html,/operating-time-dual/);assert.match(html,/RUN \(other\)/);assert.match(csv,/elapsed subset/);assert.match(csv,/dual RUN session/);
 assert.doesNotMatch(html,/dual RUN sessions|operating-time-session-evidence/);
+assert.match(html,/<details class="operating-analysis-details"><summary>Analysis details<\/summary>/);
+assert.doesNotMatch(model.render(ids,{showNotes:false}),/Estimated elapsed time|CT1BOH explanation/);
+assert.match(model.notes(ids),/Estimated elapsed time.*8 min/);
 assert.deepEqual(ids.hours[0].timeline,[{role:'DUAL',offset:0,minutes:8}]);
 const timeline=build([q(10),q(11,'20M','SEARCH'),q(12),q(61)]);
 assert.deepEqual(timeline.hours[0].timeline.slice(0,3),[

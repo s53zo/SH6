@@ -17,7 +17,10 @@ try {
  await upload('A');await report('RUN vs S&P vs INBAND');
  check('one shared slider defaults to five',doc.querySelectorAll('.operating-time-gap').length===1 && doc.querySelector('.operating-time-gap').value==='5');
  check('possible 2BSIQ rendered',doc.getElementById('viewContainer').textContent.includes('Possible 2BSIQ'));
- check('elapsed minutes reconcile in UI',doc.querySelector('.operating-time-summary').textContent.includes('Estimated elapsed time: 8 min'));
+ check('elapsed minutes reconcile in UI',doc.querySelector('.operating-style-report > details.report-more').textContent.includes('Estimated elapsed time: 8 min'));
+ const analysisDetails=doc.querySelector('.operating-style-report > details.report-more');
+ check('explanations are collapsed under More at the report end',analysisDetails.querySelector('summary').textContent.trim()==='More' && !analysisDetails.open && analysisDetails===doc.querySelector('.operating-style-report').lastElementChild && ['Heuristic','Anchors','Definition','Estimated elapsed time','Rates count','CT1BOH explanation'].every(text=>analysisDetails.textContent.includes(text)));
+ analysisDetails.querySelector('summary').click();check('analysis details open on click',analysisDetails.open);analysisDetails.querySelector('summary').click();
  check('bars and per-band breakdown present',doc.querySelector('.operating-time-stack') && doc.querySelector('.operating-time-summary details'));
  check('2BSIQ is a separate bar portion and subset row',doc.querySelector('.operating-time-stack .operating-time-dual') && doc.querySelector('.operating-time-table').textContent.includes('subset of RUN'));
  check('timeline has outlined blocks, minute grid and ruler',doc.querySelector('.operating-time-block') && doc.querySelector('.operating-time-minute-grid') && doc.querySelector('.operating-time-axis'));

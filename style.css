@@ -2643,6 +2643,13 @@ body.analysis-mode-dxer .load-tip-badge {
 .operating-time-session-evidence { white-space: normal; overflow-wrap: anywhere; margin: 8px 0; }
 .operating-time-summary p, .operating-style-report p, .operating-style-report .export-note { white-space: normal; overflow-wrap: anywhere; }
 .operating-time-controls { margin: 12px 0; }
+.operating-analysis-details { margin-top: 16px; white-space: normal; }
+.operating-analysis-details > summary { cursor: pointer; font-weight: 600; }
+.report-more { margin-top: 16px; white-space: normal; overflow-wrap: anywhere; }
+.report-more > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.report-more > summary:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.report-more h4 { margin: 10px 0 4px; }
+.report-more-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
 .operating-time-controls label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .operating-time-controls p { margin: 5px 0; }
 .operating-time-hour { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
@@ -6197,6 +6204,36 @@ body.map-view #map {
   border-left: 3px solid #4f72de;
   border-radius: 8px;
   background: #f8fbff;
+}
+
+.report-more .export-actions.export-note,
+body.ui-theme-nt .report-more .export-actions.export-note {
+  display: block;
+  margin: 8px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.report-more .export-actions.export-note > b { display: inline; }
+
+/* Stack navigation above reports on small screens; the later NT density
+   overrides must not reserve a 280px sidebar beside a narrow report. */
+@media screen and (max-width: 768px) {
+  body.ui-theme-nt table.app-layout-shell,
+  body.ui-theme-nt table.app-layout-shell > tbody,
+  body.ui-theme-nt table.app-layout-shell > tbody > tr { display: block; width: 100%; min-width: 0; }
+  body.ui-theme-nt table.app-layout-shell > tbody > tr > td.sidebar,
+  body.ui-theme-nt table.app-layout-shell > tbody > tr > td:not(.sidebar) {
+    display: block;
+    width: 100% !important;
+    min-width: 0;
+    max-width: none;
+    box-sizing: border-box;
+  }
+  body.ui-theme-nt table.app-layout-shell > tbody > tr > td.sidebar { min-width: 0; max-width: none; }
+  body.ui-theme-nt #navList { max-height: 28vh; overflow-y: auto; }
 }
 
 .export-actions.export-note + .mtc,

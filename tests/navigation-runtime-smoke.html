@@ -84,7 +84,7 @@
           import('../modules/ui/navigation-runtime.js')
         ]);
 
-        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.38';"));
+        add('Main.js imports the navigation runtime module', mainSource.includes("const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.39';"));
         add('Main.js loads navigation runtime before nav setup', mainSource.includes('const navigationRuntimeReady = loadNavigationRuntimeModule();') && mainSource.includes('await navigationRuntimeReady;'));
         add('Main.js delegates initNavigation to the navigation runtime', mainSource.includes('return getNavigationRuntime().initNavigation();'));
         add('Main.js delegates setActiveReport to the navigation runtime', mainSource.includes('return getNavigationRuntime().setActiveReport(idx);'));
@@ -210,7 +210,8 @@
         add('setupNavSearch focuses the searchbox on "/"', document.activeElement === dom.navSearchInput, document.activeElement?.id || '');
 
         runtime.setActiveReport(1);
-        await wait(50);
+        const readyDeadline = Date.now() + 3000;
+        while (!readyCalls.some((entry) => entry.reportId === 'main') && Date.now() < readyDeadline) await wait(10);
         add(
           'setActiveReport renders the selected report and updates navigation state',
           state.activeIndex === 1
@@ -261,6 +262,29 @@
         focusRuntime.renderReportWithLoading({ id: 'multipliers' });
         await finishFocusRender();
         add('Pending multiplier focus never steals focus from another control', document.activeElement === dom.navSearchInput);
+
+        const compareMarkup = '<details class="report-more"><summary>More</summary><button data-compare-toggle="sync">Sync</button><button data-compare-score-mode="computed">Computed</button></details>';
+        const compareRuntime = navModule.createNavigationRuntime({ getDom: () => dom, getState: () => ({}), renderReport: () => compareMarkup });
+        compareRuntime.renderReportWithLoading({ id: 'summary' });
+        await finishFocusRender();
+        add('Compare More is initially collapsed', !dom.viewContainer.querySelector('details').open);
+        dom.viewContainer.querySelector('details').open = true;
+        dom.viewContainer.querySelector('[data-compare-toggle]').focus();
+        compareRuntime.renderReportWithLoading({ id: 'summary' });
+        compareRuntime.renderReportWithLoading({ id: 'summary' });
+        await finishFocusRender();
+        add('Superseding same-report compare setting renders retain More and focus',
+          dom.viewContainer.querySelector('details').open && document.activeElement?.dataset.compareToggle === 'sync');
+        dom.viewContainer.querySelector('[data-compare-score-mode]').focus();
+        compareRuntime.renderReportWithLoading({ id: 'summary' });
+        dom.navSearchInput.focus();
+        await finishFocusRender();
+        add('Compare settings rerender does not steal focus from navigation', document.activeElement === dom.navSearchInput);
+        dom.viewContainer.querySelector('details').open = true;
+        dom.viewContainer.querySelector('[data-compare-toggle]').focus();
+        compareRuntime.renderReportWithLoading({ id: 'main' });
+        await finishFocusRender();
+        add('Navigating to another report keeps its More collapsed', !dom.viewContainer.querySelector('details').open);
 
         const failed = checks.filter((entry) => !entry.ok);
         setResult(failed.length === 0, {

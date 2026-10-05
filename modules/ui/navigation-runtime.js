@@ -25,6 +25,8 @@ export function createNavigationRuntime(deps = {}) {
   let navSearchBound = false;
   let renderSeq = 0;
   let pendingMultiplierFocus = null;
+  let pendingCompareFocus = null;
+  let renderedReportId = null;
 
   function escapeHtmlSafe(value) {
     return String(value == null ? '' : value)
@@ -245,6 +247,17 @@ export function createNavigationRuntime(deps = {}) {
   function renderReportWithLoading(report) {
     const dom = getDomSafe();
     const state = getStateSafe();
+    const compareFocused = renderedReportId === report?.id
+      && dom.viewContainer?.contains(document.activeElement)
+      && document.activeElement.closest('details.report-more[open]')
+      && document.activeElement.matches('[data-compare-toggle], [data-compare-score-mode], [data-compare-range-action]')
+      ? document.activeElement : null;
+    if (compareFocused) {
+      pendingCompareFocus = { reportId: report.id, identity: { ...compareFocused.dataset } };
+    } else if (pendingCompareFocus?.reportId !== report?.id || document.activeElement !== document.body) {
+      pendingCompareFocus = null;
+    }
+    const compareFocusIdentity = pendingCompareFocus?.identity;
     const focused = report?.id === 'multipliers' && dom.viewContainer?.contains(document.activeElement)
       && document.activeElement.matches('[data-mult-tradeoff], [data-mult-overview-setting], [data-mult-page-action], [data-mult-view]') ? document.activeElement : null;
     if (focused) {
@@ -285,7 +298,17 @@ export function createNavigationRuntime(deps = {}) {
           } else if (dom.viewContainer) {
             dom.viewContainer.innerHTML = html;
           }
+          renderedReportId = report?.id;
           bindReportInteractions?.(report?.id || '');
+          if (compareFocusIdentity && document.activeElement === document.body) {
+            const replacement = Array.from(dom.viewContainer.querySelectorAll('[data-compare-toggle], [data-compare-score-mode], [data-compare-range-action]'))
+              .find((element) => Object.entries(compareFocusIdentity).every(([key, value]) => element.dataset[key] === value));
+            const disclosure = replacement?.closest('details.report-more')
+              || Array.from(dom.viewContainer.querySelectorAll('details.report-more'))
+                .find((element) => element.querySelector('[data-compare-toggle]'));
+            if (disclosure) disclosure.open = true;
+            (replacement || disclosure?.querySelector('summary'))?.focus({ preventScroll: true });
+          }
           if (focusIdentity && (document.activeElement === document.body || document.activeElement === focused)) {
             const replacement = Array.from(dom.viewContainer.querySelectorAll('[data-mult-tradeoff], [data-mult-overview-setting], [data-mult-page-action], [data-mult-view]'))
               .find((element) => Object.entries(focusIdentity).every(([key, value]) => element.dataset[key] === value));
@@ -334,6 +357,7 @@ export function createNavigationRuntime(deps = {}) {
         } finally {
           if (seq === renderSeq) {
             pendingMultiplierFocus = null;
+            pendingCompareFocus = null;
             clearLoadingState();
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {

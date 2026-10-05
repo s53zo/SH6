@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Report cleanup normalizer smoke</title></head>
+<body><div id="status">RUNNING</div><pre id="result"></pre><div id="fixture"></div>
+<script src="../modules/reports/cleanup.js"></script><script>
+const checks=[];
+const check=(name,ok)=>checks.push({name,passed:Boolean(ok)});
+const render=html=>{const host=document.getElementById('fixture');host.innerHTML=SH6ReportCleanup(html);return host;};
+try {
+ let host=render('<h2>Data</h2><p data-report-note data-note-title="Method">Detailed method</p><p role="alert">API failed</p><p class="warning">Incomplete coverage</p><table><tr><td>53 QSOs</td></tr></table><button id="filter">Filter</button><p>Unmarked explanation remains untouched</p><p data-report-note>Second note</p>');
+ let more=host.querySelector('details.report-more');
+ check('Marked notes coalesce into one default-closed bottom More',host.querySelectorAll('details.report-more').length===1 && !more.open && more===host.lastElementChild && more.firstElementChild.textContent==='More' && more.textContent.includes('Detailed method') && more.textContent.includes('Second note'));
+ check('Note titles preserved and implementation markers removed',more.querySelector('h4').textContent==='Method' && !host.querySelector('[data-report-note],[data-note-title]'));
+ check('Warnings, errors, data, controls and unmarked prose stay outside disclosure',Array.from(host.querySelectorAll('[role="alert"],.warning,table,#filter')).every(el=>!el.closest('details')) && host.querySelectorAll(':scope > p').length===3);
+ const once=host.innerHTML;
+ check('Normalization is idempotent',SH6ReportCleanup(once)===once);
+ host=render('<section class="compare-panel"><h2>Log A</h2><p data-report-note>A method</p></section><section class="compare-panel"><h2>Log B</h2><p data-report-note>B method</p></section>');
+ check('Per-log explanatory scopes remain separate',host.querySelectorAll('details.report-more').length===2 && host.firstElementChild.lastElementChild.textContent==='MoreA method' && host.lastElementChild.lastElementChild.textContent==='MoreB method');
+ host=render('<details open class="operating-analysis-details"><summary>Analysis details</summary><p>Legacy explanation</p></details><details class="report-more" data-compare-settings><summary>More</summary><button data-compare-score-mode="computed">Computed</button></details><table><tr><td>Data</td></tr></table>');
+ more=host.querySelector('details.report-more');
+ check('Legacy details standardized; compare settings and controls survive',host.querySelectorAll('details').length===1 && !more.open && more.hasAttribute('data-compare-settings') && more.querySelector('[data-compare-score-mode="computed"]') && more.textContent.includes('Legacy explanation') && more===host.lastElementChild);
+ more.querySelector('summary').click();check('Native disclosure opens by click',more.open);more.querySelector('summary').click();check('Native disclosure closes by click',!more.open);
+ more.querySelector('summary').focus();check('Native summary is keyboard focusable',document.activeElement===more.querySelector('summary'));
+ host=render('<details class="report-more"><summary>More</summary><p>Outer</p><details class="report-more"><summary>More</summary><p>Inner</p></details></details>');
+ check('Nested More sections flatten without losing content',host.querySelectorAll('details.report-more').length===1 && host.textContent.includes('Outer') && host.textContent.includes('Inner'));
+ host=render('<details class="report-more"><summary>More</summary></details><details class="report-more"><summary>More</summary>  </details><h2>Only data</h2><section class="report-intro-card"><p data-report-note>Method</p></section>');
+ check('Empty disclosures and vacated intro wrappers disappear',host.querySelectorAll('details.report-more').length===1 && !host.querySelector('.report-intro-card') && host.lastElementChild.textContent.includes('Method'));
+ host=render('<h2>Only data</h2><details class="report-more"><summary>More</summary>  </details>');
+ check('Whitespace-only More is removed',!host.querySelector('details.report-more'));
+ check('HTML without explicit markers remains unchanged',SH6ReportCleanup('<p>estimated subtotal</p><p class="warning">Incomplete</p>')==='<p>estimated subtotal</p><p class="warning">Incomplete</p>');
+}catch(error){checks.push({name:error.stack,passed:false});}
+document.getElementById('status').textContent=checks.every(check=>check.passed)?'PASS':'FAIL';document.getElementById('result').textContent=JSON.stringify({checks},null,2);
+</script></body></html>

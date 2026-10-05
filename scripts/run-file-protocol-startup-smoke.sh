@@ -40,16 +40,11 @@ sleep 2
 
 title="$(run_ab --session "${SESSION}" get text "#viewTitle" 2>/dev/null | tr -d '\r' | tail -n 1 | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
 nav_count="$(run_ab --session "${SESSION}" get count "#navList li" 2>/dev/null | tr -d '\r' | tail -n 1 | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
-state_json="$(run_ab --session "${SESSION}" eval "(() => JSON.stringify({ loadPanelDisplay: getComputedStyle(document.querySelector('#loadPanel')).display, navDisabled: !!document.querySelector('#navSearchInput')?.disabled, bodyClass: document.body.className, viewText: document.querySelector('#viewContainer')?.textContent || '' }))()" 2>/dev/null | tr -d '\r' | tail -n 1)"
+state_json="$(run_ab --session "${SESSION}" eval "(() => JSON.stringify({ titleText: document.querySelector('#viewTitle')?.textContent || '', loadPanelDisplay: getComputedStyle(document.querySelector('#loadPanel')).display, navDisabled: !!document.querySelector('#navSearchInput')?.disabled, bodyClass: document.body.className, viewText: document.querySelector('#viewContainer')?.textContent || '' }))()" 2>/dev/null | tr -d '\r' | tail -n 1)"
 
 echo "[file-protocol-startup-smoke] title=${title}"
 echo "[file-protocol-startup-smoke] nav_count=${nav_count}"
 echo "${state_json}"
-
-if [[ "${title}" != "Local server required" ]]; then
-  echo "[file-protocol-startup-smoke] Unexpected title." >&2
-  exit 1
-fi
 
 if [[ "${nav_count}" != "3" ]]; then
   echo "[file-protocol-startup-smoke] Expected sidebar fallback items." >&2
@@ -61,7 +56,9 @@ let payload = JSON.parse(process.env.STATE_JSON || '{}');
 if (typeof payload === 'string') {
   payload = JSON.parse(payload);
 }
-const ok = payload.loadPanelDisplay === 'none'
+// Assert the actual DOM label, not innerText's CSS-transformed presentation.
+const ok = payload.titleText === 'Local server required'
+  && payload.loadPanelDisplay === 'none'
   && payload.navDisabled === true
   && String(payload.viewText || '').includes('Open SH6 through a local web server')
   && String(payload.viewText || '').includes('./scripts/run-local-web.sh');

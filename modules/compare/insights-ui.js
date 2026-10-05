@@ -60,7 +60,6 @@ export function createCompareInsightsRenderer(deps = {}) {
         <div class="compare-insights-section-head">
           <div>
             <h3 id="compareInsightsActionsTitle">Where to investigate first</h3>
-            <p>Ranked from existing SH6 facts and explicitly labelled inferences.</p>
           </div>
         </div>
         <div class="compare-insights-card-grid">
@@ -116,7 +115,7 @@ export function createCompareInsightsRenderer(deps = {}) {
         <div class="compare-insights-section-head">
           <div>
             <h3 id="compareInsightsTimelineTitle">Synchronized UTC timeline</h3>
-            <p>Click an hour to open its QSOs. Cumulative values remain contest-to-date when a shared UTC range is active. *Score pace is an inference scaled from the final selected total; it is not exact in-contest scoring.</p>
+            <p>*Score pace is inferred from the final total, not exact in-contest scoring.</p>
           </div>
         </div>
         <div class="table-wrap compare-insights-timeline-wrap">
@@ -151,9 +150,7 @@ export function createCompareInsightsRenderer(deps = {}) {
       <section class="compare-insights-cockpit" aria-labelledby="compareInsightsTitle" data-compare-insights-visible="true">
         <header class="compare-insights-hero">
           <div>
-            <p class="compare-insights-eyebrow">Compare Insights</p>
             <h2 id="compareInsightsTitle">Where did I lose points?</h2>
-            <p>Compare score, rate, multipliers, bands, operating style, and breaks without opening several reports.</p>
           </div>
           ${renderReferenceControl(model)}
         </header>
@@ -162,8 +159,9 @@ export function createCompareInsightsRenderer(deps = {}) {
         ${renderSlotCards(model)}
         ${renderInsightCards(model)}
         ${renderTimeline(model)}
-        <details class="compare-insights-limitations">
-          <summary>How SH6 calculated these insights</summary>
+        <details class="compare-insights-limitations report-more">
+          <summary>More</summary>
+          <p>Open an hour to inspect its QSOs. Cumulative values remain contest-to-date when a shared UTC range is active.</p>
           <ul>${(model.limitations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
         </details>
       </section>

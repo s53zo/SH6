@@ -152,10 +152,10 @@
           if (!mainSource.includes('function renderSpots(')) checks.push('Spots renderer missing in main.js');
           if (!mainSource.includes('chart-mode-btn')) checks.push('Chart metric mode controls missing in main.js');
           if (!mainSource.includes("{ id: 'export', title: 'EXPORT PDF, HTML, CBR' }")) checks.push('Export menu label mismatch');
-          if (!mainSource.includes("const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.38';")) {
+          if (!mainSource.includes("const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.39';")) {
             checks.push('Compare workspace module import missing in main.js');
           }
-          if (!mainSource.includes("const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.38';")) {
+          if (!mainSource.includes("const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.39';")) {
             checks.push('Archive client module import missing in main.js');
           }
           if (!mainSource.includes('function loadArchiveClientModule()')) {
@@ -167,8 +167,8 @@
           checks.push(`Unable to read compare workspace module (${compareModuleRes.status})`);
         } else {
           const compareModuleSource = await compareModuleRes.text();
-          if (!compareModuleSource.includes('function renderCompareWorkspaceToolbar')) {
-            checks.push('Compare workspace toolbar renderer missing in workspace-ui module');
+          if (!compareModuleSource.includes('function renderCompareSettings') || compareModuleSource.includes('function renderCompareWorkspaceToolbar')) {
+            checks.push('Collapsed compare settings renderer missing or obsolete workspace toolbar retained');
           }
         }
         const archiveModuleRes = await fetch('../modules/archive/client.js', { cache: 'no-store' });
@@ -191,7 +191,7 @@
           checks.push(`Unable to read style.css (${styleRes.status})`);
         } else {
           const styleSource = await styleRes.text();
-          if (!styleSource.includes('.compare-workspace')) checks.push('Compare workspace styles missing in style.css');
+          if (!styleSource.includes('.report-more')) checks.push('More disclosure styles missing in style.css');
           if (!styleSource.includes('.chart-mode-btn')) checks.push('Chart mode button styles missing in style.css');
           if (!styleSource.includes('.coach-severity-badge')) checks.push('Coach severity badge styles missing in style.css');
         }
@@ -233,11 +233,11 @@
             'renderCompetitorCoach present',
             'renderSpots present',
             'compare workspace module import present',
-            'renderCompareWorkspaceToolbar present in workspace-ui module',
+            'collapsed compare settings present without workspace toolbar',
             'archive client module import present',
             'archive client helpers present',
             'chart-mode-btn controls present',
-            'compare-workspace styles present',
+            'More disclosure styles present',
             'coach-severity-badge styles present',
             'EXPORT PDF, HTML, CBR menu label present'
           ]

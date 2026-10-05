@@ -158,7 +158,10 @@ export function createExportRuntime(deps = {}) {
 
   function stripLinks(html, staticMultiplier = false) {
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = html;
+    wrapper.innerHTML = typeof globalThis.SH6ReportCleanup === 'function'
+      ? globalThis.SH6ReportCleanup(html) : html;
+    // Comparison settings have no behavior in a static document.
+    wrapper.querySelectorAll('.report-more-controls').forEach((element) => element.remove());
     wrapper.querySelectorAll('details').forEach((details) => details.setAttribute('open', ''));
     if (staticMultiplier) {
       const activeTab = wrapper.querySelector('.multiplier-view-tabs [aria-selected="true"]');
@@ -173,14 +176,31 @@ export function createExportRuntime(deps = {}) {
         panel.removeAttribute('aria-labelledby');
         panel.removeAttribute('tabindex');
       }
-      wrapper.querySelectorAll('.no-print').forEach((element) => element.remove());
-      wrapper.querySelectorAll('input, select, button').forEach((control) => {
-        const span = document.createElement('span');
-        span.textContent = control.tagName === 'SELECT' ? control.selectedOptions[0]?.textContent || '' : control.tagName === 'INPUT' ? control.value || 'Not specified' : control.textContent || '';
-        control.replaceWith(span);
-      });
     }
+    wrapper.querySelectorAll('.no-print').forEach((element) => element.remove());
+    wrapper.querySelectorAll('input, select, button, textarea').forEach((control) => {
+      if (control.tagName === 'INPUT' && control.type === 'hidden') {
+        control.remove();
+        return;
+      }
+      const span = document.createElement('span');
+      span.textContent = control.tagName === 'SELECT'
+        ? Array.from(control.selectedOptions).map(option => option.textContent || '').join(', ')
+        : control.tagName === 'INPUT' && ['checkbox', 'radio'].includes(control.type)
+          ? (control.checked ? 'On' : 'Off')
+          : ['INPUT', 'TEXTAREA'].includes(control.tagName)
+            ? control.value || 'Not specified'
+            : control.textContent || '';
+      control.replaceWith(span);
+    });
+    wrapper.querySelectorAll('details.report-more').forEach((details) => {
+      const content = Array.from(details.childNodes)
+        .filter((node) => !(node.nodeType === Node.ELEMENT_NODE && node.tagName === 'SUMMARY'));
+      if (!content.some((node) => node.textContent.trim() || (node.nodeType === Node.ELEMENT_NODE && node.querySelector('img, svg, table')))) details.remove();
+    });
     wrapper.querySelectorAll('a').forEach((link) => {
+      // Supporting references remain useful in HTML and PDF; navigation does not.
+      if (link.closest('details.report-more') && /^https?:\/\//i.test(link.getAttribute('href') || '')) return;
       const span = document.createElement('span');
       span.textContent = link.textContent || '';
       const title = link.getAttribute('title');

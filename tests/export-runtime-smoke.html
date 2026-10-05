@@ -258,6 +258,41 @@
 
         const reportHtml = runtime.renderReportExport({ id: 'summary', title: 'Summary' });
         add('renderReportExport strips links from exported report HTML', reportHtml.includes('<span') && !reportHtml.includes('<a '), reportHtml);
+        await import('../modules/reports/cleanup.js');
+        const cleanupExportRuntime = exportModule.createExportRuntime({
+          ...runtimeDeps,
+          renderReport: () => '<table><tr><td>Actual data</td></tr></table><details class="report-more" data-compare-settings><summary>More</summary><div class="report-more-controls no-print"><button data-compare-toggle="sync">Sync</button></div></details>'
+        });
+        const cleanedSettingsHtml = cleanupExportRuntime.renderReportExport({ id: 'summary' });
+        add('Generic comparison exports remove inert settings and empty More',
+          cleanedSettingsHtml.includes('Actual data') && !/data-compare|<button|<details/.test(cleanedSettingsHtml), cleanedSettingsHtml);
+        const genericControlsRuntime = exportModule.createExportRuntime({ ...runtimeDeps,
+          renderReport: () => '<div><label>Band <select><option>40M</option><option selected>20M</option></select></label><label>Minutes <input value="5"></label><label>Enabled <input type="checkbox" checked></label><label>Disabled <input type="checkbox"></label><input type="hidden" value="private-ui-key"><table><tr><td><button>123</button></td></tr></table><button class="no-print">Export CSV</button><textarea>Recorded note</textarea></div>' });
+        const genericControlsHtml = genericControlsRuntime.renderReportExport({ id: 'summary' });
+        const genericControlsRoot = document.createElement('div'); genericControlsRoot.innerHTML = genericControlsHtml;
+        add('Generic exports freeze filter values and numeric cells without inert controls',
+          !genericControlsRoot.querySelector('input, select, button, textarea')
+            && genericControlsRoot.textContent.includes('Band 20M')
+            && genericControlsRoot.textContent.includes('Minutes 5')
+            && genericControlsRoot.textContent.includes('Enabled On')
+            && genericControlsRoot.textContent.includes('Disabled Off')
+            && genericControlsRoot.querySelector('td')?.textContent === '123'
+            && genericControlsRoot.textContent.includes('Recorded note')
+            && !genericControlsRoot.textContent.includes('private-ui-key')
+            && !genericControlsRoot.textContent.includes('Export CSV'), genericControlsHtml);
+        const methodologyMarkup = '<p data-report-note>Methodology <a href="https://example.com/rules">Contest rules</a> <a href="#log">Open log</a></p><details class="report-more"><summary>More</summary><p>Limits</p><div class="report-more-controls"><button>Save</button></div></details>';
+        const methodologyRuntime = exportModule.createExportRuntime({ ...runtimeDeps,
+          renderReport: () => methodologyMarkup, renderMultiplierExport: () => methodologyMarkup });
+        for (const id of ['summary', 'multipliers']) {
+          const exported = methodologyRuntime.renderReportExport({ id });
+          const root = document.createElement('div'); root.innerHTML = exported;
+          add(`Static ${id} normalizes More and retains supporting citations`,
+            root.querySelectorAll('details.report-more').length === 1
+              && root.querySelector('details.report-more').open
+              && root.querySelector('a[href="https://example.com/rules"]')
+              && !root.querySelector('a[href="#log"], button, .report-more-controls')
+              && root.textContent.includes('Methodology') && root.textContent.includes('Limits'), exported);
+        }
         const compareInsightsHtml = runtime.renderReportExport({ id: 'compare_insights', title: 'Compare Insights' });
         add(
           'Compare Insights exports bounded static provenance and limitations',

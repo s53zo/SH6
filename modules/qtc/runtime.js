@@ -134,7 +134,6 @@ export function createQtcRuntime(deps = {}) {
       ? inactive.slice(0, 5).map((gap) => `${formatDate(gap.start * 3600000)} to ${formatDate((gap.end + 1) * 3600000)} (${gap.hours} empty hour${gap.hours === 1 ? '' : 's'})`).join('; ')
       : 'No empty UTC hours between the first and last QTC activity.';
     return `
-      <p class="qtc-method-note">Hourly counts use logged minute-resolution timestamps. They do not imply second-level transfer speed.</p>
       ${renderKpis([
         ['Peak QTC hour', peak ? formatDate(peak.hour * 3600000) : 'N/A', peak ? `${formatNumber(peak.units)} QTC units` : ''],
         ['Inactive spans', formatNumber(inactive.length), inactivityText]
@@ -144,6 +143,7 @@ export function createQtcRuntime(deps = {}) {
         <table class="mtc"><tr class="thc"><th>Band</th><th>QTC units</th></tr>${breakdownRows}</table>
         <table class="mtc"><tr class="thc"><th>Mode</th><th>QTC units</th></tr>${modeRows}</table>
       </div>
+      <details class="report-more"><summary>More</summary><p class="qtc-method-note">Counts use logged minute-resolution timestamps, not exact transfer durations.</p></details>
     `;
   }
 
@@ -163,7 +163,7 @@ export function createQtcRuntime(deps = {}) {
         ['QTC point contribution', formatNumber(o.qtcPoints || 0), `${pct(o.pointUnitShare)} of logged point units`],
         ['QTC production', fmt(o.qtcToQsoRatio, 2), 'QTC units per QSO']
       ])}
-      <p class="qtc-method-note">Rate metrics use distinct active minutes because Cabrillo QTC timestamps do not provide exact transfer duration.</p>
+      <details class="report-more"><summary>More</summary><p class="qtc-method-note">Rates use distinct active minutes. Cabrillo timestamps do not provide exact transfer duration.</p></details>
     `;
   }
 
@@ -204,7 +204,7 @@ export function createQtcRuntime(deps = {}) {
       ? `<tr class="td1"><td>Malformed QTC records</td><td>${formatNumber(qtc.overview.malformedUnits)}</td><td>Required fields or QTC group syntax could not be parsed.</td></tr>`
       : '';
     const rows = (qtc.warnings || []).map((warning, idx) => `<tr class="${idx % 2 ? 'td1' : 'td0'}"><td>${escapeHtml(warningLabel(warning.code))}</td><td>${formatNumber(warning.count)}</td><td>Analysis warning only; official log adjudication remains authoritative.</td></tr>`).join('');
-    return `<p class="qtc-method-note">These checks use only the loaded log and are not an adjudication result.</p><table class="mtc"><tr class="thc"><th>Check</th><th>Affected rows</th><th>Interpretation</th></tr>${parseRows}${rows}</table>`;
+    return `<p class="qtc-method-note">Log checks, not official adjudication.</p><table class="mtc"><tr class="thc"><th>Check</th><th>Affected rows</th><th>Interpretation</th></tr>${parseRows}${rows}</table>`;
   }
 
   function renderExport(snapshot, slotId) {

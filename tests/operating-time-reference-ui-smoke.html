@@ -15,7 +15,7 @@ try {
  check('reference comparison renders',doc.querySelectorAll('.operating-time-summary').length===2);
  check('one shared slider',doc.querySelectorAll('.operating-time-gap').length===1);
  check('48 hourly bars per reference log',doc.querySelectorAll('.operating-time-stack').length===96);
- check('reference dual RUN evidence rendered',doc.getElementById('viewContainer').textContent.includes('Possible 2BSIQ') && doc.getElementById('viewContainer').textContent.includes('R0, R1'));
+ check('reference dual RUN subset and timeline rendered',doc.getElementById('viewContainer').textContent.includes('Possible 2BSIQ') && doc.querySelectorAll('.operating-time-block.operating-time-dual').length>0 && !doc.getElementById('viewContainer').textContent.includes('dual RUN sessions'));
 } catch(e){checks.push({name:e.stack,passed:false});}
 document.getElementById('status').textContent=checks.every(c=>c.passed)?'PASS':'FAIL';document.getElementById('result').textContent=JSON.stringify({checks},null,2);
 </script></body></html>

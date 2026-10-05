@@ -178,7 +178,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.38';
+  const APP_VERSION = 'v6.3.39';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -280,40 +280,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.38';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.38';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.38';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.38';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.38';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.38';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.38';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.38';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.38';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.38';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.38';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.38';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.38';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.38';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.38';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.38';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.38';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.38';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.38';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.38';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.38';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.38';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.38';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.38';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.38';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.38';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.38';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.38';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.38';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.38';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.38';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.38';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.38';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.38';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.39';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.39';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.39';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.39';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.39';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.39';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.39';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.39';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.39';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.39';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.39';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.39';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.39';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.39';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.39';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.39';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.39';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.39';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.39';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.39';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.39';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.39';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.39';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.39';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.39';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.39';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.39';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.39';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.39';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.39';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.39';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.39';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.39';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.39';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1990,8 +1990,8 @@
 
   async function loadMultiplierOverviewModule() {
     const [model, view] = await Promise.all([
-      import('./modules/multipliers/overview-model.js?v=6.3.38'),
-      import('./modules/multipliers/overview-view.js?v=6.3.38')
+      import('./modules/multipliers/overview-model.js?v=6.3.39'),
+      import('./modules/multipliers/overview-view.js?v=6.3.39')
     ]);
     multiplierOverviewRuntime = { ...model, ...view };
   }
@@ -3282,6 +3282,10 @@
   }
 
   function renderRetainedReportContent(reportId) {
+    return window.SH6ReportCleanup(renderRetainedReportContentRaw(reportId));
+  }
+
+  function renderRetainedReportContentRaw(reportId) {
     const key = String(reportId || '').split('::')[0];
     switch (key) {
       case 'log':
@@ -3985,15 +3989,13 @@
   }
 
   function renderReportIntroCard(title, subtitle = '', tags = []) {
-    const safeTitle = escapeHtml(title || '');
     const safeSubtitle = escapeHtml(subtitle || '');
     const tagHtml = Array.isArray(tags) && tags.length
       ? `<div class="report-chip-row">${tags.map((tag) => `<span class="report-chip">${escapeHtml(tag || '')}</span>`).join('')}</div>`
       : '';
     return `
       <section class="report-intro-card">
-        <h3>${safeTitle}</h3>
-        ${safeSubtitle ? `<p>${safeSubtitle}</p>` : ''}
+        ${safeSubtitle ? `<p data-report-note>${safeSubtitle}</p>` : ''}
         ${tagHtml}
       </section>
     `;
@@ -4001,23 +4003,18 @@
 
   function renderRbnRecommendationCallout() {
     return `
-      <section class="report-recommendation-card">
-        <span class="report-recommendation-kicker">Author recommendation</span>
+      <section class="report-recommendation-card" data-report-note data-note-title="RBN analysis reference">
         <div class="report-recommendation-body">
           <a href="${escapeAttr(RBN_RECOMMENDATION_URL)}" target="_blank" rel="noopener noreferrer">Open the dedicated RBN analysis site</a>
-          <p>Use the standalone RBN workspace for deeper beacon-focused investigation, then come back to SH6 for log-integrated analysis.</p>
         </div>
       </section>
     `;
   }
 
   function renderAnalysisStepHeading(stepNumber, title, subtitle = '') {
-    const stepText = Number.isFinite(Number(stepNumber)) ? `Step ${Number(stepNumber)}` : String(stepNumber || 'Step');
     return `
       <div class="analysis-step-title">
-        <span class="analysis-step-kicker">${escapeHtml(stepText)}</span>
         <span class="analysis-step-name">${escapeHtml(title || '')}</span>
-        ${subtitle ? `<span class="analysis-step-note">${escapeHtml(subtitle)}</span>` : ''}
       </div>
     `;
   }
@@ -12915,21 +12912,12 @@ function syncEngineCompareLogForSlot(slot) {
       ['Club', club]
     ];
     const cqApiCard = renderCqApiEnrichmentCard(state.apiEnrichment);
-    const intro = renderReportIntroCard(
-      'Main performance snapshot',
-      'Quick diagnostic summary for the loaded log and scoring model.',
-      [
-        `Callsign ${stationCallRaw || 'N/A'}`,
-        `${state.analysisMode === ANALYSIS_MODE_DXER ? 'Event' : 'Contest'} ${state.derived.contestMeta?.contestId || 'N/A'}`,
-        `Category ${categoryLabel}`,
-        `${formatNumberSh6(totalQsos)} QSOs`
-      ]
-    );
-    const rowHtml = rows.map(([label, value], idx) => `
+    const technicalLabels = new Set(['Scoring spec version', 'Scoring spec source', 'Scoring duplicate policy', 'Scoring multiplier credit', 'Rule reference']);
+    const methodRows = rows.filter(([label]) => technicalLabels.has(label)).map(([label,value]) => `<tr><td>${label}</td><td>${value}</td></tr>`).join('');
+    const rowHtml = rows.filter(([label]) => !technicalLabels.has(label)).map(([label, value], idx) => `
         <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
       `).join('');
     return `
-      ${intro}
       ${reconNote}
       ${scoringWarning}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
@@ -12937,6 +12925,7 @@ function syncEngineCompareLogForSlot(slot) {
         ${rowHtml}
       </table>
       ${cqApiCard}
+      <div data-report-note data-note-title="Scoring method"><table class="mtc"><tr class="thc"><th>Parameter</th><th>Value</th></tr>${methodRows}</table></div>
     `;
   }
 
@@ -13436,11 +13425,11 @@ function syncEngineCompareLogForSlot(slot) {
           </tr>
         `;
       }).join('')
-      : '<tr><td colspan="4">No saved perspectives yet. Save one from Compare workspace.</td></tr>';
+      : '<tr><td colspan="4">No saved perspectives yet. Save one from More on a comparison report.</td></tr>';
     return `
       <div class="utility-block utility-block-wide">
         <h4>Saved compare perspectives</h4>
-        <p>Perspectives store compare workspace state such as active report, score mode, focus pair, sticky/sync toggles, and locked time range.</p>
+        <p>Perspectives save the report, filters and comparison settings.</p>
         <table class="mtc utility-table">
           <tr class="thc"><th>Label</th><th>Report</th><th>Time lock</th><th>Actions</th></tr>
           ${rows}
@@ -14859,48 +14848,48 @@ function syncEngineCompareLogForSlot(slot) {
           return `
             ${hideRbnExtras ? '' : `
             <div class="export-actions export-note"><b>Unworked-after-spot rate (band/hour)</b></div>
-            <div class="export-actions export-note">Out of all spots of you, how many did not turn into a QSO within the match window, grouped by band and hour. Lower is better.</div>
+            <p data-report-note data-note-title="Unworked-after-spot rate">Share of spots of you without a QSO in the match window, by band/hour. Lower is better.</p>
             ${renderUnworkedRateTable(stats.ofUsSpots)}
             `}
 
             <div class="export-actions export-note"><b>Time-to-first-QSO after spot (band)</b></div>
-            <div class="export-actions export-note">How long it usually takes to log a QSO after the first spot in a spot “cluster” on each band. Lower is better.</div>
+            <p data-report-note data-note-title="Time to first QSO">Delay from the first spot in a band’s cluster to its first QSO. Lower is better.</p>
             ${renderTimeToFirstQsoTable(stats.ofUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Spot-to-rate uplift (10 min before vs after)</b></div>
-            <div class="export-actions export-note">Compares QSO rate in the 10 minutes before a spot vs the 10 minutes after. Higher uplift and higher % positive are better.</div>
+            <p data-report-note data-note-title="Spot-to-rate uplift">QSO rate in the 10 minutes before versus after a spot. Association does not establish causation.</p>
             ${renderSpotUpliftTable(stats.ofUsSpots, analysis)}
 
             ${hideRbnExtras ? '' : `
             <div class="export-actions export-note"><b>DX spot conversion funnel</b></div>
-            <div class="export-actions export-note">Of the spots you sent, how many turned into a QSO, a new call, a new band for that call, or a new country. Higher % is better.</div>
+            <p data-report-note data-note-title="DX spot conversion">Spots you sent followed by a QSO, new call, new band or new country.</p>
             ${renderSpottingFunnelTable(stats.byUsSpots, analysis)}
             `}
 
             ${concurrentBands ? '' : `
             <div class="export-actions export-note"><b>Band change efficiency</b></div>
-            <div class="export-actions export-note">When you switch into a band, did your rate go up in the next 10 minutes? Higher % improved and higher avg uplift are better.</div>
+            <p data-report-note data-note-title="Band change efficiency">Rate change in the 10 minutes following a band change.</p>
             ${renderBandChangeEfficiencyTable(analysis)}
             `}
 
             <div class="export-actions export-note"><b>Peak spotter reliability</b></div>
-            <div class="export-actions export-note">Which spotters give you the most “actionable” spots (they turn into QSOs). Higher % is better.</div>
+            <p data-report-note data-note-title="Spotter reliability">Spotters ranked by the share of their spots followed by QSOs.</p>
             ${renderSpotterReliabilityTable(stats.ofUsSpots)}
 
             <div id="${escapeAttr(sectionIds.missedMults)}" class="export-actions export-note"><b>Missed mult opportunities</b></div>
-            <div class="export-actions export-note">Spots you sent where you never worked the DX and it looked like a new country at that time. Lower is better.</div>
+            <p data-report-note data-note-title="Missed multiplier opportunities">Unworked stations you spotted that appeared to offer a new country at the time; inferred opportunities, not guaranteed contacts.</p>
             ${renderMissedMultTable(stats.byUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Opening/closing windows by day</b></div>
-            <div class="export-actions export-note">First and last time you were spotted on each band each day. Longer span means a longer window of opportunity (informational).</div>
+            <p data-report-note data-note-title="Opening/closing windows">First and last recorded spots per band/day; the span does not establish continuous propagation.</p>
             ${renderOpenCloseTable(stats.ofUsSpots)}
 
             <div class="export-actions export-note"><b>Pileup window profiling</b></div>
-            <div class="export-actions export-note">10‑minute windows with lots of spots, plus how many QSOs you made in those windows. Higher spots and QSOs indicate stronger pileups.</div>
+            <p data-report-note data-note-title="Pileup windows">Spots and QSOs in ten-minute windows.</p>
             ${renderPileupWindowTable(stats.ofUsSpots, analysis)}
 
             <div class="export-actions export-note"><b>Frequency agility view</b></div>
-            <div class="export-actions export-note">Compares QSOs after spots when you moved frequency versus stayed put. Higher avg rate after is better; use this to decide whether moving helps.</div>
+            <p data-report-note data-note-title="Frequency agility">Observed QSO rates after spots when changing frequency versus staying put; not a causal strategy comparison.</p>
             ${renderFrequencyAgilityTable(stats.ofUsSpots, analysis)}
           `;
         })()}
@@ -17073,17 +17062,21 @@ function syncEngineCompareLogForSlot(slot) {
     const excludedNote = excluded
       ? `<div class="export-actions export-note">Excluded from this analysis: ${formatNumberSh6(excluded)} QSOs without valid time or frequency.</div>`
       : '';
+    const timeModel = buildOperatingTimeModel(qsos, derived, options.qtcs);
     return `
       <div class="operating-style-report">
       ${intro}
-      <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>
-      <div class="export-actions export-note"><b>Anchors</b>: ${escapeHtml(anchorText)}</div>
-      <div class="export-actions export-note"><b>Definition</b>: INBAND means an S&amp;P QSO on a band where SH6 infers an active RUN stream. S&amp;P = INBAND + Off-band S&amp;P; visible percentages are computed over all classified QSOs.</div>
       ${excludedNote}
       ${options.showControls === false ? '' : window.SH6OperatingTime.controls(state.operatingTimeGap)}
       <p class="no-print"><button type="button" class="operating-time-csv" data-slot="${escapeAttr(options.slot || 'A')}">Export time and dual RUN CSV</button></p>
-      ${window.SH6OperatingTime.render(buildOperatingTimeModel(qsos, derived, options.qtcs), { slot: options.slot || 'A' })}
+      ${window.SH6OperatingTime.render(timeModel, { slot: options.slot || 'A', showNotes: false })}
       <details><summary>QSO classifications by band</summary>${renderOperatingStyleTable(operatingStyle)}</details>
+      <details class="operating-analysis-details"><summary>Analysis details</summary>
+      <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>
+      <div class="export-actions export-note"><b>Anchors</b>: ${escapeHtml(anchorText)}</div>
+      <div class="export-actions export-note"><b>Definition</b>: INBAND means an S&amp;P QSO on a band where SH6 infers an active RUN stream. S&amp;P = INBAND + Off-band S&amp;P; visible percentages are computed over all classified QSOs.</div>
+      ${window.SH6OperatingTime.notes(timeModel)}
+      </details>
       </div>
     `;
   }
@@ -18057,7 +18050,7 @@ function syncEngineCompareLogForSlot(slot) {
     const filterNote = countryFilter
       ? `<p>Country filter: <b>${escapeHtml(countryFilter)}</b> (<a href="#" class="all-calls-clear-country">clear</a>)</p>`
       : '';
-    const note = list.length ? `<p>Virtualized list: ${formatNumberSh6(list.length)} calls.</p>` : '';
+    const note = list.length ? `<p>${formatNumberSh6(list.length)} calls.</p>` : '';
     const bandHeaders = bandCols.map((b) => `<th>${escapeHtml(formatBandLabel(b))}</th>`).join('');
     return `
       ${filterNote}
@@ -18909,7 +18902,7 @@ function syncEngineCompareLogForSlot(slot) {
         <input type="range" class="passed-window" min="1" max="60" step="1" value="${windowMinutes}">
         <span class="passed-window-value">${windowMinutes}</span>
       </div>
-      <p>A passed QSO pair is the nearest later same-callsign contact on another band within ${windowMinutes} minutes.</p>
+      <p data-report-note>A passed QSO pair is the nearest later same-callsign contact on another band within ${windowMinutes} minutes.</p>
     ` : '';
     if (!pairs.length) return `${slider}<p>No passed QSO pairs detected.</p>`;
     const summary = `
@@ -18991,7 +18984,7 @@ function syncEngineCompareLogForSlot(slot) {
         <input type="range" class="passed-window" min="1" max="60" step="1" value="${windowMinutes}">
         <span class="passed-window-value">${windowMinutes}</span>
       </div>
-      <p>A passed QSO is a callsign worked on another band within ${windowMinutes} minutes.</p>
+      <p data-report-note>A passed QSO pair is the nearest later same-callsign contact on another band within ${windowMinutes} minutes.</p>
     `;
     return `${slider}${renderComparePanels(slots, htmlBlocks, 'passed_qsos')}`;
   }
@@ -19030,35 +19023,10 @@ function syncEngineCompareLogForSlot(slot) {
       ['cty.dat', escapeHtml(state.ctyStatus || 'pending')],
       ['MASTER.DTA', escapeHtml(state.masterStatus || 'pending')]
     ];
-    const cards = `
-      <div class="appinfo-grid">
-        <article class="appinfo-card">
-          <h4>Build</h4>
-          <p><b>Version:</b> ${escapeHtml(APP_VERSION)}</p>
-          <p><b>Generated:</b> ${escapeHtml(formatDateSh6(Date.now()))}</p>
-        </article>
-        <article class="appinfo-card">
-          <h4>Loaded log</h4>
-          <p><b>File:</b> ${escapeHtml(state.logFile ? state.logFile.name : 'N/A')}</p>
-          <p><b>QSOs:</b> ${state.qsoData ? formatNumberSh6(state.qsoData.qsos.length) : '0'}</p>
-        </article>
-        <article class="appinfo-card">
-          <h4>Performance</h4>
-          <p><b>Last render:</b> ${escapeHtml(lastRenderText)}</p>
-          <p><b>Hotspot:</b> ${escapeHtml(hotspotText)}</p>
-        </article>
-        <article class="appinfo-card">
-          <h4>Data files</h4>
-          <p><b>cty.dat:</b> ${escapeHtml(state.ctyStatus || 'pending')}</p>
-          <p><b>MASTER.DTA:</b> ${escapeHtml(state.masterStatus || 'pending')}</p>
-        </article>
-      </div>
-    `;
     const rowHtml = rows.map(([label, value], idx) => `
       <tr class="${idx % 2 === 0 ? 'td1' : 'td0'}"><td>${label}</td><td>${value}</td></tr>
     `).join('');
     return `
-      ${cards}
       <table class="mtc" style="margin-top:5px;margin-bottom:10px;">
         <tr class="thc"><th>Parameter</th><th>Value</th></tr>
         ${rowHtml}
@@ -20832,6 +20800,10 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   function renderReport(report) {
+    return window.SH6ReportCleanup(renderReportContent(report));
+  }
+
+  function renderReportContent(report) {
     if (report.id === 'log' && state.multiplierLogFocus) {
       const focus = state.multiplierLogFocus;
       const qso = getMultiplierFocusedQsos(focus.slotId)[0];

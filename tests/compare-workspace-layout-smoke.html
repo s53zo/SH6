@@ -61,6 +61,7 @@
 
       try {
         const module = await import('../modules/compare/workspace-ui.js');
+        let currentTimeLock = null;
         const renderer = module.createCompareWorkspaceRenderer({
           escapeHtml: (value) => String(value == null ? '' : value).replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
           escapeAttr: (value) => String(value == null ? '' : value).replaceAll('"', '&quot;'),
@@ -71,15 +72,15 @@
           parseClaimedScoreNumber: () => null,
           cloneTsRange: (range) => range ? { startTs: range.startTs, endTs: range.endTs } : null,
           sameTsRange: () => false,
-          formatCompareTimeRangeLabel: () => '',
-          getCompareTimeRangeLock: () => null,
+          formatCompareTimeRangeLabel: () => '00:00Z–01:00Z',
+          getCompareTimeRangeLock: () => currentTimeLock,
           getBaseReportId: (reportId) => String(reportId || '').split('::')[0],
           getCompareFocusPair: () => ['A', 'B'],
           filterQsosAndPointsByTsRange: (qsos, pointsByIndex) => ({ qsos, pointsByIndex }),
           getEffectivePointsByIndex: () => [],
           buildMinutePointMap: () => new Map(),
           buildMinuteCountMap: () => new Map(),
-          compareTimeLockReports: new Set(),
+          compareTimeLockReports: new Set(['summary']),
           compareScrollSyncReports: new Set([
             'qs_by_minute',
             'points_by_minute',
@@ -179,6 +180,50 @@
           chartGrid?.classList.contains('compare-chart') && !chartGrid.classList.contains('compare-stack'),
           chartGrid?.className || ''
         );
+
+        for (const count of [2, 3, 4]) {
+          const root = document.createElement('div');
+          root.innerHTML = renderer.renderComparePanels(buildSlots(count), buildBlocks(count), 'summary', {}, context);
+          const more = root.querySelector('details[data-compare-settings]');
+          add(`Compare ${count}-slot reports have no workspace bars or spread banners`,
+            !root.querySelector('.compare-workspace, .compare-insight-strip, .compare-insight-chip')
+              && !/Compare workspace|score spread|Multipliers spread/.test(root.textContent));
+          add(`Compare ${count}-slot settings are collapsed at bottom under More`,
+            more && !more.open && more.querySelector('summary')?.textContent === 'More'
+              && root.lastElementChild === more);
+          add(`Compare ${count}-slot panels retain identities and settings hooks`,
+            root.querySelectorAll('.compare-panel').length === count
+              && root.querySelectorAll('.compare-head').length === count
+              && more.querySelectorAll('[data-compare-toggle]').length === 2
+              && more.querySelectorAll('[data-compare-score-mode]').length === 3
+              && more.querySelector('[data-compare-perspective-action="save"]')
+              && more.querySelector('[data-compare-jump="compare_insights"]')
+              && more.querySelector('[data-compare-jump="summary"]'));
+          document.body.appendChild(root);
+          more.querySelector('summary').click();
+          add(`Compare ${count}-slot More opens by click`, more.open);
+          root.remove();
+        }
+        const nested = document.createElement('div');
+        nested.innerHTML = renderer.renderComparePanels(buildSlots(2), buildBlocks(2), 'summary', { hideToolbar: true }, context);
+        add('Nested compares do not duplicate settings disclosure', !nested.querySelector('[data-compare-settings]'));
+        const single = document.createElement('div');
+        single.innerHTML = renderer.renderComparePanels(buildSlots(1), buildBlocks(1), 'summary', {}, context);
+        add('Single-log panels have no irrelevant compare settings', !single.querySelector('[data-compare-settings]'));
+        currentTimeLock = { startTs: 1, endTs: 2 };
+        const locked = document.createElement('div');
+        locked.innerHTML = renderer.renderComparePanels(buildSlots(2), buildBlocks(2), 'summary', {}, context);
+        add('Active time lock stays visible outside More',
+          locked.querySelector('.compare-time-lock-note')?.textContent.includes('00:00Z–01:00Z')
+            && !locked.querySelector('details .compare-time-lock-note')
+            && locked.querySelector('[data-compare-range-action="clear-lock"]'));
+        context.state.logTimeRange = { startTs: 3, endTs: 4 };
+        currentTimeLock = null;
+        const unlocked = document.createElement('div');
+        unlocked.innerHTML = renderer.renderComparePanels(buildSlots(2), buildBlocks(2), 'summary', {}, context);
+        add('Current Log time filter can still be locked through More',
+          unlocked.querySelector('[data-compare-range-action="lock-current"]'));
+        delete context.state.logTimeRange;
 
         const failed = checks.filter((entry) => !entry.ok);
         setResult(failed.length === 0, { checksTotal: checks.length, checksFailed: failed.length, failed });

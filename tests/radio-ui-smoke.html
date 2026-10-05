@@ -84,7 +84,7 @@
     check('Compare timeline panels share one UTC scale', compareAxes.length === 2 && new Set(compareAxes).size === 1, compareAxes);
     await clickReport('Radio coordination');
     const compareShape = { workspaces: doc.querySelectorAll('.compare-workspace').length, panels: doc.querySelectorAll('.compare-panel').length, directPanels: doc.querySelectorAll('.compare-workspace > .compare-grid > .compare-panel').length, nested: doc.querySelectorAll('.compare-panel .compare-workspace').length };
-    check('Radio reports render exactly once per compare slot', compareShape.workspaces === 1 && compareShape.panels === 2 && compareShape.nested === 0, compareShape);
+    check('Radio reports render exactly once per compare slot without workspace bars', compareShape.workspaces === 0 && compareShape.panels === 2 && compareShape.nested === 0, compareShape);
     check('Radio compare exports appear once per slot', doc.querySelectorAll('.radio-csv-export').length === 2);
     await clickReport('Band-pair heatmap');
     check('Heterogeneous heatmap pair fallback is explicit', /does not contain both selected IDs/.test(doc.getElementById('viewContainer').textContent));
@@ -105,10 +105,29 @@
     }
     await clickReport('Radio timeline');
     const fourShape = { workspaces: doc.querySelectorAll('.compare-workspace').length, panels: doc.querySelectorAll('.compare-panel').length, nested: doc.querySelectorAll('.compare-panel .compare-workspace').length, lanes: doc.querySelectorAll('.radio-timeline-lane').length, exports: doc.querySelectorAll('.radio-csv-export').length };
-    check('Four-log Radio timeline renders 4 panels without nesting', fourShape.workspaces === 1 && fourShape.panels === 4 && fourShape.nested === 0 && fourShape.lanes === 8 && fourShape.exports === 4, fourShape);
+    check('Four-log Radio timeline renders 4 panels without nesting or workspace bars', fourShape.workspaces === 0 && fourShape.panels === 4 && fourShape.nested === 0 && fourShape.lanes === 8 && fourShape.exports === 4, fourShape);
     await clickReport('Main');
-    check('Ordinary compare report has one workspace and compact Radio split', doc.querySelectorAll('.compare-workspace').length === 1 && doc.querySelectorAll('.compare-panel .compare-workspace').length === 0 && doc.querySelectorAll('.radio-compare-context').length === 1);
+    check('Ordinary compare report has no workspace bars and retains compact Radio split', doc.querySelectorAll('.compare-workspace').length === 0 && doc.querySelectorAll('.radio-compare-context').length === 1);
+    const compareSettings = doc.querySelector('details.report-more[data-compare-settings]');
+    check('Compare settings are available in collapsed bottom More', compareSettings && !compareSettings.open);
+    // Hidden iframes cannot focus controls; expose it for the keyboard check.
+    frame.hidden = false;
+    compareSettings.open = true;
+    const syncControl = compareSettings.querySelector('[data-compare-toggle="sync"]');
+    const previousSync = syncControl.getAttribute('aria-pressed');
+    syncControl.focus();
+    syncControl.click();
+    await waitFor(() => doc.querySelector('[data-compare-toggle="sync"]')?.getAttribute('aria-pressed') !== previousSync
+      && doc.getElementById('viewContainer').getAttribute('aria-busy') === 'false');
+    check('Normalized More stays open and retains keyboard focus after changing compare settings',
+      doc.querySelector('details.report-more[data-compare-settings]')?.open
+        && doc.activeElement?.dataset.compareToggle === 'sync',
+      { open: doc.querySelector('details.report-more[data-compare-settings]')?.open,
+        activeTag: doc.activeElement?.tagName, activeToggle: doc.activeElement?.dataset.compareToggle,
+        pressed: doc.querySelector('[data-compare-toggle="sync"]')?.getAttribute('aria-pressed') });
     await clickReport('Log');
+    check('Navigating to another report does not open More automatically', !doc.querySelector('details.report-more[data-compare-settings]')?.open);
+    frame.hidden = true;
     const fourLogTables = Array.from(doc.querySelectorAll('.compare-log-table'));
     const fourHeaders = fourLogTables.flatMap((table) => Array.from(table.querySelectorAll('tr.thc th')).map((cell) => cell.textContent.trim()));
     const fourLogShape = { count: fourLogTables.length, radioColumns: fourHeaders.filter((value) => value === 'Radio').length, lastHeader: fourHeaders.at(-1) };

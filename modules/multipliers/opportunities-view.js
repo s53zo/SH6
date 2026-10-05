@@ -17,7 +17,7 @@ export function createMultiplierOpportunitiesView(deps = {}) {
     const weightedValue = (model.candidates || []).filter((row) => row.confidence !== 'No evidence')
       .reduce((sum, row) => sum + Number(row.weightedValue || 0), 0);
     return `<section class="mult-op-section" aria-labelledby="mult-op-summary-title">
-      <div class="mult-op-section-head"><h2 id="mult-op-summary-title">Opportunity summary</h2><p>Facts come from scoring credits; opportunity labels are propagation inferences.</p></div>
+      <div class="mult-op-section-head"><h2 id="mult-op-summary-title">Opportunity summary</h2><p>Opportunities are inferred, not guaranteed contacts.</p></div>
       <dl class="mult-op-metrics">
         <div><dt>Reference</dt><dd>${escapeHtml(model.referenceCallsign)}</dd></div>
         <div><dt>Reference multipliers</dt><dd>${formatNumber(model.referenceWeightedTotal)}</dd></div>
@@ -81,7 +81,6 @@ export function createMultiplierOpportunitiesView(deps = {}) {
       <div class="table-wrap"><table><thead><tr><th>UTC</th><th>Source</th><th>Candidate</th><th>Receiver</th><th>Band</th><th>Frequency</th><th>SNR</th><th>Reference activity</th></tr></thead><tbody>
         ${events.slice(0, 300).map((event) => `<tr><td>${escapeHtml(formatDate(event.ts))}</td><td>${escapeHtml(event.source === 'rbn' ? 'RBN' : 'Cluster')}</td><td>${escapeHtml(event.dxCall)}</td><td>${escapeHtml(event.receiverCall)} (${escapeHtml(event.receiverContinent)})</td><td>${escapeHtml(event.band || candidate.band)}</td><td>${escapeHtml(event.freqKHz ?? event.freqMHz ?? '')}</td><td>${escapeHtml(event.snr ?? '')}</td><td>${event.referenceActivity?.sameBand ? 'Same band' : (event.referenceActivity?.anyBand ? 'Other band' : 'Off time')}</td></tr>`).join('') || '<tr><td colspan="8">No qualifying same-continent evidence loaded.</td></tr>'}
       </tbody></table></div>
-      <p class="mult-op-limitation">Same-continent reception shows propagation into the reference continent. It is not adjudication and does not prove the reference station could have completed the QSO.</p>
     </section>`;
   }
 
@@ -120,7 +119,7 @@ export function createMultiplierOpportunitiesView(deps = {}) {
     const selected = model.candidates.find((row) => row.key === options.selectedCandidateKey) || candidates[0] || null;
     const incompatibilities = model.compatibility.filter((row) => !row.compatible);
     return `<div class="mult-op-report">
-      <header class="mult-op-header"><div><h1>Multiplier Opportunities</h1><p>Contest-rule credits, comparison activity, and same-continent reception evidence.</p></div>
+      <header class="mult-op-header"><div><h1>Multiplier Opportunities</h1></div>
         <div class="mult-op-controls">
           <label>Reference log<select id="mult-op-reference">${slots.map((slot) => option(slot.id, `${slot.id}: ${slot.callsign || slot.label}`, model.referenceSlotId)).join('')}</select></label>
           <label>Activity window<select id="mult-op-window">${[5, 10, 15, 30, 60].map((value) => option(String(value), `${value} minutes`, String(model.windowMinutes))).join('')}</select></label>
@@ -144,6 +143,7 @@ export function createMultiplierOpportunitiesView(deps = {}) {
       <section class="mult-op-section" aria-labelledby="mult-op-export-title"><div class="mult-op-section-head"><h2 id="mult-op-export-title">Export</h2></div><div class="mult-op-export-actions">
         <button type="button" data-mult-op-export="ledger">Multiplier ledger CSV</button><button type="button" data-mult-op-export="candidates">Candidates CSV</button><button type="button" data-mult-op-export="evidence">Evidence CSV</button><button type="button" data-mult-op-export="bands">Band/mode CSV</button>
       </div></section>
+      <details class="report-more"><summary>More</summary><p>Credits follow the implemented contest rules. Opportunity labels use comparison activity and reception evidence. Same-continent reception indicates propagation into the reference continent; it does not prove the reference station could complete a QSO and is not adjudication.</p></details>
     </div>`;
   }
 

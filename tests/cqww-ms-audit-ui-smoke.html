@@ -26,8 +26,8 @@ try {
  check('coverage and limitations visible',d.getElementById('viewContainer').textContent.includes('100.0%') && d.getElementById('viewContainer').textContent.includes('not a compliance certificate'));
  const pill=d.querySelector('#bandRibbon [data-band="15M"]');if(pill){pill.click();await wait(()=>d.getElementById('viewContainer').getAttribute('aria-busy')==='false');}
  check('full-log timing preserved under band filter',d.getElementById('viewContainer').textContent.includes('1 min early') && d.getElementById('viewContainer').textContent.includes('2 QSOs'));
- d.querySelector('.cqww-ms-qso').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');
- check('finding drills to exact contact',d.getElementById('viewContainer').textContent.includes('CQWW M/S audit: Log A, QSO 2') && d.getElementById('viewContainer').textContent.includes('K2BB'));
+ d.querySelector('.cqww-ms-case').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');
+ check('case opens ±15 minute context with original event identified',d.getElementById('viewContainer').textContent.includes('CQWW M/S audit: Log A, QSO 2') && d.getElementById('viewContainer').textContent.includes('±15 minutes') && ['K1AA','K2BB'].every(call=>d.getElementById('viewContainer').textContent.includes(call)));
  d.getElementById('multiplier-clear-log-focus').click();await wait(()=>!d.getElementById('multiplier-clear-log-focus'));
  await upload(text('MULTI-OP','ONE','CQ-WW-SSB',2025));await open();
  check('unverified year never gives clean verdict',d.getElementById('viewContainer').textContent.includes('edition is not supported') && !d.querySelector('.cqww-ms-track'));
@@ -39,6 +39,9 @@ try {
  const exp=createExportRuntime({getState:()=>({}),getReports:()=>[{id:'cqww_ms_audit',title:'CQWW M/S rules audit'}],getActiveCompareSlots:()=>[],withBandContext:(_,fn)=>fn(),withStaticVirtualTableRender:fn=>fn(),renderReport:()=>d.getElementById('viewContainer').innerHTML,escapeHtml:String,escapeAttr:String});
  const html=exp.renderReportExport({id:'cqww_ms_audit'});
  check('static export keeps evidence and removes inert buttons',html.includes('1 min early') && html.includes('Earliest next band UTC') && !html.includes('<button'));
+ await upload(text(),'B');await open();
+ d.querySelector('.cqww-ms-case[data-slot="B"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');
+ check('comparison finding opens the selected log context',d.getElementById('viewContainer').textContent.includes('CQWW M/S audit: Log B, QSO 2') && d.getElementById('viewContainer').textContent.includes('±15 minutes') && d.getElementById('viewContainer').textContent.includes('K1AA'));
  document.getElementById('status').textContent='PASS';
 } catch(error){checks.push({name:error.stack,passed:false});document.getElementById('status').textContent='FAIL';}
 document.getElementById('result').textContent=JSON.stringify({checks},null,2);

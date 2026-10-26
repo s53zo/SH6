@@ -79,7 +79,8 @@
         let end=i+1;while(end<own.length && own[end].minute===own[i].minute) end++;
         const group=own.slice(i,end);
         if(new Set(group.map(e=>e.band)).size>1) {
-          findings.push({kind:'Review',index:group[0].index,minute:group[0].minute,id,band:'Multiple',detail:'Different bands share the same minute on this signal. Ordering and lock timing cannot be established.'});
+          // Minute precision alone is not a user-facing finding. Keep the
+          // uncertainty internally so later transitions are not overclaimed.
           current=null;tainted=true;i=end;continue;
         }
         const e=group[0];
@@ -97,10 +98,6 @@
         i=end;
       }
     }
-    for (const e of usable.filter(e=>e.id==='1')) {
-      const run=periods.find(p=>p.id==='0' && p.band===e.band && p.start<=e.minute && e.minute<Math.max(p.start+10,p.last+1));
-      if(run) findings.push({kind:'Review',index:e.index,minute:e.minute,id:e.id,band:e.band,detail:'MULT contact on the observed RUN band/lock interval. Review functional signal assignments and band use; contact timestamps do not prove simultaneous transmissions.'});
-    }
     model.checked=true;
     model.coverage=entries.length?100*(entries.length-invalid.length)/entries.length:0;
     model.xCount=xCount;
@@ -114,11 +111,12 @@
     if(!model.checked) return notes;
     const groups=['Timing','Multiplier','Data','Review'];
     const counts=groups.map(k=>`${k}: ${model.findings.filter(f=>f.kind===k).length}`).join(' · ');
-    const findings=model.findings.map(f=>[esc(f.kind),f.minute==null?'—':esc(utc(f.minute)),esc(f.id==='0'?'RUN (0)':f.id==='1'?'MULT (1)':f.id||'Missing'),esc(f.band),`<button class="cqww-ms-qso" data-slot="${esc(slot)}" data-index="${f.index}" type="button">${esc(qsos[f.index]?.call || 'QSO')} #${f.index+1}</button>`,esc(f.detail)]);
+    const link=(f,text,extra='')=>`<button class="cqww-ms-qso ${extra}" data-slot="${esc(slot)}" data-index="${f.index}" type="button" title="Open log context: 15 minutes before and after">${esc(text)}</button>`;
+    const findings=model.findings.map(f=>[esc(f.kind),f.minute==null?'—':esc(utc(f.minute)),esc(f.id==='0'?'RUN (0)':f.id==='1'?'MULT (1)':f.id||'Missing'),esc(f.band),link(f,`${qsos[f.index]?.call || 'QSO'} #${f.index+1}`),link(f,f.detail,'cqww-ms-case')]);
     const first=model.periods.length?Math.min(...model.periods.map(p=>p.start)):0;
     const last=model.periods.length?Math.max(...model.periods.map(p=>Math.max(p.last+1,p.start+10))):first+1;
     const lane=id=>`<div class="cqww-ms-lane"><b>${id==='0'?'RUN (0)':'MULT (1)'}</b><div class="cqww-ms-track" role="img" aria-label="${id==='0'?'RUN':'Multiplier'} observed band periods and ten-minute locks">${model.periods.filter(p=>p.id===id).map(p=>`<span class="cqww-ms-lock" style="left:${100*(p.start-first)/(last-first)}%;width:${100*10/(last-first)}%" title="${esc(`${p.band}: ${utc(p.start)}; earliest next band ${utc(p.start+10)}`)}">${esc(p.band)}</span>`).join('')}</div></div>`;
-    return `<section class="cqww-ms-audit"><p>Full-log audit · 2026 CQWW rules · ${model.total} QSOs · ${model.coverage.toFixed(1)}% usable signal/timing data. Display filters do not restrict this audit.</p><p>${esc(counts)}. ${model.findings.length?'Review the evidence below.':'No issues found in the checked logged evidence; this is not proof of compliance.'}</p>${notes}
+    return `<section class="cqww-ms-audit"><p>Full-log audit · 2026 CQWW rules · ${model.total} QSOs · ${model.coverage.toFixed(1)}% usable signal/timing data. Display filters do not restrict this audit.</p><p>${esc(counts)}. ${model.findings.length?'Review the evidence below.':'No displayed findings; this is not proof of compliance.'}</p>${notes}
       <h3>Independent ten-minute locks</h3><p>${esc(utc(first))} → ${esc(utc(last))}. Brackets mark ten minutes from each observed band-period start; hover for exact UTC times.</p>${lane('0')}${lane('1')}
       <h3>Findings</h3>${findings.length?table(['Type','UTC','Signal','Band','QSO','Evidence'],findings):'<p>No findings.</p>'}
       <details><summary>Band periods and earliest next-band times</summary>${table(['Signal','Band','First QSO UTC','Earliest next band UTC'],model.periods.map(p=>[p.id==='0'?'RUN (0)':'MULT (1)',esc(p.band),esc(utc(p.start)),esc(utc(p.start+10))]))}</details>

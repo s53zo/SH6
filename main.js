@@ -13551,7 +13551,7 @@ function syncEngineCompareLogForSlot(slot) {
     return [
       state.compareCount || 1,
       slotVersions,
-      state.multiplierLogFocus ? `${state.multiplierLogFocus.slotId}:${state.multiplierLogFocus.index}:${state.multiplierLogFocus.logVersion}` : '',
+      state.multiplierLogFocus ? `${state.multiplierLogFocus.slotId}:${state.multiplierLogFocus.index}:${state.multiplierLogFocus.logVersion}:${state.multiplierLogFocus.contextMinutes || 0}` : '',
       filters.search || '',
       filters.fieldFilter || '',
       filters.bandFilter || '',
@@ -20823,8 +20823,9 @@ function syncEngineCompareLogForSlot(slot) {
     if (report.id === 'cqww_ms_audit') return renderCqwwMsAudit();
     if (report.id === 'log' && state.multiplierLogFocus) {
       const focus = state.multiplierLogFocus;
-      const qso = getMultiplierFocusedQsos(focus.slotId)[0];
-      if (qso) return `<p class="state-card">${escapeHtml(focus.sourceLabel || 'Multiplier source')}: Log ${escapeHtml(focus.slotId)}, QSO ${escapeHtml(qso.qsoNumber ?? focus.index + 1)}, ${escapeHtml(qso.call || '')}. Other log filters are suspended for this exact-QSO focus. <button type="button" class="no-print" id="multiplier-clear-log-focus">Return to normal Log view</button></p>${renderLog()}`;
+      const slot = getSlotById(focus.slotId);
+      const qso = (slot?.fullQsoData || slot?.qsoData)?.qsos?.[focus.index];
+      if (qso && getMultiplierFocusedQsos(focus.slotId).length) return `<p class="state-card">${escapeHtml(focus.sourceLabel || 'Multiplier source')}: Log ${escapeHtml(focus.slotId)}, QSO ${escapeHtml(qso.qsoNumber ?? focus.index + 1)}, ${escapeHtml(qso.call || '')}. ${focus.contextMinutes === 15 && Number.isFinite(qso.ts) ? 'Showing QSOs within ±15 minutes of this event, across all bands and signal IDs.' : 'Other log filters are suspended for this exact-QSO focus.'} <button type="button" class="no-print" id="multiplier-clear-log-focus">Return to normal Log view</button></p>${renderLog()}`;
       state.multiplierLogFocus = null;
       invalidateCompareLogData();
     }
@@ -20847,7 +20848,8 @@ function syncEngineCompareLogForSlot(slot) {
     dom.viewContainer.querySelectorAll('.cqww-ms-qso').forEach(button => button.addEventListener('click', () => {
       const slot = getSlotById(button.dataset.slot);
       applySessionFilters({});
-      state.multiplierLogFocus = { slotId: button.dataset.slot, index: Number(button.dataset.index), logVersion: slot.logVersion, sourceLabel: 'CQWW M/S audit' };
+      state.multiplierLogFocus = { slotId: button.dataset.slot, index: Number(button.dataset.index), logVersion: slot.logVersion, sourceLabel: 'CQWW M/S audit', contextMinutes: 15 };
+      state.logPage = 0;
       invalidateCompareLogData();
       const index = reports.findIndex(report => report.id === 'log');
       if (index >= 0) setActiveReport(index);

@@ -4,6 +4,7 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 
 ## v6.3.42 (2026-10-27)
 
+- Remove speculative same-minute band-order and inferred RUN/MULT overlap messages from audit findings; retain conservative internal timing handling. Make finding evidence and QSO buttons open the selected log’s ±15-minute context across bands and signal IDs.
 - Add a conditional CQWW M/S rules audit under Quality & Review, with independent functional-signal timing checks, multiplier eligibility concerns, bracketed lock lanes and exact-QSO drilldowns. Initial rules coverage is 2026; unsupported editions and incomplete evidence are explicitly not certified.
 - Preserve full-log audit context across display filters, comparison slots and static exports without changing scoring or QSO classifications.
 - Add model and browser regressions for category gating, clock boundaries, uncertain evidence and QSO navigation; bump application/cache references to v6.3.42.

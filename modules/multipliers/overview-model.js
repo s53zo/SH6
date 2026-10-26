@@ -19,7 +19,11 @@ export function multiplierRadio(qso) {
 
 export function multiplierFocusedQsos(slot, focus, slotId) {
   if (!slot || !focus || focus.slotId !== slotId || slot.logVersion !== focus.logVersion || !Number.isInteger(focus.index) || focus.index < 0) return [];
-  const qso = (slot.fullQsoData || slot.qsoData)?.qsos?.[focus.index];
+  const list = (slot.fullQsoData || slot.qsoData)?.qsos || [];
+  const qso = list[focus.index];
+  if (qso && focus.contextMinutes === 15 && Number.isFinite(qso.ts)) {
+    return list.filter(q => Number.isFinite(q.ts) && Math.abs(q.ts - qso.ts) <= 15 * 60000);
+  }
   return qso ? [qso] : [];
 }
 

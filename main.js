@@ -56,6 +56,7 @@
     { id: 'zones_itu_by_year', title: 'ITU zones by year' },
     { id: 'not_in_master', title: 'Not in master' },
     { id: 'possible_errors', title: 'Possible errors' },
+    { id: 'cqww_ms_audit', title: 'CQWW M/S rules audit' },
     { id: 'charts_top_10_countries', title: 'Top 10 countries' },
     { id: 'charts_qs_by_band', title: 'Qs by band' },
     { id: 'charts_continents', title: 'Continents' },
@@ -155,6 +156,7 @@
     callsign_structure: 'quality_review',
     not_in_master: 'quality_review',
     possible_errors: 'quality_review',
+    cqww_ms_audit: 'quality_review',
     comments: 'quality_review',
 
     charts_top_10_countries: 'maps_charts',
@@ -178,7 +180,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.41';
+  const APP_VERSION = 'v6.3.42';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -280,40 +282,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.41';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.41';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.41';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.41';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.41';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.41';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.41';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.41';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.41';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.41';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.41';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.41';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.41';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.41';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.41';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.41';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.41';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.41';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.41';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.41';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.41';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.41';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.41';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.41';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.41';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.41';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.41';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.41';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.41';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.41';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.41';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.41';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.41';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.41';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.42';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.42';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.42';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.42';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.42';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.42';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.42';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.42';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.42';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.42';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.42';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.42';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.42';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.42';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.42';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.42';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.42';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.42';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.42';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.42';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.42';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.42';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.42';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.42';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.42';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.42';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.42';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.42';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.42';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.42';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.42';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.42';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.42';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.42';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1990,8 +1992,8 @@
 
   async function loadMultiplierOverviewModule() {
     const [model, view] = await Promise.all([
-      import('./modules/multipliers/overview-model.js?v=6.3.41'),
-      import('./modules/multipliers/overview-view.js?v=6.3.41')
+      import('./modules/multipliers/overview-model.js?v=6.3.42'),
+      import('./modules/multipliers/overview-view.js?v=6.3.42')
     ]);
     multiplierOverviewRuntime = { ...model, ...view };
   }
@@ -4459,6 +4461,7 @@
       if (r.id === 'wpx_by_hour_sheet' && !showWpxHourSheet) return;
       if (r.id === 'compare_insights' && getLoadedCompareSlots().length < 2) return;
       if (r.id === 'multiplier_opportunities' && !shouldShowMultiplierOpportunities()) return;
+      if (r.id === 'cqww_ms_audit' && !getActiveCompareSlots().some(({slot}) => window.SH6CqwwMsAudit?.applicable((slot?.fullDerived || slot?.derived)?.contestMeta))) return;
       if (QTC_REPORT_IDS.has(r.id) && !showQtcReports) return;
       if (RADIO_REPORT_IDS.has(r.id) && !showRadioReports) return;
       list.push(r);
@@ -20803,11 +20806,25 @@ function syncEngineCompareLogForSlot(slot) {
     return window.SH6ReportCleanup(renderReportContent(report));
   }
 
+  function renderCqwwMsAudit() {
+    if (!window.SH6CqwwMsAudit) return '<p class="state-warning">CQWW M/S audit module is unavailable. Reload to retry; no audit has been performed.</p>';
+    const entries = getActiveCompareSlots();
+    const blocks = entries.map(({slot,id}) => {
+      const data = slot?.fullQsoData || slot?.qsoData;
+      const derived = slot?.fullDerived || slot?.derived;
+      const qsos = data?.qsos || [];
+      return window.SH6CqwwMsAudit.render(window.SH6CqwwMsAudit.build(qsos, derived?.contestMeta, slot?.rawLogText), qsos, id);
+    });
+    if (!state.compareEnabled) return blocks[0] || '';
+    return renderComparePanels(entries.map(e=>({...e,snapshot:buildSlotSnapshot(e.slot)})), blocks, 'cqww_ms_audit');
+  }
+
   function renderReportContent(report) {
+    if (report.id === 'cqww_ms_audit') return renderCqwwMsAudit();
     if (report.id === 'log' && state.multiplierLogFocus) {
       const focus = state.multiplierLogFocus;
       const qso = getMultiplierFocusedQsos(focus.slotId)[0];
-      if (qso) return `<p class="state-card">Multiplier source: Log ${escapeHtml(focus.slotId)}, QSO ${escapeHtml(qso.qsoNumber ?? focus.index + 1)}, ${escapeHtml(qso.call || '')}. Other log filters are suspended for this exact-QSO focus. <button type="button" class="no-print" id="multiplier-clear-log-focus">Return to normal Log view</button></p>${renderLog()}`;
+      if (qso) return `<p class="state-card">${escapeHtml(focus.sourceLabel || 'Multiplier source')}: Log ${escapeHtml(focus.slotId)}, QSO ${escapeHtml(qso.qsoNumber ?? focus.index + 1)}, ${escapeHtml(qso.call || '')}. Other log filters are suspended for this exact-QSO focus. <button type="button" class="no-print" id="multiplier-clear-log-focus">Return to normal Log view</button></p>${renderLog()}`;
       state.multiplierLogFocus = null;
       invalidateCompareLogData();
     }
@@ -20827,6 +20844,14 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   function bindReportInteractions(reportId) {
+    dom.viewContainer.querySelectorAll('.cqww-ms-qso').forEach(button => button.addEventListener('click', () => {
+      const slot = getSlotById(button.dataset.slot);
+      applySessionFilters({});
+      state.multiplierLogFocus = { slotId: button.dataset.slot, index: Number(button.dataset.index), logVersion: slot.logVersion, sourceLabel: 'CQWW M/S audit' };
+      invalidateCompareLogData();
+      const index = reports.findIndex(report => report.id === 'log');
+      if (index >= 0) setActiveReport(index);
+    }));
     dom.viewContainer.querySelector('#multiplier-clear-log-focus')?.addEventListener('click', () => {
       state.multiplierLogFocus = null;
       applySessionFilters({});

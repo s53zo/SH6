@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.42 (2026-10-27)
+
+- Add a conditional CQWW M/S rules audit under Quality & Review, with independent functional-signal timing checks, multiplier eligibility concerns, bracketed lock lanes and exact-QSO drilldowns. Initial rules coverage is 2026; unsupported editions and incomplete evidence are explicitly not certified.
+- Preserve full-log audit context across display filters, comparison slots and static exports without changing scoring or QSO classifications.
+- Add model and browser regressions for category gating, clock boundaries, uncertain evidence and QSO navigation; bump application/cache references to v6.3.42.
+
 ## v6.3.41 (2026-10-26)
 
 - Replace mixed operating-time buckets with five exclusive activity categories: RUN only, RUN + INBAND S&P, RUN + off-band S&P, RUN + both S&P types, and S&P only. Keep uncertain time and station inactivity separate.

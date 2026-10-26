@@ -97,6 +97,7 @@ export function createCompareWorkspaceRenderer(deps = {}) {
       'zones_itu',
       'not_in_master',
       'possible_errors',
+      'cqww_ms_audit',
       'comments',
       'sh6_info',
       'charts'

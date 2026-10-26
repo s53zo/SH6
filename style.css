@@ -2671,6 +2671,12 @@ body.analysis-mode-dxer .load-tip-badge {
 .operating-time-break { background: #334155; }
 .operating-time-legend { display: flex; flex-wrap: wrap; gap: 12px; }
 .operating-time-legend i { display: inline-block; height: 12px; width: 12px; margin-right: 4px; }
+.cqww-ms-lane { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
+.cqww-ms-audit p { white-space: normal; overflow-wrap: anywhere; }
+.cqww-ms-audit td:last-child { white-space: normal; min-width: 180px; }
+.cqww-ms-lane > b { flex: 0 0 80px; }
+.cqww-ms-track { position: relative; height: 32px; flex: 1; min-width: 100px; background: #edf2fa; border: 1px solid #94a3b8; }
+.cqww-ms-lock { position: absolute; top: 3px; bottom: 3px; min-width: 1px; border: 1px solid #2563eb; border-top: 0; color: #173a66; font-size: 10px; overflow: hidden; white-space: nowrap; box-sizing: border-box; }
 @media print { .operating-time-stack, .operating-time-legend i { print-color-adjust: exact; -webkit-print-color-adjust: exact; } .operating-time-summary details { display: block; } }
 @media print {
   .export-section:has(.operating-time-summary) { break-inside: auto; page-break-inside: auto; }

@@ -2663,9 +2663,10 @@ body.analysis-mode-dxer .load-tip-badge {
 .operating-time-hour > .operating-time-ruler-spacer { flex: 0 0 48px; }
 .operating-time-run { background: #2563eb; }
 .operating-time-dual { background: #0891b2; }
-.operating-time-inband { background: #16a34a; }
-.operating-time-search { background: #f59e0b; }
-.operating-time-mixed { background: #9333ea; }
+.operating-time-run_inband { background: #15803d; }
+.operating-time-run_search { background: #b45309; }
+.operating-time-run_both { background: #9333ea; }
+.operating-time-sp { background: #be185d; }
 .operating-time-unknown { background: #94a3b8; }
 .operating-time-break { background: #334155; }
 .operating-time-legend { display: flex; flex-wrap: wrap; gap: 12px; }

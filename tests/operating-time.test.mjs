@@ -19,7 +19,29 @@ const bridged=build([q(0),q(4)]);reconcile(bridged);assert.equal(minutes(bridged
 const unbridged=build([q(0),q(4)],{gapMinutes:1});assert.equal(minutes(unbridged,'UNKNOWN'),3);
 const transition=build([q(0),q(4,'20M','SEARCH')]);assert.equal(minutes(transition,'UNKNOWN'),3);
 const changedFrequency=build([q(0),q(4,'20M','RUN',{freq:14.04})]);assert.equal(minutes(changedFrequency,'UNKNOWN'),3);
-const mixed=build([q(0),q(4),q(0,'40M','SEARCH'),q(4,'40M','SEARCH')]);reconcile(mixed);assert.equal(minutes(mixed,'MIXED'),5);assert.equal(mixed.dualMinutes,0);
+const mixed=build([q(0),q(4),q(0,'40M','SEARCH'),q(4,'40M','SEARCH')]);reconcile(mixed);assert.equal(minutes(mixed,'RUN_SEARCH'),5);assert.equal(mixed.dualMinutes,0);
+const combinations=[
+  [['RUN'],'RUN'],[['RUN','INBAND'],'RUN_INBAND'],[['RUN','SEARCH'],'RUN_SEARCH'],
+  [['RUN','INBAND','SEARCH'],'RUN_BOTH'],[['INBAND'],'SP'],[['SEARCH'],'SP'],[['INBAND','SEARCH'],'SP'],
+  [['UNKNOWN'],'UNKNOWN'],[['RUN','UNKNOWN'],'UNKNOWN'],[['SEARCH','UNKNOWN'],'UNKNOWN']
+];
+for (const [roles,expected] of combinations) {
+  const list=roles.map((role,i)=>q(0,i%2?'40M':'20M',role));
+  const m=build(list);reconcile(m);
+  assert.equal(minutes(m,expected),1,roles.join('+'));
+  assert.equal(m.rows.find(r=>r.role===expected).qsos,list.length);
+  assert.equal(m.hours[0][expected],1);
+  assert.deepEqual(m.hours[0].timeline,[{role:expected,offset:0,minutes:1}]);
+  assert.equal(m.rows.reduce((n,r)=>n+r.qsos,0),list.length);
+  assert.doesNotMatch(model.render(m)+model.csv(m),/Mixed activity|Unclassified time/);
+}
+const allFive=build([q(0),q(1),q(1,'20M','INBAND'),q(2),q(2,'40M','SEARCH'),q(3),q(3,'20M','INBAND'),q(3,'40M','SEARCH'),q(4,'40M','SEARCH')]);
+for (const role of ['RUN','RUN_INBAND','RUN_SEARCH','RUN_BOTH','SP']) assert.equal(minutes(allFive,role),1);
+reconcile(allFive);
+assert.equal(allFive.rows.reduce((n,r)=>n+r.qsos,0),9);
+assert.equal(allFive.bands.find(b=>b.band==='20M').rows.find(r=>r.role==='RUN_INBAND').minutes,2);
+assert.match(model.render(allFive),/RUN \+ INBAND \+ off-band S&amp;P/);
+assert.match(model.csv(allFive),/RUN \+ INBAND \+ off-band S&P/);
 const broken=build([q(0),q(20)],{breakThreshold:15});reconcile(broken);assert.equal(minutes(broken,'BREAK'),19);assert.equal(minutes(broken,'UNKNOWN'),0);
 const qtcs=build([q(0),q(10,'20M','RUN',{isQtc:true}),q(20)],{breakThreshold:15});assert.equal(minutes(qtcs,'BREAK'),0);assert.equal(minutes(qtcs,'UNKNOWN'),19);
 const seconds=build([q(.75),q(2+1/6)]);assert.equal(seconds.elapsedMinutes,3);assert.equal(seconds.end,start+3*60000);
@@ -58,7 +80,7 @@ assert.equal(build([...switched,q(8,'15M','SEARCH',{freq:21.02})]).sessions.leng
 assert.equal(build([...dual,...dual.map(q=>({...q,ts:q.ts+14*60000}))]).sessions.length,2,'unsupported long gap cannot bridge sessions');
 const csv=model.csv(ids);assert.match(csv,/dual RUN/);assert.match(csv,/hourly/);assert.match(csv,/Maximum activity gap/);
 const html=model.render(ids);assert.match(html,/Possible 2BSIQ/);assert.match(html,/operating-time-stack/);assert.match(html,/data-start=/);
-assert.match(html,/operating-time-dual/);assert.match(html,/RUN \(other\)/);assert.match(csv,/elapsed subset/);assert.match(csv,/dual RUN session/);
+assert.match(html,/operating-time-dual/);assert.match(html,/RUN only \(other\)/);assert.match(csv,/elapsed subset/);assert.match(csv,/dual RUN session/);
 assert.doesNotMatch(html,/dual RUN sessions|operating-time-session-evidence/);
 assert.match(html,/<details class="operating-analysis-details"><summary>Analysis details<\/summary>/);
 assert.doesNotMatch(model.render(ids,{showNotes:false}),/Estimated elapsed time|CT1BOH explanation/);
@@ -66,11 +88,11 @@ assert.match(model.notes(ids),/Estimated elapsed time.*8 min/);
 assert.deepEqual(ids.hours[0].timeline,[{role:'DUAL',offset:0,minutes:8}]);
 const timeline=build([q(10),q(11,'20M','SEARCH'),q(12),q(61)]);
 assert.deepEqual(timeline.hours[0].timeline.slice(0,3),[
-  {role:'RUN',offset:10,minutes:1},{role:'SEARCH',offset:11,minutes:1},{role:'RUN',offset:12,minutes:1}
+  {role:'RUN',offset:10,minutes:1},{role:'SP',offset:11,minutes:1},{role:'RUN',offset:12,minutes:1}
 ]);
 assert.deepEqual(timeline.hours[1].timeline,[{role:'BREAK',offset:0,minutes:1},{role:'RUN',offset:1,minutes:1}]);
 for(const h of timeline.hours) {
-  assert.equal(h.timeline.reduce((n,r)=>n+r.minutes,0),Object.keys({RUN:0,INBAND:0,SEARCH:0,MIXED:0,UNKNOWN:0,BREAK:0}).reduce((n,k)=>n+h[k],0));
+  assert.equal(h.timeline.reduce((n,r)=>n+r.minutes,0),['RUN','RUN_INBAND','RUN_SEARCH','RUN_BOTH','SP','UNKNOWN','BREAK'].reduce((n,k)=>n+h[k],0));
   assert.ok(h.timeline.every(r=>r.offset>=0 && r.offset+r.minutes<=60));
 }
 const timelineHtml=model.render(timeline);

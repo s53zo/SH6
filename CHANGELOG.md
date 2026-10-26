@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.41 (2026-10-26)
+
+- Replace mixed operating-time buckets with five exclusive activity categories: RUN only, RUN + INBAND S&P, RUN + off-band S&P, RUN + both S&P types, and S&P only. Keep uncertain time and station inactivity separate.
+- Apply categories to station and per-band minute tables, chronological timelines, Break time, comparison reports and CSV/HTML exports. Keep per-QSO classifications and contest scoring unchanged.
+- Clarify minute-based combinations and category QSO/rate denominators; retain dual RUN as a subset of RUN only without changing detection criteria.
+- Add category-combination, uncertainty, accounting, timeline-color and export checks; bump application/cache references to v6.3.41.
+
 ## v6.3.40 (2026-10-05)
 
 - Follow-up review: version the virtual-table module import to invalidate cached scrolling code, and keep the inferred qualifier visible on QSO classifications by band.

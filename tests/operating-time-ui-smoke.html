@@ -17,6 +17,15 @@ try {
  await upload('A');await report('RUN vs S&P vs INBAND');
  check('one shared slider defaults to five',doc.querySelectorAll('.operating-time-gap').length===1 && doc.querySelector('.operating-time-gap').value==='5');
  check('possible 2BSIQ rendered',doc.getElementById('viewContainer').textContent.includes('Possible 2BSIQ'));
+ const categoryLabels=['RUN only','RUN + INBAND S&P','RUN + off-band S&P','RUN + INBAND + off-band S&P','S&P only','Uncertain time','Station inactivity'];
+ check('five activity categories and two evidence states appear in station table',categoryLabels.every(label=>Array.from(doc.querySelectorAll('.operating-time-table tbody tr td:first-child')).some(td=>td.textContent===label)));
+ const categoryPreview=doc.createElement('div');
+ const categoryQsos=[['RUN'],['RUN','INBAND'],['RUN','SEARCH'],['RUN','INBAND','SEARCH'],['INBAND','SEARCH']].flatMap((roles,minute)=>roles.map((role,i)=>({ts:Date.UTC(2026,9,24,0,minute),band:i%2?'40M':'20M',freq:i%2?7.02:14.02,mode:'CW',operatingStyleRole:role})));
+ const categoryModel=win.SH6OperatingTime.build(categoryQsos,{categoryOperator:'MULTI-OP'});
+ categoryPreview.innerHTML=win.SH6OperatingTime.render(categoryModel);doc.body.append(categoryPreview);
+ check('all five timeline colors are defined and distinct',new Set(['run','run_inband','run_search','run_both','sp'].map(role=>win.getComputedStyle(categoryPreview.querySelector('.operating-time-block.operating-time-'+role)).backgroundColor)).size===5);
+ check('new category tooltips and CSV preserve the combined activity',categoryPreview.querySelector('.operating-time-block.operating-time-run_both').title.includes('RUN + INBAND + off-band S&P') && win.SH6OperatingTime.csv(categoryModel).includes('RUN + INBAND + off-band S&P'));
+ categoryPreview.remove();
  check('elapsed minutes reconcile in UI',doc.querySelector('.operating-style-report > details.report-more').textContent.includes('Estimated elapsed time: 8 min'));
  const analysisDetails=doc.querySelector('.operating-style-report > details.report-more');
  check('explanations are collapsed under More at the report end',analysisDetails.querySelector('summary').textContent.trim()==='More' && !analysisDetails.open && analysisDetails===doc.querySelector('.operating-style-report').lastElementChild && ['Heuristic','Anchors','Definition','Estimated elapsed time','Rates count','CT1BOH explanation'].every(text=>analysisDetails.textContent.includes(text)));

@@ -1,4 +1,4 @@
-# Operating-style time and possible 2BSIQ — v6.3.39
+# Operating-style time and possible 2BSIQ — v6.3.41
 
 ## Using the reports
 
@@ -16,13 +16,13 @@ Each comparison log has its own analysis and CSV button, with one shared gap con
 
 The observation interval starts at the beginning of the first timed activity's UTC minute and ends immediately after the last timed activity's minute. A single timed contact contributes one observed minute. Nothing is inferred before/after that interval. Empty logs have no time estimate. Records without a finite timestamp are excluded and counted in the report.
 
-Every elapsed minute belongs to exactly one category: RUN, INBAND S&P, Off-band S&P, Mixed activity, Unclassified time, or Break time. S&P is the subtotal of INBAND plus Off-band S&P, not another category. Concurrent RUN on different bands still counts once as station RUN. Conflicting styles, including known plus unclassified activity, produce Mixed activity.
+Every elapsed minute belongs to exactly one category: RUN only; RUN + INBAND S&P; RUN + off-band S&P; RUN + INBAND + off-band S&P; S&P only; Uncertain time; or Station inactivity. “+” means evidence assigned within the same UTC minute, not necessarily simultaneous transmission. S&P only includes inband, off-band or both when no RUN is assigned to that minute. Concurrent RUN on different bands still counts once as RUN only. Any unknown activity makes the minute uncertain, including known styles mixed with QTC or missing-frequency evidence. This conservative fallback does not invent a sixth activity style. QSO classifications themselves retain RUN / INBAND / SEARCH unchanged.
 
 Occupied minutes carry the existing QSO style. Missing frequencies or unsupported styles are unclassified. Between adjacent QSOs on the same band and mode, interior minutes are filled only when both endpoint styles agree and their timestamp gap is within the slider limit. RUN also requires endpoint frequencies within 2 kHz (4 kHz for phone). Style changes and larger frequency moves leave unsupported interior minutes unclassified. Seconds are used when evaluating timestamp-gap limits, although totals are UTC-minute estimates.
 
 Station gaps use occupied QSO and QTC minutes. If adjacent occupied minutes are separated by more than the break threshold, the intervening empty minutes are breaks. Breaks take precedence over inferred activity. QTC timestamps interrupt breaks, but QTC activity itself is unclassified. Duplicates remain activity evidence, including in QSO rate numerators. The overall ON AIR figure includes the occupied endpoint minutes, so it reconciles with the inclusive observation interval; it is not a measurement of actual transmission time. Existing per-operator break information retains its own participation convention.
 
-Per-band minutes count each band's minute once and can overlap other bands. Their sum can exceed elapsed station time; percentages use that band's activity-minute total. Station rates count QSOs inside the corresponding exclusive station-time category, not all QSOs previously classified with that style. QSOs in mixed minutes remain in the mixed numerator; a misleading style-specific rate is not shown for mixed/unclassified/break time.
+Per-band minutes use the same five categories on the evidence assigned to that band; they count each band's minute once and can overlap other bands. Their sum can exceed elapsed station time; percentages use that band's activity-minute total. Station rates count all QSOs inside the corresponding exclusive station-time category, not all QSOs previously classified with one QSO style. Combined-category rates are station throughput within those minutes, not RUN-only or S&P-only rates. No rate is shown for uncertain time or inactivity.
 
 ## Possible 2BSIQ detection
 
@@ -41,7 +41,7 @@ The model and CSV retain band pairs, UTC boundaries (end exclusive), minutes, co
 
 Since v6.3.37, qualifying band-pair segments are grouped into sessions. Overlapping segments join; separated segments join only within the activity-gap slider limit, with a continuing band and exclusively RUN minutes in between. A mixed, unclassified, S&P or break minute prevents joining. CSV retains session and original band-pair evidence. Session span includes transitions, but detected dual minutes and rate exclude them. Contacts shared by overlapping band-pair segments are counted once in the session.
 
-The station and band tables retain total RUN and show an indented Possible 2BSIQ (subset of RUN) row, or Dual RUN for non-single-op categories. Subset rows must not be added to the category total. Hourly bars split RUN into RUN (other) and the cyan dual-RUN subset; bar totals remain unchanged. Break time and CSV include the same subset information. Existing per-QSO RUN/S&P classifications remain unchanged.
+The station and band tables retain RUN only and show an indented Possible 2BSIQ (subset of RUN only) row, or Dual RUN for non-single-op categories. Subset rows must not be added to the category total. Hourly bars split RUN only into RUN only (other) and the cyan dual-RUN subset; bar totals remain unchanged. Break time and CSV include the same subset information. Detection criteria and existing per-QSO RUN/S&P classifications remain unchanged.
 
 ## Exports and limitations
 
@@ -53,12 +53,12 @@ The model sorts a copy of event references and does not modify the source contac
 
 At the default gap 5 / break threshold 15, read-only public CQWW CW 2025 validation produced:
 
-| Log | QSOs | Elapsed min | RUN | INBAND | Off-band | Mixed | Unclassified | Break | Unique dual-RUN min | Pair periods | Radio evidence |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| EF8R | 12,991 | 2,880 | 2,724 | 0 | 4 | 123 | 8 | 21 | 2,479 | 55 | 0 |
-| CQ9A | 11,520 | 2,880 | 2,770 | 2 | 8 | 87 | 13 | 0 | 2,507 | 66 | 0, 1 |
+| Log | QSOs | Elapsed min | RUN only | RUN + inband | RUN + off-band | RUN + both | S&P only | Uncertain | Inactive | Unique dual-RUN min | Pair periods | Radio evidence |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| EF8R | 12,991 | 2,880 | 2,724 | 12 | 111 | 0 | 4 | 8 | 21 | 2,479 | 55 | 0 |
+| CQ9A | 11,520 | 2,880 | 2,770 | 43 | 43 | 0 | 11 | 13 | 0 | 2,507 | 66 | 0, 1 |
 
-Both begin with qualifying 20m/40m overlap. Computation took approximately 14–16 ms per log on the development machine, excluding parsing/classification. Every parsed QSO field remained identical before/after time analysis. These figures are heuristic estimates, not verified 2BSIQ operating durations. Downloads are kept in memory, not committed.
+Both begin with qualifying 20m/40m overlap. The v6.3.41 validation took approximately 18–25 ms per log on the development machine, excluding parsing/classification. Every parsed QSO field remained identical before/after time analysis. These figures are heuristic estimates, not verified 2BSIQ operating durations. Downloads are kept in memory, not committed.
 
 With v6.3.37 grouping at gap 5, EF8R's 55 segments form 35 sessions and CQ9A's 66 segments form 33 sessions. The detected dual-minute totals remain 2,479 and 2,507. CQ9A's opening 20m/40m and 40m/80m segments are now in the same session, together with subsequent qualifying segments connected by short RUN-only transitions. Grouping does not credit the 00:44 single-band minute as dual RUN. Model checks cover shared-band transitions, mixed/unsupported gaps, overlapping pairs and subset totals; full-app and static export checks include the cyan bar portion and subset rows.
 

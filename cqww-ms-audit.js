@@ -32,6 +32,8 @@
     const invalid=entries.filter(e=>!Number.isFinite(e.q.ts) || !BANDS.has(e.band) || !['0','1'].includes(e.id));
     for (const e of invalid) findings.push({kind:'Data',index:e.index,minute:Number.isFinite(e.minute)?e.minute:null,id:e.id,band:e.band,detail:'Missing/invalid timestamp, contest band or functional signal ID. Timing coverage is incomplete.'});
     const usable=entries.filter(e=>Number.isFinite(e.q.ts) && BANDS.has(e.band)).sort((a,b)=>a.minute-b.minute || a.index-b.index);
+    model.start=entries.reduce((n,e)=>Number.isFinite(e.minute)?Math.min(n,e.minute):n,Infinity);
+    model.end=entries.reduce((n,e)=>Number.isFinite(e.minute)?Math.max(n,e.minute+1):n,-Infinity);
     const unplacedEvidence=entries.some(e=>!Number.isFinite(e.q.ts) || !BANDS.has(e.band));
     const seen=new Map(), multStatus=new Map();
     // Resolve newness against all earlier station contacts, not just signal 1.
@@ -77,7 +79,13 @@
       let current=null, tainted=partial;
       for(let i=0;i<own.length;) {
         let end=i+1;while(end<own.length && own[end].minute===own[i].minute) end++;
-        const group=own.slice(i,end);
+        const observed=own.slice(i,end);
+        // Only a qualifying new multiplier can establish the MULT clock.
+        // Keep doubtful contacts as findings, not phantom band-period starts.
+        // Do not silently reassign their declared signal or modify the log.
+        const group=id==='1'?observed.filter(item=>multStatus.get(item.index)):observed;
+        if(group.length!==observed.length) tainted=true;
+        if(!group.length) {i=end;continue;}
         if(new Set(group.map(e=>e.band)).size>1) {
           // Minute precision alone is not a user-facing finding. Keep the
           // uncertainty internally so later transitions are not overclaimed.
@@ -92,7 +100,6 @@
           }
           current=null;
         }
-        if(id==='1' && group.some(item=>!multStatus.get(item.index))) tainted=true;
         if(!current) {current={id,band:e.band,start:e.minute,last:e.minute,index:e.index};periods.push(current);}
         current.last=e.minute;
         i=end;
@@ -113,8 +120,8 @@
     const counts=groups.map(k=>`${k}: ${model.findings.filter(f=>f.kind===k).length}`).join(' · ');
     const link=(f,text,extra='')=>`<button class="cqww-ms-qso ${extra}" data-slot="${esc(slot)}" data-index="${f.index}" type="button" title="Open log context: 15 minutes before and after">${esc(text)}</button>`;
     const findings=model.findings.map(f=>[esc(f.kind),f.minute==null?'—':esc(utc(f.minute)),esc(f.id==='0'?'RUN (0)':f.id==='1'?'MULT (1)':f.id||'Missing'),esc(f.band),link(f,`${qsos[f.index]?.call || 'QSO'} #${f.index+1}`),link(f,f.detail,'cqww-ms-case')]);
-    const first=model.periods.length?Math.min(...model.periods.map(p=>p.start)):0;
-    const last=model.periods.length?Math.max(...model.periods.map(p=>Math.max(p.last+1,p.start+10))):first+1;
+    const first=model.start;
+    const last=model.periods.reduce((end,p)=>Math.max(end,p.start+10),model.end);
     const lane=id=>`<div class="cqww-ms-lane"><b>${id==='0'?'RUN (0)':'MULT (1)'}</b><div class="cqww-ms-track" role="img" aria-label="${id==='0'?'RUN':'Multiplier'} observed band periods and ten-minute locks">${model.periods.filter(p=>p.id===id).map(p=>`<span class="cqww-ms-lock" style="left:${100*(p.start-first)/(last-first)}%;width:${100*10/(last-first)}%" title="${esc(`${p.band}: ${utc(p.start)}; earliest next band ${utc(p.start+10)}`)}">${esc(p.band)}</span>`).join('')}</div></div>`;
     return `<section class="cqww-ms-audit"><p>Full-log audit · 2026 CQWW rules · ${model.total} QSOs · ${model.coverage.toFixed(1)}% usable signal/timing data. Display filters do not restrict this audit.</p><p>${esc(counts)}. ${model.findings.length?'Review the evidence below.':'No displayed findings; this is not proof of compliance.'}</p>${notes}
       <h3>Independent ten-minute locks</h3><p>${esc(utc(first))} → ${esc(utc(last))}. Brackets mark ten minutes from each observed band-period start; hover for exact UTC times.</p>${lane('0')}${lane('1')}

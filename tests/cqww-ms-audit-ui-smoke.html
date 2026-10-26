@@ -14,7 +14,7 @@ try {
  `QSO: 14020 PH ${year}-10-24 0000 S53TEST 59 15 K1AA 59 05 0`,
  `QSO: 21020 PH ${year}-10-24 0009 S53TEST 59 15 K2BB 59 05 0`,'END-OF-LOG:'].join('\n');
  let seq=0;
- const upload=async(content,id='A')=>{const slot=w.SH6.getSlotById(id),version=slot?.logVersion;const dt=new w.DataTransfer();dt.items.add(new w.File([content],`audit-${seq++}.log`));const el=d.getElementById(id==='A'?'fileInput':'fileInput'+id);el.files=dt.files;el.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>w.SH6.getSlotById(id)?.qsoData?.qsos?.length===2 && w.SH6.getSlotById(id).logVersion!==version && d.getElementById('viewContainer').getAttribute('aria-busy')!=='true');};
+ const upload=async(content,id='A')=>{const slot=w.SH6.getSlotById(id),version=slot?.logVersion;const count=(content.match(/^QSO:/gm)||[]).length;const dt=new w.DataTransfer();dt.items.add(new w.File([content],`audit-${seq++}.log`));const el=d.getElementById(id==='A'?'fileInput':'fileInput'+id);el.files=dt.files;el.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>w.SH6.getSlotById(id)?.qsoData?.qsos?.length===count && w.SH6.getSlotById(id).logVersion!==version && d.getElementById('viewContainer').getAttribute('aria-busy')!=='true');};
  const open=async()=>{await wait(()=>nav());nav().click();await wait(()=>d.getElementById('viewTitle').textContent==='CQWW M/S rules audit' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');};
  await upload(text('SINGLE-OP'));check('hidden for single-op',!nav());
  await upload(text('MULTI-OP','TWO'));check('hidden for multi-two',!nav());
@@ -29,6 +29,14 @@ try {
  d.querySelector('.cqww-ms-case').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');
  check('case opens ±15 minute context with original event identified',d.getElementById('viewContainer').textContent.includes('CQWW M/S audit: Log A, QSO 2') && d.getElementById('viewContainer').textContent.includes('±15 minutes') && ['K1AA','K2BB'].every(call=>d.getElementById('viewContainer').textContent.includes(call)));
  d.getElementById('multiplier-clear-log-focus').click();await wait(()=>!d.getElementById('multiplier-clear-log-focus'));
+ const v26b=[...text().split('\n').filter(line=>!line.startsWith('QSO:')&&!line.startsWith('END-OF-LOG:')),
+ 'QSO: 1887 PH 2026-10-24 0125 S53TEST 59 15 OE6MMD 59 15 1',
+ 'QSO: 7155 PH 2026-10-24 0125 S53TEST 59 15 VU2IVV 59 22 0',
+ 'QSO: 7155 PH 2026-10-24 0139 S53TEST 59 15 VU22CW 59 22 1',
+ 'QSO: 7155 PH 2026-10-24 0139 S53TEST 59 15 N7US 59 04 0',
+ 'QSO: 3743 PH 2026-10-24 0144 S53TEST 59 15 V26B 59 08 1','END-OF-LOG:'].join('\n');
+ await upload(v26b);await open();
+ check('questionable assignment does not generate a V26B timing accusation',!!d.querySelector('.cqww-ms-qso[data-index="2"]') && !d.querySelector('.cqww-ms-qso[data-index="4"]'));
  await upload(text('MULTI-OP','ONE','CQ-WW-SSB',2025));await open();
  check('unverified year never gives clean verdict',d.getElementById('viewContainer').textContent.includes('edition is not supported') && !d.querySelector('.cqww-ms-track'));
  await upload(text());

@@ -54,6 +54,22 @@ assert.equal(m.findings.filter(f=>f.kind==='Timing').length,0,'same-minute bands
 m=build([q(0),q(5,'15M'),q(7,'10M')]);
 assert.equal(m.findings.filter(f=>f.kind==='Timing').length,1);
 assert.ok(m.findings.some(f=>f.kind==='Review' && /Provisional/.test(f.detail)),'do not assert cascading violations');
+const v26bSequence=[
+ q(85,'160M','1',{call:'OE6MMD',country:'Austria',cqZone:15}),
+ q(85,'40M','0',{call:'VU2IVV',country:'India',cqZone:22}),
+ q(99,'40M','1',{call:'VU22CW',country:'India',cqZone:22}),
+ q(99,'40M','0',{call:'N7US'}),
+ q(104,'80M','1',{call:'V26B',country:'Antigua & Barbuda',cqZone:8})
+];
+m=build(v26bSequence);
+assert.ok(m.findings.some(f=>f.index===2 && f.kind==='Multiplier'),'retain questionable VU22CW eligibility');
+assert.ok(!m.findings.some(f=>f.index===4),'V26B is not early against a phantom 01:39 clock');
+assert.deepEqual(m.periods.filter(p=>p.id==='1').map(p=>p.band),['160M','80M']);
+assert.equal(m.periods.find(p=>p.id==='1' && p.band==='80M').start,Math.floor(q(104).ts/60000));
+m=build([q(0,'160M','1'),q(3,'40M','1',{country:null,cqZone:null}),q(5,'80M','1',{country:'Japan',cqZone:25})]);
+assert.ok(m.findings.some(f=>f.index===2 && f.kind==='Review' && f.start===Math.floor(q(0).ts/60000)),'real early change remains reviewable against the established clock');
+assert.equal(m.periods.filter(p=>p.id==='1').length,2,'unresolved multiplier cannot start an observed lock');
+assert.doesNotMatch(api.render(build([q(0,'20M','1',{country:null,cqZone:null})])),/1970-/,'uncheckable MULT-only logs retain actual observation times');
 const list=[q(0),q(9,'15M',{toString:()=> '0'},{call:'<img onerror=x>'})];
 const before=JSON.stringify(list);m=build(list);
 assert.equal(JSON.stringify(list),before);

@@ -13,6 +13,8 @@ Findings distinguish logged early changes, multiplier concerns, incomplete input
 
 Same-minute band-order ambiguity is tracked internally, not displayed as a separate finding. It still prevents unsupported definitive timing conclusions.
 
+The MULT clock starts or changes bands only on a contact whose new multiplier is established. Non-qualifying or unresolved contacts retain their multiplier concern, but do not create phantom band periods. They downgrade confidence in downstream timing conclusions without rewriting their declared signal. This prevents the 01:39 VU22CW assignment in the S53M example from falsely starting a clock used against V26B at 01:44.
+
 Multiplier newness considers earlier contacts across both functions, with same-minute ties and unresolved country/zone history handled conservatively. This is a logged-evidence screen, not adjudicated multiplier credit: invalid/busted contacts and official log checking may change eligibility. Inferred same-band RUN/MULT overlap is not displayed as a finding: unlogged transmissions, concurrency, CQ solicitation and hardware interlock compliance cannot be established.
 
 Click a finding’s evidence text or QSO button to open that log’s contacts within ±15 minutes of the event, across all bands and signal IDs. Missing-time findings fall back to the exact contact. Comparison slots and Log export retain the selected context. Standard static HTML/PDF report generation preserves findings and lock tables while freezing navigation buttons. No new automatic scoring penalties are applied.

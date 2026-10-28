@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.43 (2026-10-29)
+
+- Extend Operating rules audit to verified 2026 CQWW CW/SSB M/S and M/2 plus CQ WPX CW/SSB M/S and M/2, retaining the legacy report ID and CQWW residence protections.
+- Add per-signal 8-change and station-wide 10-change UTC clock-hour counters, source-linked band sequences, at-limit/over-limit states and conservative minimum counts for ambiguous evidence.
+- Preserve full-log filter independence, comparisons, ±15-minute navigation, sessions and static exports without changing scoring or QSO classifications; add independent model, browser and review coverage.
+- Separate source-backed profiles, evidence validation, counting and presentation; bump application/cache references to v6.3.43.
+
 ## v6.3.42 (2026-10-27)
 
 - Fix multiplier-clock starts: only established new-multiplier contacts can create a MULT band period. Keep questionable assignments as eligibility concerns without falsely flagging later contacts, including S53M’s V26B at 01:44.

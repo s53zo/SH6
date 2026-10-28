@@ -14,6 +14,8 @@ try {
  check('Normalization is idempotent',SH6ReportCleanup(once)===once);
  host=render('<section class="compare-panel"><h2>Log A</h2><p data-report-note>A method</p></section><section class="compare-panel"><h2>Log B</h2><p data-report-note>B method</p></section>');
  check('Per-log explanatory scopes remain separate',host.querySelectorAll('details.report-more').length===2 && host.firstElementChild.lastElementChild.textContent==='MoreA method' && host.lastElementChild.lastElementChild.textContent==='MoreB method');
+ host=render('<section class="compare-panel"><section class="cqww-ms-audit"><h3>Audit</h3><details class="report-more"><summary>More</summary><p>Sources</p></details></section></section>');
+ check('Operating audit retains its own collapsed bottom methods',host.querySelector('.cqww-ms-audit').lastElementChild.matches('details.report-more') && !host.querySelector('details').open);
  host=render('<details open class="operating-analysis-details"><summary>Analysis details</summary><p>Legacy explanation</p></details><details class="report-more" data-compare-settings><summary>More</summary><button data-compare-score-mode="computed">Computed</button></details><table><tr><td>Data</td></tr></table>');
  more=host.querySelector('details.report-more');
  check('Legacy details standardized; compare settings and controls survive',host.querySelectorAll('details').length===1 && !more.open && more.hasAttribute('data-compare-settings') && more.querySelector('[data-compare-score-mode="computed"]') && more.textContent.includes('Legacy explanation') && more===host.lastElementChild);

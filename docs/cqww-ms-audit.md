@@ -1,6 +1,6 @@
 # CQWW Multi-Single audit
 
-Quality & Review → CQWW M/S rules audit is available when any active comparison slot declares CQ-WW-CW/SSB and Multi-Single (MULTI-OP + ONE, or an explicit legacy M/S category). Other slots show not applicable. An ADIF physical radio identifier is not accepted as a functional RUN/MULT assignment.
+Quality & Review → **Operating rules audit** now includes the CQWW M/S checker described here, CQWW M/2 and CQ WPX M/S/M/2. The public report ID remains `cqww_ms_audit`. See [the shared audit implementation and coverage](operating-rules-audit.md) for profiles, limitations and verification. An ADIF physical radio identifier is not accepted as a functional RUN/MULT assignment.
 
 The first supported edition is **2026**. Other years show a not-checked notice. Reference sources, checked 2026-10-27:
 

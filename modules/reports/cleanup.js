@@ -5,7 +5,7 @@
     const root = documentRef.createElement('div');
     root.innerHTML = html;
     const scopes = new Map();
-    const scopeFor = node => node.closest('.compare-panel, .operating-style-report, .multiplier-overview-panel, .spots-panel, [data-retained-root]') || root;
+    const scopeFor = node => node.closest('.compare-panel, .operating-style-report, .cqww-ms-audit, .multiplier-overview-panel, .spots-panel, [data-retained-root]') || root;
     const disclosureFor = scope => {
       if (scopes.has(scope)) return scopes.get(scope);
       const details = documentRef.createElement('details');

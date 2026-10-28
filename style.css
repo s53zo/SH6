@@ -2675,6 +2675,31 @@ body.analysis-mode-dxer .load-tip-badge {
 .cqww-ms-audit p { white-space: normal; overflow-wrap: anywhere; }
 .cqww-ms-audit td:last-child { white-space: normal; min-width: 180px; }
 .cqww-ms-case { text-align: left; white-space: normal; font: inherit; color: #174a91; text-decoration: underline; cursor: pointer; background: transparent; border: 0; padding: 0; }
+.audit-hour-status { display: inline-block; border-radius: 3px; padding: 2px 5px; font-weight: bold; }
+.audit-over { background: #fee2e2; color: #991b1b; }
+.audit-at { background: #fef3c7; color: #854d0e; }
+.audit-uncertain { background: #e2e8f0; color: #334155; }
+.audit-within { background: #eff6ff; color: #1e3a8a; }
+@media print {
+  .export-section:has(.cqww-ms-audit) { break-inside: auto; }
+  .export-section:has(.cqww-ms-audit) .compare-grid { display: block; }
+  .export-section:has(.cqww-ms-audit) .compare-panel { overflow: visible; margin-bottom: 12pt; }
+  .export-section:has(.cqww-ms-audit) .compare-panel + .compare-panel { break-before: page; }
+  .export-section:has(.cqww-ms-audit) .compare-scroll { overflow: visible; max-height: none; }
+  .export-section:has(.cqww-ms-audit) .compare-head { position: static; }
+  .export-doc .cqww-ms-audit .table-wrap { display: block; width: 100%; overflow: visible; max-width: 100%; }
+  .export-doc .cqww-ms-audit table.mtc { display: table; width: 100% !important; max-width: 100% !important; min-width: 0 !important; table-layout: fixed; }
+  .export-doc .cqww-ms-audit .audit-findings th:nth-child(1) { width: 8%; }
+  .export-doc .cqww-ms-audit .audit-findings th:nth-child(2) { width: 16%; }
+  .export-doc .cqww-ms-audit .audit-findings th:nth-child(3) { width: 10%; }
+  .export-doc .cqww-ms-audit .audit-findings th:nth-child(4) { width: 8%; }
+  .export-doc .cqww-ms-audit .audit-findings th:nth-child(5) { width: 12%; }
+  .export-doc .cqww-ms-audit .audit-findings th:nth-child(6) { width: 46%; }
+  .export-doc .cqww-ms-audit th, .export-doc .cqww-ms-audit td { min-width: 0; font-size: 8pt; padding: 3pt; white-space: normal; overflow-wrap: anywhere; }
+  .export-doc .cqww-ms-audit thead { display: table-header-group; }
+  .export-doc .cqww-ms-audit h3, .export-doc .cqww-ms-audit summary { break-after: avoid; }
+  .export-doc .cqww-ms-track, .export-doc .audit-hour-status { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
 .cqww-ms-lane > b { flex: 0 0 80px; }
 .cqww-ms-track { position: relative; height: 32px; flex: 1; min-width: 100px; background: #edf2fa; border: 1px solid #94a3b8; }
 .cqww-ms-lock { position: absolute; top: 3px; bottom: 3px; min-width: 1px; border: 1px solid #2563eb; border-top: 0; color: #173a66; font-size: 10px; overflow: hidden; white-space: nowrap; box-sizing: border-box; }

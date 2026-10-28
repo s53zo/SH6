@@ -1,0 +1,95 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Operating rules audit full-app smoke</title>
+<div id="status">RUNNING</div><pre id="result"></pre><iframe id="app" src="../index.html" style="width:1400px;height:1100px"></iframe>
+<script type="module">
+const checks=[],errors=[];let printable='';
+const check=(name,ok)=>{checks.push({name,passed:!!ok});if(!ok)throw Error(name);};
+const wait=async fn=>{const end=Date.now()+40000;while(Date.now()<end){if(fn())return;await new Promise(r=>setTimeout(r,75));}throw Error('Timeout');};
+try {
+ const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
+ const w=frame.contentWindow,d=frame.contentDocument;w.addEventListener('error',e=>errors.push(e.message));
+ await wait(()=>w.SH6 && d.querySelector('#navList [data-index]') && d.getElementById('viewTitle').textContent==='Start' && d.getElementById('viewContainer').getAttribute('aria-busy')!=='true');
+ const state=w.SH6.getSlotById('A'),ready=()=>d.getElementById('viewContainer').getAttribute('aria-busy')!=='true';
+ const nav=title=>[...d.querySelectorAll('#navList [data-index]')].find(el=>el.textContent.trim()===title);
+ const report=async title=>{await wait(ready);const el=nav(title);if(!el)throw Error('Missing '+title);el.click();await wait(()=>d.getElementById('viewTitle').textContent===title && ready());};
+ const header=(family,tx,mode='SSB',year=2026)=>['START-OF-LOG: 3.0','CALLSIGN: S53TEST','CONTEST: CQ-'+family+'-'+mode,'CATEGORY-OPERATOR: MULTI-OP','CATEGORY-TRANSMITTER: '+tx,'CATEGORY-MODE: '+mode];
+ const lines=(family,tx,changes=9,mode='SSB',id='0',year=2026)=>[...header(family,tx,mode,year),...Array.from({length:changes+1},(_,i)=>`QSO: ${i%2?7020:14020} ${mode==='CW'?'CW':'PH'} ${year}-10-24 00${String(i*2).padStart(2,'0')} S53TEST 599 15 K${i}AA 599 ${family==='WW'?'05':String(i+1).padStart(3,'0')}${family==='WPX'&&tx==='ONE'?'':' '+id}`),'END-OF-LOG:'].join('\n');
+ const residence=(mode='SSB')=>[...header('WW','ONE',mode),`QSO: 14020 ${mode==='CW'?'CW':'PH'} 2026-10-24 0000 S53TEST 599 15 K0AA 599 05 0`,`QSO: 7020 ${mode==='CW'?'CW':'PH'} 2026-10-24 0009 S53TEST 599 15 K1AA 599 05 0`,'END-OF-LOG:'].join('\n');
+ let sequence=0;
+ const upload=async(content,id='A')=>{const previous=w.SH6.getSlotById(id)?.logVersion;const dt=new w.DataTransfer();dt.items.add(new w.File([content],`op-audit-${sequence++}.log`));const input=d.getElementById(id==='A'?'fileInput':'fileInput'+id);input.files=dt.files;input.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>w.SH6.getSlotById(id)?.logVersion!==previous && w.SH6.getSlotById(id)?.qsoData && ready());};
+ let auditImmutable=true;
+ const audit=async()=>{await wait(ready);const originals=['A','B','C','D'].map(id=>w.SH6.getSlotById(id)?.fullQsoData?.qsos).filter(Boolean).map(list=>({list,json:JSON.stringify(list)}));await report('Operating rules audit');auditImmutable=auditImmutable && originals.every(({list,json})=>JSON.stringify(list)===json);};
+ const view=()=>d.getElementById('viewContainer');
+ check('hidden with no log',!nav('Operating rules audit'));
+ for(const mode of ['SSB','CW']) for(const [family,tx,limit] of [['WW','ONE',null],['WW','TWO',8],['WPX','ONE',10],['WPX','TWO',8]]) {
+  await upload(limit==null?residence(mode):lines(family,tx,limit+1,mode));await audit();
+  check(`${family} ${tx} ${mode} category/profile visible`,view().textContent.includes('CQ-'+family+'-'+mode) && view().textContent.includes(tx==='ONE'?'M/S':'M/2'));
+  check(`${family} ${tx} ${mode} correct mechanism`,limit==null?d.querySelectorAll('.cqww-ms-lane').length===2:!!d.querySelector('.audit-hourly') && view().textContent.includes(`${limit+1} / ${limit}`) && view().textContent.includes('Over limit'));
+  check(`${family} ${tx} ${mode} event links`,!!d.querySelector('.cqww-ms-case[data-slot="A"]'));
+ }
+ for(const family of ['WW','WPX']) {
+  const first=lines(family,'TWO',9).split('\n').filter(line=>line.startsWith('QSO:'));
+  const second=lines(family,'TWO',8,'SSB','1').split('\n').filter(line=>line.startsWith('QSO:')).map(line=>line.replace('14020','28020').replace('7020','21020'));
+  await upload([...header(family,'TWO'),...first,...second,'END-OF-LOG:'].join('\n'));await audit();
+  const rows=[...d.querySelectorAll('.audit-hourly tbody tr')];
+  check(`${family} M/2 streams retain separate allowances in app`,rows.length===2 && rows[0].textContent.includes('9 / 8') && rows[0].textContent.includes('Over limit') && rows[1].textContent.includes('8 / 8') && rows[1].textContent.includes('At limit'));
+ }
+ await upload(lines('WW','TWO',9));await audit();
+ check('public report identity retained',state && state.activeIndex>=0 && nav('Operating rules audit').closest('.nav-section-summary')===null);
+ const auditBefore=view().textContent;
+ const pill=d.querySelector('#bandRibbon [data-band="40M"]');check('band filter fixture exists',pill);pill.click();await wait(ready);await audit();
+ check('band filter does not change findings',view().textContent===auditBefore);
+ const radio=d.querySelector('#radioFilterRibbon [data-radio="0"]') || d.querySelector('.radio-pill[data-radio="0"]');check('radio filter fixture exists',radio);radio.click();await wait(ready);await audit();
+ check('radio filter does not change findings',view().textContent===auditBefore);
+ const hourLink=d.querySelector('[data-audit-hour]');const detail=d.getElementById(hourLink.getAttribute('href').slice(1));check('hour sequence anchor resolves',detail);hourLink.click();
+ check('hour sequence opens and receives keyboard focus',detail.open && d.activeElement===detail.querySelector('summary'));
+ detail.open=false;hourLink.focus();hourLink.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));hourLink.click();hourLink.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',repeat:true,bubbles:true}));hourLink.click();hourLink.dispatchEvent(new w.KeyboardEvent('keyup',{key:'Enter',bubbles:true}));
+ check('Enter activation keeps disclosure open after keyup',detail.open && d.activeElement===detail.querySelector('summary'));
+ check('clock source and preceding transitions available',detail.textContent.includes('Previous band') && detail.textContent.includes('K8AA'));
+ check('methods collapsed at report bottom',!d.querySelector('.cqww-ms-audit > details.report-more').open && d.querySelector('.cqww-ms-audit').lastElementChild.matches('details.report-more'));
+ d.querySelector('.cqww-ms-case').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready() && view().textContent.includes('K2AA'));
+ check('finding preserves source identity and ±15 minute context',view().textContent.includes('Operating rules audit: Log A, QSO 10') && view().textContent.includes('±15 minutes') && view().textContent.includes('K2AA') && !view().textContent.includes('K0AA') && !view().textContent.includes('K1AA'));
+ d.getElementById('multiplier-clear-log-focus').click();await wait(ready);
+ check('audit renderer did not mutate its input contacts',auditImmutable);
+ await upload(lines('WW','TWO',8));await audit();check('at-limit distinct from violation',view().textContent.includes('At limit') && !view().textContent.includes('Over limit'));
+ await upload(lines('WPX','ONE',10));await audit();check('station-wide exactly ten allowed',view().textContent.includes('10 / 10') && view().textContent.includes('At limit'));
+ await upload(lines('WW','TWO',1).replace(' 0002 ',' ZZZZ '));await audit();
+ check('missing timestamp produces explicit data evidence',d.querySelector('.audit-findings')?.textContent.includes('Data'));
+ d.querySelector('.cqww-ms-case[data-index="1"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready() && view().textContent.includes('K1AA'));
+ check('untimed finding falls back to exact source contact',view().textContent.includes('QSO 2') && view().textContent.includes('exact-QSO focus') && !view().textContent.includes('±15 minutes'));
+ d.getElementById('multiplier-clear-log-focus').click();await wait(ready);
+ await upload(lines('WW','TWO',9,'SSB','0',2025));await audit();check('old edition explicitly not checked',view().textContent.includes('Unsupported edition') && !d.querySelector('.audit-hourly'));
+ await upload(lines('WW','ONE',1).replace('CATEGORY-OPERATOR: MULTI-OP','CATEGORY-OPERATOR: SINGLE-OP'));check('single-op not activated',!nav('Operating rules audit'));
+ await upload(lines('WW','TWO',9).replaceAll('CQ-WW-SSB','CQ-WW-RTTY'));check('RTTY not activated',!nav('Operating rules audit'));
+ const count=d.querySelector('input[name="compareCount"][value="4"]');count.checked=true;count.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>d.getElementById('fileInputD'));
+ const fixtures=[residence(),lines('WW','TWO',9),lines('WPX','ONE',11),lines('WPX','TWO',9)];
+ for(let i=0;i<4;i++) await upload(fixtures[i],['A','B','C','D'][i]);await audit();
+ check('four logs use separate profiles',d.querySelectorAll('.cqww-ms-audit').length===4 && d.querySelectorAll('.audit-hourly').length===3 && d.querySelectorAll('.cqww-ms-lane').length===2);
+ const fourText=view().textContent;
+ // Exercise all display filters against the source-aware renderer. The public
+ // slot A is the app state; navigating applies the same normal render path.
+ Object.assign(state,{logTimeRange:{startTs:0,endTs:1},logSearch:'ABSENT',globalYearsFilter:[1990],globalMonthsFilter:[1],globalBandFilter:'10M',globalRadioFilter:'1',compareTimeRangeLock:{startTs:0,endTs:1}});await audit();
+ check('time/search/period/comparison filters do not restrict full audit',view().textContent===fourText);
+ Object.assign(state,{logTimeRange:null,logSearch:'',globalYearsFilter:[],globalMonthsFilter:[],globalBandFilter:'',globalRadioFilter:'',compareTimeRangeLock:null});await audit();
+ const {createExportRuntime}=await import('../modules/export/runtime.js');
+ const exporter=createExportRuntime({getState:()=>state,getSlotById:id=>w.SH6.getSlotById(id),getReports:()=>[{id:'cqww_ms_audit',title:'Operating rules audit'}],getActiveCompareSlots:()=>[],withBandContext:(_,fn)=>fn(),withStaticVirtualTableRender:fn=>fn(),renderReport:()=>view().innerHTML,escapeHtml:String,escapeAttr:String,escapeCall:String,escapeCountry:String,formatBandLabel:w.SH6.formatBandLabel,formatFrequency:String,formatDateSh6:w.SH6.formatDateSh6,bandClass:w.SH6.bandClass,modeClass:()=>'',continentClass:()=>''});
+ printable=exporter.renderReportExport({id:'cqww_ms_audit'});const exported=d.createElement('div');exported.innerHTML=printable;
+ check('all four profiles retained in static export',exported.querySelectorAll('.cqww-ms-audit').length===4 && exported.querySelectorAll('.audit-hourly').length===3 && exported.querySelectorAll('.cqww-ms-lock').length===2);
+ check('static exports expand methods and remove inert controls',[...exported.querySelectorAll('details')].every(el=>el.open) && !exported.querySelector('button,input,select') && exported.querySelector('a[href="https://cqwpx.com/rules/"]'));
+ d.querySelector('.cqww-ms-case[data-slot="D"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());check('fourth-slot context source correct',view().textContent.includes('Operating rules audit: Log D, QSO 10') && view().textContent.includes('±15 minutes'));
+ const logExport=exporter.renderLogExport();check('log export retains context',logExport.includes('K2AA') && !logExport.includes('>K0AA<'));
+ d.getElementById('multiplier-clear-log-focus').click();await wait(ready);await audit();
+ const compareMore=[...d.querySelectorAll('details.report-more')].find(el=>el.querySelector('[data-compare-perspective-action="save"]'));compareMore.open=true;compareMore.querySelector('[data-compare-perspective-action="save"]').click();
+ await report('Save&Load session');let saved=null;const create=w.URL.createObjectURL;w.URL.createObjectURL=blob=>{saved=blob;return create.call(w.URL,blob);};d.querySelector('.session-save').click();w.URL.createObjectURL=create;await wait(()=>saved);
+ const savedText=await saved.text();check('saved session contains both contest source types',savedText.includes('CQ-WW-SSB') && savedText.includes('CQ-WPX-SSB'));
+ const stored=JSON.parse(w.localStorage.getItem('sh6_compare_perspectives_v1') || '[]');check('saved perspective retains legacy report id in its existing store',stored.some(item=>item.reportId==='cqww_ms_audit'));
+ const transfer=new w.DataTransfer();transfer.items.add(new w.File([savedText],'session.json',{type:'application/json'}));const input=d.getElementById('sessionFileInput');input.files=transfer.files;input.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>input.value==='' && ready());await report('Save&Load session');
+ d.querySelector('.session-perspective-apply').click();await wait(()=>d.getElementById('viewTitle').textContent==='Operating rules audit' && ready());check('saved legacy-id perspective restores renamed report',d.querySelectorAll('.cqww-ms-audit').length===4);
+ check('no uncaught application errors',errors.length===0);
+ document.getElementById('status').textContent='PASS';
+}catch(error){const f=document.getElementById('app'),s=f.contentWindow.SH6?.getSlotById('A');checks.push({name:error.stack,passed:false,diagnostic:{title:f.contentDocument.getElementById('viewTitle')?.textContent,qsos:s?.qsoData?.qsos?.length,version:s?.logVersion,text:f.contentDocument.getElementById('viewContainer')?.textContent?.slice(0,500)}});document.getElementById('status').textContent='FAIL';}
+document.getElementById('result').textContent=JSON.stringify({checks,errors},null,2);
+if(checks.every(c=>c.passed) && new URLSearchParams(location.search).has('print')) {
+ const style=document.createElement('style');style.textContent=await(await fetch('../style.css')).text();document.head.append(style);
+ document.body.innerHTML=`<div id="status" class="no-print">PASS</div><main class="export-doc"><section class="export-section"><h1>Operating rules audit</h1>${printable}</section></main>`;
+}
+</script></html>

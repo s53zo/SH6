@@ -7,7 +7,7 @@ try {
  const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
  const w=frame.contentWindow,d=frame.contentDocument;
  await wait(()=>w.SH6 && d.querySelector('#navList [data-index]'));
- const nav=()=>[...d.querySelectorAll('#navList [data-index]')].find(el=>el.textContent.trim()==='CQWW M/S rules audit');
+ const nav=()=>[...d.querySelectorAll('#navList [data-index]')].find(el=>el.textContent.trim()==='Operating rules audit');
  check('audit hidden before loading',!nav());
  const text=(op='MULTI-OP',tx='ONE',contest='CQ-WW-SSB',year=2026)=>[
  'START-OF-LOG: 3.0','CALLSIGN: S53TEST','CONTEST: '+contest,'CATEGORY-OPERATOR: '+op,'CATEGORY-TRANSMITTER: '+tx,'CATEGORY-MODE: SSB',
@@ -15,10 +15,10 @@ try {
  `QSO: 21020 PH ${year}-10-24 0009 S53TEST 59 15 K2BB 59 05 0`,'END-OF-LOG:'].join('\n');
  let seq=0;
  const upload=async(content,id='A')=>{const slot=w.SH6.getSlotById(id),version=slot?.logVersion;const count=(content.match(/^QSO:/gm)||[]).length;const dt=new w.DataTransfer();dt.items.add(new w.File([content],`audit-${seq++}.log`));const el=d.getElementById(id==='A'?'fileInput':'fileInput'+id);el.files=dt.files;el.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>w.SH6.getSlotById(id)?.qsoData?.qsos?.length===count && w.SH6.getSlotById(id).logVersion!==version && d.getElementById('viewContainer').getAttribute('aria-busy')!=='true');};
- const open=async()=>{await wait(()=>nav());nav().click();await wait(()=>d.getElementById('viewTitle').textContent==='CQWW M/S rules audit' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');};
+ const open=async()=>{await wait(()=>nav());nav().click();await wait(()=>d.getElementById('viewTitle').textContent==='Operating rules audit' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');};
  await upload(text('SINGLE-OP'));check('hidden for single-op',!nav());
- await upload(text('MULTI-OP','TWO'));check('hidden for multi-two',!nav());
- await upload(text('MULTI-OP','ONE','CQ-WPX-SSB'));check('hidden for other contest',!nav());
+ await upload(text('MULTI-OP','TWO'));check('available for multi-two',!!nav());
+ await upload(text('MULTI-OP','ONE','CQ-WPX-SSB'));check('available for WPX multi-single',!!nav());
  await upload(text());await open();
  check('menu belongs to Quality and Review',nav().closest('.nav-section').querySelector('.nav-section-summary').textContent.includes('Quality & Review'));
  check('M/S activates report and finds early change',d.querySelector('.cqww-ms-audit') && d.getElementById('viewContainer').textContent.includes('1 min early'));
@@ -27,7 +27,7 @@ try {
  const pill=d.querySelector('#bandRibbon [data-band="15M"]');if(pill){pill.click();await wait(()=>d.getElementById('viewContainer').getAttribute('aria-busy')==='false');}
  check('full-log timing preserved under band filter',d.getElementById('viewContainer').textContent.includes('1 min early') && d.getElementById('viewContainer').textContent.includes('2 QSOs'));
  d.querySelector('.cqww-ms-case').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');
- check('case opens ±15 minute context with original event identified',d.getElementById('viewContainer').textContent.includes('CQWW M/S audit: Log A, QSO 2') && d.getElementById('viewContainer').textContent.includes('±15 minutes') && ['K1AA','K2BB'].every(call=>d.getElementById('viewContainer').textContent.includes(call)));
+ check('case opens ±15 minute context with original event identified',d.getElementById('viewContainer').textContent.includes('Operating rules audit: Log A, QSO 2') && d.getElementById('viewContainer').textContent.includes('±15 minutes') && ['K1AA','K2BB'].every(call=>d.getElementById('viewContainer').textContent.includes(call)));
  d.getElementById('multiplier-clear-log-focus').click();await wait(()=>!d.getElementById('multiplier-clear-log-focus'));
  const v26b=[...text().split('\n').filter(line=>!line.startsWith('QSO:')&&!line.startsWith('END-OF-LOG:')),
  'QSO: 1887 PH 2026-10-24 0125 S53TEST 59 15 OE6MMD 59 15 1',
@@ -36,20 +36,20 @@ try {
  'QSO: 7155 PH 2026-10-24 0139 S53TEST 59 15 N7US 59 04 0',
  'QSO: 3743 PH 2026-10-24 0144 S53TEST 59 15 V26B 59 08 1','END-OF-LOG:'].join('\n');
  await upload(v26b);await open();
- check('questionable assignment does not generate a V26B timing accusation',!!d.querySelector('.cqww-ms-qso[data-index="2"]') && !d.querySelector('.cqww-ms-qso[data-index="4"]'));
+ check('questionable assignment does not generate a V26B timing accusation',!!d.querySelector('.audit-findings .cqww-ms-case[data-index="2"]') && !d.querySelector('.audit-findings .cqww-ms-case[data-index="4"]'));
  await upload(text('MULTI-OP','ONE','CQ-WW-SSB',2025));await open();
  check('unverified year never gives clean verdict',d.getElementById('viewContainer').textContent.includes('edition is not supported') && !d.querySelector('.cqww-ms-track'));
  await upload(text());
  const compare=d.querySelector('input[name="compareCount"][value="2"]');compare.checked=true;compare.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>d.getElementById('fileInputB'));
  await upload(text('SINGLE-OP'),'B');await open();
- check('mixed-category comparison has one audit and explicit inapplicable panel',d.querySelectorAll('.cqww-ms-audit').length===1 && d.getElementById('viewContainer').textContent.includes('not CQWW CW/SSB Multi-Single'));
+ check('mixed-category comparison has one audit and explicit inapplicable panel',d.querySelectorAll('.cqww-ms-audit').length===1 && d.getElementById('viewContainer').textContent.includes('no applicable CQWW/CQ WPX'));
  const {createExportRuntime}=await import('../modules/export/runtime.js');
  const exp=createExportRuntime({getState:()=>({}),getReports:()=>[{id:'cqww_ms_audit',title:'CQWW M/S rules audit'}],getActiveCompareSlots:()=>[],withBandContext:(_,fn)=>fn(),withStaticVirtualTableRender:fn=>fn(),renderReport:()=>d.getElementById('viewContainer').innerHTML,escapeHtml:String,escapeAttr:String});
  const html=exp.renderReportExport({id:'cqww_ms_audit'});
  check('static export keeps evidence and removes inert buttons',html.includes('1 min early') && html.includes('Earliest next band UTC') && !html.includes('<button'));
  await upload(text(),'B');await open();
  d.querySelector('.cqww-ms-case[data-slot="B"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && d.getElementById('viewContainer').getAttribute('aria-busy')==='false');
- check('comparison finding opens the selected log context',d.getElementById('viewContainer').textContent.includes('CQWW M/S audit: Log B, QSO 2') && d.getElementById('viewContainer').textContent.includes('±15 minutes') && d.getElementById('viewContainer').textContent.includes('K1AA'));
+ check('comparison finding opens the selected log context',d.getElementById('viewContainer').textContent.includes('Operating rules audit: Log B, QSO 2') && d.getElementById('viewContainer').textContent.includes('±15 minutes') && d.getElementById('viewContainer').textContent.includes('K1AA'));
  document.getElementById('status').textContent='PASS';
 } catch(error){checks.push({name:error.stack,passed:false});document.getElementById('status').textContent='FAIL';}
 document.getElementById('result').textContent=JSON.stringify({checks},null,2);

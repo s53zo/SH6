@@ -6513,14 +6513,7 @@
   }
 
   function updateDataStatus() {
-    const isProxy = (src) => /allorigins\.win|corsproxy\.io/i.test(src || '');
-    const classifySource = (src) => {
-      if (!src) return { mark: '', className: '' };
-      const lower = String(src).toLowerCase();
-      if (lower.includes('azure.s53m.com')) return { mark: '✓', className: 'source-local' };
-      if (lower.includes('allorigins.win') || lower.includes('corsproxy.io')) return { mark: '✓', className: 'source-proxy' };
-      return { mark: '', className: '' };
-    };
+    const { isProxy, classifySource } = window.SH6SourceStatus;
     const setSourceIndicator = (el, src, status) => {
       if (!el) return;
       const info = classifySource(src);

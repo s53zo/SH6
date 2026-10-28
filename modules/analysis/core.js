@@ -5969,14 +5969,75 @@
   }
 
   function evalNumericExpression(expression, vars) {
-    const safe = String(expression || '').replace(/[^A-Za-z0-9_+\-*/().\s]/g, ' ');
-    const replaced = safe.replace(/\b[A-Za-z_][A-Za-z0-9_]*\b/g, (name) => {
-      const val = Number(vars[name]);
-      return Number.isFinite(val) ? String(val) : '0';
-    });
+    // Parse arithmetic as data. Never repair invalid text or execute it as JS.
+    const text = String(expression || '');
+    if (!text.trim() || text.length > 4096 || /\+\+|--|\/\/|\/\*|\*\*/.test(text)) return null;
+    let position = 0;
+    let depth = 0;
+    const skipSpace = () => {
+      while (position < text.length && /\s/.test(text[position])) position += 1;
+    };
+    const invalid = () => { throw new Error('Invalid arithmetic expression'); };
+    const factor = () => {
+      skipSpace();
+      depth += 1;
+      if (depth > 128) invalid();
+      let value;
+      const char = text[position];
+      if (char === '+' || char === '-') {
+        position += 1;
+        value = factor();
+        if (char === '-') value = -value;
+      } else if (char === '(') {
+        position += 1;
+        value = sum();
+        skipSpace();
+        if (text[position] !== ')') invalid();
+        position += 1;
+      } else {
+        const remaining = text.slice(position);
+        const literal = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/.exec(remaining);
+        const name = literal ? null : /^[A-Za-z_][A-Za-z0-9_]*/.exec(remaining);
+        if (literal) {
+          position += literal[0].length;
+          value = Number(literal[0]);
+        } else if (name && Object.prototype.hasOwnProperty.call(vars, name[0])) {
+          position += name[0].length;
+          value = Number(vars[name[0]]);
+        } else invalid();
+      }
+      depth -= 1;
+      if (!Number.isFinite(value)) invalid();
+      return value;
+    };
+    const product = () => {
+      let value = factor();
+      skipSpace();
+      while (text[position] === '*' || text[position] === '/') {
+        const operator = text[position++];
+        const right = factor();
+        value = operator === '*' ? value * right : value / right;
+        if (!Number.isFinite(value)) invalid();
+        skipSpace();
+      }
+      return value;
+    };
+    const sum = () => {
+      let value = product();
+      skipSpace();
+      while (text[position] === '+' || text[position] === '-') {
+        const operator = text[position++];
+        const right = product();
+        value = operator === '+' ? value + right : value - right;
+        if (!Number.isFinite(value)) invalid();
+        skipSpace();
+      }
+      return value;
+    };
     try {
-      const out = Function(`"use strict"; return (${replaced});`)();
-      return Number.isFinite(out) ? Math.round(out) : null;
+      const out = sum();
+      skipSpace();
+      return position === text.length && Number.isFinite(out) ? Math.round(out) : null;
     } catch (err) {
       return null;
     }
@@ -6020,7 +6081,11 @@
       new_zone_bonus: pointState.newZoneBonus || 0,
       new_region_bonus: pointState.newRegionBonus || 0
       ,
-      operator_qrp_bonus: /\/QRP/i.test(station.stationCall || '') ? 20 : 0
+      operator_qrp_bonus: /\/QRP/i.test(station.stationCall || '') ? 20 : 0,
+      // Preserve the existing zero placeholders for these external factors.
+      // Their incomplete rules withhold final scores in the scoring summary.
+      objective_multiplier_plus_one: 0,
+      official_adjudicated_multipliers: 0
     };
     if (String(rule?.id || '') === 'volta_rtty_2026') {
       assumptions.add('Applied current VOLTA RTTY valid-QSO-count × exchange-points × multipliers formula.');
@@ -6133,13 +6198,17 @@
     }
     let expression = formulaRaw;
     if (formulaRaw.includes(';')) {
-      const parts = formulaRaw.split(';').map((p) => p.trim()).filter(Boolean);
-      const selected = station.stationIsRu
-        ? (parts.find((p) => p.toLowerCase().includes('ru_score')) || parts[parts.length - 1])
-        : (parts.find((p) => p.toLowerCase().includes('non_ru_score')) || parts[0]);
-      expression = selected || formulaRaw;
+      const parts = formulaRaw.split(';').map((p) => p.trim());
+      // Only the existing two-branch RDA notation is a multi-expression formula.
+      if (parts.length === 2 && parts.every((part) => /^(?:non_ru_score|ru_score)\s*=/.test(part))
+        && new Set(parts.map((part) => part.split('=')[0].trim())).size === 2) {
+        const selected = station.stationIsRu
+          ? (parts.find((p) => p.toLowerCase().includes('ru_score')) || parts[parts.length - 1])
+          : (parts.find((p) => p.toLowerCase().includes('non_ru_score')) || parts[0]);
+        expression = selected || formulaRaw;
+      }
     }
-    if (expression.includes('=')) expression = expression.split('=').slice(1).join('=').trim();
+    expression = expression.replace(/^(?:score|non_ru_score|ru_score)\s*=\s*/, '');
     const score = evalNumericExpression(expression, vars);
     if (score == null) {
       assumptions.add(`Formula evaluation fallback used: ${formulaRaw}`);

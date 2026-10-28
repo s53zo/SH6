@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Source status security smoke</title>
+<h1>Source status security smoke</h1>
+<p id="status">RUNNING</p>
+<pre id="result"></pre>
+<iframe id="app" src="../index.html" title="SH6"></iframe>
+<script>
+(async () => {
+  const checks = [];
+  try {
+    const frame = document.getElementById('app');
+    const deadline = Date.now() + 30000;
+    while (typeof frame.contentWindow.SH6?.setSpotHunterStatus !== 'function') {
+      if (Date.now() > deadline) throw new Error('Application status API did not initialize');
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const win = frame.contentWindow;
+    const label = win.document.getElementById('spotHunterSourceLabel');
+    const status = win.document.getElementById('spotHunterStatus');
+    const cases = [
+      ['https://azure.s53m.com/spots', 'source-local'],
+      ['https://corsproxy.io/?https%3A%2F%2Fexample.org', 'source-proxy'],
+      ['https://api.allorigins.win/raw?url=https%3A%2F%2Fexample.org', 'source-proxy'],
+      ['./cty.dat', ''], ['https://', ''],
+      ['https://azure.s53m.com.attacker.invalid/', ''],
+      ['https://attacker.invalid/?source=corsproxy.io', ''],
+      ['https://corsproxy.io@attacker.invalid/', '']
+    ];
+    for (const [source, kind] of cases) {
+      win.SH6.setSpotHunterStatus('ready', { source });
+      if (label.textContent !== (kind ? '✓' : '') || label.classList.contains('hidden') !== !kind
+        || (kind && !label.classList.contains(kind))
+        || label.title !== (kind ? source : '')
+        || status.textContent !== (kind === 'source-proxy' ? 'OK - Ready' : 'OK')) {
+        throw new Error(`Incorrect ready badge/status for ${source}`);
+      }
+      win.SH6.setSpotHunterStatus('loading', { source });
+      if (!label.classList.contains('hidden') || label.textContent !== ''
+        || status.textContent !== (kind === 'source-proxy' ? 'proxy loading' : 'loading')
+        || status.classList.contains('status-proxy-loading') !== (kind === 'source-proxy')) {
+        throw new Error(`Incorrect loading badge/status for ${source}`);
+      }
+      win.SH6.setSpotHunterStatus('error', { source });
+      if (!label.classList.contains('hidden') || label.textContent !== '' || status.textContent !== 'error') {
+        throw new Error(`Incorrect error badge/status for ${source}`);
+      }
+      checks.push({ source, passed: true });
+    }
+    document.getElementById('status').textContent = 'PASS';
+    document.getElementById('result').textContent = JSON.stringify({ checks }, null, 2);
+  } catch (error) {
+    document.getElementById('status').textContent = 'FAIL';
+    document.getElementById('result').textContent = JSON.stringify({ checks, error: error.message }, null, 2);
+  }
+})();
+</script>
+</html>

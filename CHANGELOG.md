@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.44 (2026-10-29)
+
+- Release the reviewed operating-rules audit together with the formula-evaluation and source-status security fixes.
+- Advance application and cache references to v6.3.44 after validating the combined commits.
+
 ## v6.3.43 (2026-10-29)
 
 - Extend Operating rules audit to verified 2026 CQWW CW/SSB M/S and M/2 plus CQ WPX CW/SSB M/S and M/2, retaining the legacy report ID and CQWW residence protections.

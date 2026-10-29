@@ -42,7 +42,7 @@ try {
  await upload(text());
  const compare=d.querySelector('input[name="compareCount"][value="2"]');compare.checked=true;compare.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>d.getElementById('fileInputB'));
  await upload(text('SINGLE-OP'),'B');await open();
- check('mixed-category comparison has one audit and explicit inapplicable panel',d.querySelectorAll('.cqww-ms-audit').length===1 && d.getElementById('viewContainer').textContent.includes('no applicable CQWW/CQ WPX'));
+ check('mixed-category comparison has one audit and explicit inapplicable panel',d.querySelectorAll('.cqww-ms-audit').length===1 && d.getElementById('viewContainer').textContent.includes('no applicable operating-rules'));
  const {createExportRuntime}=await import('../modules/export/runtime.js');
  const exp=createExportRuntime({getState:()=>({}),getReports:()=>[{id:'cqww_ms_audit',title:'CQWW M/S rules audit'}],getActiveCompareSlots:()=>[],withBandContext:(_,fn)=>fn(),withStaticVirtualTableRender:fn=>fn(),renderReport:()=>d.getElementById('viewContainer').innerHTML,escapeHtml:String,escapeAttr:String});
  const html=exp.renderReportExport({id:'cqww_ms_audit'});

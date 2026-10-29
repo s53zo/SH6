@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.46 (2026-10-29)
+
+- Add edition-aware Operating rules audits for CQWW RTTY and CQ WPX RTTY M/S and M/2 (2007–2026), ARRL DX CW/SSB M/S and M/2 (2012–2026), and verified EUHFC all-band single-op editions.
+- Apply historical limits, including ARRL M/S six changes through 2021 and ten from 2022, plus the published WPX RTTY 2011 M/2 ten-change exception. Count EUHFC Mixed band/mode changes together; exempt the actual Unlimited category and leave cancelled/unverified editions unchecked.
+- Expand the official annual source inventory to 120 editions and add year-by-year model and full-app browser coverage. Preserve scoring, source contacts, existing CQWW/WPX checks and log-context navigation. Advance application/cache references to v6.3.46.
+
 ## v6.3.45 (2026-10-29)
 
 - Extend archived CW/SSB operating audits to CQWW M/S 2000–2026, CQWW M/2 2002–2026, WPX M/S 2009–2026 and WPX M/2 2003–2026, with the actual edition's source links and an annual verification inventory.

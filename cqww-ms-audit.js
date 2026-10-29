@@ -4,8 +4,9 @@
   if(!globalThis.SH6OperatingAuditProfiles || !globalThis.SH6OperatingAuditEvidence || !globalThis.SH6OperatingAuditChanges || !globalThis.SH6OperatingAuditView) return;
   const MINUTE = 60000;
   const utc = v => new Date(v*MINUTE).toISOString().slice(0,16).replace('T',' ')+'Z';
-  function applicable(meta = {}) {
-    return !!globalThis.SH6OperatingAuditProfiles.identify(meta);
+  function applicable(meta = {}, rawText = '') {
+    const registry=globalThis.SH6OperatingAuditProfiles;
+    return !!registry.identify(registry.sourceMeta(meta,rawText));
   }
   function build(qsos = [], meta = {}, rawText = '') {
     const model=globalThis.SH6OperatingAuditEvidence.prepare(qsos,meta,rawText);

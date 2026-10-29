@@ -9,7 +9,7 @@ const meta=(family='WW',tx='TWO',mode='SSB')=>({contestId:`CQ-${family}-${mode}`
 const build=(qs,m=meta(),raw=source)=>api.build(qs,m,raw);
 const series=(changes,id='0',offset=0)=>Array.from({length:changes+1},(_,i)=>q(offset+i*2,i%2?'40M':'20M',id));
 const hour=(m,id='0',start=0)=>m.hours.find(row=>row.id===id && row.hour===epoch/60000+start);
-assert.equal(registry.profiles.length,5);
+assert.equal(registry.profiles.filter(p=>['CQWW','WPX'].includes(p.family)).length,5);
 assert.equal(api,globalThis.SH6CqwwMsAudit,'public compatibility alias');
 for(const missing of ['profiles','evidence','band-changes','view']) {
  const sandbox={};vm.createContext(sandbox);
@@ -22,7 +22,7 @@ for(const family of ['WW','WPX']) for(const tx of ['ONE','TWO']) for(const mode 
  assert.equal(registry.resolve(meta(family,tx,mode),2025)?.year,2025);
  assert.equal(registry.resolve(meta(family,tx,mode),2027),null);
 }
-for(const m of [meta('WW','UNLIMITED'),{...meta(),categoryOperator:'SINGLE-OP'},meta('WW','TWO','RTTY'),meta('WPX','TWO','RTTY'),{...meta(),categoryStation:'DISTRIBUTED'},meta('IARU')]) assert.equal(api.applicable(m),false);
+for(const m of [meta('WW','UNLIMITED'),{...meta(),categoryOperator:'SINGLE-OP'},{...meta(),categoryStation:'DISTRIBUTED'},meta('IARU')]) assert.equal(api.applicable(m),false);
 for(const [category,expected] of [['M/S','M/S'],['M/2','M/2'],['MULTI-ONE ALL HIGH','M/S'],['MULTI-TWO ALL HIGH','M/2']]) assert.equal(registry.identify({...meta(),categoryOperator:category,categoryTransmitter:''}).category,expected);
 assert.equal(registry.identify({...meta(),categoryOperator:'MULTI-ONE'}),null,'conflicting category is not guessed');
 for(const family of ['WW','WPX']) {

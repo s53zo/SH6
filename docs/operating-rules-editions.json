@@ -1,7 +1,157 @@
 {
   "verified": "2026-10-29",
-  "scope": "CW/SSB operating rules only; SHA-256 identifies reviewed annual documents. Current FAQs supplement, not replace, these annual sources.",
+  "scope": "Operating-rule source inventory for supported contests; hashes identify downloaded official documents or archived official HTML. No hash is asserted for tool-extracted sources. Scoring is independent.",
   "editions": [
+    {
+      "family": "ARRLDX",
+      "year": 2012,
+      "url": "https://web.archive.org/web/20120323050150id_/http://www.arrl.org/arrl-dx",
+      "sha256": "b5c6524415a1af2d69998adbcca48391e17c6fc29ff34d82cbd193cd6046e570",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2013,
+      "url": "https://web.archive.org/web/20130308233859id_/http://www.arrl.org/arrl-dx",
+      "sha256": "b81545bf94d5ccd81ff82dcf92c474e922b4166ea3ecda50736a94fba6f0641b",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2014,
+      "url": "https://web.archive.org/web/20140214013059id_/http://www.arrl.org/arrl-dx",
+      "sha256": "5e7c250cceec336ca33c642341fa90a758cb533caf5be2118ddb3728282921bf",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2015,
+      "url": "https://web.archive.org/web/20150110234939id_/http://www.arrl.org:80/arrl-dx",
+      "sha256": "89c99512cbaabbb2d91af615633e4ea9203c5c79694a24772a34a8d4836d6cb7",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2016,
+      "url": "https://web.archive.org/web/20160112184220id_/http://www.arrl.org/arrl-dx",
+      "sha256": "20502d1e59b63ae9386a86db39fc926a716f241edce3293c225931b2156b6f2c",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2017,
+      "url": "https://web.archive.org/web/20170104134129id_/http://www.arrl.org/arrl-dx",
+      "sha256": "d8cb444a509755dc36a54b461e8ad8869bf278cc6408d48e31c3cd8ed65623b1",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2018,
+      "url": "https://web.archive.org/web/20180125152009id_/http://www.arrl.org:80/arrl-dx",
+      "sha256": "9756e6e16e12aaad76a449628a81fe3ae92c1b9121e8bc388915c023bfc15273",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2019,
+      "url": "https://web.archive.org/web/20190102041600id_/http://www.arrl.org:80/arrl-dx/",
+      "sha256": "3fcd64b7f96b166f35c7efc28032bdea03947db2c194d3ae6d2638913eb79898",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2020,
+      "url": "https://web.archive.org/web/20200107024027id_/http://www.arrl.org/arrl-dx",
+      "sha256": "ccab82e2fda05051ee0656e8a6aa6c086de158552892dcecdc7654e9dc16d2c7",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "url": "https://web.archive.org/web/20210127003542id_/https://contests.arrl.org/ContestRules/DX-Rules.pdf",
+      "sha256": "53af7cecf1ecbd74f5400f8dc577c6751e2d8e6f9eb60d247df5702ce736f6de",
+      "year": 2021,
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "url": "https://web.archive.org/web/20220122072613id_/https://contests.arrl.org/ContestRules/DX-Rules.pdf",
+      "sha256": "05aee6ead91a99e6ca5eb7f6d9d2a818a66ec09232d38280a513024656d7a1c0",
+      "year": 2022,
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "url": "https://web.archive.org/web/20230305174357id_/https://contests.arrl.org/ContestRules/DX-Rules.pdf",
+      "sha256": "e6a22ceadaa2f4de2fee868983f11e04c499c8cdc8378f9ad77c8fedda2769e7",
+      "year": 2023,
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "url": "https://web.archive.org/web/20240108111024id_/https://contests.arrl.org/ContestRules/DX-Rules.pdf",
+      "sha256": "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+      "year": 2024,
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "url": "https://web.archive.org/web/20250306095139id_/https://contests.arrl.org/ContestRules/DX-Rules.pdf",
+      "sha256": "bd87f1b3f635c4cd25c8d80f4b0ca06dca0a4a0f10c819289634492ae1fefee9",
+      "year": 2025,
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "ARRLDX",
+      "year": 2026,
+      "url": "https://contests.arrl.org/ContestRules/DX-Rules.pdf",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "verification": "Official live PDF Version 2.0; section 6.1 and category table, read 2026-10-29."
+    },
     {
       "family": "CQWW",
       "year": 2000,
@@ -282,6 +432,106 @@
       ]
     },
     {
+      "family": "EUHFC",
+      "year": 2010,
+      "url": "https://web.archive.org/web/20100822134746/http://lea.hamradio.si/scc/euhf/euhfcrules.htm",
+      "sha256": "875bffac0e2a7fbf5eafd29347e09da2154d8697bb81fdeea3976557197d9648",
+      "categories": [
+        "SO"
+      ]
+    },
+    {
+      "family": "EUHFC",
+      "year": 2012,
+      "url": "https://web.archive.org/web/20120804233748/http://lea.hamradio.si/scc/euhf/euhfcrules.htm",
+      "sha256": "ec2dd5f6b2c8f9dd824d9af27187044cd6d3b04bfaa068b239ff769ec3314d8c",
+      "categories": [
+        "SO"
+      ]
+    },
+    {
+      "family": "EUHFC",
+      "year": 2013,
+      "url": "https://s5cc.eu/arhiv/scc_novice/2013_1.pdf",
+      "sha256": "b439261a9d608c7c0dcd05439517c85e2e6471597634e85114208d682ac8c4b7",
+      "categories": [
+        "SO"
+      ]
+    },
+    {
+      "family": "EUHFC",
+      "year": 2014,
+      "url": "https://web.archive.org/web/20140413032800/http://lea.hamradio.si/scc/euhf/euhfcrules.htm",
+      "sha256": "03f0bf5325640f7d6e9708414ba5f74d3a5f2ae313f7c3f90535ce5e4da04742",
+      "categories": [
+        "SO"
+      ]
+    },
+    {
+      "family": "EUHFC",
+      "year": 2016,
+      "url": "https://web.archive.org/web/20170510044719/http://lea.hamradio.si/scc/euhf/euhfcrules.htm",
+      "sha256": "6ba8a1bde45dfc27bee3195e17a2bed81235428d4cd3182a2c6b09e7fe1cdd3a",
+      "categories": [
+        "SO"
+      ]
+    },
+    {
+      "family": "EUHFC",
+      "year": 2017,
+      "url": "https://web.archive.org/web/20170807180129id_/http://lea.hamradio.si/scc/euhf/euhfcrules_eng.pdf",
+      "sha256": "b48f7bf985cddcff4cef71dcd9b39a33fd07845bf7c70d1cf6d7524a7e86188f",
+      "categories": [
+        "SO"
+      ],
+      "note": "Official archived PDF explicitly names the 2017 event; section 9 limits band/mode changes to ten per clock hour."
+    },
+    {
+      "family": "EUHFC",
+      "year": 2018,
+      "url": "https://web.archive.org/web/20180110134202/http://lea.hamradio.si/scc/euhf/euhfcrules.htm",
+      "sha256": "ddc71ed6fdb17c59078fd39c47b33117b8fc17fbdaf5cb034a9b0666629e1f26",
+      "categories": [
+        "SO"
+      ]
+    },
+    {
+      "family": "EUHFC",
+      "year": 2020,
+      "url": "https://web.archive.org/web/20200809080530/http://lea.hamradio.si/scc/euhf/euhfcrules.htm",
+      "sha256": "bc10572a8daf23308cc4d5386333db8151622e288949d6ac5099d42182b44fbf",
+      "categories": [
+        "SO"
+      ]
+    },
+    {
+      "family": "EUHFC",
+      "url": "https://web.archive.org/web/20220621091016id_/https://euhf.s5cc.eu/rules/euhfc_rules_latest.pdf",
+      "sha256": "dfd6af3b8f621b36a39b2571b6a5936504a24c2ed8c971b4de4c1cba0c40dacb",
+      "year": 2022,
+      "categories": [],
+      "limitation": "Contest cancelled. The planned rules do not establish an actual 2022 contest.",
+      "interpretation": "https://euhf.s5cc.eu/2022/06/21/euhfc-2022-canceled/"
+    },
+    {
+      "family": "EUHFC",
+      "url": "https://web.archive.org/web/20260420131149id_/https://euhf.s5cc.eu/rules/euhfc_rules_latest.pdf",
+      "sha256": "cb4895df4a48aa799529915b2991fb8e8681610be923acea1b4d4a495a597d52",
+      "year": 2025,
+      "categories": [
+        "SO"
+      ]
+    },
+    {
+      "family": "EUHFC",
+      "year": 2026,
+      "url": "https://euhf.s5cc.eu/rules/euhfc_rules_latest.pdf",
+      "sha256": "c3e1707f29caef528b9be68307c59e75ab5fd555f0da7a44890fa73f7110bba4",
+      "categories": [
+        "SO"
+      ]
+    },
+    {
       "family": "WPX",
       "year": 2000,
       "url": "https://cqwpx.com/rules/2000_cqwpx_rules.pdf",
@@ -543,6 +793,407 @@
       "year": 2026,
       "url": "https://cqwpx.com/rules/2026_cqwpx_rules.pdf",
       "sha256": "38dead919408c47483dfdde6a9bd3a9a5e2ae4a54f24b6beba7b4aa2a7f1f624",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2007,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2007.pdf",
+      "sha256": "160a984cd633b78ca0bf5a0a256e7b724dcad733357e8731cb439c9120d0f206",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2008,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2008.pdf",
+      "sha256": "105bf4d233b5faa9abfbfc841e3454b4d63b54f2802fc841daed55c2d6b10fe6",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2009,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2009.pdf",
+      "sha256": "aabf7ec861f3c6698053b655100f53201be59ad248c19c9a0d1c87ed476ab8fe",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2010,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2010.pdf",
+      "sha256": "bdf79e3d28fb8314069118bed7898f371ee68793e0cc10c7a3a98b74e1a78b37",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2011,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2011.pdf",
+      "sha256": "ae362a3ab44934678e37ceba942fc053ef9e5dcea5de0f0b2dcdc626f53ae09a",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "limitation": "Annual printed rules specify ten changes for both M/S and M/2. Follow this edition, not later eight-change M/2 rules."
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2012,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2012.pdf",
+      "sha256": "87a438d82b69ca3522c6827e7755b34081e9ce3a451b86b6e58273c3249b94f1",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2013,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2013.pdf",
+      "sha256": "3e5cc23900cb744d46a790ae305320bf3fef349041044eb6e6b31aed4517ebab",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2014,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2014_en.pdf",
+      "sha256": "e04f98ff7adcbc7004c2b0254af3a26056aa9e91e7a69ca91d37149c48d0b7c4",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2015,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2015_en.pdf",
+      "sha256": "f9e52fcbe0ab216d0c2fb782e6dce9e2411f79846295b72c96b169d8f6f9278c",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2016,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2016_en.pdf",
+      "sha256": "b046e4ce1682c99742cedc29adb71b1a826b8943441da8571f5a57a489a8e614",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2017,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2017_en.pdf",
+      "sha256": "1baa7a870029b85979cb5690e3807c4da17c358d350339f4efaa8bae6d94bf0d",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2018,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2018_en.pdf",
+      "sha256": "de531fb2ad6a65181f69a23c64a61ff5c987b95d4eb9ef173fe23703e405a24e",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2019,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2019_en.pdf",
+      "sha256": "22a60c0430f7151184fdebf89656f1391bf335f8b8038c0f099adb8d10977c29",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2020,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2020_en.pdf",
+      "sha256": "ebce1b755a559cbf88f821d4a979393b9dfed90d1eddd94201091191c9c1cd6e",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2021,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2021_en.pdf",
+      "sha256": "12162f06b5b8dcb071663fef1e0c1b2e2cf430b34f71694e6324905b62d5d43f",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2022,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2022_en.pdf",
+      "sha256": "03954418721b5c61f520471a4305c8bb6bd79396b306262bb7b744f5daad9fa1",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2023,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2023_en.pdf",
+      "sha256": "34ad6a24cb6207c7ca6c5b3284df6f0bbdaf5695d2917b4802b33edfbfb368ee",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2024,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2024_en.pdf",
+      "sha256": "6aa532535758529de4a3bbaa03d654f30d4481334ea2e92331e3a7c6aa97e025",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2025,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2025_en.pdf",
+      "sha256": "027525e45977fd0c9019eee82ac41c247fe310880943c8145cf474237ace71fe",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPXRTTY",
+      "year": 2026,
+      "url": "https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2026_en.pdf",
+      "sha256": "0b18c90c68455552af51674d16b7dfd20edd087f683eb7c12d8cef785e69c499",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2007,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2007.pdf",
+      "sha256": "ebb4ff115c39b7262001bdf54e9a30a14626116cec4be94f24e8685c0c923a56",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2008,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2008.pdf",
+      "sha256": "d5c64d2570c6bbe74b3391d9f830acfbb924f8a907b472fdc99769033fa5eba7",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2009,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2009.pdf",
+      "sha256": "fc8ab1aa459f9af129ec4f9c6b7f9f0c3ba9c4334ec91fcb98cc8f064acd7b95",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2010,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2010.pdf",
+      "sha256": "4169ab2e110e1da20c351264efa1e5deab55c61b8a00098e11c9e4ebd8291edc",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2011,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2011.pdf",
+      "sha256": "e7d75dd8751ae6d99d9e97c50abe10e966f71e4f759fe301f20d509e3f02244f",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2012,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2012.pdf",
+      "sha256": "edddcde66f1297eecb437e0e9c2abe1127dcd94bce9d2524bc2d0b8b5564ed4f",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2013,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2013.pdf",
+      "sha256": "dcb09e63be27fe3720c148bc81ce51e0adcb4af6cca46df646d8848b64eba91b",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2014,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2014.pdf",
+      "sha256": "c7688c03977b379be3d321c92ba21228f19f8ab6525d643f2ddf41e35b649874",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2015,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2015.pdf",
+      "sha256": "2854d25457bc72651922b00ff9b4cc3ec1c9e55ba047daf918da5fa3d627134d",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2016,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2016.pdf",
+      "sha256": "0d0268b6b51f5721c4977f146c5ae1c5446085da29b0b81dd9f23aaacfe13dd8",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2017,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2017.pdf",
+      "sha256": "81531d0431d240a3f7770429996ed6c85606a06ebba98ea756e7ef9aa61b5931",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2018,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2018.pdf",
+      "sha256": "13b2232e304834f3a2328225b5b39b9572021c4e7705e220a35edf6065f5def1",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2019,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2019.pdf",
+      "sha256": "74445a97050afd661de3f62cc3b01e79622941ec77d2afa80139bf1d44a518fe",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2020,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2020.pdf",
+      "sha256": "3f39a302011cbbbf6a6d1e8e93e79d401223c1f3e3404cfd7f862358659961f8",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2021,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2021.pdf",
+      "sha256": "59fad615f03f53e98b913aee2464147c65824d5a51129f2e64c9a9546347a7f3",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2022,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2022.pdf",
+      "sha256": "7e057f7cb9cf192582c9952cd1ce4a672c9031b6d9883be75e6dfb472a51a47d",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2023,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2023.pdf",
+      "sha256": "bed93f795786c7ce37cdce1af4b9d77ed3ceec63efa80e3c6b92c5f6446c931b",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2024,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2024.pdf",
+      "sha256": "ca6cd61cf3c7dcf297e5bfa93cc42adedd0d7c8454ec431c5110b21af35008da",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2025,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2025.pdf",
+      "sha256": "24b4066a8f9952b114b0ca08f7259ff49d08eb890eea2623400faa38e6316920",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WWRTTY",
+      "year": 2026,
+      "url": "https://cqwwrtty.com/rules/CQWWRTTY_Rules_2026.pdf",
+      "sha256": "c7f73fb86248af949660e3cebd5960cc2e415c082d3ceec8928250b016edc3bf",
       "categories": [
         "M/S",
         "M/2"

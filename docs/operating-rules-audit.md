@@ -1,10 +1,10 @@
-# Operating rules audit — v6.3.45
+# Operating rules audit — v6.3.46
 
 ## Coverage and official verification
 
-Quality & Review → **Operating rules audit** appears for a loaded CQWW/CQ WPX CW or SSB M/S or M/2 category. It is a band-change/residence audit, not a general compliance certificate. Other contests, RTTY, SOAB, operating/off-time limits and penalties are outside scope. Unsupported editions and missing evidence are explicitly not checked.
+Quality & Review → **Operating rules audit** appears for the supported contest/categories below. It is a band-change/residence audit, not a general compliance certificate. Other contest/categories, operating/off-time limits and penalties are outside scope. Unsupported editions and missing evidence are explicitly not checked.
 
-Annual editions were verified on **2026-10-29**, including every intervening year in each enabled range. CW and SSB share the restrictions below. Profiles resolve to the actual log year and link that year's official document; future years are not inferred.
+Annual editions were verified on **2026-10-29**, including every intervening year in each enabled continuous range. Explicit EUHFC year lists retain gaps. CW and SSB share restrictions unless otherwise noted. Profiles resolve to the actual log year and link that year's official document; future years are not inferred.
 
 | Category | Verified editions | Restriction | Scope |
 | --- | --- | --- | --- |
@@ -14,7 +14,19 @@ Annual editions were verified on **2026-10-29**, including every intervening yea
 | CQ WPX M/S | 2010–2026 | 10 changes / UTC clock hour | Whole station, not per radio |
 | CQ WPX M/2 | 2003–2026 | 8 changes / UTC clock hour | Each declared transmitter independently |
 
-The [annual source inventory](operating-rules-editions.json) records official URLs, reviewed document SHA-256 values, enabled categories and limitations for all 54 editions inspected (2000–2026 for each contest). It is evidence metadata, not a runtime network dependency. Tests match every enabled year/category to its inventory entry. Rule profiles remain separate from scoring.
+| CQWW RTTY M/S and M/2 | 2007–2008 | 6 changes / UTC clock hour | Independent RUN/MULT for M/S; each transmitter for M/2 |
+| CQWW RTTY M/S and M/2 | 2009–2026 | 8 changes / UTC clock hour | Same independent scopes |
+| CQ WPX RTTY M/S and M/2 | 2007–2008 | 6 changes / UTC clock hour | M/S station-wide; M/2 per transmitter |
+| CQ WPX RTTY M/S and M/2 | 2009–2010 | 8 changes / UTC clock hour | Same scopes |
+| CQ WPX RTTY M/S | 2011–2026 | 10 changes / UTC clock hour | Whole station |
+| CQ WPX RTTY M/2 | 2011 | 10 changes / UTC clock hour | Each transmitter; printed annual edition |
+| CQ WPX RTTY M/2 | 2012–2026 | 8 changes / UTC clock hour | Each transmitter |
+| ARRL DX CW/SSB M/S | 2012–2021 | 6 changes / UTC clock hour | Whole station |
+| ARRL DX CW/SSB M/S | 2022–2026 | 10 changes / UTC clock hour | Whole station |
+| ARRL DX CW/SSB M/2 | 2012–2026 | 6 changes / UTC clock hour | Each transmitter |
+| EUHFC single-op all-band CW/SSB/Mixed | 2010, 2012–2014, 2016–2018, 2020, 2025–2026 | 10 changes / UTC clock hour | Whole station; Mixed includes mode changes |
+
+The [annual source inventory](operating-rules-editions.json) records official URLs, reviewed document SHA-256 values, enabled categories and limitations for all 120 editions inspected across the six contest families. It is evidence metadata, not a runtime network dependency. Tests match every enabled year/category to its inventory entry. Rule profiles remain separate from scoring.
 
 Historical interpretation:
 
@@ -34,9 +46,19 @@ CQWW FAQ explicitly assigns a boundary change to the destination contact’s hou
 
 The WPX 2013 archived rules have a 2013 heading/magazine issue but a 2012 date-line typo. The current WPX web page is headed 2026 but its SSB date line contains a 2025 typo. Profiles use its explicit 2026 edition and operating restrictions; this audit does not validate contest start/end dates.
 
+### Additional contest interpretation
+
+- [CQWW RTTY annual rules](https://cqwwrtty.com/rules/) and [CQ WPX RTTY annual rules](https://cqwpxrtty.com/rules/) were inspected for every 2007–2026 edition. Their restrictions differ from CW/SSB and must not inherit those profiles. Only 80–10 m bands are valid. CQWW RTTY M/S uses declared RUN 0 / MULT 1 IDs, with independent allowances; this addition checks band changes, not the RTTY MULT station's country/zone/QTH multiplier eligibility.
+- The [2011 WPX RTTY rules](https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2011.pdf) explicitly print ten changes for M/2. The [2012 edition](https://cqwpxrtty.com/rules/WPX_RTTY_Rules_2012.pdf) returns to eight. A visible notice explains this exception for 2011 logs.
+- ARRL's archived annual pages and PDFs establish six changes for M/S through [2021](https://web.archive.org/web/20210127003542id_/https://contests.arrl.org/ContestRules/DX-Rules.pdf), then ten from [2022](https://web.archive.org/web/20220122072613id_/https://contests.arrl.org/ContestRules/DX-Rules.pdf); M/2 remains six per transmitter. Each enabled year has its own verified source; pre-2012 coverage remains disabled.
+- EUHFC Mixed counts transitions between band/mode pairs: changing just the mode counts, while changing band and mode together counts once. Single-mode categories count only band changes. Unordered minutes use the same conservative lower-bound machinery as other profiles. Category declarations come from Cabrillo headers, never the first QSO's mode; missing category mode prevents checking.
+- EUHFC's actual `SINGLE-OP-UNLIMITED` category is exempt. `CATEGORY-ASSISTED: UNLIMITED` only describes spotting assistance and does not disable limits. Experimental single-band categories remain unverified. QRP Mixed is enabled only for the verified 2025/2026 editions, not the older categories that did not include it.
+- EUHFC source snapshots are assigned by the edition printed inside, not their capture dates. For example, one 2017 HTML capture still contains 2016 rules; the separate official PDF explicitly names 2017 and enables that year. A January 2021 PDF capture still describes 2020. The April 2026 capture contains 2025 rules. Missing editions stay disabled; neighbouring rules do not prove their validity.
+- [EUHFC 2022 was cancelled](https://euhf.s5cc.eu/2022/06/21/euhfc-2022-canceled/). Its planned rules are inventoried without enabling an audit. EUHFC 2011, 2015, 2019, 2021, 2023 and 2024 also remain unverified, as do editions after 2026.
+
 ## Architecture and compatibility
 
-- `modules/audit/profiles.js`: immutable, source-backed category/edition profiles; exact CW/SSB contest IDs; modern and legacy M/S/M/2 declarations. Conflicting declarations are not guessed away.
+- `modules/audit/profiles.js`: immutable, source-backed category/edition profiles; exact contest/mode IDs; modern and legacy category declarations. Conflicting declarations are not guessed away.
 - `modules/audit/evidence.js`: timestamp, mode, band, stream and source-provenance validation; malformed/unparsed/X-QSO coverage. Source contacts are referenced, never edited.
 - `modules/audit/band-changes.js`: station/per-stream clock-hour counting and conservative lower bounds.
 - `cqww-ms-audit.js`: compatibility facade and existing CQWW residence checker. Both `SH6OperatingAudit` and `SH6CqwwMsAudit` expose the same API. Missing dependencies leave the optional audit unavailable, not the entire app unusable.
@@ -73,6 +95,7 @@ Required commands (browser prerequisites: agent-browser and, for PDF QA, Chromiu
 ```sh
 node tests/cqww-ms-audit.test.mjs
 node tests/operating-rules-audit.test.mjs
+node tests/operating-rules-additions.test.mjs
 SH6_UI_SMOKE_PAGE=operating-rules-audit-ui-smoke.html bash scripts/run-radio-ui-smoke.sh
 SH6_UI_SMOKE_PAGE=cqww-ms-audit-ui-smoke.html bash scripts/run-radio-ui-smoke.sh
 SH6_UI_SMOKE_PAGE=report-cleanup-normalizer-smoke.html bash scripts/run-radio-ui-smoke.sh
@@ -86,7 +109,7 @@ bash scripts/run-navigation-runtime-smoke.sh
 bash scripts/run-permalink-v3-browser-smoke.sh
 ```
 
-Model coverage includes all four profiles, mode/edition/category gating, exact 8/9 and 10/11 boundaries, A→B→A, cross-hour/midnight carry, unordered minutes, malformed/missing streams and timestamps, reversed input immutability, duplicates, X-QSO and unparsed barriers, unknown country/zone data, V26B, lower-bound first-excess wording and missing optional dependencies.
+Model coverage includes all supported profiles, mode/edition/category gating, exact 8/9 and 10/11 boundaries, A→B→A, cross-hour/midnight carry, unordered minutes, malformed/missing streams and timestamps, reversed input immutability, duplicates, X-QSO and unparsed barriers, unknown country/zone data, V26B, lower-bound first-excess wording and missing optional dependencies.
 
 Browser coverage includes both modes for every profile, single/two/four slots, mixed categories, filters, keyboard disclosures, at-limit versus over-limit, ±15-minute identity/context, static exports, source immutability during audit rendering, saved sessions and legacy-ID perspectives. Existing filtering can recompute its own derived fields; immutability assertions isolate audit rendering rather than attributing pre-existing filter recalculation to the audit.
 
@@ -113,3 +136,13 @@ Temporary browser logs and PDF QA files are under `/tmp`, not shipped assets or 
 - Full-app audit browser suite: 82 checks, including all four categories in 2025, earliest supported editions, WPX 2009 prefix evidence/navigation, the 2010 change, unsupported older logs and mixed historical comparison exports.
 - Version/cache references and changelog are updated together; unrelated working-tree deletions are preserved.
 - Historical release regression checks also pass: legacy CQWW UI (15), scoring browser (149), static-export runtime, operating-time model, both security suites and protected scoring (27 rules/27 alias sets). The legacy UI fixture now waits for Start initialization before uploading, eliminating an observed startup race.
+
+
+## v6.3.46 additional-contest verification
+
+- Source inventory: 120 official editions across six contest families. Every enabled family/category/year resolves to its inspected annual source, including explicit EUHFC gaps. Dates inside documents take precedence over archive capture years.
+- New model suite covers all supported RTTY, ARRL DX and EUHFC years/modes, exact limits and first excess, 2008/2009, 2010/2011, 2011/2012 and ARRL 2021/2022 transitions, independent streams, mode-only changes, combined changes, hour boundaries, unordered evidence, invalid bands/modes/IDs, cancelled/future/unverified editions and source immutability.
+- EUHFC category tests distinguish special Unlimited from spotting assistance, restrict QRP to Mixed, and reject first-contact mode fallbacks in Cabrillo/ADIF. A legacy 2017 CATEGORY declaration is exercised through the full app, including menu activation.
+- Full-app audit browser: **126 checks PASS**, zero uncaught errors. Includes all four new contest families/modes/categories, historical exceptions, explicit not-checked states, full-log filter independence, four-slot comparison, expanded static exports and correct ±15-minute source navigation.
+- Existing CQWW/V26B model and browser (15 checks), original shared/historical model, scoring browser (149 checks), static-export runtime, navigation, operating-time model, formula-security and source-status security all PASS. Protected scoring remains 27 rules / 27 alias sets unchanged.
+- Application/cache references and changelog advance to v6.3.46. Unrelated local documentation deletions are excluded from this change.

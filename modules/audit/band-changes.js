@@ -8,7 +8,12 @@
     return bands.includes(previous) && previous!==end?bands.length-1:bands.length;
   }
   function check(model) {
-    const p=model.profile,all=globalThis.SH6OperatingAuditEvidence.BANDS;
+    const p=model.profile;
+    // A band+mode pair is one state: changing both simultaneously is one
+    // transition. For single-mode categories the original band counter remains.
+    const all=p.countMode?p.bands.flatMap(b=>['CW','SSB'].map(m=>`${b} ${m}`)):p.bands;
+    const stateOf=e=>p.countMode?`${e.band} ${e.mode}`:e.band;
+    const changeLabel=p.countMode?'band/mode':'band';
     const ids=p.perStream?['0','1']:['station'];
     const rows=[];
     for(const id of ids) {
@@ -39,7 +44,7 @@
           const cost=Math.min(...previous.values());
           previous=new Map(all.map(b=>[b,cost]));row.uncertain=true;
         }
-        const bands=[...new Set(group.map(e=>e.band))].sort();
+        const bands=[...new Set(group.map(stateOf))].sort();
         const next=new Map();
         for(const end of bands) next.set(end,Math.min(...[...previous].map(([before,cost])=>cost+minimumStep(before,bands,end))));
         const count=Math.min(...next.values()),ambiguous=bands.length>1;
@@ -50,7 +55,7 @@
         }
         row.count=count;
         if(count>p.limit && !row.finding) {
-          model.findings.push({kind:'Changes',index:group[0].index,minute,id,band:bands.join(' / '),hour,priorIndex:lastIndex,minimum:row.uncertain || ambiguous,detail:`${row.uncertain?'At least ':''}${count} band changes in UTC hour ${new Date(hour*60000).toISOString().slice(0,13).replace('T',' ')}:00; allowance ${p.limit}. ${row.uncertain?'By this minute the minimum exceeds the allowance; the exact first excess contact may be earlier.':'This contact establishes the change above the allowance.'} See the hour’s preceding band sequence.`});
+          model.findings.push({kind:'Changes',index:group[0].index,minute,id,band:bands.join(' / '),hour,priorIndex:lastIndex,minimum:row.uncertain || ambiguous,detail:`${row.uncertain?'At least ':''}${count} ${changeLabel} changes in UTC hour ${new Date(hour*60000).toISOString().slice(0,13).replace('T',' ')}:00; allowance ${p.limit}. ${row.uncertain?'By this minute the minimum exceeds the allowance; the exact first excess contact may be earlier.':'This contact establishes the change above the allowance.'} See the hour’s preceding band sequence.`});
           row.finding=true;
         }
         // A same-minute excluded/unknown record might occur after the known

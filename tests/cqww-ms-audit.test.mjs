@@ -9,7 +9,7 @@ const source='START-OF-LOG: 3.0\n';
 const q=(minute,band='20M',id='0',extra={})=>({ts:Date.UTC(2026,9,24,0,minute),band,mode:'SSB',txId:id,call:'K1AA',country:'United States',cqZone:5,...extra});
 const build=(qs,raw=source)=>api.build(qs,meta,raw);
 assert.ok(api.applicable(meta));
-for(const extra of [{contestId:'CQ-WW-RTTY'},{categoryOperator:'SINGLE-OP'},{categoryTransmitter:'UNLIMITED'},{categoryStation:'DISTRIBUTED'}]) assert.equal(api.applicable({...meta,...extra}),false);
+for(const extra of [{categoryOperator:'SINGLE-OP'},{categoryTransmitter:'UNLIMITED'},{categoryStation:'DISTRIBUTED'}]) assert.equal(api.applicable({...meta,...extra}),false);
 assert.ok(api.applicable({...meta,categoryOperator:'M/S',categoryTransmitter:''}));
 assert.equal(build([q(0)],'ADIF').checked,false);
 assert.equal(build([q(0,'20M','0',{ts:Date.UTC(1999,9,25)})]).checked,false);

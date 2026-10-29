@@ -19,7 +19,46 @@ try {
  let auditImmutable=true;
  const audit=async()=>{await wait(ready);const originals=['A','B','C','D'].map(id=>w.SH6.getSlotById(id)?.fullQsoData?.qsos).filter(Boolean).map(list=>({list,json:JSON.stringify(list)}));await report('Operating rules audit');auditImmutable=auditImmutable && originals.every(({list,json})=>JSON.stringify(list)===json);};
  const view=()=>d.getElementById('viewContainer');
+ const batchLog=(contest,tx,mode,n,year=2026,id='0',op='MULTI-OP')=>[
+  'START-OF-LOG: 3.0','CALLSIGN: S53TEST',`CONTEST: ${contest}`,`CATEGORY-OPERATOR: ${op}`,`CATEGORY-TRANSMITTER: ${tx}`,
+  `CATEGORY-MODE: ${mode}`,'CATEGORY-BAND: ALL','CATEGORY-POWER: HIGH','CATEGORY-ASSISTED: NON-ASSISTED',
+  ...Array.from({length:n+1},(_,i)=>`QSO: ${mode==='MIXED'?14020:i%2?7020:14020} ${mode==='RTTY'?'RY':mode==='CW' || mode==='MIXED' && i%2===0?'CW':'PH'} ${year}-08-01 00${String(i*2).padStart(2,'0')} S53TEST 599 15 DL${i}AA 599 14${op==='SINGLE-OP' || tx==='ONE' && !contest.startsWith('CQ-WW-')?'':' '+id}`),'END-OF-LOG:'
+ ].join('\n');
  check('hidden with no log',!nav('Operating rules audit'));
+ for(const [contest,tx,mode,limit,op] of [
+  ['EU-HF','ONE','MIXED',10,'SINGLE-OP'],['EU-HF','ONE','CW',10,'SINGLE-OP'],['EU-HF','ONE','SSB',10,'SINGLE-OP'],
+  ['CQ-WW-RTTY','ONE','RTTY',8,'MULTI-OP'],['CQ-WW-RTTY','TWO','RTTY',8,'MULTI-OP'],
+  ['CQ-WPX-RTTY','ONE','RTTY',10,'MULTI-OP'],['CQ-WPX-RTTY','TWO','RTTY',8,'MULTI-OP'],
+  ['ARRL-DX-CW','ONE','CW',10,'MULTI-OP'],['ARRL-DX-CW','TWO','CW',6,'MULTI-OP'],
+  ['ARRL-DX-SSB','ONE','SSB',10,'MULTI-OP'],['ARRL-DX-SSB','TWO','SSB',6,'MULTI-OP']
+ ]) {
+  await upload(batchLog(contest,tx,mode,limit+1,2026,'0',op));await audit();
+  check(`${contest} ${tx} ${mode} audit activated`,!!d.querySelector('.audit-hourly') && view().textContent.includes(`${limit+1} / ${limit}`) && view().textContent.includes('Over limit'));
+  check(`${contest} ${tx} ${mode} has traceable evidence`,!!d.querySelector('.cqww-ms-case[data-slot="A"]') && !!view().querySelector('.report-more a'));
+  if(contest==='EU-HF' && mode==='MIXED') check('EUHFC counts same-band mode changes',view().textContent.includes('Band/mode changes') && d.querySelector('.audit-hourly').textContent.includes('11 / 10'));
+  if(contest==='CQ-WW-RTTY' && tx==='ONE') check('RTTY M/S uses declared functional labels',view().textContent.includes('RUN (0)') && view().textContent.includes('MULT (1)'));
+ }
+ for(const [contest,tx,year,limit] of [['CQ-WPX-RTTY','ONE',2007,6],['CQ-WPX-RTTY','ONE',2009,8],['CQ-WPX-RTTY','TWO',2011,10],['CQ-WPX-RTTY','TWO',2012,8],['CQ-WW-RTTY','ONE',2008,6],['CQ-WW-RTTY','ONE',2009,8],['ARRL-DX-CW','ONE',2013,6]]) {
+  const mode=contest==='ARRL-DX-CW'?'CW':'RTTY';await upload(batchLog(contest,tx,mode,limit+1,year));await audit();
+  check(`${contest} ${tx} ${year} applies historical limit ${limit}`,view().textContent.includes(`${limit+1} / ${limit}`) && !!view().querySelector('a[href*="'+year+'"]'));
+ }
+ await upload(batchLog('EU-HF','ONE','MIXED',11,2026,'0','SINGLE-OP').replace('CATEGORY-ASSISTED: NON-ASSISTED','CATEGORY-ASSISTED: UNLIMITED'));await audit();
+ check('EUHFC spotting assistance does not exempt band changes',view().textContent.includes('11 / 10'));
+ d.querySelector('.cqww-ms-case').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
+ check('EUHFC mixed-mode finding opens source ±15-minute context',view().textContent.includes('QSO 12') && view().textContent.includes('±15 minutes') && view().textContent.includes('DL11AA'));
+ d.getElementById('multiplier-clear-log-focus').click();await wait(ready);
+ await upload(batchLog('EU-HF','ONE','MIXED',11,2026,'0','SINGLE-OP-UNLIMITED'));check('special EUHFC Unlimited category exempt',!nav('Operating rules audit'));
+ await upload(batchLog('EU-HF','ONE','CW',11,2026,'0','SINGLE-OP').replace('CATEGORY-MODE: CW\n',''));await audit();
+ check('EUHFC first-contact mode is not treated as a category declaration',view().textContent.includes('Insufficient evidence') && !d.querySelector('.audit-hourly'));
+ await upload(batchLog('EU-HF','ONE','MIXED',11,2022,'0','SINGLE-OP'));await audit();
+ check('cancelled EUHFC edition is explicitly not checked',view().textContent.includes('2022 was cancelled') && !d.querySelector('.audit-hourly'));
+ await upload(batchLog('EU-HF','ONE','MIXED',11,2021,'0','SINGLE-OP'));await audit();
+ check('EUHFC capture date does not enable an unverified edition',view().textContent.includes('Unsupported edition') && !d.querySelector('.audit-hourly'));
+ await upload(batchLog('EU-HF','ONE','MIXED',11,2025,'0','SINGLE-OP').replace('CATEGORY-POWER: HIGH','CATEGORY-POWER: QRP'));await audit();
+ check('EUHFC verified QRP Mixed category retains ten changes',view().textContent.includes('11 / 10'));
+ const legacyEu=batchLog('EU-HF','ONE','MIXED',11,2017,'0','SINGLE-OP').split('\n').filter(line=>!line.startsWith('CATEGORY-')).join('\n').replace('CONTEST: EU-HF','CONTEST: EU-HF\nCATEGORY: SINGLE-OP ALL HIGH MIXED');
+ await upload(legacyEu);await audit();
+ check('legacy EUHFC category enables menu and correct Mixed historical profile',view().textContent.includes('11 / 10') && view().textContent.includes('Band/mode changes') && view().textContent.includes('2017'));
  for(const mode of ['SSB','CW']) for(const [family,tx,limit] of [['WW','ONE',null],['WW','TWO',8],['WPX','ONE',10],['WPX','TWO',8]]) {
   await upload(limit==null?residence(mode).replaceAll('2026-','2025-'):lines(family,tx,limit+1,mode,'0',2025));await audit();
   check(`${family} ${tx} ${mode} 2025 archive profile`,view().textContent.includes('2025') && !view().textContent.includes('Unsupported edition') && !!view().querySelector('a[href*="2025_"]'));
@@ -84,7 +123,7 @@ try {
  d.getElementById('multiplier-clear-log-focus').click();await wait(ready);
  await upload(lines('WW','TWO',9,'SSB','0',1999));await audit();check('old edition explicitly not checked',view().textContent.includes('Unsupported edition') && !d.querySelector('.audit-hourly'));
  await upload(lines('WW','ONE',1).replace('CATEGORY-OPERATOR: MULTI-OP','CATEGORY-OPERATOR: SINGLE-OP'));check('single-op not activated',!nav('Operating rules audit'));
- await upload(lines('WW','TWO',9).replaceAll('CQ-WW-SSB','CQ-WW-RTTY'));check('RTTY not activated',!nav('Operating rules audit'));
+ await upload(lines('WW','TWO',9).replaceAll('CQ-WW-SSB','CQ-WW-RTTY'));await audit();check('RTTY category activated with explicit wrong-mode evidence',!!nav('Operating rules audit') && !!d.querySelector('.audit-findings') && view().textContent.includes('Data'));
  const count=d.querySelector('input[name="compareCount"][value="4"]');count.checked=true;count.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>d.getElementById('fileInputD'));
  const fixtures=[residence().replaceAll('2026-','2025-'),lines('WW','TWO',9,'SSB','0',2002),lines('WPX','ONE',11,'SSB','0',2010),lines('WPX','TWO',9,'SSB','0',2003)];
  for(let i=0;i<4;i++) await upload(fixtures[i],['A','B','C','D'][i]);await audit();
@@ -110,6 +149,18 @@ try {
  const stored=JSON.parse(w.localStorage.getItem('sh6_compare_perspectives_v1') || '[]');check('saved perspective retains legacy report id in its existing store',stored.some(item=>item.reportId==='cqww_ms_audit'));
  const transfer=new w.DataTransfer();transfer.items.add(new w.File([savedText],'session.json',{type:'application/json'}));const input=d.getElementById('sessionFileInput');input.files=transfer.files;input.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>input.value==='' && ready());await report('Save&Load session');
  d.querySelector('.session-perspective-apply').click();await wait(()=>d.getElementById('viewTitle').textContent==='Operating rules audit' && ready());check('saved legacy-id perspective restores renamed report',d.querySelectorAll('.cqww-ms-audit').length===4);
+ const nextFixtures=[batchLog('EU-HF','ONE','MIXED',11,2026,'0','SINGLE-OP'),batchLog('CQ-WW-RTTY','ONE','RTTY',9),batchLog('CQ-WPX-RTTY','TWO','RTTY',9),batchLog('ARRL-DX-CW','TWO','CW',7)];
+ for(let i=0;i<4;i++) await upload(nextFixtures[i],['A','B','C','D'][i]);await audit();
+ check('four new contest families coexist with independent source profiles',d.querySelectorAll('.cqww-ms-audit').length===4 && d.querySelectorAll('.audit-hourly').length===4 && ['EU-HF','CQ-WW-RTTY','CQ-WPX-RTTY','ARRL-DX-CW'].every(id=>view().textContent.includes(id)));
+ const newFullText=view().textContent;Object.assign(state,{globalBandFilter:'10M',globalRadioFilter:'1',logSearch:'ABSENT'});await audit();
+ check('new contest audits also ignore display filters',view().textContent===newFullText);
+ Object.assign(state,{globalBandFilter:'',globalRadioFilter:'',logSearch:''});await audit();
+ const nextExport=d.createElement('div');nextExport.innerHTML=exporter.renderReportExport({id:'cqww_ms_audit'});
+ check('new family exports retain mode sequences and expanded sources',nextExport.querySelectorAll('.audit-hourly').length===4 && nextExport.textContent.includes('Band/mode') && !nextExport.querySelector('button') && [...nextExport.querySelectorAll('details')].every(el=>el.open));
+ printable=nextExport.innerHTML;
+ d.querySelector('.cqww-ms-case[data-slot="D"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
+ check('ARRL finding opens correct fourth comparison source',view().textContent.includes('Operating rules audit: Log D, QSO 8') && view().textContent.includes('±15 minutes') && view().textContent.includes('DL7AA'));
+ check('new audit models preserve source contacts',auditImmutable);
  check('no uncaught application errors',errors.length===0);
  document.getElementById('status').textContent='PASS';
 }catch(error){const f=document.getElementById('app'),s=f.contentWindow.SH6?.getSlotById('A');checks.push({name:error.stack,passed:false,diagnostic:{title:f.contentDocument.getElementById('viewTitle')?.textContent,qsos:s?.qsoData?.qsos?.length,version:s?.logVersion,text:f.contentDocument.getElementById('viewContainer')?.textContent?.slice(0,500)}});document.getElementById('status').textContent='FAIL';}

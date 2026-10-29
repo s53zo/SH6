@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.45 (2026-10-29)
+
+- Extend archived CW/SSB operating audits to CQWW M/S 2000–2026, CQWW M/2 2002–2026, WPX M/S 2009–2026 and WPX M/2 2003–2026, with the actual edition's source links and an annual verification inventory.
+- Apply the historical WPX M/S ten-minute RUN/MULT rule in 2009, with station-wide prefix eligibility; switch to the ten-change station-wide hourly rule from 2010. Preserve uncertain evidence and prevent used prefixes from creating phantom clocks.
+- Add every-supported-year model checks and historical full-app regressions; retain explicit not-checked states outside verified coverage. Bump application/cache references to v6.3.45.
+
 ## v6.3.44 (2026-10-29)
 
 - Release the reviewed operating-rules audit together with the formula-evaluation and source-status security fixes.

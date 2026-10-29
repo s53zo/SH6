@@ -3,7 +3,6 @@
   'use strict';
   if(!globalThis.SH6OperatingAuditProfiles || !globalThis.SH6OperatingAuditEvidence || !globalThis.SH6OperatingAuditChanges || !globalThis.SH6OperatingAuditView) return;
   const MINUTE = 60000;
-  const BANDS = new Set(['160M','80M','40M','20M','15M','10M']);
   const utc = v => new Date(v*MINUTE).toISOString().slice(0,16).replace('T',' ')+'Z';
   function applicable(meta = {}) {
     return !!globalThis.SH6OperatingAuditProfiles.identify(meta);
@@ -16,9 +15,9 @@
   function checkResidence(model) {
     const {entries,usable,invalid,xCount,findings,periods}=model;
     const unplacedEvidence=usable.length!==entries.length || model.unparsed>0;
-    const seen=new Map(), multStatus=new Map();
+    const seen=new Map(), multStatus=model.profile.multiplierBasis==='prefix'?prefixEligibility(model,unplacedEvidence):new Map();
     // Resolve newness against all earlier station contacts, not just signal 1.
-    for (let i=0;i<usable.length;) {
+    for (let i=0;model.profile.multiplierBasis!=='prefix' && i<usable.length;) {
       let end=i+1;while(end<usable.length && usable[end].minute===usable[i].minute) end++;
       const group=usable.slice(i,end), facts=[];
       for (const e of group) {
@@ -89,6 +88,33 @@
     }
     if(findings.some(f=>f.kind==='Review' || f.kind==='Multiplier')) model.status='Partial';
     return model;
+  }
+  // WPX 2009 uses one prefix multiplier for the entire contest, unlike CQWW's
+  // countries/zones per band. Reuse the analysis core's resolved prefix without
+  // mutating contacts or maintaining a second, subtly different prefix parser.
+  function prefixEligibility(model,unplacedEvidence) {
+    const seen=new Set(),status=new Map();
+    let unknown=false;
+    for(let i=0;i<model.usable.length;) {
+      let end=i+1;while(end<model.usable.length && model.usable[end].minute===model.usable[i].minute) end++;
+      const facts=model.usable.slice(i,end).map(e=>{
+        const value=String(e.q.wpxPrefix || '').trim().toUpperCase();
+        const prefix=/[A-Z]/.test(value) && /^[A-Z0-9]+\d$/.test(value) && !/\/(?:MM|AM)$/i.test(e.q.call || '')?value:null;
+        return {e,prefix};
+      });
+      for(const {e,prefix} of facts) {
+        const tied=facts.some(f=>f.e!==e && (f.prefix===prefix || !f.prefix));
+        const eligible=!!prefix && !seen.has(prefix) && !unknown && !tied && !unplacedEvidence;
+        status.set(e.index,eligible);
+        if(e.id==='1' && !eligible) model.findings.push({kind:'Multiplier',index:e.index,minute:e.minute,id:e.id,band:e.band,detail:prefix && seen.has(prefix)
+          ?'This prefix was already logged, including contacts on other bands. Review multiplier-signal eligibility under the 2009 WPX rules.'
+          :tied?'Prefix first-worked order is ambiguous within this logged minute.'
+            :'Cannot establish a new prefix: resolved prefix or earlier evidence is incomplete.'});
+      }
+      for(const {prefix} of facts) {if(prefix)seen.add(prefix);else unknown=true;}
+      i=end;
+    }
+    return status;
   }
   const render=(...args)=>globalThis.SH6OperatingAuditView.render(...args);
   globalThis.SH6OperatingAudit={applicable,build,render};

@@ -2,7 +2,7 @@
 
 Quality & Review → **Operating rules audit** now includes the CQWW M/S checker described here, CQWW M/2 and CQ WPX M/S/M/2. The public report ID remains `cqww_ms_audit`. See [the shared audit implementation and coverage](operating-rules-audit.md) for profiles, limitations and verification. An ADIF physical radio identifier is not accepted as a functional RUN/MULT assignment.
 
-The first supported edition is **2026**. Other years show a not-checked notice. Reference sources, checked 2026-10-27:
+CQWW M/S supports **2000–2026**, based on annual archived rules and the official historical interpretation. Other years show a not-checked notice. See the shared coverage document and annual source inventory for edition-specific sources. Reference sources, checked 2026-10-29:
 
 - https://cqww.com/rules/ (V.C.1)
 - https://cqww.com/rules/faq.htm (Multi-Single FAQ)

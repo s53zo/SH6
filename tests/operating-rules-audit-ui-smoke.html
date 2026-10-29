@@ -21,6 +21,31 @@ try {
  const view=()=>d.getElementById('viewContainer');
  check('hidden with no log',!nav('Operating rules audit'));
  for(const mode of ['SSB','CW']) for(const [family,tx,limit] of [['WW','ONE',null],['WW','TWO',8],['WPX','ONE',10],['WPX','TWO',8]]) {
+  await upload(limit==null?residence(mode).replaceAll('2026-','2025-'):lines(family,tx,limit+1,mode,'0',2025));await audit();
+  check(`${family} ${tx} ${mode} 2025 archive profile`,view().textContent.includes('2025') && !view().textContent.includes('Unsupported edition') && !!view().querySelector('a[href*="2025_"]'));
+  check(`${family} ${tx} ${mode} 2025 mechanism`,limit==null?d.querySelectorAll('.cqww-ms-lane').length===2:view().textContent.includes(`${limit+1} / ${limit}`) && view().textContent.includes('Over limit'));
+ }
+ for(const [family,tx,year] of [['WW','ONE',2000],['WW','TWO',2002],['WPX','TWO',2003]]) {
+  await upload(tx==='ONE'?residence().replaceAll('2026-',`${year}-`):lines(family,tx,9,'SSB','0',year));await audit();
+  check(`${family} ${tx} first verified edition ${year}`,view().textContent.includes(String(year)) && !!d.querySelector('.cqww-ms-case'));
+ }
+ const oldWpx=[...header('WPX','ONE'),
+  'QSO: 14020 PH 2009-03-28 0000 S53TEST 59 001 K1AA 59 001 0',
+  'QSO: 28020 PH 2009-03-28 0003 S53TEST 59 002 JA1AA 59 001 1',
+  'QSO: 7020 PH 2009-03-28 0005 S53TEST 59 003 K1ZZ 59 001 1',
+  'QSO: 3520 PH 2009-03-28 0013 S53TEST 59 004 VE3AA 59 001 1','END-OF-LOG:'].join('\n');
+ await upload(oldWpx);await audit();
+ check('WPX 2009 uses residence clocks, not modern hourly counter',d.querySelectorAll('.cqww-ms-lane').length===2 && !d.querySelector('.audit-hourly') && view().textContent.includes('2009 rules'));
+ check('WPX 2009 derives prefix evidence and rejects cross-band repeat',!!d.querySelector('.audit-findings .cqww-ms-case[data-index="2"]') && !d.querySelector('.audit-findings .cqww-ms-case[data-index="3"]'));
+ check('WPX 2009 historical interpretation linked',!!view().querySelector('a[href="https://cqwpx.com/blog/survey-results-3-multi-single/"]'));
+ const historicalEvidence=d.querySelector('.cqww-ms-case[data-index="2"]');historicalEvidence.click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
+ check('historical finding retains original context identity',view().textContent.includes('QSO 3') && view().textContent.includes('±15 minutes'));
+ d.getElementById('multiplier-clear-log-focus').click();await wait(ready);
+ await upload(lines('WPX','ONE',11,'SSB','0',2010));await audit();
+ check('WPX 2010 switches to station-wide ten-change counter',!!d.querySelector('.audit-hourly') && !d.querySelector('.cqww-ms-lane') && view().textContent.includes('11 / 10'));
+ await upload(lines('WPX','ONE',9,'SSB','0',2008));await audit();
+ check('unverified old WPX semantics explicitly not checked',view().textContent.includes('Unsupported edition') && !d.querySelector('.audit-hourly') && !d.querySelector('.cqww-ms-lane'));
+ for(const mode of ['SSB','CW']) for(const [family,tx,limit] of [['WW','ONE',null],['WW','TWO',8],['WPX','ONE',10],['WPX','TWO',8]]) {
   await upload(limit==null?residence(mode):lines(family,tx,limit+1,mode));await audit();
   check(`${family} ${tx} ${mode} category/profile visible`,view().textContent.includes('CQ-'+family+'-'+mode) && view().textContent.includes(tx==='ONE'?'M/S':'M/2'));
   check(`${family} ${tx} ${mode} correct mechanism`,limit==null?d.querySelectorAll('.cqww-ms-lane').length===2:!!d.querySelector('.audit-hourly') && view().textContent.includes(`${limit+1} / ${limit}`) && view().textContent.includes('Over limit'));
@@ -57,11 +82,11 @@ try {
  d.querySelector('.cqww-ms-case[data-index="1"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready() && view().textContent.includes('K1AA'));
  check('untimed finding falls back to exact source contact',view().textContent.includes('QSO 2') && view().textContent.includes('exact-QSO focus') && !view().textContent.includes('±15 minutes'));
  d.getElementById('multiplier-clear-log-focus').click();await wait(ready);
- await upload(lines('WW','TWO',9,'SSB','0',2025));await audit();check('old edition explicitly not checked',view().textContent.includes('Unsupported edition') && !d.querySelector('.audit-hourly'));
+ await upload(lines('WW','TWO',9,'SSB','0',1999));await audit();check('old edition explicitly not checked',view().textContent.includes('Unsupported edition') && !d.querySelector('.audit-hourly'));
  await upload(lines('WW','ONE',1).replace('CATEGORY-OPERATOR: MULTI-OP','CATEGORY-OPERATOR: SINGLE-OP'));check('single-op not activated',!nav('Operating rules audit'));
  await upload(lines('WW','TWO',9).replaceAll('CQ-WW-SSB','CQ-WW-RTTY'));check('RTTY not activated',!nav('Operating rules audit'));
  const count=d.querySelector('input[name="compareCount"][value="4"]');count.checked=true;count.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>d.getElementById('fileInputD'));
- const fixtures=[residence(),lines('WW','TWO',9),lines('WPX','ONE',11),lines('WPX','TWO',9)];
+ const fixtures=[residence().replaceAll('2026-','2025-'),lines('WW','TWO',9,'SSB','0',2002),lines('WPX','ONE',11,'SSB','0',2010),lines('WPX','TWO',9,'SSB','0',2003)];
  for(let i=0;i<4;i++) await upload(fixtures[i],['A','B','C','D'][i]);await audit();
  check('four logs use separate profiles',d.querySelectorAll('.cqww-ms-audit').length===4 && d.querySelectorAll('.audit-hourly').length===3 && d.querySelectorAll('.cqww-ms-lane').length===2);
  const fourText=view().textContent;
@@ -74,7 +99,8 @@ try {
  const exporter=createExportRuntime({getState:()=>state,getSlotById:id=>w.SH6.getSlotById(id),getReports:()=>[{id:'cqww_ms_audit',title:'Operating rules audit'}],getActiveCompareSlots:()=>[],withBandContext:(_,fn)=>fn(),withStaticVirtualTableRender:fn=>fn(),renderReport:()=>view().innerHTML,escapeHtml:String,escapeAttr:String,escapeCall:String,escapeCountry:String,formatBandLabel:w.SH6.formatBandLabel,formatFrequency:String,formatDateSh6:w.SH6.formatDateSh6,bandClass:w.SH6.bandClass,modeClass:()=>'',continentClass:()=>''});
  printable=exporter.renderReportExport({id:'cqww_ms_audit'});const exported=d.createElement('div');exported.innerHTML=printable;
  check('all four profiles retained in static export',exported.querySelectorAll('.cqww-ms-audit').length===4 && exported.querySelectorAll('.audit-hourly').length===3 && exported.querySelectorAll('.cqww-ms-lock').length===2);
- check('static exports expand methods and remove inert controls',[...exported.querySelectorAll('details')].every(el=>el.open) && !exported.querySelector('button,input,select') && exported.querySelector('a[href="https://cqwpx.com/rules/"]'));
+ check('mixed historical comparison exports each actual edition',[2025,2002,2010,2003].every(year=>!!exported.querySelector(`a[href*="/${year}_"]`)));
+ check('static exports expand methods and remove inert controls',[...exported.querySelectorAll('details')].every(el=>el.open) && !exported.querySelector('button,input,select') && exported.querySelector('a[href="https://cqwpx.com/rules/2010_cqwpx_rules.pdf"]'));
  d.querySelector('.cqww-ms-case[data-slot="D"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());check('fourth-slot context source correct',view().textContent.includes('Operating rules audit: Log D, QSO 10') && view().textContent.includes('±15 minutes'));
  const logExport=exporter.renderLogExport();check('log export retains context',logExport.includes('K2AA') && !logExport.includes('>K0AA<'));
  d.getElementById('multiplier-clear-log-focus').click();await wait(ready);await audit();

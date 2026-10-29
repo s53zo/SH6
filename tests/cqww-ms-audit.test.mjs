@@ -12,7 +12,7 @@ assert.ok(api.applicable(meta));
 for(const extra of [{contestId:'CQ-WW-RTTY'},{categoryOperator:'SINGLE-OP'},{categoryTransmitter:'UNLIMITED'},{categoryStation:'DISTRIBUTED'}]) assert.equal(api.applicable({...meta,...extra}),false);
 assert.ok(api.applicable({...meta,categoryOperator:'M/S',categoryTransmitter:''}));
 assert.equal(build([q(0)],'ADIF').checked,false);
-assert.equal(build([q(0,'20M','0',{ts:Date.UTC(2025,9,25)})]).checked,false);
+assert.equal(build([q(0,'20M','0',{ts:Date.UTC(1999,9,25)})]).checked,false);
 assert.equal(build([]).checked,false);
 let m=build([q(0),q(5),q(9,'15M')]);
 assert.equal(m.findings.filter(f=>f.kind==='Timing').length,1);

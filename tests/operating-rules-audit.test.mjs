@@ -9,7 +9,7 @@ const meta=(family='WW',tx='TWO',mode='SSB')=>({contestId:`CQ-${family}-${mode}`
 const build=(qs,m=meta(),raw=source)=>api.build(qs,m,raw);
 const series=(changes,id='0',offset=0)=>Array.from({length:changes+1},(_,i)=>q(offset+i*2,i%2?'40M':'20M',id));
 const hour=(m,id='0',start=0)=>m.hours.find(row=>row.id===id && row.hour===epoch/60000+start);
-assert.equal(registry.profiles.length,4);
+assert.equal(registry.profiles.length,5);
 assert.equal(api,globalThis.SH6CqwwMsAudit,'public compatibility alias');
 for(const missing of ['profiles','evidence','band-changes','view']) {
  const sandbox={};vm.createContext(sandbox);
@@ -19,7 +19,7 @@ for(const missing of ['profiles','evidence','band-changes','view']) {
 }
 for(const family of ['WW','WPX']) for(const tx of ['ONE','TWO']) for(const mode of ['CW','SSB']) {
  const p=registry.resolve(meta(family,tx,mode),2026);assert.ok(p);assert.ok(p.sources.every(s=>s.startsWith('https://')));
- assert.equal(registry.resolve(meta(family,tx,mode),2025),null);
+ assert.equal(registry.resolve(meta(family,tx,mode),2025)?.year,2025);
  assert.equal(registry.resolve(meta(family,tx,mode),2027),null);
 }
 for(const m of [meta('WW','UNLIMITED'),{...meta(),categoryOperator:'SINGLE-OP'},meta('WW','TWO','RTTY'),meta('WPX','TWO','RTTY'),{...meta(),categoryStation:'DISTRIBUTED'},meta('IARU')]) assert.equal(api.applicable(m),false);
@@ -71,7 +71,7 @@ for(const family of ['WW','WPX']) {
  const physical=build(series(9),meta(family),'ADIF export');assert.equal(physical.checked,false);
 }
 assert.equal(build(series(11),meta('WPX','ONE'),'ADIF export').checked,true,'station-wide check does not mistake radios for streams');
-const old=build([q(0,'20M','0',{ts:Date.UTC(2025,0,1)})]);assert.equal(old.checked,false);assert.match(api.render(old),/Unsupported edition/);
+const old=build([q(0,'20M','0',{ts:Date.UTC(1999,0,1)})]);assert.equal(old.checked,false);assert.match(api.render(old),/Unsupported edition/);
 assert.equal(build([q(0,'20M','0',{ts:null})]).status,'Insufficient evidence');
 const uncertainExcess=build([q(0),q(1,'40M'),q(1,'20M'),q(1,'40M'),q(1,'20M'),...Array.from({length:9},(_,i)=>q(i+2,i%2?'20M':'40M'))]);
 assert.ok(uncertainExcess.findings.some(f=>f.kind==='Changes' && f.minimum && /exact first excess contact may be earlier/.test(f.detail)));
@@ -89,3 +89,47 @@ for(const items of [['20M','40M'],['20M','20M','40M'],['20M','40M','15M'],['20M'
  }
 }
 console.log('All four operating-audit profiles, lower bounds, boundaries and compatibility: PASS');
+
+// Annual coverage is verified individually, not extrapolated past the archive.
+const inventory=JSON.parse(fs.readFileSync(new URL('../docs/operating-rules-editions.json',import.meta.url),'utf8'));
+const atYear=(qs,year)=>qs.map(e=>({...e,ts:Date.UTC(year,0,1)+(e.ts-epoch)}));
+for(const family of ['WW','WPX']) for(const tx of ['ONE','TWO']) for(const mode of ['CW','SSB']) for(let year=1999;year<=2027;year++) {
+ const expected=year<=2026 && year>=(family==='WW'?(tx==='ONE'?2000:2002):(tx==='ONE'?2009:2003));
+ const p=registry.resolve(meta(family,tx,mode),year);
+ assert.equal(!!p,expected,`${family} ${tx} ${mode} ${year} coverage`);
+ if(!p) continue;
+ const entry=inventory.editions.find(e=>e.family===p.family && e.year===year);
+ assert.ok(entry?.categories.includes(p.category),'each enabled edition has source evidence');
+ assert.equal(p.sources[0],entry.url);assert.match(entry.sha256,/^[a-f0-9]{64}$/);
+ const list=atYear(series(p.kind==='changes'?p.limit+1:1).map(e=>({...e,mode})),year);
+ const before=JSON.stringify(list),model=build(list,meta(family,tx,mode));
+ assert.equal(model.year,year);assert.equal(model.checked,true);assert.equal(JSON.stringify(list),before);
+ assert.ok(model.findings.some(f=>f.kind===(p.kind==='changes'?'Changes':'Timing')));
+ const markup=api.render(model,list);
+ assert.ok(markup.includes(entry.url));assert.ok(markup.includes(`${year} official rules`));
+}
+assert.match(registry.coverage(meta('WW','ONE')),/2000–2026/);
+assert.match(registry.coverage(meta('WPX','ONE')),/2009, 2010–2026/);
+const wpx2009=qs=>build(atYear(qs,2009),meta('WPX','ONE'));
+let historical=wpx2009([
+ q(0,'20M','0',{wpxPrefix:'K1'}),q(3,'10M','1',{wpxPrefix:'JA1'}),
+ q(10,'15M','0',{wpxPrefix:'K2'}),q(13,'40M','1',{wpxPrefix:'VE3'})
+]);
+assert.equal(historical.profile.kind,'residence');assert.equal(historical.periods.length,4);assert.equal(historical.findings.length,0,'independent WPX 2009 clocks');
+historical=wpx2009([
+ q(0,'20M','0',{wpxPrefix:'K1'}),q(3,'10M','1',{wpxPrefix:'JA1'}),
+ q(5,'40M','1',{wpxPrefix:'K1'}),q(13,'80M','1',{wpxPrefix:'VE3'})
+]);
+assert.ok(historical.findings.some(f=>f.kind==='Multiplier' && f.index===2 && /other bands/.test(f.detail)));
+assert.ok(!historical.findings.some(f=>f.index===3),'used prefix cannot start a phantom MULT clock');
+assert.equal(historical.periods.filter(p=>p.id==='1').length,2);
+historical=wpx2009([q(0,'20M','0',{wpxPrefix:'K1'}),q(3,'10M','1',{wpxPrefix:'JA1'}),q(12,'40M','1',{wpxPrefix:'VE3'})]);
+assert.ok(historical.findings.some(f=>f.kind==='Timing' && f.index===2),'MULT has its own ten-minute clock');
+historical=wpx2009([q(0),q(3,'10M','1',{wpxPrefix:'JA1'})]);
+assert.equal(historical.status,'Partial');assert.equal(historical.periods.filter(p=>p.id==='1').length,0,'missing prefix evidence never establishes newness');
+historical=wpx2009([q(0,'20M','1',{wpxPrefix:'JA1'}),q(0,'40M','0',{wpxPrefix:'JA1'})]);
+assert.ok(historical.findings.some(f=>f.kind==='Multiplier' && /ambiguous/.test(f.detail)));
+assert.equal(build(atYear(series(1),2008),meta('WPX','ONE')).checked,false,'pre-2009 role/timing semantics remain unverified');
+assert.equal(build(atYear(series(1),2010),meta('WPX','ONE'),'ADIF').profile.kind,'changes','2010 removes the MULT clock and needs no functional IDs');
+assert.equal(wpx2009(series(1)).profile.perStream,true);
+console.log('Historical edition inventory, every supported year/mode, and WPX 2009/2010 transition: PASS');

@@ -34,7 +34,7 @@
     model.profile=globalThis.SH6OperatingAuditProfiles.resolve(meta,model.year);
     if(!model.profile) {
       model.status=years.length?'Unsupported edition':'Insufficient evidence';
-      model.notices.push(years.length?'This log’s edition is not supported; no compliance result is available. Verified rule profiles cover 2026 only.':'No reliable timestamps establish the log edition; no timing audit can be performed.');
+      model.notices.push(years.length?`This log’s edition is not supported; no compliance result is available. Verified editions for this category: ${globalThis.SH6OperatingAuditProfiles.coverage(meta)}.`:'No reliable timestamps establish the log edition; no timing audit can be performed.');
       return model;
     }
     const p=model.profile;

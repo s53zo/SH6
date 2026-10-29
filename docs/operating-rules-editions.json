@@ -1,0 +1,552 @@
+{
+  "verified": "2026-10-29",
+  "scope": "CW/SSB operating rules only; SHA-256 identifies reviewed annual documents. Current FAQs supplement, not replace, these annual sources.",
+  "editions": [
+    {
+      "family": "CQWW",
+      "year": 2000,
+      "url": "https://cqww.com/rules/2000_rules_cqww.htm",
+      "sha256": "a05d7f06a8bd8420f46368a90d5e553a9fddee6c4e41a9c0d5d391c87a8dce4e",
+      "categories": [
+        "M/S"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2001,
+      "url": "https://cqww.com/rules/2001_rules_cqww.htm",
+      "sha256": "e8e2ca154c5e0bce0baf77665bc8a327bcbdc86a56a95b884cce19cb659c9e0d",
+      "categories": [
+        "M/S"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2002,
+      "url": "https://cqww.com/rules/2002_rules_cqww.pdf",
+      "sha256": "170498c67b5c4b55c53f388f8bf1cdb53ba16d94db85bc20780a284872709293",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2003,
+      "url": "https://cqww.com/rules/2003_rules_cqww.pdf",
+      "sha256": "e74eec7d028fcddbd86f11c6da7056f8af920307cbb16e4b4ebec32961b07f72",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2004,
+      "url": "https://cqww.com/rules/2004_rules_cqww.pdf",
+      "sha256": "bdc6cb630d3360f6dbc5f1dfb46647d3cfd30aea0491b6032444032e6a9fb9ea",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2005,
+      "url": "https://cqww.com/rules/2005_rules_cqww.pdf",
+      "sha256": "3ec27a7b2b68c3b4ba75630307771b676d2ab362a04a523949ae5f110a42cde6",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2006,
+      "url": "https://cqww.com/rules/2006_rules_cqww.pdf",
+      "sha256": "045b005de04c8303688d598dbee67d8a55791a6496bbb0d579434e81ed1cd531",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2007,
+      "url": "https://cqww.com/rules/2007_rules_cqww.pdf",
+      "sha256": "d61c99d757140eee35a552280ff22cea82714e555dcb31a12e391fe0600aed43",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2008,
+      "url": "https://cqww.com/rules/2008_rules_cqww.pdf",
+      "sha256": "a05ac57b94dba8151335c754154b7056501bae3f0e3885a563dfacd3082eecf4",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2009,
+      "url": "https://cqww.com/rules/2009_rules_cqww.pdf",
+      "sha256": "0c6decd15091cdf1ddda70ce977f80377f5e3f0d160b9b0a0ca0b1eab488e6ef",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2010,
+      "url": "https://cqww.com/rules/2010_rules_cqww.pdf",
+      "sha256": "c2d958af959074833a94f42f9c89907d7039ed2e26b9dc6c6aad0c845cbba7c8",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqww.com/history.htm"
+    },
+    {
+      "family": "CQWW",
+      "year": 2011,
+      "url": "https://cqww.com/rules/2011_rules_cqww.pdf",
+      "sha256": "8460d645e546a00b79ce279a73b07c096a2bee7f1e4c0656b04407bfa47e3ee0",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2012,
+      "url": "https://cqww.com/rules/2012_rules_cqww.pdf",
+      "sha256": "d12e4b36554f087caf44abcb5140f7a854ae2a0657002e2ea06da6559b862269",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2013,
+      "url": "https://cqww.com/rules/2013_rules_cqww.pdf",
+      "sha256": "178fe4162a6831712be8682794928a7f87315fc493e8fe1437b27ce1680d2598",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2014,
+      "url": "https://cqww.com/rules/2014_rules_cqww.pdf",
+      "sha256": "6dd9a99944a3f7bca7df5cb6e2357cf9d1a7e10d92a8536e28e081cdf0932927",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2015,
+      "url": "https://cqww.com/rules/2015_rules_cqww.pdf",
+      "sha256": "78d07ca79d5ebd25b4149ff39a9eb27b52e40c883b51c72ea88e88aa189d4829",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2016,
+      "url": "https://cqww.com/rules/2016_rules_cqww.pdf",
+      "sha256": "5d968b4b0f1b7899743a4bded9f364db7dbb53fa4e14ab0acd9443e1f70c27c8",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2017,
+      "url": "https://cqww.com/rules/2017_rules_cqww.pdf",
+      "sha256": "eb0877c8dc1ab6fdc14f5531311f64ddf827df8429ff327cd6c2d580c6051cd7",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2018,
+      "url": "https://cqww.com/rules/2018_rules_cqww.pdf",
+      "sha256": "7970c37ae76b8b68cdb893ff2b1b33d0dc7ffbae4fb49157076f7b300837dd9c",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2019,
+      "url": "https://cqww.com/rules/2019_rules_cqww.pdf",
+      "sha256": "62997798e2c7a7a001718ead05bc615e3d474db8fd9ae2246bdf93afe538bd1a",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2020,
+      "url": "https://cqww.com/rules/2020_rules_cqww.pdf",
+      "sha256": "cd33221c7b00211fe6dd269432d00332869b56274df59d12baaad74fe50df479",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2021,
+      "url": "https://cqww.com/rules/2021_rules_cqww.pdf",
+      "sha256": "49aecafb8b24e1661e3c70bbaa91c028553b8b5208f7206c2eb9e17b757b132a",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2022,
+      "url": "https://cqww.com/rules/2022_rules_cqww.pdf",
+      "sha256": "87ff2cef77c14e35e6193692e22fdbe458530e78264dc97bc75bcfde57961cdc",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2023,
+      "url": "https://cqww.com/rules/2023_rules_cqww.pdf",
+      "sha256": "897e3530195cef74e4d45665411c109e8b51532533cffd2d31420d0f7900661b",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2024,
+      "url": "https://cqww.com/rules/2024_rules_cqww.pdf",
+      "sha256": "5217f95aae75a002697181ccfcfba9b09087de395c66550fc3580022429f83bb",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2025,
+      "url": "https://cqww.com/rules/2025_rules_cqww.pdf",
+      "sha256": "baca797dd37cb1ac334037de70b119f666172341639b742d156345b88ce92bca",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "CQWW",
+      "year": 2026,
+      "url": "https://cqww.com/rules/2026_rules_cqww.pdf",
+      "sha256": "b7d363270b9d17b1a1fcea6d308a5cb6ac1305879822fd6c9f2c5381e3b7774f",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2000,
+      "url": "https://cqwpx.com/rules/2000_cqwpx_rules.pdf",
+      "sha256": "6b52427a2731c7b7f24f536ac17e934ac875633fa7200b2e892798357ee86036",
+      "categories": [],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2001,
+      "url": "https://cqwpx.com/rules/2001_cqwpx_rules.pdf",
+      "sha256": "f1798a35297f8c65fde16daef72c7b47536fd957ec7828be23198874105f4faf",
+      "categories": [],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2002,
+      "url": "https://cqwpx.com/rules/2002_cqwpx_rules.pdf",
+      "sha256": "65f923f7c43a85145982fb93016655032b87c0656ff10ea81f37d224227fd7d0",
+      "categories": [],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2003,
+      "url": "https://cqwpx.com/rules/2003_cqwpx_rules.pdf",
+      "sha256": "680e85051e5edb8210c302c3b1935a927fc5c8e2f468da513ab66e6ddfef50d1",
+      "categories": [
+        "M/2"
+      ],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2004,
+      "url": "https://cqwpx.com/rules/2004_cqwpx_rules.pdf",
+      "sha256": "1e76acab388f2461cca6f6245de198655b9f57f850ffe24db10a8f3853fc380d",
+      "categories": [
+        "M/2"
+      ],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2005,
+      "url": "https://cqwpx.com/rules/2005_cqwpx_rules.pdf",
+      "sha256": "9f25fa3264aeef35c6327fb0d2c1f3233aa559e277d91921d6813c407a3fc559",
+      "categories": [
+        "M/2"
+      ],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2006,
+      "url": "https://cqwpx.com/rules/2006_cqwpx_rules.pdf",
+      "sha256": "318d7afb1df8e8615847903142684b5af67701f1b455ac70776ff570ac050a3b",
+      "categories": [
+        "M/2"
+      ],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2007,
+      "url": "https://cqwpx.com/rules/2007_cqwpx_rules.pdf",
+      "sha256": "ae4ff9b6f3cb7c7487a064c5b411216839ed0cac820d67575309d452d66a292c",
+      "categories": [
+        "M/2"
+      ],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2008,
+      "url": "https://cqwpx.com/rules/2008_cqwpx_rules.pdf",
+      "sha256": "c9c6dc4fb6db755b5f7a0d63288af2d20bfb2f2787a59a7afb86ea94e7bc2552",
+      "categories": [
+        "M/2"
+      ],
+      "limitation": "M/S not enabled: historical role/timing semantics not fully verified."
+    },
+    {
+      "family": "WPX",
+      "year": 2009,
+      "url": "https://cqwpx.com/rules/2009_cqwpx_rules.pdf",
+      "sha256": "4246634799f7b66ce4636a1f7832d6cf8087913c83278e396ebe608d71f762ce",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "interpretation": "https://cqwpx.com/blog/survey-results-3-multi-single/"
+    },
+    {
+      "family": "WPX",
+      "year": 2010,
+      "url": "https://cqwpx.com/rules/2010_cqwpx_rules.pdf",
+      "sha256": "5cadb5714a71bbc0c56b10230a0ed9f8ce3ad8310372af32215a6af52f0989df",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2011,
+      "url": "https://cqwpx.com/rules/2011_cqwpx_rules.pdf",
+      "sha256": "a6e7726d1129e40447686f053e561195bd8a68729bacd960488c5f1a69fd6364",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2012,
+      "url": "https://cqwpx.com/rules/2012_cqwpx_rules.pdf",
+      "sha256": "c638031e899b952f0f52d8307c66853e6b591053ed2b7d47494e262ef98210c6",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2013,
+      "url": "https://cqwpx.com/rules/2013_cqwpx_rules.pdf",
+      "sha256": "ddcb1eb239e6c3248ced97b9d1c34dfd840897bb93ab10c6f359b50d48da5ecd",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "limitation": "The 2013 title and magazine issue identify the edition; its date line incorrectly prints 2012. This audit does not validate contest dates."
+    },
+    {
+      "family": "WPX",
+      "year": 2014,
+      "url": "https://cqwpx.com/rules/2014_cqwpx_rules.pdf",
+      "sha256": "f1e94f35d712a5c53b3164514389449aaa2652b54a26dc4375261739240d6775",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2015,
+      "url": "https://cqwpx.com/rules/2015_cqwpx_rules.pdf",
+      "sha256": "6bbc1393296f0ffe081573489c856a96ea3e0b6932ea43608e5b7eaf78923461",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2016,
+      "url": "https://cqwpx.com/rules/2016_cqwpx_rules.pdf",
+      "sha256": "4255605a1327aa350c66907d07c80f0a1efe221549871d108cc82036141a7612",
+      "categories": [
+        "M/S",
+        "M/2"
+      ],
+      "limitation": "Official annual archive contains an announcement confirming 10/8 changes per hour; current official FAQ supplies clock-hour interpretation."
+    },
+    {
+      "family": "WPX",
+      "year": 2017,
+      "url": "https://cqwpx.com/rules/2017_cqwpx_rules.pdf",
+      "sha256": "1bf6e364c676185d735aba0c0249c92dfc7a7ebe9145fe58799b7b4db1dc8be6",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2018,
+      "url": "https://cqwpx.com/rules/2018_cqwpx_rules.pdf",
+      "sha256": "9cb33fb940a5c14450f52b87966a16b2ee193781e46c84f9864ab51186a584da",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2019,
+      "url": "https://cqwpx.com/rules/2019_cqwpx_rules.pdf",
+      "sha256": "777056fded64239697a84aef549b1d38b5b66243a4354ae4b3f6886a18217bc7",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2020,
+      "url": "https://cqwpx.com/rules/2020_cqwpx_rules.pdf",
+      "sha256": "43838af80a38aaa2a2d43e89f48f806727608696b6dc419f72751901ca489835",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2021,
+      "url": "https://cqwpx.com/rules/2021_cqwpx_rules.pdf",
+      "sha256": "967af552c97ed6bcf19f2f5d28f81c0fd7f809cef259c35fa9766104b88cd817",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2022,
+      "url": "https://cqwpx.com/rules/2022_cqwpx_rules.pdf",
+      "sha256": "045e9a9c75568b5056cb81bd16e99334b960529f42170c0a44084f1b1266f4c1",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2023,
+      "url": "https://cqwpx.com/rules/2023_cqwpx_rules.pdf",
+      "sha256": "3c5b88414b039fa957ca8f6d596d5538f611979e06503dab8630523889ce10b9",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2024,
+      "url": "https://cqwpx.com/rules/2024_cqwpx_rules.pdf",
+      "sha256": "66d28c7ef77662152e22fd3e3d1ebed104ad3ca25d7e50120ff61f6df7ed283d",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2025,
+      "url": "https://cqwpx.com/rules/2025_cqwpx_rules.pdf",
+      "sha256": "43a58914b972091e90191c101e4d6b8aa66cda35949e3eec08d1ac6a9215e59c",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    },
+    {
+      "family": "WPX",
+      "year": 2026,
+      "url": "https://cqwpx.com/rules/2026_cqwpx_rules.pdf",
+      "sha256": "38dead919408c47483dfdde6a9bd3a9a5e2ae4a54f24b6beba7b4aa2a7f1f624",
+      "categories": [
+        "M/S",
+        "M/2"
+      ]
+    }
+  ]
+}

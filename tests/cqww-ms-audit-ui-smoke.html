@@ -6,7 +6,7 @@ const wait=async fn=>{const end=Date.now()+30000;while(Date.now()<end){if(fn())r
 try {
  const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
  const w=frame.contentWindow,d=frame.contentDocument;
- await wait(()=>w.SH6 && d.querySelector('#navList [data-index]'));
+ await wait(()=>w.SH6 && d.querySelector('#navList [data-index]') && d.getElementById('viewTitle').textContent==='Start' && d.getElementById('viewContainer').getAttribute('aria-busy')!=='true');
  const nav=()=>[...d.querySelectorAll('#navList [data-index]')].find(el=>el.textContent.trim()==='Operating rules audit');
  check('audit hidden before loading',!nav());
  const text=(op='MULTI-OP',tx='ONE',contest='CQ-WW-SSB',year=2026)=>[
@@ -37,7 +37,7 @@ try {
  'QSO: 3743 PH 2026-10-24 0144 S53TEST 59 15 V26B 59 08 1','END-OF-LOG:'].join('\n');
  await upload(v26b);await open();
  check('questionable assignment does not generate a V26B timing accusation',!!d.querySelector('.audit-findings .cqww-ms-case[data-index="2"]') && !d.querySelector('.audit-findings .cqww-ms-case[data-index="4"]'));
- await upload(text('MULTI-OP','ONE','CQ-WW-SSB',2025));await open();
+ await upload(text('MULTI-OP','ONE','CQ-WW-SSB',1999));await open();
  check('unverified year never gives clean verdict',d.getElementById('viewContainer').textContent.includes('edition is not supported') && !d.querySelector('.cqww-ms-track'));
  await upload(text());
  const compare=d.querySelector('input[name="compareCount"][value="2"]');compare.checked=true;compare.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>d.getElementById('fileInputB'));

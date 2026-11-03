@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.47 (2026-11-03)
+
+- Hide sent and received exchange columns independently in the single-log Log report when the entire loaded log contains no meaningful exchange for that direction. Blank, whitespace-only, and standalone hyphen values count as absent; zero, serial numbers, locators, and multi-token exchanges remain visible.
+- Keep visibility stable across filters and pagination, with matching headers, rendered rows, and virtual-table colspans. Preserve comparison column selection, signal reports, raw log content, mode interpretation, sorting, and export behavior.
+- Add regression coverage using the 4Z4UO RSGB example plus sent-only, received-only, zero, serial, locator, pagination, filtering, and alignment cases. Bump application/cache references to v6.3.47.
+
 ## v6.3.46 (2026-10-29)
 
 - Add edition-aware Operating rules audits for CQWW RTTY and CQ WPX RTTY M/S and M/2 (2007–2026), ARRL DX CW/SSB M/S and M/2 (2012–2026), and verified EUHFC all-band single-op editions.

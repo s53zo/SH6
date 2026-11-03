@@ -180,7 +180,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.46';
+  const APP_VERSION = 'v6.3.47';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -282,40 +282,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.46';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.46';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.46';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.46';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.46';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.46';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.46';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.46';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.46';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.46';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.46';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.46';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.46';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.46';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.46';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.46';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.46';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.46';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.46';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.46';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.46';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.46';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.46';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.46';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.46';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.46';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.46';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.46';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.46';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.46';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.46';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.46';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.46';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.46';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.47';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.47';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.47';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.47';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.47';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.47';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.47';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.47';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.47';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.47';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.47';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.47';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.47';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.47';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.47';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.47';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.47';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.47';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.47';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.47';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.47';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.47';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.47';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.47';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.47';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.47';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.47';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.47';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.47';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.47';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.47';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.47';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.47';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.47';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1992,8 +1992,8 @@
 
   async function loadMultiplierOverviewModule() {
     const [model, view] = await Promise.all([
-      import('./modules/multipliers/overview-model.js?v=6.3.46'),
-      import('./modules/multipliers/overview-view.js?v=6.3.46')
+      import('./modules/multipliers/overview-model.js?v=6.3.47'),
+      import('./modules/multipliers/overview-view.js?v=6.3.47')
     ]);
     multiplierOverviewRuntime = { ...model, ...view };
   }
@@ -13820,6 +13820,27 @@ function syncEngineCompareLogForSlot(slot) {
     `;
   }
 
+  function getLogExchangeValue(qso, sent) {
+    const primary = sent ? qso?.stx : qso?.srx;
+    const secondary = sent ? qso?.exchSent : qso?.exchRcvd;
+    for (const value of [primary, secondary]) {
+      const text = String(value ?? '').trim();
+      if (text !== '' && text !== '-') return value;
+    }
+    return primary ?? secondary ?? '';
+  }
+
+  function getLogExchangeColumns(qsos) {
+    const present = (value) => {
+      const text = String(value ?? '').trim();
+      return text !== '' && text !== '-';
+    };
+    return {
+      sent: (qsos || []).some((qso) => present(getLogExchangeValue(qso, true))),
+      received: (qsos || []).some((qso) => present(getLogExchangeValue(qso, false)))
+    };
+  }
+
   function renderLogContent() {
     if (state.compareEnabled) {
       return renderLogCompareContent();
@@ -13850,6 +13871,8 @@ function syncEngineCompareLogForSlot(slot) {
     const end = start + state.logPageSize;
     const radioIds = radioRuntime ? getRadioRuntime().discoverRadioIds(state.fullQsoData?.qsos || state.qsoData.qsos) : [];
     const showRadioColumn = radioIds.length > 0;
+    const exchangeColumns = getLogExchangeColumns(state.fullQsoData?.qsos || state.qsoData.qsos);
+    const logColumnCount = 15 + Number(exchangeColumns.sent) + Number(exchangeColumns.received) + Number(showRadioColumn);
     const hasMissingRadio = showRadioColumn && (state.fullQsoData?.qsos || state.qsoData.qsos).some((q) => !getRadioRuntime().getQsoRadioId(q));
     const radioOptions = showRadioColumn ? [
       '<option value="">All radios</option>',
@@ -13879,8 +13902,8 @@ function syncEngineCompareLogForSlot(slot) {
         <td class="tl">${call}</td>
         <td>${formatNumberHtmlSh6(q.rstSent || '')}</td>
         <td>${formatNumberHtmlSh6(q.rstRcvd || '')}</td>
-        <td>${formatNumberHtmlSh6(q.stx || q.exchSent || '')}</td>
-        <td>${formatNumberHtmlSh6(q.srx || q.exchRcvd || '')}</td>
+        ${exchangeColumns.sent ? `<td>${formatNumberHtmlSh6(getLogExchangeValue(q, true))}</td>` : ''}
+        ${exchangeColumns.received ? `<td>${formatNumberHtmlSh6(getLogExchangeValue(q, false))}</td>` : ''}
         <td>${op}</td>
         <td class="tl">${country}</td>
         <td class="tac ${continentClass(q.continent)}">${cont}</td>
@@ -13896,8 +13919,8 @@ function syncEngineCompareLogForSlot(slot) {
       rows: rowList,
       rowHeight: 28,
       overscan: 10,
-      colspan: showRadioColumn ? 18 : 17,
-      emptyHtml: `<tr class="td1"><td colspan="${showRadioColumn ? 18 : 17}">No QSOs match current filter.</td></tr>`
+      colspan: logColumnCount,
+      emptyHtml: `<tr class="td1"><td colspan="${logColumnCount}">No QSOs match current filter.</td></tr>`
     });
     const note = `<p>Showing ${formatNumberSh6(start + 1)}-${formatNumberSh6(Math.min(end, filtered.length))} of ${formatNumberSh6(filtered.length)} QSOs (page ${page + 1} / ${totalPages}).</p>`;
     const dataNote = `<p>${ctyLoaded ? 'cty.dat loaded' : 'cty.dat missing or empty'}; ${masterLoaded ? 'MASTER.DTA loaded' : 'MASTER.DTA missing or empty'}.</p>`;
@@ -13942,7 +13965,7 @@ function syncEngineCompareLogForSlot(slot) {
       </div>
       <div class="virtual-table-shell" data-virtual-table="log">
         <table class="mtc log-table" style="margin-top:5px;margin-bottom:10px;text-align:right;">
-          <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th><th>Exch Sent</th><th>Exch Rcvd</th><th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>${showRadioColumn ? '<th>Radio</th>' : ''}</tr>
+          <tr class="thc"><th>#</th><th>Time</th><th>Band</th><th>Mode</th><th>Freq</th><th>Call</th><th>RST S</th><th>RST R</th>${exchangeColumns.sent ? '<th>Exch Sent</th>' : ''}${exchangeColumns.received ? '<th>Exch Rcvd</th>' : ''}<th>Op</th><th>Country</th><th>Cont.</th><th>CQ</th><th>ITU</th><th>Grid</th><th>Flags</th>${showRadioColumn ? '<th>Radio</th>' : ''}</tr>
           <tbody data-virtual-body="log"></tbody>
         </table>
       </div>

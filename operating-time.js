@@ -210,9 +210,63 @@
     }).join('');
     const bandRows=model.bands.flatMap(b=>withSubset(b.rows,b.dualRow).filter(r=>r.minutes).map(r=>[esc(b.band),esc(r.subset?'↳ '+r.label:r.label),num(r.minutes),num(r.pct)+'%',num(r.qsos),r.rate==null?'—':num(r.rate)]));
     return `<section class="operating-time-summary"><h3>Operating-style time</h3><p>Each station minute is counted once. “+” means activity within the same minute, not necessarily simultaneous transmission. QSO columns count contacts in these minutes, not total contacts by style.</p>${summary}${missingNotice}
-      <h3>Hourly operating-style timeline</h3><div class="operating-time-legend">${Object.keys(chartLabels).map(k=>`<span><i class="operating-time-${k.toLowerCase()}"></i>${esc(chartLabels[k])}</span>`).join('')}</div><p data-report-note data-note-title="Timeline key">Thin lines mark minutes; stronger lines mark five minutes. Hover blocks for UTC intervals. Blank areas are outside the observed log span.</p><div class="operating-time-hour operating-time-ruler" aria-hidden="true"><span>Minute within hour</span><div class="operating-time-axis"><span>00</span><span>15</span><span>30</span><span>45</span><span>60</span></div><span class="operating-time-ruler-spacer no-print"></span></div>${bars}
+      <h3>Hourly operating-style timeline</h3><p class="no-print"><button type="button" class="operating-time-image" data-slot="${esc(slot)}" data-format="jpg">Download JPG</button> <button type="button" class="operating-time-image" data-slot="${esc(slot)}" data-format="png">Download PNG</button> <span class="operating-time-image-status" role="status"></span></p><div class="operating-time-legend">${Object.keys(chartLabels).map(k=>`<span><i class="operating-time-${k.toLowerCase()}"></i>${esc(chartLabels[k])}</span>`).join('')}</div><p data-report-note data-note-title="Timeline key">Thin lines mark minutes; stronger lines mark five minutes. Hover blocks for UTC intervals. Blank areas are outside the observed log span.</p><div class="operating-time-hour operating-time-ruler" aria-hidden="true"><span>Minute within hour</span><div class="operating-time-axis"><span>00</span><span>15</span><span>30</span><span>45</span><span>60</span></div><span class="operating-time-ruler-spacer no-print"></span></div>${bars}
       <details><summary>Per-band activity minutes</summary><p>Band minutes overlap and may exceed elapsed station time. Each band minute is counted once using the styles assigned on that band. Subset rows are included in RUN only.</p>${table(['Band','Activity category','Activity min','Band time %','QSOs in these minutes','QSOs/hour'],bandRows)}</details>
       ${note}</section>`;
+  }
+  // Draw from the complete model so exports never depend on viewport or compare-panel width.
+  function timelineCanvas(model, { station = '', contest = '' } = {}) {
+    if (!model.available || !model.hours.length) throw new Error('No timeline available to export.');
+    const colors = { RUN:'#2563eb', DUAL:'#0891b2', RUN_INBAND:'#15803d', RUN_SEARCH:'#b45309', RUN_BOTH:'#9333ea', SP:'#be185d', UNKNOWN:'#94a3b8', BREAK:'#334155' };
+    const labels = { RUN:'RUN only (other)', DUAL:model.dualRow.label, ...Object.fromEntries(Object.entries(LABELS).filter(([key])=>key!=='RUN')) };
+    const short = { RUN:'RUN only', DUAL:model.operatorKind==='single'?'2BSIQ':'Dual RUN', RUN_INBAND:'RUN + INBAND', RUN_SEARCH:'RUN + off-band', RUN_BOTH:'RUN + both S&P', SP:'S&P only', UNKNOWN:'Uncertain', BREAK:'Inactive' };
+    const width = 1440, left = 220, right = 40, rowHeight = 36, top = 260;
+    const height = top + model.hours.length * rowHeight + 110;
+    const canvas = document.createElement('canvas');
+    // Bound unusually long logs to a portable canvas size while retaining all hours.
+    const scale = Math.min(2, 16000 / height);
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Image export is unavailable in this browser.');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height);
+    const text = (value, x, y, size=16, color='#0f172a') => {
+      ctx.font = `${size}px Arial, sans-serif`; ctx.fillStyle = color; ctx.fillText(String(value), x, y, width-x-right);
+    };
+    text('Hourly operating-style timeline', 40, 48, 28);
+    text([station, contest].filter(Boolean).join(' · '), 40, 80, 20);
+    text(`${utc(model.start)} – ${utc(model.end)} UTC (end exclusive)`, 40, 110);
+    Object.entries(labels).forEach(([role,label], i) => {
+      const x=40+(i%3)*460, y=142+Math.floor(i/3)*28;
+      ctx.fillStyle=colors[role]; ctx.fillRect(x,y-13,16,16);
+      text(label,x+24,y,15);
+    });
+    text('Hour starting (UTC)',40,top-16,15);
+    const plotWidth=width-left-right;
+    for (const minute of [0,15,30,45,60]) text(String(minute).padStart(2,'0'),left+minute/60*plotWidth-8,top-16,14);
+    model.hours.forEach((hour,index)=>{
+      const y=top+index*rowHeight;
+      text(utc(hour.minute*MINUTE),40,y+21,15);
+      ctx.fillStyle='#f1f5f9'; ctx.fillRect(left,y,plotWidth,28);
+      hour.timeline.forEach(range=>{
+        const x=left+range.offset/60*plotWidth, w=range.minutes/60*plotWidth;
+        ctx.fillStyle=colors[range.role]; ctx.fillRect(x,y,w,28);
+        ctx.font='13px Arial, sans-serif';
+        if(ctx.measureText(short[range.role]).width+10<w) text(short[range.role],x+5,y+19,13,'#ffffff');
+      });
+      for(let minute=0;minute<=60;minute++) {
+        const x=left+minute/60*plotWidth;
+        ctx.strokeStyle=minute%5===0?'rgba(15,23,42,.4)':'rgba(15,23,42,.18)';
+        ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+28);ctx.stroke();
+      }
+      ctx.strokeStyle='#64748b';ctx.strokeRect(left,y,plotWidth,28);
+    });
+    const footer=top+model.hours.length*rowHeight;
+    text(`Estimated operating styles · Maximum activity gap: ${model.gap} min · Station inactivity threshold: ${model.threshold} min`,40,footer+26,15);
+    text('Thin lines: minutes; stronger lines: five minutes. Blank areas are outside the observed log span.',40,footer+52,15);
+    text('“+” means activity within the same minute, not necessarily simultaneous transmission. · SH6',40,footer+78,15);
+    return canvas;
   }
   function csv(model) {
     const rows=[['Section','Band/style','From UTC','To UTC exclusive','Minutes','Time percent','QSOs','QSOs/hour','Evidence'],['settings','Maximum activity gap','','',model.gap],['settings','Break threshold','','',model.threshold]];
@@ -226,5 +280,5 @@
     model.periods.forEach(p=>rows.push(['dual RUN',p.bands.join(' + '),utc(p.start),utc(p.end),p.minutes,'',p.qsos,p.rate,`${p.label}; ${p.switches} alternations; radio IDs: ${p.radios.join(', ') || 'unavailable'}`]));
     return rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
   }
-  globalThis.SH6OperatingTime={build,render,notes,controls,csv,normalizeGap};
+  globalThis.SH6OperatingTime={build,render,notes,controls,csv,normalizeGap,timelineCanvas};
 })();

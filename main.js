@@ -22777,6 +22777,35 @@ function syncEngineCompareLogForSlot(slot) {
           downloadBlobFile(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `operating_time_${slotId}.csv`);
         }), { slotId });
       }));
+      dom.viewContainer.querySelectorAll('.operating-time-image').forEach(button => button.addEventListener('click', async () => {
+        const slotId = button.dataset.slot || 'A';
+        const slot = getSlotById(slotId);
+        if (!slot?.derived) return;
+        const actions = button.parentElement;
+        const status = actions.querySelector('.operating-time-image-status');
+        const buttons = actions.querySelectorAll('button');
+        buttons.forEach(el => { el.disabled = true; });
+        status.textContent = 'Preparing image…';
+        try {
+          const format = button.dataset.format === 'jpg' ? 'jpg' : 'png';
+          const { canvas, filename } = withSlotState(buildSlotSnapshot(slot), () => withBandContext(reportId, () => {
+            const model = buildOperatingTimeModel(state.qsoData?.qsos || [], state.derived);
+            const meta = state.derived?.contestMeta || {};
+            return {
+              canvas: window.SH6OperatingTime.timelineCanvas(model, { station: meta.stationCallsign || `Log ${slotId}`, contest: meta.contestId || '' }),
+              filename: `operating_timeline_${sanitizeFilenameToken(meta.stationCallsign, slotId)}_${sanitizeFilenameToken(meta.contestId, 'contest')}_${new Date(model.start).toISOString().slice(0,10)}.${format}`
+            };
+          }), { slotId });
+          const blob = await canvasToBlobAsync(canvas, format === 'jpg' ? 'image/jpeg' : 'image/png', 0.95);
+          downloadBlobFile(blob, filename);
+          status.textContent = '';
+        } catch (error) {
+          console.error('Timeline image export failed', error);
+          status.textContent = 'Could not export image. Please try again.';
+        } finally {
+          buttons.forEach(el => { el.disabled = false; });
+        }
+      }));
       dom.viewContainer.querySelectorAll('.operating-time-drill').forEach(button => button.addEventListener('click', () => {
         state.logTimeRange = { startTs: Number(button.dataset.start), endTs: Number(button.dataset.end)-1 };
         state.operatingStyleFilter = null;

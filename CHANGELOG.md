@@ -4,6 +4,8 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 
 ## v6.3.56 (2026-11-05)
 
+- Add JPG and PNG downloads beside each hourly operating-style timeline, including full UTC hours, legend, station/contest details and analysis settings on a white background.
+
 - Add a separate chronological review note for eligible off-RUN multiplier contacts with no matching recent Cluster/RBN observation, only after complete successful source loading. Keep uncertain same-minute observations and on-RUN contacts out of the note; retain QSO jumps and avoid fraud or CQ-absence claims.
 
 - Link rapid-sequence counterpart callsigns to an isolated SH6 archive analysis in a new tab using compressed v3 permalinks. Resolve exact event/source metadata without downloading logs or expanding off-RUN availability checks; omit links for unavailable or ambiguous sources.

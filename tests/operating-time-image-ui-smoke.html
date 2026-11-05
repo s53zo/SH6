@@ -1,0 +1,53 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Operating time UI smoke</title></head><body>
+<div id="status">RUNNING</div><pre id="result"></pre><iframe id="app" src="../index.html" style="width:1400px;height:900px"></iframe>
+<script type="module">
+const checks=[];
+let printableHtml='';
+const check=(name,value)=>{checks.push({name,passed:Boolean(value)});if(!value)throw new Error(name);};
+const wait=async fn=>{const end=Date.now()+30000;while(Date.now()<end){if(fn())return;await new Promise(r=>setTimeout(r,80));}throw new Error('Timeout');};
+try {
+ const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
+ const win=frame.contentWindow,doc=frame.contentDocument;
+ // Exercise export creation without saving test files to the user's Downloads.
+ const testDownloads=[],nativeAnchorClick=win.HTMLAnchorElement.prototype.click;
+ win.HTMLAnchorElement.prototype.click=function(){
+  if(this.hasAttribute('download')){testDownloads.push(this.download);return;}
+  return nativeAnchorClick.call(this);
+ };
+ await wait(()=>win.SH6 && doc.querySelector('#navList [data-index]') && doc.getElementById('viewTitle').textContent.trim()==='Start');
+ const lines=['START-OF-LOG: 3.0','CALLSIGN: TEST1','CONTEST: CQ-WW-CW','CATEGORY-OPERATOR: SINGLE-OP','CATEGORY-TRANSMITTER: ONE','CATEGORY-MODE: CW'];
+ for(let m=0;m<8;m++)for(const band of [14020,7020])lines.push(`QSO: ${band} CW 2025-11-29 00${String(m).padStart(2,'0')} TEST1 599 15 K${m}${band===14020?'AA':'BB'} 599 05 ${band===14020?0:1}`);
+ lines.push('END-OF-LOG:');const text=lines.join('\n');
+ const upload=async id=>{const dt=new win.DataTransfer();dt.items.add(new win.File([text],`dual-${id}.log`));const input=doc.getElementById(id==='A'?'fileInput':`fileInput${id}`);input.files=dt.files;input.dispatchEvent(new win.Event('change',{bubbles:true}));await wait(()=>win.SH6.getSlotById(id)?.qsoData?.qsos?.length===16);};
+ const report=async title=>{await wait(()=>doc.getElementById('viewContainer').getAttribute('aria-busy')!=='true');const el=Array.from(doc.querySelectorAll('#navList [data-index]')).find(el=>el.textContent.trim()===title);if(!el)throw new Error(title);el.click();await wait(()=>doc.getElementById('viewTitle').textContent.trim()===title && doc.getElementById('viewContainer').getAttribute('aria-busy')==='false');};
+ await upload('A');await report('RUN vs S&P vs INBAND');
+ for (const format of ['jpg','png']) {
+  const button=doc.querySelector(`.operating-time-image[data-format="${format}"]`);
+  check(`${format} timeline download button available`,Boolean(button));
+  button.click();await wait(()=>testDownloads.some(name=>name.endsWith(`.${format}`)));
+  check(`${format} filename identifies station and contest`,testDownloads.some(name=>name.includes('test1_cq_ww_cw_2025-11-29')&&name.endsWith(`.${format}`)));
+  await wait(()=>!button.disabled);
+ }
+ const exportModel=win.SH6OperatingTime.build([{ts:Date.UTC(2025,10,29),band:'20M',freq:14.02,operatingStyleRole:'RUN'},{ts:Date.UTC(2025,11,1),band:'20M',freq:14.02,operatingStyleRole:'RUN'}],{});
+ const image=win.SH6OperatingTime.timelineCanvas(exportModel,{station:'TEST1',contest:'CQ-WW-CW'});
+ check('image includes all 49 hours at high resolution',image.width===2880 && image.height===(260+49*36+110)*2);
+ for (const type of ['image/jpeg','image/png']) {
+  const blob=await new Promise(resolve=>image.toBlob(resolve,type,.95));
+  check(`${type} encoding succeeds`,blob?.type===type && blob.size>1000);
+ }
+
+ const compare=doc.querySelector('input[name="compareCount"][value="4"]');compare.checked=true;compare.dispatchEvent(new win.Event('change',{bubbles:true}));
+ await wait(()=>doc.getElementById('fileInputD'));
+ for(const id of ['B','C','D'])await upload(id);
+ await report('RUN vs S&P vs INBAND');
+ check('each comparison timeline has JPG and PNG buttons',doc.querySelectorAll('.operating-time-image').length===8);
+ for(const id of ['A','B','C','D']) {
+  const before=testDownloads.length;
+  const button=doc.querySelector(`.operating-time-image[data-slot="${id}"][data-format="png"]`);
+  button.click();await wait(()=>testDownloads.length>before);await wait(()=>!button.disabled);
+  check(`slot ${id} exports successfully`,true);
+ }
+ document.body.appendChild(image);image.style.width='100%';
+ document.getElementById('status').textContent='PASS';document.getElementById('result').textContent=JSON.stringify({passed:true,checks},null,2);
+} catch(error) {document.getElementById('status').textContent='FAIL';document.getElementById('result').textContent=JSON.stringify({passed:false,checks,error:String(error.stack)},null,2);}
+</script></body></html>

@@ -19,6 +19,38 @@ export function createSpotsDataRuntime(deps = {}) {
     rbnSummaryOnlyThreshold = 0
   } = deps;
 
+  // Shared by spot reports, integrity review and multiplier evidence in this runtime.
+  // Keep successful historical payloads only; cap memory and avoid stale live-day data.
+  const historyCache = new Map(), historyInflight = new Map();
+  let historyCacheBytes = 0;
+  async function cachedHistory(key, load, complete, live = false) {
+    const cached = historyCache.get(key);
+    if (cached && cached.expires > Date.now()) {
+      historyCache.delete(key); historyCache.set(key, cached);
+      return cached.value;
+    }
+    if (cached) { historyCache.delete(key); historyCacheBytes -= cached.bytes; }
+    if (historyInflight.has(key)) return historyInflight.get(key);
+    const pending = (async () => {
+      const value = await load();
+      if (complete(value)) {
+        const bytes = (typeof value === 'string' ? value.length : JSON.stringify(value).length) * 2;
+        const limit = 64 * 1024 * 1024;
+        if (bytes <= limit) {
+          while (historyCache.size && (historyCache.size >= 32 || historyCacheBytes + bytes > limit)) {
+            const oldest = historyCache.keys().next().value;
+            historyCacheBytes -= historyCache.get(oldest).bytes; historyCache.delete(oldest);
+          }
+          historyCache.set(key, { value, bytes, expires: live ? Date.now() + 60000 : Infinity });
+          historyCacheBytes += bytes;
+        }
+      }
+      return value;
+    })();
+    historyInflight.set(key, pending);
+    try { return await pending; } finally { historyInflight.delete(key); }
+  }
+
   function getStateSafe() {
     return typeof getState === 'function' ? getState() : null;
   }
@@ -447,7 +479,13 @@ export function createSpotsDataRuntime(deps = {}) {
   }
 
   async function fetchSpotFile(url) {
-    const res = await fetch(url, { cache: 'no-store' });
+    const match = String(url).match(/\/(\d{4})\/(\d{3})\.dat/);
+    const live = !match || Date.UTC(Number(match[1]), 0, Number(match[2]) + 1) > Date.now();
+    return cachedHistory('cluster:' + url, () => fetchSpotFileUncached(url), () => true, live);
+  }
+
+  async function fetchSpotFileUncached(url) {
+    const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(30000) });
     if (res.status === 429) {
       const retryAfter = String(res.headers.get('retry-after') || '').trim();
       const retryAfterSeconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null;
@@ -509,11 +547,31 @@ export function createSpotsDataRuntime(deps = {}) {
   }
 
   async function fetchRbnSpots(call, days) {
+    const wanted = [...new Set(days || [])].sort();
+    const dx = normalizeCallSafe(call);
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const complete = data => !data.notFound && normalizeCallSafe(data.call) === dx
+      && Array.isArray(data.ofUsSpots) && Array.isArray(data.days)
+      && wanted.every(day => data.days.includes(day))
+      && !data.errors?.length && !data.truncatedOfUs && !data.truncatedByUs;
+    const prefix = 'rbn:' + rbnProxyUrl + ':' + dx + ':';
+    for (const [key, cached] of historyCache) {
+      if (key.startsWith(prefix) && cached.expires > Date.now() && complete(cached.value)) {
+        historyCache.delete(key); historyCache.set(key, cached);
+        return structuredClone(cached.value);
+      }
+    }
+    const data = await cachedHistory(prefix + wanted.join(','),
+      () => fetchRbnSpotsUncached(dx, wanted), complete, !wanted.length || wanted.some(day => day >= today));
+    return structuredClone(data);
+  }
+
+  async function fetchRbnSpotsUncached(call, days) {
     const params = new URLSearchParams();
     if (call) params.set('call', call);
     if (days && days.length) params.set('days', days.join(','));
     const url = `${rbnProxyUrl}?${params.toString()}`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(30000) });
     if (res.status === 429) {
       const retryAfter = String(res.headers.get('retry-after') || '').trim();
       const retryAfterSeconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null;

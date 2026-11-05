@@ -4,6 +4,8 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 
 ## v6.3.55 (2026-11-05)
 
+- Share successful cluster-file and RBN-response caches between spot reports and integrity review. Reuse covered RBN date subsets and in-flight requests; fetch missing stations/dates, bound memory and keep failed/partial requests retryable. Clarify cache reuse in the loading message.
+
 - Load entrant Spots/RBN before RUN/S&P classification, then multiplier spot history before calculating integrity results. Show a Please wait message; withhold results and dependent actions on loading, cancellation or incomplete coverage, with explicit retry. Add staged-loading, anchor, failure and retry regressions.
 - Exclude on-RUN multiplier callers from spot-timing review using operating-style inference informed by loaded entrant Spots/RBN. Check only off-RUN contacts with reliable frequencies and report excluded/uncertain counts. Use the same selection for counterpart shard lookups so RUN-only stations are not checked.
 - Prevent browser regression tests from saving HTML exports and session JSON files in Downloads; normal application downloads are unchanged.

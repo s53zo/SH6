@@ -38,17 +38,24 @@ function daysForTargets(targets,lookback) {
  for(const q of targets) {const start=Math.floor((q.ts-lookback*60000)/86400000)*86400000,end=Math.floor((q.ts+59999)/86400000)*86400000;for(let t=start;t<=end;t+=86400000)days.add(t);}
  return [...days].sort((a,b)=>a-b);
 }
-export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,parseBand,fetchImpl=fetch,signal,onProgress=()=>{},lookbackMinutes=60}) {
+export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,parseBand,fetchImpl=fetch,signal,onProgress=()=>{},lookbackMinutes=60,fetchClusterText,fetchRbnData}) {
  const spots=[],coverage=[],days=daysForTargets(targets,lookbackMinutes);
  if(days.length>7)throw Error('Spot timing requires a single contest edition spanning at most seven UTC dates.');
+ // Cancelling one review stops its wait without aborting a request shared with other reports.
+ const waitForShared=task=>new Promise((resolve,reject)=>{
+  if(signal?.aborted){reject(Error('Cancelled'));return;}
+  const cancel=()=>{signal?.removeEventListener('abort',cancel);reject(Error('Cancelled'));};
+  signal?.addEventListener('abort',cancel,{once:true});
+  Promise.resolve().then(task).then(value=>{signal?.removeEventListener('abort',cancel);resolve(value);},error=>{signal?.removeEventListener('abort',cancel);reject(error);});
+ });
  const read=async url=>{const response=await fetchImpl(url,{cache:'no-store',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(30000)});if(!response.ok)throw Error(`HTTP ${response.status}`);return response;};
  for(const ts of days) {
   const date=new Date(ts),year=date.getUTCFullYear(),doy=Math.floor((ts-Date.UTC(year,0,1))/86400000)+1;
   const url=`${clusterBaseUrl}/${year}/${String(doy).padStart(3,'0')}.dat`;
   try {
    let text,loadedUrl=url;
-   try {text=await (await read(url)).text();}
-   catch(error){if(signal?.aborted)throw error;loadedUrl=url+'.gz';const response=await read(loadedUrl);if(typeof DecompressionStream!=='function')throw Error('gzip decompression unavailable');text=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text();}
+   try {text=fetchClusterText?await waitForShared(()=>fetchClusterText(url)):await (await read(url)).text();}
+   catch(error){if(signal?.aborted)throw error;loadedUrl=url+'.gz';if(fetchClusterText)text=await waitForShared(()=>fetchClusterText(loadedUrl));else {const response=await read(loadedUrl);if(typeof DecompressionStream!=='function')throw Error('gzip decompression unavailable');text=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text();}}
    const wanted=new Set(targets.map(q=>call(q.call)));
    for(const line of text.split(/\r?\n/)) {const p=line.split('^'),freqKHz=Number(p[0]),stamp=Number(p[2])*1000;if(p.length<6 || !wanted.has(call(p[1])) || !Number.isFinite(stamp) || !Number.isFinite(freqKHz))continue;spots.push({source:'Cluster',dxCall:call(p[1]),spotter:call(p[4]),ts:stamp,freqKHz,band:String(parseBand(freqKHz/1000) || '').toUpperCase(),comment:p[3],sourceUrl:loadedUrl});}
    coverage.push({source:'Cluster',key:date.toISOString().slice(0,10),status:'loaded',url:loadedUrl});
@@ -65,7 +72,7 @@ export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,p
    if(rateLimited){coverage.push({source:'RBN',key:dx,status:'unavailable',error:'Rate limited; retry later'});continue;}
    const url=rbnUrl+'?'+new URLSearchParams({call:dx,days:rbnDays.join(',')});
    try {
-    const response=await read(url),data=await response.json();
+    const data=fetchRbnData?await waitForShared(()=>fetchRbnData(dx,rbnDays)):await (await read(url)).json();
     if(data.notFound)throw Error('RBN archive unavailable');
     if(call(data.call)!==dx || !Array.isArray(data.ofUsSpots))throw Error('Invalid RBN response');
     for(const s of data.ofUsSpots)if(call(s.dxCall)===dx && Number.isFinite(Number(s.ts))) spots.push({...s,source:'RBN',dxCall:dx,band:String(s.band || parseBand(Number(s.freqKHz ?? s.freq)/1000)).toUpperCase(),ts:Number(s.ts),freqKHz:Number(s.freqKHz ?? s.freq),txMode:s.txMode || s.tx_mode || '',sourceUrl:url});

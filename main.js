@@ -6624,11 +6624,12 @@
     }
     setSourceIndicator(dom.rbnSourceLabel, RBN_PROXY_URL, mapSpotStatus(ensureRbnState(state).status));
     if(reports[state.activeIndex]?.id==='log_integrity_review') {
-      const models=getActiveCompareSlots().map(({id})=>integrityModels.get(id)?.multiplierSpots);
+      const models=getActiveCompareSlots().map(({id,slot})=>({data:integrityModels.get(id)?.multiplierSpots,slot}));
       for(const [source,element,row,label,url] of [['Cluster',dom.spotsStatus,dom.spotsStatusRow,dom.spotsSourceLabel,SPOTS_BASE_URL],['RBN',dom.rbnStatus,dom.rbnStatusRow,dom.rbnSourceLabel,RBN_PROXY_URL]]) {
         if(!element)continue;
-        const states=models.map(data=>{
+        const states=models.map(({data,slot})=>{
           if(!data)return 'pending';
+          if(data.phase==='station' && data.loading){const cached=source==='RBN'?slot.rbnState:slot.spotsState;return cached?.status==='ready' && !cached.errors?.length && !cached.truncatedOfUs?'ok':cached?.status==='loading'?'loading':'pending';}
           if(!data.loading && data.currentCheckValid===false)return 'unavailable';
           if(data.loading && (source==='RBN' || data.phase!=='rbn'))return 'loading';
           const coverage=(data.loading?data.progressCoverage:data.history?.coverage || []).filter(c=>c.source===source);
@@ -20894,7 +20895,7 @@ function syncEngineCompareLogForSlot(slot) {
     const sourceQsos=(slot.fullQsoData || slot.qsoData)?.qsos,sourceText=slot.rawLogText,sourceName=slot.logFile?.name;
     const current=()=>getSlotById(id)===slot && slot.rawLogText===sourceText && slot.logFile?.name===sourceName && integrityModels.get(id)===model;
     data.controller?.abort();data.controller=new AbortController();data.loading=true;data.currentCheckValid=false;data.phase='station';data.stationReady=false;data.rows=[];model.stationLoading=true;
-    data.status='Please wait: loading station Spots/RBN before RUN/S&P classification and integrity calculations…';updateDataStatus();renderActiveReport();
+    data.status='Please wait: preparing station Spots/RBN, reusing loaded data and fetching only missing history…';updateDataStatus();renderActiveReport();
     try {
       await loadSpotsDataRuntimeModule();
       await Promise.all([loadSpotsForCurrentLog(slot),loadRbnForCurrentLog(slot)]);
@@ -20904,10 +20905,10 @@ function syncEngineCompareLogForSlot(slot) {
       data.stationReady=true;model.stationLoading=false;model.version=slot.logVersion;model.scoreKey=integrityScoreKey(slot);data.autoAttempt=model.scoreKey;
       const selection=integrityOffRunTargets(slot),targets=selection.targets;data.operatingSelection=selection;
       const key=integritySpotTargetsKey(targets);
-      data.phase='cluster';data.progressCoverage=[];data.status='Please wait: loading multiplier spot history before calculating results…';updateDataStatus();renderActiveReport();
+      data.phase='cluster';data.progressCoverage=[];data.status='Please wait: checking multiplier spot history, reusing cached data and loading missing stations/dates…';updateDataStatus();renderActiveReport();
       if(!targets.length){data.history=null;data.rows=[];data.currentCheckValid=true;model.cases=integrityModules.detectSequences(sourceQsos,model);data.status='No off-RUN multiplier contacts with reliable frequency evidence are available for spot analysis.';return;}
       if(!data.history || data.key!==key || data.history.status!=='loaded') {
-        data.history=await integrityModules.loadMultiplierSpotHistory({targets,clusterBaseUrl:SPOTS_BASE_URL,rbnUrl:RBN_PROXY_URL,parseBand:parseBandFromFreq,signal:data.controller.signal,
+        data.history=await integrityModules.loadMultiplierSpotHistory({targets,clusterBaseUrl:SPOTS_BASE_URL,rbnUrl:RBN_PROXY_URL,parseBand:parseBandFromFreq,signal:data.controller.signal,fetchClusterText:fetchSpotFile,fetchRbnData:fetchRbnSpots,
           onProgress:progress=>{data.progressCoverage=progress.coverage.slice();if(progress.phase)data.phase=progress.phase;if(!current()){data.controller.abort();return;}data.status=`Please wait: loading spot history: ${progress.coverage.length} source queries finished.`;updateDataStatus();if(reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}});
         data.key=key;
       }

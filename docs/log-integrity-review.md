@@ -79,3 +79,7 @@ Spot timing checks first load entrant Spots/RBN, then exclude multiplier contact
 ## Spot-loading prerequisite
 
 The interactive review shows a Please wait message and withholds result tables, shard actions and score-impact controls until station Spots/RBN and eligible multiplier spot history have loaded completely. Classification runs after entrant loading; sequence detection and timing correlation run after multiplier history loading. Empty successful responses are valid. Errors, incomplete/truncated coverage and cancellation keep results withheld and provide retry controls. A source log replacement discards stale results; anchor-driven log-version refreshes preserve the pending request. Historical classification callers still default to isolated log-only inference.
+
+## Shared spot-history cache
+
+Spot menus and integrity use the same runtime cache for full cluster-file text and complete RBN responses. Entrant data already loaded in the RBN menu remains reusable; multiplier stations require their own RBN data. Cached full cluster files can be filtered again for those stations without another download. RBN date subsets reuse confirmed complete responses; expanded date coverage requires a fetch. Concurrent identical requests share one fetch. Failed/partial/truncated responses are not cached. The tab-local cache retains at most 32 entries and 64 MiB; current-day data expires after one minute, while historical payloads remain until eviction or reload. Cancelling a review stops its wait without cancelling another report's shared request.

@@ -20924,7 +20924,8 @@ function syncEngineCompareLogForSlot(slot) {
     try {
       const client=await loadArchiveClientModule();
       const canonicalContest=value=>normalizeArchiveContestToken(value).replace(/(?:CW|SSB|PHONE)$/,'');
-      const calls=[...new Set([...model.cases.map(c=>c.call),...integrityModules.multiplierContacts(qsos,(slot.fullDerived || slot.derived)?.scoring).map(q=>q.call)])];
+      const calls=[...new Set(integrityOffRunTargets(slot).targets.map(q=>q.call))];
+      if(!calls.length){model.status='No eligible off-RUN multiplier stations to check.';return;}
       let lastShardRender=0;
       const batches=await client.queryRowsByCallsigns([...calls,meta.stationCallsign].filter(Boolean),{concurrency:4,signal:model.counterpartController.signal,onProgress:({completed,total})=>{
         if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)){model.counterpartController.abort();return;}
@@ -21000,7 +21001,7 @@ function syncEngineCompareLogForSlot(slot) {
       }
       const scoreKey=integrityScoreKey(slot);
       if(model.scoreKey!==scoreKey){if(model.multiplierSpots){model.multiplierSpots.controller?.abort();model.multiplierSpots.rows=[];model.multiplierSpots.currentCheckValid=false;model.multiplierSpots.status='Scoring context changed; run the multiplier spot check again.';}const hadImpacts=Object.keys(model.impacts || {}).length>0;model.impacts={};if(model.scoreKey && (hadImpacts || model.calculating)) model.status='Scoring settings changed; recalculate score impact.';model.scoreKey=scoreKey;}
-      model.counterpartCalls=[...new Set([...model.cases.map(c=>c.call),...integrityModules.multiplierContacts(qsos,(slot.fullDerived || slot.derived)?.scoring).map(q=>q.call)])];
+      model.counterpartCalls=[...new Set(integrityOffRunTargets(slot).targets.map(q=>q.call))];
       model.activityChecks=Object.fromEntries(model.counterpartCalls.map(call=>[call,integrityModules.assessCounterpartActivity(model.evidence[call])]));
       return integrityModules.renderIntegrity(model,qsos,id,{fullTimelines:integrityStaticDepth>0})+integrityModules.renderMultiplierSpotReview(model,id);
     });

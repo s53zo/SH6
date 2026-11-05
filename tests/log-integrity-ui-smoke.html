@@ -85,12 +85,29 @@ try {
  check('fourth slot navigation preserves source identity',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log D, QSO 3'));
 
  d.getElementById('multiplier-clear-log-focus').click();await wait(ready);
- const second=['QSO: 14020 CW 2025-11-29 0030 S53TEST 599 15 ZZ1AA 599 14','QSO: 7020 CW 2025-11-29 0031 S53TEST 599 15 ZZ1AA 599 14','QSO: 3520 CW 2025-11-29 0032 S53TEST 599 15 ZZ1AA 599 14'].join('\n');
+ const second=['QSO: 14020 CW 2025-11-29 0030 S53TEST 599 15 ZZ1AA 599 14','QSO: 7020 CW 2025-11-29 0031 S53TEST 599 15 ZZ1AA 599 14','QSO: 3520 CW 2025-11-29 0032 S53TEST 599 15 ZZ1AA 599 14','QSO: 14020 CW 2025-11-29 0035 S53TEST 599 15 K4SPOT 599 05'].join('\n');
  await upload(content.replace('END-OF-LOG:',second+'\nEND-OF-LOG:'));await report('Log integrity review');
  const outer=d.querySelector('.log-integrity-review > .table-wrap > table');
  const sort=[...outer.tHead.querySelectorAll('.sort-link')].find(el=>el.textContent.includes('Counterpart'));
  sort.click();sort.click();
  check('findings sort with nested timeline headers',outer.tBodies[0].rows[0].cells[1].textContent==='ZZ1AA');
+
+ const spotFetch=w.fetch;
+ const spotTs=Date.UTC(2025,10,29,0,0)/1000-60;
+ w.fetch=async(url,...args)=>{
+  const text=String(url);
+  if(text.includes('/spots/')) return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x`,{status:200});
+  if(text.includes('/cors/rbn?')) {const dx=new URL(text).searchParams.get('call');return new w.Response(JSON.stringify({call:dx,days:new URL(text).searchParams.get('days').split(','),ofUsSpots:dx==='DL1AA'?[{dxCall:dx,spotter:'K2RBN',ts:spotTs*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],errors:[],truncatedOfUs:false}),{status:200,headers:{'Content-Type':'application/json'}});}
+  return spotFetch.call(w,url,...args);
+ };
+ d.querySelector('[data-integrity-spots="A"]').click();
+ await wait(()=>[...d.querySelectorAll('.integrity-spot-review')].some(el=>el.textContent.includes('Spot timing calculated')));
+ const spotPanel=d.querySelector('.integrity-spot-review');
+ check('multiplier spot timing loads cluster and RBN before calculation',spotPanel.textContent.includes('Multiplier worked after a spot') && spotPanel.textContent.includes('K2RBN') && spotPanel.textContent.includes('Cluster'));
+ check('spot timing covers multiplier contacts outside rapid sequences',spotPanel.textContent.includes('K4SPOT'));
+ const focus=spotPanel.querySelector('.integrity-qso[data-slot="A"]');focus.click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
+ check('multiplier spot evidence jumps to original contact',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log A, QSO'));
+ w.fetch=spotFetch;
  check('no application errors',errors.length===0);
  document.getElementById('status').textContent='PASS';
 }catch(error){checks.push({name:error.stack,passed:false});document.getElementById('status').textContent='FAIL';}

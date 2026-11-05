@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.50 (2026-11-05)
+
+- Add multiplier-after-spot analysis to Log integrity review: load cluster/RBN history for worked multiplier stations, then display source times, delay intervals, frequency differences and original-QSO navigation across all credited multipliers.
+- Show source-query coverage, missing days, truncated responses, cancellation and rate limits explicitly; use a configurable recent-spot window and preserve same-minute uncertainty. Correlation is not labelled proof of assistance.
+- Add source/model and full-app correlation regressions; retain existing integrity, scoring, export and navigation checks. Advance application/cache references to v6.3.50.
+
 ## v6.3.49 (2026-11-05)
 
 - Escape all counterpart-derived discrepancy text and test the full archive-to-report path with hostile exchange content.

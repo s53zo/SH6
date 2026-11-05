@@ -7147,3 +7147,10 @@ body.ui-theme-nt .bar-value {
 .log-integrity-review > .no-print { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
 .log-integrity-review > p { white-space:normal; }
 .log-integrity-review td, .log-integrity-review th { white-space:normal; }
+.integrity-spot-review { margin-top:1rem; min-width:0; white-space:normal; }
+.integrity-spot-review td, .integrity-spot-review th { white-space:normal; overflow-wrap:anywhere; }
+.integrity-spot-review input[type="number"] { width:4rem; }
+@media print {
+ .integrity-spot-review .table-wrap { overflow:visible !important; }
+ .integrity-spot-review table { width:100% !important; table-layout:fixed; }
+}

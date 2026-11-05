@@ -55,6 +55,7 @@ export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,p
   } catch(error) {if(signal?.aborted)throw error;coverage.push({source:'Cluster',key:date.toISOString().slice(0,10),status:'unavailable',error:error.message,url});}
   onProgress({spots,coverage});
  }
+ onProgress({spots,coverage,phase:'rbn'});
  const rbnDays=days.map(t=>new Date(t).toISOString().slice(0,10).replace(/-/g,''));
  const calls=[...new Set(targets.map(q=>call(q.call)))];let cursor=0,rateLimited=false;
  await Promise.all(Array.from({length:2},async()=>{

@@ -7154,3 +7154,7 @@ body.ui-theme-nt .bar-value {
  .integrity-spot-review .table-wrap { overflow:visible !important; }
  .integrity-spot-review table { width:100% !important; table-layout:fixed; }
 }
+.integrity-shard-action { background:#155b9c; color:#fff; border:2px solid #104779; font-weight:700; padding:.55rem .85rem; }
+.integrity-shard-action:hover:not(:disabled) { background:#104779; }
+.integrity-shard-action:disabled { opacity:.7; cursor:wait; }
+.integrity-shard-help { color:#34455c; max-width:75ch; }

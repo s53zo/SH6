@@ -14,6 +14,7 @@ export function createArchiveClient(deps = {}) {
   } = deps;
 
   const archiveShardDbCache = new Map();
+  const archiveShardInFlight = new Map();
   const archiveRowsByCallCache = new Map();
   let archiveSqlLoader = null;
   let archiveSqlBaseUrl = null;
@@ -54,6 +55,13 @@ export function createArchiveClient(deps = {}) {
     if (!shardUrls.length) throw new Error('Invalid callsign');
     const cacheKey = shardUrls.join('|');
     if (archiveShardDbCache.has(cacheKey)) return archiveShardDbCache.get(cacheKey);
+    if(archiveShardInFlight.has(cacheKey)) return archiveShardInFlight.get(cacheKey);
+    const pending=downloadArchiveShard(shardUrls,cacheKey);
+    archiveShardInFlight.set(cacheKey,pending);
+    try {return await pending;} finally {archiveShardInFlight.delete(cacheKey);}
+  }
+
+  async function downloadArchiveShard(shardUrls,cacheKey) {
     const SQL = await loadArchiveSqlJs();
     const fetchUrls = typeof buildFetchUrls === 'function' ? buildFetchUrls(shardUrls) : shardUrls;
     let lastErr = null;
@@ -104,6 +112,47 @@ export function createArchiveClient(deps = {}) {
     // A temporarily unavailable alias must be retried on the next search.
     if (!failed) archiveRowsByCallCache.set(normalized, rows);
     return options.withCoverage?{rows,partial:!!failed}:rows;
+  }
+
+  async function queryRowsByCallsigns(callsigns,{concurrency=4,onProgress=()=>{},signal}={}) {
+    const canonical=value=>normalizeCall(value).replace(/\s+/g,'').replace(/_/g,'/');
+    const results=new Map(),groups=new Map();
+    for(const value of callsigns) {
+      const normalized=canonical(value);if(!normalized || results.has(normalized))continue;
+      if(archiveRowsByCallCache.has(normalized)){results.set(normalized,{rows:archiveRowsByCallCache.get(normalized),partial:false});continue;}
+      results.set(normalized,{rows:[],partial:false});
+      for(const alias of new Set([normalized,normalized.replace(/\//g,'_')])) {
+        const urls=getArchiveShardUrlsForCallsign(alias),key=urls.join('|');
+        if(!groups.has(key))groups.set(key,{representative:alias,aliases:new Set()});
+        groups.get(key).aliases.add(alias);
+      }
+    }
+    const work=[...groups.values()];let cursor=0,completed=0;
+    await Promise.all(Array.from({length:Math.max(1,Math.min(8,concurrency))},async()=>{
+      while(cursor<work.length) {
+        if(signal?.aborted)throw Error('Archive lookup cancelled');
+        const group=work[cursor++],aliases=[...group.aliases];
+        try {
+          const db=await openArchiveShardDbForCallsign(group.representative);
+          if(signal?.aborted)throw Error('Archive lookup cancelled');
+          const columns=new Set((db.exec('PRAGMA table_info(logs)')?.[0]?.values || []).map(row=>row[1]));
+          const selected=['callsign','path','contest','year','mode','season',...['subcontest','detail'].filter(c=>columns.has(c))];
+          for(let i=0;i<aliases.length;i+=400) {
+            const chunk=aliases.slice(i,i+400),stmt=db.prepare(`SELECT ${selected.join(', ')} FROM logs WHERE callsign IN (${chunk.map(()=>'?').join(', ')})`);
+            try {stmt.bind(chunk);while(stmt.step()){const row=stmt.getAsObject(),target=results.get(canonical(row.callsign));if(target)target.rows.push(row);}} finally {stmt.free();}
+          }
+        } catch(error) {
+          if(signal?.aborted)throw error;
+          for(const alias of aliases){const entry=results.get(canonical(alias));entry.partial=true;entry.error=error.message;}
+        }
+        onProgress({completed:++completed,total:work.length});
+      }
+    }));
+    for(const [normalized,entry] of results) {
+      entry.rows=[...new Map(entry.rows.map(row=>[row.path,row])).values()];
+      if(!entry.partial)archiveRowsByCallCache.set(normalized,entry.rows);
+    }
+    return results;
   }
 
   function pickHistoryMatch(rows, request) {
@@ -206,6 +255,7 @@ export function createArchiveClient(deps = {}) {
   return {
     fetchArchiveLogText,
     pickHistoryMatch,
-    queryRowsByCallsign
+    queryRowsByCallsign,
+    queryRowsByCallsigns
   };
 }

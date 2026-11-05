@@ -22,18 +22,20 @@ try {
  'QSO: 7020 CW 2025-11-29 0001 S53TEST 599 15 DL1AA 599 14',
  'QSO: 3520 CW 2025-11-29 0002 S53TEST 599 15 DL1AA 599 14',
  'QSO: 14020 CW 2025-11-29 0004 S53TEST 599 15 DL2AA 599 14','END-OF-LOG:'].join('\n');
- const spotFetch=w.fetch;let spotRequests=0;
+ const spotFetch=w.fetch;let spotRequests=0,sawClusterLoading=false,sawRbnLoading=false;
  const spotTs=Date.UTC(2025,10,29,0,0)/1000-60;
  w.fetch=async(url,...args)=>{
   const text=String(url);
-  if(text.includes('/spots/')) {spotRequests++;return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x`,{status:200});}
-  if(text.includes('/cors/rbn?')) {spotRequests++;const dx=new URL(text).searchParams.get('call');return new w.Response(JSON.stringify({call:dx,days:new URL(text).searchParams.get('days').split(','),ofUsSpots:['DL1AA','K4SPOT'].includes(dx)?[{dxCall:dx,spotter:'K2RBN',ts:(spotTs+(dx==='K4SPOT'?35*60:0))*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],errors:[],truncatedOfUs:false}),{status:200,headers:{'Content-Type':'application/json'}});}
+  if(text.includes('/spots/')) {spotRequests++;sawClusterLoading ||= !d.getElementById('spotsStatusRow').classList.contains('hidden') && d.getElementById('spotsStatus').textContent.includes('loading');return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x`,{status:200});}
+  if(text.includes('/cors/rbn?')) {spotRequests++;sawRbnLoading ||= !d.getElementById('rbnStatusRow').classList.contains('hidden') && d.getElementById('rbnStatus').textContent.includes('loading');const dx=new URL(text).searchParams.get('call');return new w.Response(JSON.stringify({call:dx,days:new URL(text).searchParams.get('days').split(','),ofUsSpots:['DL1AA','K4SPOT'].includes(dx)?[{dxCall:dx,spotter:'K2RBN',ts:(spotTs+(dx==='K4SPOT'?35*60:0))*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],errors:[],truncatedOfUs:false}),{status:200,headers:{'Content-Type':'application/json'}});}
   return spotFetch.call(w,url,...args);
  };
  await upload(content);await report('Log integrity review');
  await wait(()=>d.querySelector('.log-integrity-review table'));
  await wait(()=>d.querySelector('.integrity-spot-review')?.textContent.includes('Spot timing calculated'));
  check('spot history loads and timing calculates automatically on report entry',d.querySelector('.integrity-spot-review').textContent.includes('Multiplier worked after a spot'));
+ check('sidebar shows cluster and RBN loading then ready',sawClusterLoading && sawRbnLoading && d.getElementById('spotsStatus').textContent==='OK' && d.getElementById('rbnStatus').textContent==='OK');
+ check('shard action is prominent with a purpose explanation',d.querySelector('[data-integrity-load]').classList.contains('utility-primary-btn') && d.querySelector('.integrity-shard-help').textContent.includes('Counterpart logs are not downloaded'));
  const automaticRequests=spotRequests;await report('Log integrity review');
  check('rerender reuses automatically loaded spot history',spotRequests===automaticRequests);
  check('candidate visible',d.getElementById('viewContainer').textContent.includes('DL1AA'));
@@ -43,7 +45,7 @@ try {
  const oldFetch=w.fetch,oldPost=w.Worker.prototype.postMessage,oldPath=state.logFile.path;state.logFile.path='CQWW/cw/2025/S53TEST.log';
  w.initSqlJs=async()=>({Database:class {
   exec(){return [{values:['path','contest','year','mode','season','subcontest','detail'].map(name=>[0,name])}];}
-  prepare(){let requested='',index=-1,rows=[];return {bind(values){requested=values[0];const base={contest:'CQWW',year:2025,mode:'CW',subcontest:'cw',detail:'main'};rows=requested==='S53TEST'?[{...base,path:'CQWW/cw/2025/S53TEST.log',season:'November'}]:[{...base,path:'CQWW/cw/2025/wrong-event.log',season:'Spring'},{...base,path:'CQWW/cw/2025/integrity-dl1aa.log',season:'November'}];},step(){return ++index<rows.length;},getAsObject(){return rows[index];},free(){}};}
+  prepare(){let requested='',index=-1,rows=[];return {bind(values){requested=values[0];const base={contest:'CQWW',year:2025,mode:'CW',subcontest:'cw',detail:'main'};rows=requested==='S53TEST'?[{...base,path:'CQWW/cw/2025/S53TEST.log',season:'November'}]:[{...base,path:'CQWW/cw/2025/wrong-event.log',season:'Spring'},{...base,path:'CQWW/cw/2025/integrity-dl1aa.log',season:'November'}];},step(){return ++index<rows.length;},getAsObject(){return {...rows[index],callsign:requested};},free(){}};}
 
  }});
  w.fetch=(url,...args)=>String(url).includes('.sqlite')?Promise.resolve(new w.Response(new Uint8Array(0))):oldFetch.call(w,url,...args);

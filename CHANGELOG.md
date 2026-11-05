@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.54 (2026-11-05)
+
+- Batch counterpart callsigns by archive shard, fetch each required shard once (including concurrent requests), and query calls together with bounded SQLite parameter batches. Reuse complete results; preserve portable aliases, cancellation and partial failures.
+- Throttle shard progress rendering and remove per-callsign report rerenders. Show integrity Cluster/RBN loading and coverage in the main data-status area.
+- Make the counterpart shard action prominent and explain why the index check is needed, without downloading counterpart logs. Add batch performance/caching/failure tests and full-app status/button checks; advance application/cache references to v6.3.54.
+
 ## v6.3.53 (2026-11-05)
 
 - Check counterpart availability using shard metadata only. A matching submitted or reconstructed entry passes without downloading or parsing the counterpart log; do not claim verified activity counts from index presence.

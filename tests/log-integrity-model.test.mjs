@@ -126,3 +126,13 @@ const rendered=renderIntegrity({cases:[reviewCase],windowMinutes:5,minBands:3,fi
 assert.ok(!rendered.includes('<img'));assert.ok(!rendered.includes('<b>UNSAFE</b>'));assert.ok(rendered.includes('&lt;img'));
 assert.ok(rendered.includes('Window: 5 minutes; minimum bands: 3; call filter: DX; displayed: 1 / 1'));
 console.log('Review fixes: unique reciprocal matches, both exchange directions, normalization, lineage, Mixed selection, baseline identity, safe HTML and export settings: PASS');
+const {assessCounterpartActivity}=await import('../modules/integrity/model.js');
+for(const n of [4,5,6]) {
+ const records=Array.from({length:n},(_,i)=>({...q(i,'20M','K'+i+'AA'),originCall:'DX'}));
+ const e={records,summary:summarizeCounterpart([...records,records[0]],'TEST','submitted')};
+ assert.equal(assessCounterpartActivity(e).state,n>=5?'ok':'limited');
+}
+assert.equal(assessCounterpartActivity({status:'unavailable'}).state,'missing');
+assert.equal(assessCounterpartActivity({status:'error'}).state,'unknown');
+assert.equal(assessCounterpartActivity({status:'partial'}).state,'unknown');
+console.log('Counterpart activity: five unique callsigns passes, duplicates do not inflate counts, missing and failed lookup remain distinct: PASS');

@@ -57,6 +57,7 @@ try {
  d.querySelector('[data-integrity-load]').click();
  await wait(()=>d.querySelector('.log-integrity-review')?.textContent.includes('Evidence lookup finished'));
  check('counterpart evidence loads through archive client and report',d.querySelector('.log-integrity-review').textContent.includes('204 observed contacts'));
+ check('counterpart activity passes the five-callsign threshold',d.querySelector('.integrity-counterpart-activity').textContent.includes('OK — 202 unique callsigns'));
  check('hostile counterpart exchange remains literal text',d.querySelector('.log-integrity-review').textContent.includes('<b>UNSAFE</b>') && ![...d.querySelectorAll('.log-integrity-review b')].some(el=>el.textContent==='UNSAFE'));
 
  check('large counterpart timeline is bounded on screen',!d.querySelector('.log-integrity-review').textContent.includes('K200AA'));
@@ -110,6 +111,7 @@ try {
  const spotPanel=d.querySelector('.integrity-spot-review');
  check('multiplier spot timing loads cluster and RBN before calculation',spotPanel.textContent.includes('Multiplier worked after a spot') && spotPanel.textContent.includes('K2RBN') && spotPanel.textContent.includes('Cluster'));
  check('unmatched multiplier rows are hidden',![...spotPanel.querySelectorAll('tbody tr')].some(row=>row.textContent.includes('ZZ1AA')));
+ check('counterpart check covers standalone multiplier stations',d.querySelector('.integrity-counterpart-activity').textContent.includes('K4SPOT'));
  check('spot timing covers multiplier contacts outside rapid sequences',spotPanel.textContent.includes('K4SPOT'));
  const focus=spotPanel.querySelector('.integrity-qso[data-slot="A"]');focus.click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
  check('multiplier spot evidence jumps to original contact',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log A, QSO'));

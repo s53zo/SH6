@@ -43,7 +43,7 @@ export function summarizeCounterpart(records=[], entrant='', sourceKind='reconst
   }
   const rows=[...unique.values()];
   const independent=entrantReconstructed?[]:rows.filter(r=>r.originCall && canonical(r.originCall)!==reviewed);
-  return {sourceKind,independenceAssessed:!entrantReconstructed && rows.every(r=>!!r.originCall),observed:rows.length,stations:new Set(rows.map(r=>canonical(r.call))).size,
+  return {sourceKind,independenceAssessed:!entrantReconstructed && rows.every(r=>!!r.originCall),observed:rows.length,stations:new Set(rows.map(r=>canonical(r.call)).filter(Boolean)).size,
     withEntrant:rows.filter(r=>canonical(r.call)===reviewed).length,
     independentlyReported:independent.length,
     independenceUnknown:entrantReconstructed?rows.length:rows.filter(r=>!r.originCall).length,
@@ -100,4 +100,13 @@ export function compareCases(cases,qsos,records,entrant,sourceKind,options={}) {
   c.reciprocal={...part,label:options.entrantReconstructed || sourceKind!=='submitted'?all.label:part.discrepancies.length?'Conflicting log records':part.unmatched.length || part.ambiguous.length?'Unmatched or ambiguous reciprocal records':'Reciprocal contacts matched within five minutes'};
   c.label=part.discrepancies.length?'Conflicting log records':'Rapid multiband sequence';
  }
+}
+
+export function assessCounterpartActivity(evidence) {
+ if(evidence?.records && evidence.summary) {
+  const unique=evidence.summary.stations;
+  return {state:unique>=5?'ok':'limited',unique,label:unique>=5?`OK — ${unique} unique callsigns`:`Limited activity — ${unique} unique callsigns`};
+ }
+ if(evidence?.status==='unavailable')return {state:'missing',unique:null,label:'Review — counterpart log not found'};
+ return {state:'unknown',unique:null,label:evidence?.status==='error'?'Not checked — download failed':evidence?.status==='ambiguous'?'Not checked — ambiguous event':evidence?.status==='partial'?'Not checked — incomplete lookup':'Not checked'};
 }

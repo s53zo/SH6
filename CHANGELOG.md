@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.52 (2026-11-05)
+
+- Add a separate counterpart-activity check for all credited multiplier stations, including those outside rapid multiband sequences. Submitted or reconstructed logs with at least five unique worked callsigns pass this check; smaller logs show limited activity and missing matching logs are marked for review.
+- Keep download failures, incomplete lookup and ambiguous events unassessed rather than labelling their logs missing. Duplicate contacts do not increase unique-callsign counts; OK applies only to the activity threshold.
+- Add model and full-app threshold/standalone-multiplier coverage; advance application/cache references to v6.3.52.
+
 ## v6.3.51 (2026-11-05)
 
 - Automatically load cluster/RBN history and calculate multiplier timing when Log integrity review opens. Reuse loaded history across rerenders, refresh for changed log/scoring contexts and avoid automatic retry loops after cancellation or source failures.

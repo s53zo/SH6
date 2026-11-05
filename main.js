@@ -182,7 +182,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.50';
+  const APP_VERSION = 'v6.3.51';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -284,40 +284,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.50';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.50';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.50';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.50';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.50';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.50';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.50';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.50';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.50';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.50';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.50';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.50';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.50';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.50';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.50';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.50';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.50';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.50';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.50';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.50';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.50';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.50';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.50';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.50';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.50';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.50';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.50';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.50';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.50';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.50';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.50';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.50';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.50';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.50';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.51';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.51';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.51';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.51';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.51';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.51';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.51';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.51';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.51';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.51';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.51';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.51';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.51';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.51';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.51';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.51';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.51';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.51';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.51';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.51';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.51';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.51';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.51';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.51';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.51';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.51';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.51';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.51';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.51';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.51';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.51';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.51';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.51';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.51';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1994,8 +1994,8 @@
 
   async function loadMultiplierOverviewModule() {
     const [model, view] = await Promise.all([
-      import('./modules/multipliers/overview-model.js?v=6.3.50'),
-      import('./modules/multipliers/overview-view.js?v=6.3.50')
+      import('./modules/multipliers/overview-model.js?v=6.3.51'),
+      import('./modules/multipliers/overview-view.js?v=6.3.51')
     ]);
     multiplierOverviewRuntime = { ...model, ...view };
   }
@@ -20885,7 +20885,7 @@ function syncEngineCompareLogForSlot(slot) {
       data.rows=integrityModules.correlateMultiplierSpots(targets,data.history.spots,data.windowMinutes);
       data.status=data.history.status==='loaded'?'Spot timing calculated from loaded cluster/RBN data.':'Spot timing calculated with incomplete cluster/RBN coverage; review source failures below.';
     } catch(error){if(current())data.status=data.controller.signal.aborted?'Spot analysis cancelled; results are not complete.':'Spot analysis unavailable: '+error.message;}
-    finally{data.loading=false;if(current() && reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}
+    finally{data.loading=false;if(getSlotById(id)?.logVersion===version && integrityModels.get(id)===model && reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}
   }
 
   async function loadIntegrityEvidence(id) {
@@ -20950,12 +20950,12 @@ function syncEngineCompareLogForSlot(slot) {
     if(!integrityModules) {
       if(integrityLoadError) return `<p class="state-warning">Log integrity review unavailable: ${escapeHtml(integrityLoadError)}. Reload to retry.</p>`;
       if(!integrityLoading) integrityLoading=Promise.all([
-        import('./modules/integrity/model.js?v=6.3.50'),
-        import('./modules/integrity/view.js?v=6.3.50'),
-        import('./modules/integrity/evidence.js?v=6.3.50'),
-        import('./modules/integrity/impact.js?v=6.3.50'),
-        import('./modules/integrity/spots.js?v=6.3.50'),
-        import('./modules/integrity/spot-view.js?v=6.3.50')
+        import('./modules/integrity/model.js?v=6.3.51'),
+        import('./modules/integrity/view.js?v=6.3.51'),
+        import('./modules/integrity/evidence.js?v=6.3.51'),
+        import('./modules/integrity/impact.js?v=6.3.51'),
+        import('./modules/integrity/spots.js?v=6.3.51'),
+        import('./modules/integrity/spot-view.js?v=6.3.51')
       ]).then(([model,view,evidence,impact,spots,spotView])=>{integrityModules={...model,...view,...evidence,...impact,...spots,...spotView};renderActiveReport();})
         .catch(error=>{integrityLoading=null;integrityLoadError=error.message;renderActiveReport();});
       return '<p>Loading log integrity review…</p>';
@@ -21036,6 +21036,19 @@ function syncEngineCompareLogForSlot(slot) {
         if (!keyboardActivation) target.querySelector('summary')?.focus({ preventScroll: true });
       });
     });
+    if(reportId==='log_integrity_review' && reports[state.activeIndex]?.id===reportId) {
+      for(const {slot,id} of getActiveCompareSlots()) {
+        const model=integrityModels.get(id);if(!model || !slot)continue;
+        const data=model.multiplierSpots ||= {windowMinutes:10};
+        const key=integrityScoreKey(slot);
+        if(data.autoAttempt===key || data.autoScheduled===key || data.loading)continue;
+        data.autoScheduled=key;
+        queueMicrotask(()=>{
+          if(data.autoScheduled===key)delete data.autoScheduled;
+          if(reports[state.activeIndex]?.id===reportId && integrityModels.get(id)===model && integrityScoreKey(slot)===key && !data.loading) {data.autoAttempt=key;loadIntegrityMultiplierSpots(id);}
+        });
+      }
+    }
     dom.viewContainer.querySelectorAll('[data-integrity-spots]').forEach(button=>button.addEventListener('click',()=>loadIntegrityMultiplierSpots(button.dataset.integritySpots)));
     dom.viewContainer.querySelectorAll('[data-integrity-spots-cancel]').forEach(button=>button.addEventListener('click',()=>integrityModels.get(button.dataset.integritySpotsCancel)?.multiplierSpots?.controller?.abort()));
     dom.viewContainer.querySelectorAll('[data-integrity-spot-window]').forEach(input=>input.addEventListener('change',()=>{

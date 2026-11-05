@@ -52,3 +52,7 @@ const zipped=await loadMultiplierSpotHistory({targets,clusterBaseUrl:'https://te
 }});
 assert.ok(zipped.coverage.filter(c=>c.source==='Cluster').every(c=>c.url.endsWith('.gz')));assert.ok(zipped.spots.filter(s=>s.source==='Cluster').every(s=>s.sourceUrl.endsWith('.gz')));
 console.log('Gzip fallback preserves the actual source URL: PASS');
+
+const hidden=renderMultiplierSpotReview({multiplierSpots:{history,windowMinutes:10,rows:[...correlateMultiplierSpots(targets,[spot]),{...targets[0],call:'HIDE-ME',spot:null,label:'No matching spot in loaded data'}]}},'A');
+assert.ok(!hidden.includes('HIDE-ME'));assert.ok(hidden.includes('/ 2 credited multiplier contacts'));
+console.log('Unmatched rows hidden while full denominator retained: PASS');

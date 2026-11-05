@@ -22,8 +22,20 @@ try {
  'QSO: 7020 CW 2025-11-29 0001 S53TEST 599 15 DL1AA 599 14',
  'QSO: 3520 CW 2025-11-29 0002 S53TEST 599 15 DL1AA 599 14',
  'QSO: 14020 CW 2025-11-29 0004 S53TEST 599 15 DL2AA 599 14','END-OF-LOG:'].join('\n');
+ const spotFetch=w.fetch;let spotRequests=0;
+ const spotTs=Date.UTC(2025,10,29,0,0)/1000-60;
+ w.fetch=async(url,...args)=>{
+  const text=String(url);
+  if(text.includes('/spots/')) {spotRequests++;return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x`,{status:200});}
+  if(text.includes('/cors/rbn?')) {spotRequests++;const dx=new URL(text).searchParams.get('call');return new w.Response(JSON.stringify({call:dx,days:new URL(text).searchParams.get('days').split(','),ofUsSpots:['DL1AA','K4SPOT'].includes(dx)?[{dxCall:dx,spotter:'K2RBN',ts:(spotTs+(dx==='K4SPOT'?35*60:0))*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],errors:[],truncatedOfUs:false}),{status:200,headers:{'Content-Type':'application/json'}});}
+  return spotFetch.call(w,url,...args);
+ };
  await upload(content);await report('Log integrity review');
  await wait(()=>d.querySelector('.log-integrity-review table'));
+ await wait(()=>d.querySelector('.integrity-spot-review')?.textContent.includes('Spot timing calculated'));
+ check('spot history loads and timing calculates automatically on report entry',d.querySelector('.integrity-spot-review').textContent.includes('Multiplier worked after a spot'));
+ const automaticRequests=spotRequests;await report('Log integrity review');
+ check('rerender reuses automatically loaded spot history',spotRequests===automaticRequests);
  check('candidate visible',d.getElementById('viewContainer').textContent.includes('DL1AA'));
  check('one grouped case',d.querySelectorAll('.log-integrity-review > .table-wrap > table > tbody > tr').length===1);
  check('source controls present',!!d.querySelector('.integrity-qso[data-slot="A"][data-index="2"]'));
@@ -92,18 +104,12 @@ try {
  sort.click();sort.click();
  check('findings sort with nested timeline headers',outer.tBodies[0].rows[0].cells[1].textContent==='ZZ1AA');
 
- const spotFetch=w.fetch;
- const spotTs=Date.UTC(2025,10,29,0,0)/1000-60;
- w.fetch=async(url,...args)=>{
-  const text=String(url);
-  if(text.includes('/spots/')) return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x`,{status:200});
-  if(text.includes('/cors/rbn?')) {const dx=new URL(text).searchParams.get('call');return new w.Response(JSON.stringify({call:dx,days:new URL(text).searchParams.get('days').split(','),ofUsSpots:dx==='DL1AA'?[{dxCall:dx,spotter:'K2RBN',ts:spotTs*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],errors:[],truncatedOfUs:false}),{status:200,headers:{'Content-Type':'application/json'}});}
-  return spotFetch.call(w,url,...args);
- };
- d.querySelector('[data-integrity-spots="A"]').click();
+ // Reopening the report must trigger spot loading without a button click.
+ await report('Log integrity review');
  await wait(()=>[...d.querySelectorAll('.integrity-spot-review')].some(el=>el.textContent.includes('Spot timing calculated')));
  const spotPanel=d.querySelector('.integrity-spot-review');
  check('multiplier spot timing loads cluster and RBN before calculation',spotPanel.textContent.includes('Multiplier worked after a spot') && spotPanel.textContent.includes('K2RBN') && spotPanel.textContent.includes('Cluster'));
+ check('unmatched multiplier rows are hidden',![...spotPanel.querySelectorAll('tbody tr')].some(row=>row.textContent.includes('ZZ1AA')));
  check('spot timing covers multiplier contacts outside rapid sequences',spotPanel.textContent.includes('K4SPOT'));
  const focus=spotPanel.querySelector('.integrity-qso[data-slot="A"]');focus.click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
  check('multiplier spot evidence jumps to original contact',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log A, QSO'));

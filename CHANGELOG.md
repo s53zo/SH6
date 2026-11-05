@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.51 (2026-11-05)
+
+- Automatically load cluster/RBN history and calculate multiplier timing when Log integrity review opens. Reuse loaded history across rerenders, refresh for changed log/scoring contexts and avoid automatic retry loops after cancellation or source failures.
+- Hide multiplier rows without matching spots while preserving all-contact denominators and explicit incomplete-coverage warnings. Keep retry/recalculate and cancel controls available.
+- Add full-app automatic-load, cache-reuse and hidden-unmatched regressions; advance application/cache references to v6.3.51.
+
 ## v6.3.50 (2026-11-05)
 
 - Add multiplier-after-spot analysis to Log integrity review: load cluster/RBN history for worked multiplier stations, then display source times, delay intervals, frequency differences and original-QSO navigation across all credited multipliers.

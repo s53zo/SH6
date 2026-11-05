@@ -24,7 +24,7 @@ Full-app smoke covers one/four slots, source immutability, hypothetical scoring,
 
 Counterpart source validation checks index contest/year/mode and parsed identity, modes and dates. Ambiguous season/subcontest/detail metadata remains unselected. Parsed contacts outside three days of the entrant's observed date range are rejected; this conservative sanity check does not replace an organizer's event calendar. Mixed entries use the declared Mixed mode and CW/phone contacts, not synthetic reconstruction category declarations. Incomplete archive coverage cannot prove absence. Reciprocal time tolerance and review observation counts are transparent review aids, not statistical probabilities or adjudication.
 
-Local release is v6.3.50. No push is authorized by this goal.
+Local release is v6.3.51. No push is authorized by this goal.
 
 
 ## v6.3.49 review corrections
@@ -39,7 +39,7 @@ Browser regression now clicks Load counterpart evidence with a deterministic arc
 
 ## Multiplier timing against cluster/RBN — v6.3.50
 
-The follow-up request adds the article's spot-to-multiplier analysis. In Log integrity review, choose **Load cluster/RBN and check multipliers**. This loads the relevant histories before calculating the timing table. It checks every contact receiving implemented multiplier credit, including single-band contacts outside rapid multiband cases. Unsupported scoring models explicitly show that multiplier identification is unavailable.
+The follow-up request adds the article's spot-to-multiplier analysis. Opening Log integrity review automatically loads the relevant cluster/RBN histories and then calculates the timing table. Loaded data is reused across rerenders; retry/recalculate and cancel controls remain available. It checks every contact receiving implemented multiplier credit, including single-band contacts outside rapid multiband cases. Unsupported scoring models explicitly show that multiplier identification is unavailable.
 
 Cluster daily files come from the existing SH6 spot archive. RBN queries target the callsigns worked, using the existing call/day proxy. Queries cover up to 60 minutes before credited contacts, including the previous UTC date near midnight. RBN concurrency is two; HTTP 429 stops additional queued calls and makes coverage partial. Errors, truncation, missing days, cancellation and source-query coverage remain visible. The default timing window is ten minutes, adjustable from one to sixty without another download when history is cached. Spot requests have a thirty-second timeout and are limited to a single event spanning at most seven UTC dates.
 
@@ -49,3 +49,8 @@ Tests: `node tests/integrity-spots.test.mjs` covers multiplier credit indexing, 
 
 
 Only a spot strictly preceding the QSO minute with an entire delay interval inside the chosen window counts as a definite within-window observation. Same-minute spots remain additional uncertain evidence and do not hide an earlier definite match. Delay intervals crossing the window boundary are reported separately. RBN responses must confirm requested UTC dates; missing confirmation makes coverage partial. Gzip fallback links identify the file actually loaded.
+
+
+## Automatic loading and focused results — v6.3.51
+
+Automatic loading starts only for the interactive integrity report, not static export generation. It attempts once per log/scoring context; failed, partial or cancelled requests require explicit retry, avoiding network retry loops. Reopening the same report reuses completed history. A newly loaded log or scoring context starts a fresh check. Rows without matching spots are hidden in both the report and exports; summary denominators still include all credited multiplier contacts, with coverage gaps visible.

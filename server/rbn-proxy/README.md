@@ -9,7 +9,7 @@ Source imported from the running Rust proxy on S50DXS (2026-11-05). Existing sin
 Public URL: `https://azure.s53m.com/cors/rbn?calls=EF8R,CQ9A&days=20251129`
 
 Response: `{ "batchVersion": 1, "maxCalls": 32, "maxDays": 2, "maxSpots": 100000, "results": [...] }`.
-Each result has the existing single-call fields (`call`, `days`, totals, `ofUsSpots`, `byUsSpots`, errors and truncation flags) plus `baseCall`. Original calls are preserved as result keys; matching uses the existing base-call policy. Invalid calls/dates and oversized requests return HTTP 400. Duplicate calls/dates collapse.
+The optional `ofUsOnly=1` query returns only spots of the requested stations, with `byUsIncluded:false`; ordinary requests still return both directions. Omitted by-station records do not consume the response budget. Each result has the existing single-call fields (`call`, `days`, totals, `ofUsSpots`, `byUsSpots`, errors and truncation flags) plus `baseCall`. Original calls are preserved as result keys; matching uses the existing base-call policy. Invalid calls/dates and oversized requests return HTTP 400. Duplicate calls/dates collapse.
 
 Each date is decompressed/filtered once for all requested calls, under the existing archive-scan lock. The 100,000-record budget covers the complete batch, including both directions and dates. Counts continue after the budget is exhausted, and affected calls carry truncation flags. Missing days yield explicit per-call errors, never confirmed empty coverage. Live-day batches read the live shard once.
 

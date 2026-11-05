@@ -550,7 +550,7 @@ export function createSpotsDataRuntime(deps = {}) {
     const wanted = [...new Set(days || [])].sort();
     const dx = normalizeCallSafe(call);
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const complete = data => !data.notFound && normalizeCallSafe(data.call) === dx
+    const complete = data => !data.notFound && data.byUsIncluded!==false && normalizeCallSafe(data.call) === dx
       && Array.isArray(data.ofUsSpots) && Array.isArray(data.days)
       && wanted.every(day => data.days.includes(day))
       && !data.errors?.length && !data.truncatedOfUs && !data.truncatedByUs;
@@ -566,19 +566,57 @@ export function createSpotsDataRuntime(deps = {}) {
     return structuredClone(data);
   }
 
-  async function fetchRbnSpotsBatch(calls, days, {signal,onProgress=()=>{}} = {}) {
+  async function fetchRbnSpotsBatch(calls, days, {signal,onProgress=()=>{},ofUsOnly=false} = {}) {
     const wantedCalls=[...new Set(calls.map(normalizeCallSafe).filter(Boolean))];
     const wantedDays=[...new Set(days || [])].sort();
     if(!wantedDays.length || wantedDays.length>7)throw new Error('RBN batch requires one to seven UTC dates.');
-    const merged=new Map(wantedCalls.map(call=>[call,{call,days:[],ofUsSpots:[],byUsSpots:[],errors:[],total:0,totalOfUs:0,totalByUs:0,truncatedOfUs:false,truncatedByUs:false}]));
+    const merged=new Map(wantedCalls.map(call=>[call,{call,byUsIncluded:!ofUsOnly,days:[],ofUsSpots:[],byUsSpots:[],errors:[],total:0,totalOfUs:0,totalByUs:0,truncatedOfUs:false,truncatedByUs:false}]));
+    // A count-limited response is incomplete even when HTTP succeeded. Preserve
+    // complete calls and retry only truncated calls in smaller bounded groups.
+    const readGroup=async(group,groupDays)=>{
+      if(signal?.aborted)throw new Error('Cancelled');
+      const url=rbnProxyUrl+'?'+new URLSearchParams({calls:group.join(','),days:groupDays.join(','),...(ofUsOnly?{ofUsOnly:'1'}:{})});
+      const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(90000)});
+      if([400,404,405].includes(response.status)){const fallback=new Map();for(const dx of group){if(signal?.aborted)throw new Error('Cancelled');fallback.set(dx,await fetchRbnSpotsUncached(dx,groupDays));}return fallback;}
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      const data=await response.json();
+      if(data.batchVersion!==1 || !Array.isArray(data.results))throw new Error('Invalid RBN batch response');
+      const results=new Map();
+      for(const entry of data.results){
+        const dx=normalizeCallSafe(entry.call);
+        if(!group.includes(dx) || results.has(dx))throw new Error('Unexpected/duplicate RBN batch callsign');
+        if(!Array.isArray(entry.days) || !Array.isArray(entry.errors) || !Array.isArray(entry.ofUsSpots) || !Array.isArray(entry.byUsSpots))throw new Error('Invalid RBN per-call result');
+        results.set(dx,entry);
+      }
+      if(group.some(dx=>!results.has(dx)))throw new Error('RBN batch omitted requested callsigns');
+      data.results=[]; // Do not retain replaced truncated payloads during recursive retries.
+      const retry=group.filter(dx=>{const r=results.get(dx);return !r.errors.length && groupDays.every(day=>r.days.includes(day)) && (r.truncatedOfUs || (!ofUsOnly && r.truncatedByUs));});
+      if(retry.length && group.length>1){
+        const budget=Math.max(1,Math.min(100000,Number(data.maxSpots) || 100000)*0.9);
+        let parts=[],part=[],weight=0;
+        for(const dx of retry){const r=results.get(dx),n=Math.max(1,(Number(r.totalOfUs)||0)+(Number(r.totalByUs)||0));if(part.length && weight+n>budget){parts.push(part);part=[];weight=0;}part.push(dx);weight+=n;}
+        if(part.length)parts.push(part);
+        // Missing/inaccurate totals must still make every retry strictly smaller.
+        if(parts.length===1 && parts[0].length===group.length){const mid=Math.ceil(group.length/2);parts=[group.slice(0,mid),group.slice(mid)];}
+        onProgress({retryingCalls:retry.length,total:wantedCalls.length*Math.ceil(wantedDays.length/2)});
+        for(const smaller of parts)for(const [dx,result] of await readGroup(smaller,groupDays))results.set(dx,result);
+      } else if(retry.length && groupDays.length>1){
+        const dx=group[0],pieces=[];
+        for(const day of groupDays)pieces.push((await readGroup([dx],[day])).get(dx));
+        const combined={call:dx,byUsIncluded:!ofUsOnly,days:[],ofUsSpots:[],byUsSpots:[],errors:[],total:0,totalOfUs:0,totalByUs:0,truncatedOfUs:false,truncatedByUs:false};
+        for(const piece of pieces){for(const key of ['days','ofUsSpots','byUsSpots','errors'])for(const value of piece[key])combined[key].push(value);for(const key of ['total','totalOfUs','totalByUs'])combined[key]+=Number(piece[key])||0;combined.truncatedOfUs ||= Boolean(piece.truncatedOfUs);combined.truncatedByUs ||= Boolean(piece.truncatedByUs);}
+        results.set(dx,combined);
+      }
+      return results;
+    };
     let completed=0;
     for(let dayIndex=0;dayIndex<wantedDays.length;dayIndex+=2) {
       if(signal?.aborted)throw new Error('Cancelled');
       const groupDays=wantedDays.slice(dayIndex,dayIndex+2),pendingCalls=[];
-      const keyFor=dx=>'rbn:'+rbnProxyUrl+':'+dx+':'+groupDays.join(',');
+      const keyFor=dx=>'rbn:'+rbnProxyUrl+':'+dx+':'+groupDays.join(',')+(ofUsOnly?':ofUs':'');
       for(const dx of wantedCalls) {
         const prefix='rbn:'+rbnProxyUrl+':'+dx+':';
-        const cached=[...historyCache].find(([key,c])=>key.startsWith(prefix) && c.expires>Date.now() && groupDays.every(d=>c.value.days?.includes(d)));
+        const cached=[...historyCache].find(([key,c])=>key.startsWith(prefix) && c.expires>Date.now() && (ofUsOnly || c.value.byUsIncluded!==false) && groupDays.every(d=>c.value.days?.includes(d)));
         if(cached){
           const data=structuredClone(cached[1].value);
           if(data.days.some(day=>!groupDays.includes(day))){
@@ -594,24 +632,12 @@ export function createSpotsDataRuntime(deps = {}) {
       for(let i=0;i<missing.length;i+=32) {
         if(signal?.aborted)throw new Error('Cancelled');
         const group=missing.slice(i,i+32);
-        const request=(async()=>{
-          const url=rbnProxyUrl+'?'+new URLSearchParams({calls:group.join(','),days:groupDays.join(',')});
-          const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(90000)});
-          // Older proxies remain usable while the server upgrade rolls out.
-          if([400,404,405].includes(response.status)){const fallback=new Map();for(const dx of group)fallback.set(dx,await fetchRbnSpotsUncached(dx,groupDays));return fallback;}
-          if(!response.ok)throw new Error('HTTP '+response.status);
-          const data=await response.json();
-          if(data.batchVersion!==1 || !Array.isArray(data.results))throw new Error('Invalid RBN batch response');
-          const results=new Map();
-          for(const entry of data.results){const dx=normalizeCallSafe(entry.call);if(!group.includes(dx) || results.has(dx))throw new Error('Unexpected/duplicate RBN batch callsign');results.set(dx,entry);}
-          if(group.some(dx=>!results.has(dx)))throw new Error('RBN batch omitted requested callsigns');
-          return results;
-        })();
+        const request=readGroup(group,groupDays);
         const jobs=group.map(dx=>[dx,cachedHistory(keyFor(dx),async()=>{
           const result=(await request).get(dx);
           if(!result || !Array.isArray(result.days) || !Array.isArray(result.errors) || !Array.isArray(result.ofUsSpots) || !Array.isArray(result.byUsSpots))throw new Error('Invalid RBN per-call result');
-          return result;
-        },result=>!result.notFound && Array.isArray(result.days) && groupDays.every(d=>result.days.includes(d)) && !result.errors?.length && !result.truncatedOfUs && !result.truncatedByUs,
+          return ofUsOnly?{...result,byUsIncluded:false,byUsSpots:[],truncatedByUs:false}:result;
+        },result=>!result.notFound && Array.isArray(result.days) && groupDays.every(d=>result.days.includes(d)) && !result.errors?.length && !result.truncatedOfUs && (ofUsOnly || !result.truncatedByUs),
           groupDays.some(day=>day>=new Date().toISOString().slice(0,10).replace(/-/g,'')))]);
         const settled=await Promise.allSettled(jobs.map(([,job])=>job));
         // Stop on failure/rate limiting rather than flooding the serialized archive scanner.
@@ -622,8 +648,7 @@ export function createSpotsDataRuntime(deps = {}) {
       }
       for(const [dx,promise] of pendingCalls) {
         const data=await promise,target=merged.get(dx);
-        target.days.push(...(data.days || []));target.ofUsSpots.push(...(data.ofUsSpots || []));target.byUsSpots.push(...(data.byUsSpots || []));
-        target.errors.push(...(data.errors || []));
+        for(const key of ['days','ofUsSpots','byUsSpots','errors']){if(ofUsOnly && key==='byUsSpots')continue;for(const value of data[key] || [])target[key].push(value);}
         if(groupDays.some(day=>!data.days?.includes(day)))target.errors.push({error:'Response did not confirm requested dates'});
         for(const key of ['total','totalOfUs','totalByUs'])target[key]+=Number(data[key]) || 0;
         target.truncatedOfUs ||= Boolean(data.truncatedOfUs);target.truncatedByUs ||= Boolean(data.truncatedByUs);

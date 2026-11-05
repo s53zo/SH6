@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.56 (2026-11-05)
+
+- Recover count-limited RBN batches by automatically splitting affected calls and, when needed, dates. Request only spots of multiplier stations so their skimmer reports cannot exhaust the response limit; keep directional caches separate and merge large arrays safely. Preserve complete responses, bound retry depth, and show explicit station/source errors with loading details when coverage still cannot be completed.
+- Fix EF8R CQWW CW 2025 review coverage: verify all 54 source checks complete for 69 off-RUN credited contacts across 52 stations. Add adaptive retry, direction-aware cache and large-array regressions; advance application/cache references to v6.3.56.
+
 ## v6.3.55 (2026-11-05)
 
 - Add a backward-compatible RBN proxy batch API and integrity ingestion: query up to 32 calls over two UTC dates per request, scan each date once, reuse per-call cache entries and preserve per-call coverage/truncation. Version the proxy source, tests and deployment/rollback notes.

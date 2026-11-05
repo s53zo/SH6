@@ -1482,6 +1482,7 @@ const MAX_BATCH_SPOTS: usize = 100_000;
 
 #[derive(Default)]
 struct BatchCall {
+    skip_by: bool,
     of_us: Vec<Spot>, by_us: Vec<Spot>, total: usize,
     total_of: usize, total_by: usize, trunc_of: bool, trunc_by: bool,
 }
@@ -1498,6 +1499,7 @@ fn record_batch_spot(results: &mut HashMap<String, BatchCall>, spot: Spot, store
     if let Some(result) = results.get_mut(&rx) {
         if rx != dx { result.total += 1; }
         result.total_by += 1;
+        if result.skip_by { return; }
         if *stored < MAX_BATCH_SPOTS { result.by_us.push(spot); *stored += 1; }
         else { result.trunc_by = true; }
     }
@@ -1511,6 +1513,9 @@ fn collect_batch_csv<R: BufRead>(reader: R, results: &mut HashMap<String, BatchC
         let rx = base_call(cols[0]);
         let dx = cols[5].trim().to_uppercase();
         if !results.contains_key(&rx) && !results.contains_key(&dx) { continue; }
+        if !results.contains_key(&dx) && results.get(&rx).map(|r|r.skip_by).unwrap_or(false) {
+            let result=results.get_mut(&rx).unwrap();result.total+=1;result.total_by+=1;continue;
+        }
         let spot = Spot {
             spotter: rx, spotterRaw: cols[0].trim().to_string(), dxCall: dx,
             freqKHz: parse_float(cols[3]), band: cols[4].trim().to_string(),
@@ -1571,8 +1576,8 @@ fn batch_call_json(call: &str, days: &[String], result: &BatchCall, errors: &[Da
     // Portable aliases may share a base-call accumulator; bound serialized output too.
     let of_len=result.of_us.len().min(*remaining); *remaining-=of_len;
     let by_len=result.by_us.len().min(*remaining); *remaining-=by_len;
-    format!(r#"{{"call":{},"baseCall":{},"days":[{}],"total":{},"totalOfUs":{},"totalByUs":{},"capPerSide":{},"truncatedOfUs":{},"truncatedByUs":{},"ofUsSpots":{},"byUsSpots":{},"errors":{}}}"#,
-        json_string(call),json_string(&base_call(call)),days.iter().map(|d|json_string(d)).collect::<Vec<_>>().join(","),
+    format!(r#"{{"call":{},"baseCall":{},"byUsIncluded":{},"days":[{}],"total":{},"totalOfUs":{},"totalByUs":{},"capPerSide":{},"truncatedOfUs":{},"truncatedByUs":{},"ofUsSpots":{},"byUsSpots":{},"errors":{}}}"#,
+        json_string(call),json_string(&base_call(call)),!result.skip_by,days.iter().map(|d|json_string(d)).collect::<Vec<_>>().join(","),
         result.total,result.total_of,result.total_by,MAX_BATCH_SPOTS,result.trunc_of || of_len<result.of_us.len(),result.trunc_by || by_len<result.by_us.len(),
         spots_to_json(&result.of_us[..of_len]),spots_to_json(&result.by_us[..by_len]),errors_to_json(errors))
 }
@@ -1595,7 +1600,11 @@ fn handle_batch_request(params: &HashMap<String,String>, stream: &mut TcpStream)
         if !days.contains(&day.to_string()) {days.push(day.to_string());}
     }
     if days.len()>MAX_DAYS {respond_json(stream,400,"Bad Request",r#"{"error":"Too many days (max 2)"}"#);return;}
-    let mut results:HashMap<String,BatchCall>=calls.iter().map(|call|(base_call(call),BatchCall::default())).collect();
+    let of_us_only=match params.get("ofUsOnly").map(String::as_str) {
+        None|Some("0")|Some("false")=>false,Some("1")|Some("true")=>true,
+        _=>{respond_json(stream,400,"Bad Request",r#"{"error":"Invalid ofUsOnly"}"#);return;}
+    };
+    let mut results:HashMap<String,BatchCall>=calls.iter().map(|call|(base_call(call),BatchCall{skip_by:of_us_only,..BatchCall::default()})).collect();
     let mut errors=Vec::new(); let mut stored=0;
     let _guard=SCAN_LOCK.lock().unwrap();
     for day in &days {
@@ -1757,5 +1766,16 @@ mod batch_tests {
   assert_eq!(results["DL1AA"].of_us.len(),2);assert_eq!(results["S53M"].by_us.len(),1);assert_eq!(count,3);
   let mut count=MAX_BATCH_SPOTS;collect_batch_csv(BufReader::new(csv.as_bytes()),&mut results,&mut count).unwrap();
   assert!(results["DL1AA"].trunc_of);assert!(results["S53M"].trunc_by);assert_eq!(count,MAX_BATCH_SPOTS);
+ }
+}
+
+#[cfg(test)]
+mod direction_tests {
+ use super::*;
+ #[test] fn omitted_spotter_records_do_not_exhaust_dx_budget() {
+  let mut results=HashMap::new();results.insert("RX1".to_string(),BatchCall{skip_by:true,..BatchCall::default()});results.insert("DX1AA".to_string(),BatchCall{skip_by:true,..BatchCall::default()});
+  let mut count=0;let csv="RX1-#,x,x,14020,20m,DX1AA,x,x,CW,10,2025-11-29 00:00:00,30,CW\n";
+  collect_batch_csv(BufReader::new(csv.as_bytes()),&mut results,&mut count).unwrap();
+  assert_eq!(count,1);assert_eq!(results["RX1"].total_by,1);assert!(results["RX1"].by_us.is_empty());assert!(!results["RX1"].trunc_by);assert_eq!(results["DX1AA"].of_us.len(),1);
  }
 }

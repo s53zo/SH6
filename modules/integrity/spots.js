@@ -101,3 +101,9 @@ export function offRunMultiplierContacts(qsos,scoring,classifyOperatingStyles) {
  }
  return {targets,excludedRun,uncertain,total:all.length};
 }
+
+export function incompleteSpotCoverageMessage(history) {
+ const failed=(history?.coverage || []).filter(c=>c.status!=='loaded');
+ const summary=failed.slice(0,5).map(c=>`${c.source} ${c.key}: ${c.error || c.status}`).join('; ');
+ return `Multiplier spot coverage is incomplete${summary?': '+summary:''}${failed.length>5?`; ${failed.length-5} more affected sources`:''}. Results are withheld; retry loading.`;
+}

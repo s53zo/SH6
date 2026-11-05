@@ -24,7 +24,7 @@ Full-app smoke covers one/four slots, source immutability, hypothetical scoring,
 
 Counterpart source validation checks index contest/year/mode and parsed identity, modes and dates. Ambiguous season/subcontest/detail metadata remains unselected. Parsed contacts outside three days of the entrant's observed date range are rejected; this conservative sanity check does not replace an organizer's event calendar. Mixed entries use the declared Mixed mode and CW/phone contacts, not synthetic reconstruction category declarations. Incomplete archive coverage cannot prove absence. Reciprocal time tolerance and review observation counts are transparent review aids, not statistical probabilities or adjudication.
 
-Current release is v6.3.55.
+Current release is v6.3.56.
 
 
 ## v6.3.49 review corrections

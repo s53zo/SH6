@@ -87,3 +87,7 @@ Spot menus and integrity use the same runtime cache for full cluster-file text a
 ## RBN proxy batches
 
 See [RBN batching](rbn-proxy-batch.md) for grouped calls/date requests, per-call cache ingestion, validation, server compatibility, and bounded requests. Proxy source and deployment instructions are now versioned under `server/rbn-proxy`.
+
+## Simplified review presentation
+
+Off-RUN spot rows default to ascending QSO UTC time. They show observed spot frequency without calculating a QSO/spot offset; multiplier-credit details are omitted from this table. Counterpart index checks start automatically once spot coverage is complete, once per log/scoring/threshold context; failures remain retryable by the bottom Recheck counterpart logs button. Static export does not start network requests. The bottom availability table shows counterpart, availability check and source, without a coverage/detail column. Older daily RBN observations do not count as recent-spot matches: the selected timing window still governs correlation, and neither a match nor an absent counterpart proves an assistance violation. Assistance-category eligibility is not assessed.

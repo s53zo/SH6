@@ -7,14 +7,14 @@ const targets=multiplierContacts([q],{multiplierModelSupported:true,multiplierCr
 assert.equal(targets.length,1);assert.equal(targets[0].credits.length,2);
 assert.equal(multiplierContacts([q],{multiplierModelSupported:false}).length,0);
 const spot={source:'Cluster',dxCall:'DL1AA',ts:ts-120000,band:'20M',freqKHz:14020,spotter:'K1AA'};
-let rows=correlateMultiplierSpots(targets,[spot]);assert.equal(rows[0].minDelay,2);assert.equal(rows[0].maxDelay,3);assert.equal(rows[0].frequencyDeltaKHz,0);
+let rows=correlateMultiplierSpots(targets,[spot]);assert.equal(rows[0].minDelay,2);assert.equal(rows[0].maxDelay,3);assert.ok(!Object.hasOwn(rows[0],'frequencyDeltaKHz'));
 rows=correlateMultiplierSpots(targets,[{...spot,ts:ts+30000}]);assert.ok(rows[0].minDelay<0);assert.match(rows[0].label,/order unknown/);
 assert.equal(correlateMultiplierSpots(targets,[{...spot,ts:ts+60000}])[0].spot,null);
 assert.equal(correlateMultiplierSpots(targets,[{...spot,ts:ts-660000}],10)[0].spot,null);
 assert.equal(correlateMultiplierSpots(targets,[{...spot,dxCall:'DL2AA'}])[0].spot,null);
 assert.equal(correlateMultiplierSpots(targets,[{...spot,band:'40M'}])[0].spot,null);
 assert.equal(correlateMultiplierSpots(targets,[{...spot,source:'RBN',txMode:'SSB'}])[0].spot,null);
-assert.equal(correlateMultiplierSpots([{...targets[0],freq:14}],[spot])[0].frequencyDeltaKHz,null);
+assert.ok(!Object.hasOwn(correlateMultiplierSpots([{...targets[0],freq:14}],[spot])[0],'frequencyDeltaKHz'));
 const urls=[];
 const fetchImpl=async url=>{
  urls.push(String(url));
@@ -76,3 +76,8 @@ assert.deepEqual(classify(sparse,Infinity,{operatingStyleSpotAnchors:[{source:'s
 assert.equal(JSON.stringify(sparse),sparseBefore);
 assert.deepEqual(classify(sparse,Infinity),['SEARCH','SEARCH','SEARCH']);
 console.log('Explicit entrant anchors inform integrity classification without mutating contacts or leaking into historical classification: PASS');
+
+const ordered=renderMultiplierSpotReview({multiplierSpots:{rows:[{...both,call:'LATER',ts:ts+60000,index:2},{...both,call:'EARLIER',ts,index:1}]}},'A');
+assert.ok(ordered.indexOf('EARLIER')<ordered.indexOf('LATER'));
+assert.ok(!ordered.includes('<th>Credits</th>'));assert.ok(!ordered.includes('difference 0.00'));
+console.log('Spot table defaults to QSO time and shows spot frequency without credits or offset: PASS');

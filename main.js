@@ -21020,7 +21020,7 @@ function syncEngineCompareLogForSlot(slot) {
       }
       model.counterpartCalls=[...new Set(model.multiplierSpots.operatingSelection.targets.map(q=>q.call))];
       model.activityChecks=Object.fromEntries(model.counterpartCalls.map(call=>[call,integrityModules.assessCounterpartActivity(model.evidence[call])]));
-      return integrityModules.renderIntegrity(model,qsos,id,{fullTimelines:integrityStaticDepth>0})+integrityModules.renderMultiplierSpotReview(model,id);
+      return integrityModules.renderIntegrity(model,qsos,id,{fullTimelines:integrityStaticDepth>0})+integrityModules.renderMultiplierSpotReview(model,id)+integrityModules.renderCounterpartActivity(model,id);
     });
     return state.compareEnabled?renderComparePanels(entries.map(e=>({...e,snapshot:buildSlotSnapshot(e.slot)})),blocks,'log_integrity_review'):blocks[0] || '<p>Load a log first.</p>';
   }
@@ -21091,6 +21091,14 @@ function syncEngineCompareLogForSlot(slot) {
         const model=integrityModels.get(id);if(!model || !slot)continue;
         const data=model.multiplierSpots ||= {windowMinutes:10};
         const key=integrityScoreKey(slot);
+        const evidenceKey=JSON.stringify([key,model.generation || 0]);
+        if(data.currentCheckValid && !model.loading && model.evidenceAutoAttempt!==evidenceKey && model.evidenceAutoScheduled!==evidenceKey){
+          model.evidenceAutoScheduled=evidenceKey;
+          queueMicrotask(()=>{
+            if(model.evidenceAutoScheduled===evidenceKey)delete model.evidenceAutoScheduled;
+            if(reports[state.activeIndex]?.id===reportId && integrityModels.get(id)===model && integrityScoreKey(slot)===key && model.multiplierSpots?.currentCheckValid && !model.loading){model.evidenceAutoAttempt=evidenceKey;loadIntegrityEvidence(id);}
+          });
+        }
         if(data.autoAttempt===key || data.autoScheduled===key || data.loading)continue;
         data.autoScheduled=key;
         queueMicrotask(()=>{

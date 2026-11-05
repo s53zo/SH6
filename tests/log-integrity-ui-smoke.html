@@ -28,6 +28,13 @@ try {
  'QSO: 7020 CW 2025-11-29 0001 S53TEST 599 15 DL1AA 599 14',
  'QSO: 3520 CW 2025-11-29 0002 S53TEST 599 15 DL1AA 599 14',
  'QSO: 14020 CW 2025-11-29 0004 S53TEST 599 15 DL2AA 599 14','END-OF-LOG:'].join('\n');
+ w.initSqlJs=async()=>({Database:class {
+  exec(){return [{values:['path','contest','year','mode','season','subcontest','detail'].map(name=>[0,name])}];}
+  prepare(){let requested='',index=-1,rows=[];return {bind(values){requested=values[0];const base={contest:'CQWW',year:2025,mode:'CW',subcontest:'cw',detail:'main'};rows=requested==='S53TEST'?[{...base,path:'CQWW/cw/2025/S53TEST.log',season:'November'}]:[{...base,path:'CQWW/cw/2025/wrong-event.log',season:'Spring'},{...base,path:'CQWW/cw/2025/integrity-dl1aa.log',season:'November'}];},step(){return ++index<rows.length;},getAsObject(){return {...rows[index],callsign:requested};},free(){}};}
+
+ }});
+ const oldPost=w.Worker.prototype.postMessage;let counterpartDownloads=0;
+ w.Worker.prototype.postMessage=function(payload,...args){if(payload.type==='archiveText')counterpartDownloads++;return oldPost.call(this,payload,...args);};
  const spotFetch=w.fetch;let spotRequests=0,sawClusterLoading=false,sawRbnLoading=false;
  let releaseStation,releaseMultipliers;
  const stationGate=new Promise(r=>releaseStation=r),multiplierGate=new Promise(r=>releaseMultipliers=r);
@@ -35,6 +42,7 @@ try {
  const spotTs=Date.UTC(2025,10,29,0,0)/1000-60;
  w.fetch=async(url,...args)=>{
   const text=String(url);
+  if(text.includes('.sqlite'))return new w.Response(new Uint8Array(0));
   if(text.includes('/spots/')) {await stationGate;spotRequests++;sawClusterLoading ||= !d.getElementById('spotsStatusRow').classList.contains('hidden') && d.getElementById('spotsStatus').textContent.includes('loading');return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x\n14020^S53TEST^${spotTs+60}^CQ^K1SPOT^x`,{status:200});}
   if(text.includes('/cors/rbn?')) {
    spotRequests++;sawRbnLoading ||= !d.getElementById('rbnStatusRow').classList.contains('hidden') && d.getElementById('rbnStatus').textContent.includes('loading');
@@ -45,7 +53,7 @@ try {
   }
   return spotFetch.call(w,url,...args);
  };
- await upload(content);await report('Log integrity review');
+ await upload(content);state.logFile.path='CQWW/cw/2025/S53TEST.log';await report('Log integrity review');
  await wait(()=>requestedRbnCalls.includes('S53TEST'));
  check('station spots load first with wait remark and no results',d.querySelector('.integrity-wait')?.textContent.includes('Please wait') && !d.querySelector('.log-integrity-review table') && !d.querySelector('[data-integrity-load]') && requestedRbnCalls.every(call=>call==='S53TEST'));
  releaseStation();
@@ -67,27 +75,22 @@ try {
  check('one grouped case',d.querySelectorAll('.log-integrity-review > .table-wrap > table > tbody > tr').length===1);
  check('source controls present',!!d.querySelector('.integrity-qso[data-slot="A"][data-index="2"]'));
 
- const oldFetch=w.fetch,oldPost=w.Worker.prototype.postMessage,oldPath=state.logFile.path;state.logFile.path='CQWW/cw/2025/S53TEST.log';
- w.initSqlJs=async()=>({Database:class {
-  exec(){return [{values:['path','contest','year','mode','season','subcontest','detail'].map(name=>[0,name])}];}
-  prepare(){let requested='',index=-1,rows=[];return {bind(values){requested=values[0];const base={contest:'CQWW',year:2025,mode:'CW',subcontest:'cw',detail:'main'};rows=requested==='S53TEST'?[{...base,path:'CQWW/cw/2025/S53TEST.log',season:'November'}]:[{...base,path:'CQWW/cw/2025/wrong-event.log',season:'Spring'},{...base,path:'CQWW/cw/2025/integrity-dl1aa.log',season:'November'}];},step(){return ++index<rows.length;},getAsObject(){return {...rows[index],callsign:requested};},free(){}};}
-
- }});
- w.fetch=(url,...args)=>String(url).includes('.sqlite')?Promise.resolve(new w.Response(new Uint8Array(0))):oldFetch.call(w,url,...args);
- let counterpartDownloads=0;
- w.Worker.prototype.postMessage=function(payload,...args){if(payload.type==='archiveText')counterpartDownloads++;return oldPost.call(this,payload,...args);};
- d.querySelector('[data-integrity-load]').click();
  await wait(()=>d.querySelector('.log-integrity-review')?.textContent.includes('Evidence lookup finished'));
+ check('counterpart check runs automatically after spot loading',counterpartDownloads===0 && !!d.querySelector('.integrity-counterpart-activity'));
  check('matching shard entry passes counterpart availability',d.querySelector('.integrity-counterpart-activity').textContent.includes('OK — counterpart log indexed'));
- check('counterpart contents are not downloaded',counterpartDownloads===0 && d.querySelector('.integrity-counterpart-activity').textContent.includes('Log content not downloaded'));
+ check('counterpart contents are not downloaded',counterpartDownloads===0 && d.querySelector('.integrity-counterpart-activity').textContent.includes('Counterpart logs are not downloaded'));
+ const spotHeaders=[...d.querySelectorAll('.integrity-spot-review th')].map(el=>el.textContent);
+ check('spot table omits credits and frequency offset',!spotHeaders.some(t=>t==='Credits') && !d.querySelector('.integrity-spot-review').textContent.includes('difference '));
+ const activity=d.querySelector('.integrity-counterpart-activity');
+ check('counterpart table is last and omits coverage detail',activity.previousElementSibling.classList.contains('integrity-spot-review') && !activity.nextElementSibling && activity.querySelectorAll('th').length===3);
  const createUrl=w.URL.createObjectURL;let htmlBlob=null;
  w.URL.createObjectURL=function(blob){if(blob.type.startsWith('text/html'))htmlBlob=blob;return createUrl.call(this,blob);};
  await report('EXPORT PDF, HTML, CBR');d.querySelector('[data-export="html"]').click();await wait(()=>d.getElementById('exportDoIt'));
  d.getElementById('exportSelectNone').click();d.querySelector('[data-report-id="log_integrity_review"]').checked=true;d.getElementById('exportDoIt').click();
  await wait(()=>htmlBlob);const realExport=await htmlBlob.text();
- check('production export retains shard availability and settings',realExport.includes('OK — counterpart log indexed') && realExport.includes('minimum bands: 3') && realExport.includes('Log content not downloaded'));
+ check('production export retains shard availability and settings',realExport.includes('OK — counterpart log indexed') && realExport.includes('minimum bands: 3') && realExport.includes('Counterpart logs are not downloaded'));
  w.URL.createObjectURL=createUrl;await report('Log integrity review');
- w.fetch=oldFetch;w.Worker.prototype.postMessage=oldPost;state.logFile.path=oldPath;
+
  const before=JSON.stringify(state.fullQsoData.qsos);
  d.querySelector('[data-integrity-impact]').click();
  await wait(()=>d.querySelector('.log-integrity-review')?.textContent.includes('complete.') || d.querySelector('.log-integrity-review')?.textContent.includes('Score calculation unavailable:'));

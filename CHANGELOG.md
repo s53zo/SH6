@@ -4,6 +4,8 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 
 ## v6.3.56 (2026-11-05)
 
+- Simplify off-RUN spot review to chronological rows without multiplier credits or frequency offsets. Automatically check counterpart shards after complete spot loading, and move the three-column counterpart availability table and retry action to the page bottom. Clarify that older spots and recent matches do not establish an assistance breach.
+
 - Recover count-limited RBN batches by automatically splitting affected calls and, when needed, dates. Request only spots of multiplier stations so their skimmer reports cannot exhaust the response limit; keep directional caches separate and merge large arrays safely. Preserve complete responses, bound retry depth, and show explicit station/source errors with loading details when coverage still cannot be completed.
 - Fix EF8R CQWW CW 2025 review coverage: verify all 54 source checks complete for 69 off-RUN credited contacts across 52 stations. Add adaptive retry, direction-aware cache and large-array regressions; advance application/cache references to v6.3.56.
 

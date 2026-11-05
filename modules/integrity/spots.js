@@ -25,10 +25,8 @@ export function correlateMultiplierSpots(targets,spots,windowMinutes=10) {
   const latest=matches.find(s=>s.ts<start && (end-s.ts)/60000<=windowMinutes) || matches.find(s=>s.ts<start) || matches[0];
   if(!latest) return {...q,spot:null,spotCount:0,label:'No matching spot in loaded data'};
   const minDelay=(start-latest.ts)/60000,maxDelay=(end-latest.ts)/60000;
-  const precise=Number.isFinite(q.freq) && ![1.8,3.5,7,14,21,28].some(f=>Math.abs(q.freq-f)<.000001);
-  const frequencyDeltaKHz=precise && Number.isFinite(latest.freqKHz)?Math.abs(q.freq*1000-latest.freqKHz):null;
   const definiteWithinWindow=minDelay>0 && maxDelay<=windowMinutes;
-  return {...q,spot:latest,sameMinuteSpot,spotCount:matches.length,minDelay,maxDelay,frequencyDeltaKHz,definiteWithinWindow,
+  return {...q,spot:latest,sameMinuteSpot,spotCount:matches.length,minDelay,maxDelay,definiteWithinWindow,
     label:minDelay<=0?'Same minute; spot/QSO order unknown':definiteWithinWindow?'Multiplier worked after a spot':'Prior spot; delay overlaps the window boundary',
     sourceMatches:['Cluster','RBN'].map(source=>({source,spot:matches.find(s=>s.source===source) || null}))};
  });

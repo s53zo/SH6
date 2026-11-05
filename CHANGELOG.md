@@ -4,6 +4,8 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 
 ## v6.3.55 (2026-11-05)
 
+- Add a backward-compatible RBN proxy batch API and integrity ingestion: query up to 32 calls over two UTC dates per request, scan each date once, reuse per-call cache entries and preserve per-call coverage/truncation. Version the proxy source, tests and deployment/rollback notes.
+
 - Share successful cluster-file and RBN-response caches between spot reports and integrity review. Reuse covered RBN date subsets and in-flight requests; fetch missing stations/dates, bound memory and keep failed/partial requests retryable. Clarify cache reuse in the loading message.
 
 - Load entrant Spots/RBN before RUN/S&P classification, then multiplier spot history before calculating integrity results. Show a Please wait message; withhold results and dependent actions on loading, cancellation or incomplete coverage, with explicit retry. Add staged-loading, anchor, failure and retry regressions.

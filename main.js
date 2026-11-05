@@ -20893,13 +20893,13 @@ function syncEngineCompareLogForSlot(slot) {
     if(!slot || !model || !integrityModules || model.multiplierSpots?.loading) return;
     const data=model.multiplierSpots ||= {windowMinutes:10};
     const sourceQsos=(slot.fullQsoData || slot.qsoData)?.qsos,sourceText=slot.rawLogText,sourceName=slot.logFile?.name;
-    const current=()=>getSlotById(id)===slot && slot.rawLogText===sourceText && slot.logFile?.name===sourceName && integrityModels.get(id)===model;
-    data.controller?.abort();data.controller=new AbortController();data.loading=true;data.currentCheckValid=false;data.phase='station';data.stationReady=false;data.rows=[];model.stationLoading=true;
+    const current=()=>getSlotById(id)===slot && slot.rawLogText===sourceText && slot.logFile?.name===sourceName && integrityModels.get(id)===model && data.controller===controller;
+    data.controller?.abort();data.controller=new AbortController();const controller=data.controller;data.loading=true;data.currentCheckValid=false;data.phase='station';data.stationReady=false;data.rows=[];model.stationLoading=true;
     data.status='Please wait: preparing station Spots/RBN, reusing loaded data and fetching only missing history…';updateDataStatus();renderActiveReport();
     try {
       await loadSpotsDataRuntimeModule();
       await Promise.all([loadSpotsForCurrentLog(slot),loadRbnForCurrentLog(slot)]);
-      if(!current() || data.controller.signal.aborted)return;
+      if(!current() || controller.signal.aborted)return;
       const incomplete=[['Spots',slot.spotsState],['RBN',slot.rbnState]].filter(([,source])=>source?.status!=='ready' || source.errors?.length || source.truncatedOfUs);
       if(incomplete.length)throw new Error('Station '+incomplete.map(([name,source])=>name+': '+(source?.error || source?.status || 'unavailable')+(source?.errors?.length?' (incomplete coverage)':'')+(source?.truncatedOfUs?' (truncated)':'')).join('; ')+'. Results are withheld; retry when data is available.');
       data.stationReady=true;model.stationLoading=false;model.version=slot.logVersion;model.scoreKey=integrityScoreKey(slot);data.autoAttempt=model.scoreKey;
@@ -20908,18 +20908,18 @@ function syncEngineCompareLogForSlot(slot) {
       data.phase='cluster';data.progressCoverage=[];data.status='Please wait: checking multiplier spot history, reusing cached data and loading missing stations/dates…';updateDataStatus();renderActiveReport();
       if(!targets.length){data.history=null;data.rows=[];data.currentCheckValid=true;model.cases=integrityModules.detectSequences(sourceQsos,model);data.status='No off-RUN multiplier contacts with reliable frequency evidence are available for spot analysis.';return;}
       if(!data.history || data.key!==key || data.history.status!=='loaded') {
-        data.history=await integrityModules.loadMultiplierSpotHistory({targets,clusterBaseUrl:SPOTS_BASE_URL,rbnUrl:RBN_PROXY_URL,parseBand:parseBandFromFreq,signal:data.controller.signal,fetchClusterText:fetchSpotFile,fetchRbnData:fetchRbnSpots,
-          onProgress:progress=>{data.progressCoverage=progress.coverage.slice();if(progress.phase)data.phase=progress.phase;if(!current()){data.controller.abort();return;}data.status=`Please wait: loading spot history: ${progress.coverage.length} source queries finished.`;updateDataStatus();if(reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}});
+        data.history=await integrityModules.loadMultiplierSpotHistory({targets,clusterBaseUrl:SPOTS_BASE_URL,rbnUrl:RBN_PROXY_URL,parseBand:parseBandFromFreq,signal:controller.signal,fetchClusterText:fetchSpotFile,fetchRbnData:fetchRbnSpots,fetchRbnBatch:(calls,days,options)=>getSpotsDataRuntime().fetchRbnSpotsBatch(calls,days,options),
+          onProgress:progress=>{if(data.controller!==controller || controller.signal.aborted || !data.loading)return;data.progressCoverage=progress.coverage.slice();if(progress.phase)data.phase=progress.phase;if(!current()){data.controller.abort();return;}data.status=`Please wait: loading spot history: ${progress.coverage.length} source queries finished.`;updateDataStatus();if(reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}});
         data.key=key;
       }
       if(!current())return;
-      if(data.controller.signal.aborted)return;
+      if(controller.signal.aborted)return;
       if(data.history.status!=='loaded')throw new Error('Multiplier spot coverage is incomplete. Results are withheld; retry loading.');
       data.rows=integrityModules.correlateMultiplierSpots(targets,data.history.spots,data.windowMinutes);data.currentCheckValid=true;
       model.cases=integrityModules.detectSequences(sourceQsos,model);
       data.status='Spot timing calculated from loaded cluster/RBN data.';
-    } catch(error){if(current())data.status=data.controller.signal.aborted?'Spot analysis cancelled; results are not complete.':'Spot analysis unavailable: '+error.message;}
-    finally{if(data.controller.signal.aborted)data.status='Spot loading cancelled. Results are withheld; retry loading to calculate.';data.loading=false;model.stationLoading=false;if(current()){model.version=slot.logVersion;model.scoreKey=integrityScoreKey(slot);data.autoAttempt=model.scoreKey;}updateDataStatus();if(current() && reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}
+    } catch(error){if(current())data.status=controller.signal.aborted?'Spot analysis cancelled; results are not complete.':'Spot analysis unavailable: '+error.message;}
+    finally{if(controller.signal.aborted)data.status='Spot loading cancelled. Results are withheld; retry loading to calculate.';data.loading=false;model.stationLoading=false;if(current()){model.version=slot.logVersion;model.scoreKey=integrityScoreKey(slot);data.autoAttempt=model.scoreKey;}updateDataStatus();if(current() && reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}
   }
 
   async function loadIntegrityEvidence(id) {

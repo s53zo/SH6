@@ -38,7 +38,7 @@ function daysForTargets(targets,lookback) {
  for(const q of targets) {const start=Math.floor((q.ts-lookback*60000)/86400000)*86400000,end=Math.floor((q.ts+59999)/86400000)*86400000;for(let t=start;t<=end;t+=86400000)days.add(t);}
  return [...days].sort((a,b)=>a-b);
 }
-export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,parseBand,fetchImpl=fetch,signal,onProgress=()=>{},lookbackMinutes=60,fetchClusterText,fetchRbnData}) {
+export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,parseBand,fetchImpl=fetch,signal,onProgress=()=>{},lookbackMinutes=60,fetchClusterText,fetchRbnData,fetchRbnBatch}) {
  const spots=[],coverage=[],days=daysForTargets(targets,lookbackMinutes);
  if(days.length>7)throw Error('Spot timing requires a single contest edition spanning at most seven UTC dates.');
  // Cancelling one review stops its wait without aborting a request shared with other reports.
@@ -65,6 +65,7 @@ export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,p
  onProgress({spots,coverage,phase:'rbn'});
  const rbnDays=days.map(t=>new Date(t).toISOString().slice(0,10).replace(/-/g,''));
  const calls=[...new Set(targets.map(q=>call(q.call)))];let cursor=0,rateLimited=false;
+ const batch=fetchRbnBatch?await waitForShared(()=>fetchRbnBatch(calls,rbnDays,{signal,onProgress:()=>onProgress({spots,coverage,phase:'rbn'})})):null;
  await Promise.all(Array.from({length:2},async()=>{
   while(cursor<calls.length) {
    const dx=calls[cursor++];
@@ -72,7 +73,7 @@ export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,p
    if(rateLimited){coverage.push({source:'RBN',key:dx,status:'unavailable',error:'Rate limited; retry later'});continue;}
    const url=rbnUrl+'?'+new URLSearchParams({call:dx,days:rbnDays.join(',')});
    try {
-    const data=fetchRbnData?await waitForShared(()=>fetchRbnData(dx,rbnDays)):await (await read(url)).json();
+    const data=batch?batch.get(dx):fetchRbnData?await waitForShared(()=>fetchRbnData(dx,rbnDays)):await (await read(url)).json();
     if(data.notFound)throw Error('RBN archive unavailable');
     if(call(data.call)!==dx || !Array.isArray(data.ofUsSpots))throw Error('Invalid RBN response');
     for(const s of data.ofUsSpots)if(call(s.dxCall)===dx && Number.isFinite(Number(s.ts))) spots.push({...s,source:'RBN',dxCall:dx,band:String(s.band || parseBand(Number(s.freqKHz ?? s.freq)/1000)).toUpperCase(),ts:Number(s.ts),freqKHz:Number(s.freqKHz ?? s.freq),txMode:s.txMode || s.tx_mode || '',sourceUrl:url});

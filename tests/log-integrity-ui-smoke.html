@@ -36,7 +36,13 @@ try {
  w.fetch=async(url,...args)=>{
   const text=String(url);
   if(text.includes('/spots/')) {await stationGate;spotRequests++;sawClusterLoading ||= !d.getElementById('spotsStatusRow').classList.contains('hidden') && d.getElementById('spotsStatus').textContent.includes('loading');return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x\n14020^S53TEST^${spotTs+60}^CQ^K1SPOT^x`,{status:200});}
-  if(text.includes('/cors/rbn?')) {spotRequests++;sawRbnLoading ||= !d.getElementById('rbnStatusRow').classList.contains('hidden') && d.getElementById('rbnStatus').textContent.includes('loading');const dx=new URL(text).searchParams.get('call');requestedRbnCalls.push(dx);await (['S53TEST','S53FAIL','S53CACHE'].includes(dx)?stationGate:multiplierGate);if(['S53TEST','S53FAIL','S53CACHE'].includes(dx)?failStation:failMultiplier)return new w.Response('unavailable',{status:500});return new w.Response(JSON.stringify({call:dx,days:new URL(text).searchParams.get('days').split(','),ofUsSpots:['DL1AA','K4SPOT'].includes(dx)?[{dxCall:dx,spotter:'K2RBN',ts:(spotTs+(dx==='K4SPOT'?35*60:0))*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],errors:[],truncatedOfUs:false}),{status:200,headers:{'Content-Type':'application/json'}});}
+  if(text.includes('/cors/rbn?')) {
+   spotRequests++;sawRbnLoading ||= !d.getElementById('rbnStatusRow').classList.contains('hidden') && d.getElementById('rbnStatus').textContent.includes('loading');
+   const u=new URL(text),calls=(u.searchParams.get('calls') || u.searchParams.get('call')).split(',');
+   for(const dx of calls){requestedRbnCalls.push(dx);await (['S53TEST','S53FAIL','S53CACHE'].includes(dx)?stationGate:multiplierGate);if(['S53TEST','S53FAIL','S53CACHE'].includes(dx)?failStation:failMultiplier)return new w.Response('unavailable',{status:500});}
+   const results=calls.map(dx=>({call:dx,days:u.searchParams.get('days').split(','),ofUsSpots:['DL1AA','K4SPOT'].includes(dx)?[{dxCall:dx,spotter:'K2RBN',ts:(spotTs+(dx==='K4SPOT'?35*60:0))*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],byUsSpots:[],errors:[],truncatedOfUs:false}));
+   return new w.Response(JSON.stringify(u.searchParams.has('calls')?{batchVersion:1,results}:results[0]),{status:200,headers:{'Content-Type':'application/json'}});
+  }
   return spotFetch.call(w,url,...args);
  };
  await upload(content);await report('Log integrity review');
@@ -144,7 +150,7 @@ try {
  await wait(()=>!!d.querySelector('[data-integrity-load="A"]'));
  check('station loading can be retried successfully',!d.querySelector('.integrity-wait'));
  failMultiplier=true;await upload(content.replaceAll('DL1AA','DL9AA'));await report('Log integrity review');
- await wait(()=>d.querySelector('.integrity-wait')?.textContent.includes('Multiplier spot coverage is incomplete'));
+ await wait(()=>d.querySelector('.integrity-wait')?.textContent.includes('HTTP 500'));
  check('partial multiplier coverage withholds all results',!d.querySelector('[data-integrity-load="A"]') && !d.querySelector('.integrity-wait table'));
  failMultiplier=false;d.querySelector('[data-integrity-spots="A"]').click();
  await wait(()=>!!d.querySelector('[data-integrity-load="A"]'));

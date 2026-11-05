@@ -37,7 +37,7 @@ export function createSpotsDataRuntime(deps = {}) {
         const bytes = (typeof value === 'string' ? value.length : JSON.stringify(value).length) * 2;
         const limit = 64 * 1024 * 1024;
         if (bytes <= limit) {
-          while (historyCache.size && (historyCache.size >= 32 || historyCacheBytes + bytes > limit)) {
+          while (historyCache.size && (historyCache.size >= 512 || historyCacheBytes + bytes > limit)) {
             const oldest = historyCache.keys().next().value;
             historyCacheBytes -= historyCache.get(oldest).bytes; historyCache.delete(oldest);
           }
@@ -566,6 +566,76 @@ export function createSpotsDataRuntime(deps = {}) {
     return structuredClone(data);
   }
 
+  async function fetchRbnSpotsBatch(calls, days, {signal,onProgress=()=>{}} = {}) {
+    const wantedCalls=[...new Set(calls.map(normalizeCallSafe).filter(Boolean))];
+    const wantedDays=[...new Set(days || [])].sort();
+    if(!wantedDays.length || wantedDays.length>7)throw new Error('RBN batch requires one to seven UTC dates.');
+    const merged=new Map(wantedCalls.map(call=>[call,{call,days:[],ofUsSpots:[],byUsSpots:[],errors:[],total:0,totalOfUs:0,totalByUs:0,truncatedOfUs:false,truncatedByUs:false}]));
+    let completed=0;
+    for(let dayIndex=0;dayIndex<wantedDays.length;dayIndex+=2) {
+      if(signal?.aborted)throw new Error('Cancelled');
+      const groupDays=wantedDays.slice(dayIndex,dayIndex+2),pendingCalls=[];
+      const keyFor=dx=>'rbn:'+rbnProxyUrl+':'+dx+':'+groupDays.join(',');
+      for(const dx of wantedCalls) {
+        const prefix='rbn:'+rbnProxyUrl+':'+dx+':';
+        const cached=[...historyCache].find(([key,c])=>key.startsWith(prefix) && c.expires>Date.now() && groupDays.every(d=>c.value.days?.includes(d)));
+        if(cached){
+          const data=structuredClone(cached[1].value);
+          if(data.days.some(day=>!groupDays.includes(day))){
+            const signature=s=>[s.dxCall,s.spotterRaw || s.spotter,s.ts,s.freqKHz,s.txMode || s.mode].join('|');
+            for(const key of ['ofUsSpots','byUsSpots'])data[key]=data[key].filter(s=>Number.isFinite(Number(s.ts)) && groupDays.includes(new Date(Number(s.ts)).toISOString().slice(0,10).replace(/-/g,'')));
+            data.days=groupDays;data.totalOfUs=data.ofUsSpots.length;data.totalByUs=data.byUsSpots.length;data.total=new Set([...data.ofUsSpots,...data.byUsSpots].map(signature)).size;
+          }
+          pendingCalls.push([dx,Promise.resolve(data)]);
+        }
+        else if(historyInflight.has(keyFor(dx)))pendingCalls.push([dx,historyInflight.get(keyFor(dx))]);
+      }
+      const missing=wantedCalls.filter(dx=>!pendingCalls.some(([call])=>call===dx));
+      for(let i=0;i<missing.length;i+=32) {
+        if(signal?.aborted)throw new Error('Cancelled');
+        const group=missing.slice(i,i+32);
+        const request=(async()=>{
+          const url=rbnProxyUrl+'?'+new URLSearchParams({calls:group.join(','),days:groupDays.join(',')});
+          const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(90000)});
+          // Older proxies remain usable while the server upgrade rolls out.
+          if([400,404,405].includes(response.status)){const fallback=new Map();for(const dx of group)fallback.set(dx,await fetchRbnSpotsUncached(dx,groupDays));return fallback;}
+          if(!response.ok)throw new Error('HTTP '+response.status);
+          const data=await response.json();
+          if(data.batchVersion!==1 || !Array.isArray(data.results))throw new Error('Invalid RBN batch response');
+          const results=new Map();
+          for(const entry of data.results){const dx=normalizeCallSafe(entry.call);if(!group.includes(dx) || results.has(dx))throw new Error('Unexpected/duplicate RBN batch callsign');results.set(dx,entry);}
+          if(group.some(dx=>!results.has(dx)))throw new Error('RBN batch omitted requested callsigns');
+          return results;
+        })();
+        const jobs=group.map(dx=>[dx,cachedHistory(keyFor(dx),async()=>{
+          const result=(await request).get(dx);
+          if(!result || !Array.isArray(result.days) || !Array.isArray(result.errors) || !Array.isArray(result.ofUsSpots) || !Array.isArray(result.byUsSpots))throw new Error('Invalid RBN per-call result');
+          return result;
+        },result=>!result.notFound && Array.isArray(result.days) && groupDays.every(d=>result.days.includes(d)) && !result.errors?.length && !result.truncatedOfUs && !result.truncatedByUs,
+          groupDays.some(day=>day>=new Date().toISOString().slice(0,10).replace(/-/g,'')))]);
+        const settled=await Promise.allSettled(jobs.map(([,job])=>job));
+        // Stop on failure/rate limiting rather than flooding the serialized archive scanner.
+        const failed=settled.find(result=>result.status==='rejected');
+        if(failed)throw failed.reason;
+        for(let j=0;j<jobs.length;j++)pendingCalls.push([jobs[j][0],Promise.resolve(settled[j].value)]);
+        onProgress({completed:completed+=group.length,total:wantedCalls.length*Math.ceil(wantedDays.length/2)});
+      }
+      for(const [dx,promise] of pendingCalls) {
+        const data=await promise,target=merged.get(dx);
+        target.days.push(...(data.days || []));target.ofUsSpots.push(...(data.ofUsSpots || []));target.byUsSpots.push(...(data.byUsSpots || []));
+        target.errors.push(...(data.errors || []));
+        if(groupDays.some(day=>!data.days?.includes(day)))target.errors.push({error:'Response did not confirm requested dates'});
+        for(const key of ['total','totalOfUs','totalByUs'])target[key]+=Number(data[key]) || 0;
+        target.truncatedOfUs ||= Boolean(data.truncatedOfUs);target.truncatedByUs ||= Boolean(data.truncatedByUs);
+      }
+    }
+    for(const data of merged.values()) {
+      data.days=[...new Set(data.days)];
+      for(const key of ['ofUsSpots','byUsSpots'])data[key]=[...new Map(data[key].map(s=>[[s.dxCall,s.spotterRaw || s.spotter,s.ts,s.freqKHz,s.txMode || s.mode].join('|'),s])).values()];
+    }
+    return merged;
+  }
+
   async function fetchRbnSpotsUncached(call, days) {
     const params = new URLSearchParams();
     if (call) params.set('call', call);
@@ -1031,6 +1101,7 @@ export function createSpotsDataRuntime(deps = {}) {
     formatRbnComment,
     normalizeRbnSpot,
     fetchRbnSpots,
+    fetchRbnSpotsBatch,
     loadSpotsForCurrentLog,
     loadRbnForCurrentLog,
     computeSpotsStats

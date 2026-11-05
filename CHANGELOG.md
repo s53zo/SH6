@@ -4,6 +4,8 @@ Milestone-style history for SH6, based on reviewing diffs between version bump c
 
 ## v6.3.54 (2026-11-05)
 
+- Exclude on-RUN multiplier callers from spot-timing review using independent log-only operating-style inference. Check only off-RUN contacts with reliable frequencies and report excluded/uncertain counts.
+
 - Batch counterpart callsigns by archive shard, fetch each required shard once (including concurrent requests), and query calls together with bounded SQLite parameter batches. Reuse complete results; preserve portable aliases, cancellation and partial failures.
 - Throttle shard progress rendering and remove per-callsign report rerenders. Show integrity Cluster/RBN loading and coverage in the main data-status area.
 - Make the counterpart shard action prominent and explain why the index check is needed, without downloading counterpart logs. Add batch performance/caching/failure tests and full-app status/button checks; advance application/cache references to v6.3.54.

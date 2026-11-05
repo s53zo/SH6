@@ -20884,13 +20884,16 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   const integritySpotTargetsKey=targets=>JSON.stringify(targets.map(q=>[q.call,q.band,q.mode,q.ts,q.index,q.credits.map(c=>[c.group,c.entityKey,c.countingScope,c.scopeKey])]));
+  function integrityOffRunTargets(slot) {
+    return integrityModules.offRunMultiplierContacts((slot.fullQsoData || slot.qsoData)?.qsos || [],(slot.fullDerived || slot.derived)?.scoring,getAnalysisCore().classifyHistoricalOperatingStyles);
+  }
   async function loadIntegrityMultiplierSpots(id) {
     const slot=getSlotById(id),model=integrityModels.get(id);
     if(!slot || !model || !integrityModules || model.multiplierSpots?.loading) return;
     const data=model.multiplierSpots ||= {windowMinutes:10};
     const scoreKey=integrityScoreKey(slot),version=slot.logVersion;
-    const targets=integrityModules.multiplierContacts((slot.fullQsoData || slot.qsoData)?.qsos || [],(slot.fullDerived || slot.derived)?.scoring);
-    if(!targets.length){data.status='No supported credited multiplier contacts are available for spot analysis.';renderActiveReport();return;}
+    const selection=integrityOffRunTargets(slot),targets=selection.targets;data.operatingSelection=selection;
+    if(!targets.length){data.rows=[];data.status='No off-RUN multiplier contacts with reliable frequency evidence are available for spot analysis.';renderActiveReport();return;}
     const key=integritySpotTargetsKey(targets);
     data.controller?.abort();data.controller=new AbortController();data.loading=true;data.currentCheckValid=false;data.phase='cluster';data.progressCoverage=[];data.status='Loading cluster/RBN history for multiplier stations…';updateDataStatus();renderActiveReport();
     const current=()=>getSlotById(id)?.logVersion===version && integrityModels.get(id)===model && integrityScoreKey(slot)===scoreKey;
@@ -21083,7 +21086,7 @@ function syncEngineCompareLogForSlot(slot) {
     dom.viewContainer.querySelectorAll('[data-integrity-spot-window]').forEach(input=>input.addEventListener('change',()=>{
       const model=integrityModels.get(input.dataset.integritySpotWindow),slot=getSlotById(input.dataset.integritySpotWindow);if(!model || !slot)return;
       const data=model.multiplierSpots ||= {};data.windowMinutes=Math.max(1,Math.min(60,Number(input.value) || 10));
-      const targets=integrityModules.multiplierContacts((slot.fullQsoData || slot.qsoData)?.qsos || [],(slot.fullDerived || slot.derived)?.scoring);
+      const selection=integrityOffRunTargets(slot),targets=selection.targets;data.operatingSelection=selection;
       if(data.history && data.key===integritySpotTargetsKey(targets)){data.rows=integrityModules.correlateMultiplierSpots(targets,data.history.spots,data.windowMinutes);data.currentCheckValid=true;}
       else {data.rows=[];data.status='Load cluster/RBN history for the current multiplier contacts before calculating spot timing.';}
       renderActiveReport();

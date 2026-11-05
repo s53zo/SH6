@@ -54,5 +54,17 @@ assert.ok(zipped.coverage.filter(c=>c.source==='Cluster').every(c=>c.url.endsWit
 console.log('Gzip fallback preserves the actual source URL: PASS');
 
 const hidden=renderMultiplierSpotReview({multiplierSpots:{history,windowMinutes:10,rows:[...correlateMultiplierSpots(targets,[spot]),{...targets[0],call:'HIDE-ME',spot:null,label:'No matching spot in loaded data'}]}},'A');
-assert.ok(!hidden.includes('HIDE-ME'));assert.ok(hidden.includes('/ 2 credited multiplier contacts'));
+assert.ok(!hidden.includes('HIDE-ME'));assert.ok(hidden.includes('/ 2 off-RUN multiplier contacts'));
 console.log('Unmatched rows hidden while full denominator retained: PASS');
+const {offRunMultiplierContacts}=await import('../modules/integrity/spots.js');
+const qs=[{...q,qsoNumber:1},{...q,call:'DL2AA',qsoNumber:2},{...q,call:'DL3AA',qsoNumber:3},{...q,call:'DL4AA',qsoNumber:4,freq:14}];
+const scoring={multiplierModelSupported:true,multiplierCredits:qs.map(q=>({...credit,callsign:q.call,qsoNumber:q.qsoNumber}))};
+const beforeSelection=JSON.stringify(qs),selection=offRunMultiplierContacts(qs,scoring,()=>['RUN','INBAND','SEARCH','SEARCH']);
+assert.equal(selection.excludedRun,1);assert.equal(selection.uncertain,1);assert.deepEqual(selection.targets.map(q=>q.call),['DL2AA','DL3AA']);assert.equal(JSON.stringify(qs),beforeSelection);
+console.log('RUN callers and uncertain/generic frequencies excluded; INBAND and off-band S&P eligible; source untouched: PASS');
+const {createRequire}=await import('node:module');createRequire(import.meta.url)('../modules/analysis/core.js');
+const operating=Array.from({length:12},(_,i)=>({...q,call:'DL'+i+'AA',qsoNumber:i+1,ts:ts+i*60000,freq:i===6?14.08:14.02,operatingStyleRole:'SEARCH'}));
+const credits=[0,6].map(i=>({...credit,callsign:operating[i].call,qsoNumber:i+1,timestamp:operating[i].ts}));
+const inferred=offRunMultiplierContacts(operating,{multiplierModelSupported:true,multiplierCredits:credits},globalThis.SH6AnalysisCore.classifyHistoricalOperatingStyles);
+assert.equal(inferred.excludedRun,1);assert.equal(inferred.targets.length,1);assert.equal(inferred.targets[0].call,'DL6AA');
+console.log('Real log-only classifier excludes the RUN caller and retains the off-frequency multiplier excursion: PASS');

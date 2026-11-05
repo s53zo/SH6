@@ -78,3 +78,18 @@ export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,p
  const unique=[...new Map(spots.map(s=>[[s.source,s.dxCall,s.spotter,s.ts,s.freqKHz].join('|'),s])).values()];
  return {spots:unique,coverage,status:coverage.some(c=>c.status!=='loaded')?'partial':'loaded'};
 }
+
+export function offRunMultiplierContacts(qsos,scoring,classifyLogOnly) {
+ const timed=qsos.map((q,index)=>({q,index})).filter(e=>Number.isFinite(e.q.ts));
+ const roles=classifyLogOnly(timed.map(e=>e.q),Infinity);
+ const byIndex=new Map(timed.map((e,i)=>[e.index,roles[i] || 'UNKNOWN']));
+ const all=multiplierContacts(qsos,scoring),targets=[];let excludedRun=0,uncertain=0;
+ for(const q of all) {
+  const role=byIndex.get(q.index) || 'UNKNOWN';
+  if(!Number.isFinite(q.freq) || [1.8,3.5,7,14,21,28].some(f=>Math.abs(q.freq-f)<.000001)) {uncertain++;continue;}
+  if(role==='RUN') {excludedRun++;continue;}
+  if(role!=='SEARCH' && role!=='INBAND') {uncertain++;continue;}
+  targets.push({...q,integrityOperatingRole:role});
+ }
+ return {targets,excludedRun,uncertain,total:all.length};
+}

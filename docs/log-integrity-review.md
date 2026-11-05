@@ -71,3 +71,7 @@ The follow-up instruction supersedes the five-unique-callsign download policy: a
 Counterpart callsigns and portable aliases are grouped by their existing shard URL key. Only required shards are fetched, with four concurrent shard jobs and shared in-flight downloads across callers. SQL IN queries handle at most 400 aliases per batch. Complete callsign results are cached; failed alias coverage remains partial and retryable. A synthetic 600-call/three-shard test needs three downloads and three queries, and a cached repeat needs neither. Shard progress is throttled rather than rerendering the report after every callsign.
 
 During integrity analysis, the main Spots and RBN spots status rows reflect the integrity jobs and per-source coverage across the active logs, rather than only the separate spot-report loaders. The prominent Check counterpart logs in archive action explains that it checks submitted/reconstructed index entries and marks missing counterparts without fetching log contents.
+
+## Off-RUN multiplier spot checks
+
+Spot timing checks exclude multiplier contacts classified as RUN from log evidence alone. Only SEARCH and INBAND contacts with precise frequencies are eligible; unknown operating styles and generic band frequencies are excluded. The classifier ignores stored operating-style labels and cluster/RBN anchors to avoid circular evidence. Exclusion counts appear in the report. Counterpart archive availability still checks all credited multipliers. These are heuristic review observations, not confirmed breaches.

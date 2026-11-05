@@ -89,10 +89,10 @@ export function createArchiveClient(deps = {}) {
     return rows;
   }
 
-  async function queryRowsByCallsign(callsign) {
+  async function queryRowsByCallsign(callsign, options = {}) {
     const normalized = normalizeCall(callsign).replace(/\s+/g, '').replace(/_/g, '/');
     if (!normalized) return [];
-    if (archiveRowsByCallCache.has(normalized)) return archiveRowsByCallCache.get(normalized);
+    if (archiveRowsByCallCache.has(normalized)) {const rows=archiveRowsByCallCache.get(normalized);return options.withCoverage?{rows,partial:false}:rows;}
     // Archive filenames sometimes encode portable calls with underscores. Each
     // spelling hashes to its own shard, so a SQL alias in one DB is insufficient.
     const aliases = [...new Set([normalized, normalized.replace(/\//g, '_')])];
@@ -103,7 +103,7 @@ export function createArchiveClient(deps = {}) {
     if (failed && !rows.length) throw failed.reason;
     // A temporarily unavailable alias must be retried on the next search.
     if (!failed) archiveRowsByCallCache.set(normalized, rows);
-    return rows;
+    return options.withCoverage?{rows,partial:!!failed}:rows;
   }
 
   function pickHistoryMatch(rows, request) {

@@ -2,11 +2,19 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.48 (2026-11-05)
+
+- Add Quality & Review → Log integrity review for grouped rapid multiband contact sequences, submitted/reconstructed counterpart activity, provenance-aware independent reporting and contact concentration.
+- Add bounded archive evidence retrieval with explicit unavailable/partial/error states, reciprocal-contact review, source-QSO navigation and expanded static exports.
+- Offer hypothetical score removal through unchanged scoring machinery, preserving QTCs and recalculating replacement multiplier/duplicate credit. Add model and full-app tests and advance application/cache references to v6.3.48.
+
+
 ## v6.3.47 (2026-11-03)
 
 - Hide sent and received exchange columns independently in the single-log Log report when the entire loaded log contains no meaningful exchange for that direction. Blank, whitespace-only, and standalone hyphen values count as absent; zero, serial numbers, locators, and multi-token exchanges remain visible.
 - Keep visibility stable across filters and pagination, with matching headers, rendered rows, and virtual-table colspans. Preserve comparison column selection, signal reports, raw log content, mode interpretation, sorting, and export behavior.
 - Add regression coverage using the 4Z4UO RSGB example plus sent-only, received-only, zero, serial, locator, pagination, filtering, and alignment cases. Bump application/cache references to v6.3.47.
+
 
 ## v6.3.46 (2026-10-29)
 

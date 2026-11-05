@@ -1,0 +1,102 @@
+Implement a “Log integrity review” report in SH6 under Quality & Review.
+
+First inspect the repository, applicable instructions, existing operating-rules audits, multiplier models, archive/shard access and reconstructed-log support. Reuse existing infrastructure. This task is implementation, including validation and documentation.
+
+Scope
+
+Build the first version around three connected analyses:
+
+1. Rapid multiband sequences
+   - Identify contacts with the same counterpart across several bands within a short interval.
+   - Show the source QSOs, distinct bands, elapsed time, surrounding operating activity and multiplier credits gained.
+   - Group overlapping detections into one understandable case.
+   - Make thresholds configurable, with documented defaults chosen after inspecting representative logs.
+   - Treat minute-resolution timestamps as intervals; do not infer within-minute order or simultaneous transmissions.
+
+2. Counterpart activity
+   - Prefer the counterpart’s submitted log when available.
+   - Otherwise use the reconstructed logs already available in SH6 shards.
+   - Do not build a reconstruction engine or scrape external logs.
+   - Match the exact contest edition and mode, using existing identity and archive conventions.
+   - Show observed QSOs, distinct stations worked, bands, activity timeline and source provenance.
+   - Distinguish submitted records from reconstructed observations.
+   - Preserve and display meaningful discrepancies without silently resolving them.
+
+3. Contact concentration
+   - Show how much of the counterpart’s observed activity involves the entrant under review.
+   - Report both contact counts and distinct other stations.
+   - Exclude the reviewed entrant’s log from independent corroboration counts, including records originating from it inside shard reconstructions.
+   - Inspect how reconstruction provenance and deduplication work before calculating these metrics. If provenance cannot establish independence, label that evidence unknown rather than independent.
+   - Do not treat duplicate copies of a source record as separate evidence.
+   - Do not assume fewer than ten observed QSOs means fewer than ten QSOs were actually made.
+
+Detection and interpretation
+
+- Combine observations to prioritize cases for review; limited activity alone must not produce a strong finding.
+- Use transparent descriptions such as “Rapid multiband sequence,” “Limited independent activity” and “Conflicting log records.”
+- Do not assign a cheating probability, declare fabricated contacts, infer intent or automatically disqualify anyone.
+- Rapid band changes, local contacts, missing logs, missing RBN spots and rounded frequencies are not standalone proof of misconduct.
+- Show unavailable evidence and archive coverage explicitly. Network failures must not appear as zero activity or a clean result.
+- Keep generic pattern analysis separate from contest-rule violations.
+- Any rule interpretation must use verified rules for the actual year and category; do not apply current restrictions retrospectively.
+
+Multiplier and score impact
+
+- Reuse supported contest multiplier models to show which credits depend on a candidate sequence.
+- Account for replacement contacts elsewhere in the log.
+- Where reliable calculation is available, offer a clearly labelled hypothetical “score without these contacts.”
+- Recalculate using existing scoring machinery; do not estimate by simply multiplying the number of removed multipliers.
+- Do not apply adjudication penalties or alter the actual score.
+- Keep activity analysis available when multiplier or score-impact calculation is unsupported.
+
+Presentation
+
+- Use one compact findings table, with useful sorting and filtering.
+- Each case should show counterpart, UTC interval, bands, contact count, multiplier impact and a short evidence summary.
+- Expand a case into a chronological timeline of the entrant’s surrounding contacts and the counterpart’s available activity.
+- Provide source links and navigation to the correct loaded log’s original QSOs, including ±15-minute context.
+- Make it clear whether counterpart activity comes from a submitted log or a reconstruction.
+- Keep explanations concise. Put methods, threshold definitions and coverage details in a collapsed “More” section at the bottom.
+- Do not introduce comparison workspace bars or repeated summary panels.
+- Support existing comparison slots independently without duplicating cases within a log.
+- Preserve evidence, source references and useful expanded content in static exports; remove inert controls.
+
+Architecture and performance
+
+- Keep detection, evidence retrieval and presentation separate.
+- Use original full-log data so display filters cannot silently change the audit. Any deliberate analysis scope must be explicit.
+- Reuse existing shard lookup, caching, workers and cancellation mechanisms where appropriate.
+- Avoid loading the entire archive into the browser or issuing unbounded per-contact requests.
+- Handle loading, partial coverage, unavailable shards and errors visibly.
+- Preserve source contacts, metadata, scoring and operating-style classifications.
+- Do not change existing implemented contest scoring rules. If a scoring-rule change appears necessary, explain the concrete issue and ask before changing it.
+- Preserve unrelated working-tree changes.
+
+Validation
+
+Add meaningful tests covering:
+- Grouping and threshold boundaries.
+- Unordered same-minute records and reversed input.
+- Submitted versus reconstructed counterpart evidence.
+- Provenance, deduplication and exclusion of the reviewed log from independent support.
+- Exact contest/year/mode matching.
+- Contact counts versus distinct-station counts.
+- Missing, partial and failed archive responses.
+- Multiplier replacement and hypothetical score calculations.
+- Full-log filter independence and source immutability.
+- Correct navigation across comparison slots.
+- Static exports and concise presentation.
+
+Use representative existing data where available; do not commit private logs or large archive fixtures. Run relevant existing scoring, navigation, export and audit regressions.
+
+Review and completion
+
+Use several independent SWE agents to review evidence/provenance correctness, detection/scoring correctness, and UI/performance/regressions. Have them inspect independently, resolve confirmed issues and rerun affected checks.
+
+Update documentation with the implemented defaults, evidence definitions, shard dependencies and limitations. Follow repository conventions for version and changelog updates.
+
+Do not implement cluster/RBN assistance correlation in this first version. Leave a clean extension point for it; later analysis must avoid circular evidence from spot-assisted operating-style classification.
+
+Commit the completed changes locally. Do not push until explicitly requested.
+
+Finish with a concise account of what was implemented, how to test it locally, validation results, remaining limitations, version and commit.

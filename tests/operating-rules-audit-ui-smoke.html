@@ -136,6 +136,7 @@ try {
  Object.assign(state,{logTimeRange:null,logSearch:'',globalYearsFilter:[],globalMonthsFilter:[],globalBandFilter:'',globalRadioFilter:'',compareTimeRangeLock:null});await audit();
  const {createExportRuntime}=await import('../modules/export/runtime.js');
  const exporter=createExportRuntime({getState:()=>state,getSlotById:id=>w.SH6.getSlotById(id),getReports:()=>[{id:'cqww_ms_audit',title:'Operating rules audit'}],getActiveCompareSlots:()=>[],withBandContext:(_,fn)=>fn(),withStaticVirtualTableRender:fn=>fn(),renderReport:()=>view().innerHTML,escapeHtml:String,escapeAttr:String,escapeCall:String,escapeCountry:String,formatBandLabel:w.SH6.formatBandLabel,formatFrequency:String,formatDateSh6:w.SH6.formatDateSh6,bandClass:w.SH6.bandClass,modeClass:()=>'',continentClass:()=>''});
+ await wait(()=>d.querySelectorAll('.cqww-ms-audit').length===4 && ready());
  printable=exporter.renderReportExport({id:'cqww_ms_audit'});const exported=d.createElement('div');exported.innerHTML=printable;
  check('all four profiles retained in static export',exported.querySelectorAll('.cqww-ms-audit').length===4 && exported.querySelectorAll('.audit-hourly').length===3 && exported.querySelectorAll('.cqww-ms-lock').length===2);
  check('mixed historical comparison exports each actual edition',[2025,2002,2010,2003].every(year=>!!exported.querySelector(`a[href*="/${year}_"]`)));

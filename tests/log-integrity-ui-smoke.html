@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Operating rules audit full-app smoke</title>
+<div id="status">RUNNING</div><pre id="result"></pre><iframe id="app" src="../index.html" style="width:1400px;height:1100px"></iframe>
+<script type="module">
+const checks=[],errors=[];let printable='';
+const check=(name,ok)=>{checks.push({name,passed:!!ok});if(!ok)throw Error(name);};
+const wait=async fn=>{const end=Date.now()+40000;while(Date.now()<end){if(fn())return;await new Promise(r=>setTimeout(r,75));}throw Error('Timeout');};
+try {
+ const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
+ const w=frame.contentWindow,d=frame.contentDocument;w.addEventListener('error',e=>errors.push(e.message));
+ await wait(()=>w.SH6 && d.querySelector('#navList [data-index]') && d.getElementById('viewTitle').textContent==='Start' && d.getElementById('viewContainer').getAttribute('aria-busy')!=='true');
+ const state=w.SH6.getSlotById('A'),ready=()=>d.getElementById('viewContainer').getAttribute('aria-busy')!=='true';
+ const nav=title=>[...d.querySelectorAll('#navList [data-index]')].find(el=>el.textContent.trim()===title);
+ const report=async title=>{await wait(ready);const el=nav(title);if(!el)throw Error('Missing '+title);el.click();await wait(()=>d.getElementById('viewTitle').textContent===title && ready());};
+ const header=(family,tx,mode='SSB',year=2026)=>['START-OF-LOG: 3.0','CALLSIGN: S53TEST','CONTEST: CQ-'+family+'-'+mode,'CATEGORY-OPERATOR: MULTI-OP','CATEGORY-TRANSMITTER: '+tx,'CATEGORY-MODE: '+mode];
+ const lines=(family,tx,changes=9,mode='SSB',id='0',year=2026)=>[...header(family,tx,mode,year),...Array.from({length:changes+1},(_,i)=>`QSO: ${i%2?7020:14020} ${mode==='CW'?'CW':'PH'} ${year}-10-24 00${String(i*2).padStart(2,'0')} S53TEST 599 15 K${i}AA 599 ${family==='WW'?'05':String(i+1).padStart(3,'0')}${family==='WPX'&&tx==='ONE'?'':' '+id}`),'END-OF-LOG:'].join('\n');
+ const residence=(mode='SSB')=>[...header('WW','ONE',mode),`QSO: 14020 ${mode==='CW'?'CW':'PH'} 2026-10-24 0000 S53TEST 599 15 K0AA 599 05 0`,`QSO: 7020 ${mode==='CW'?'CW':'PH'} 2026-10-24 0009 S53TEST 599 15 K1AA 599 05 0`,'END-OF-LOG:'].join('\n');
+ let sequence=0;
+ const upload=async(content,id='A')=>{const previous=w.SH6.getSlotById(id)?.logVersion;const dt=new w.DataTransfer();dt.items.add(new w.File([content],`op-audit-${sequence++}.log`));const input=d.getElementById(id==='A'?'fileInput':'fileInput'+id);input.files=dt.files;input.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>w.SH6.getSlotById(id)?.logVersion!==previous && w.SH6.getSlotById(id)?.qsoData && ready());};
+
+ const content=['START-OF-LOG: 3.0','CALLSIGN: S53TEST','CONTEST: CQ-WW-CW','CATEGORY-OPERATOR: SINGLE-OP','CATEGORY-MODE: CW',
+ 'QSO: 14020 CW 2025-11-29 0000 S53TEST 599 15 DL1AA 599 14',
+ 'QSO: 7020 CW 2025-11-29 0001 S53TEST 599 15 DL1AA 599 14',
+ 'QSO: 3520 CW 2025-11-29 0002 S53TEST 599 15 DL1AA 599 14',
+ 'QSO: 14020 CW 2025-11-29 0004 S53TEST 599 15 DL2AA 599 14','END-OF-LOG:'].join('\n');
+ await upload(content);await report('Log integrity review');
+ await wait(()=>d.querySelector('.log-integrity-review table'));
+ check('candidate visible',d.getElementById('viewContainer').textContent.includes('DL1AA'));
+ check('one grouped case',d.querySelectorAll('.log-integrity-review > .table-wrap > table > tbody > tr').length===1);
+ check('source controls present',!!d.querySelector('.integrity-qso[data-slot="A"][data-index="2"]'));
+ const before=JSON.stringify(state.fullQsoData.qsos);
+ d.querySelector('[data-integrity-impact]').click();
+ await wait(()=>d.querySelector('.log-integrity-review')?.textContent.includes('complete.') || d.querySelector('.log-integrity-review')?.textContent.includes('Score calculation unavailable:'));
+ check('score calculation succeeds',!d.querySelector('.log-integrity-review').textContent.includes('Score calculation unavailable:'));
+ check('original contacts unchanged',JSON.stringify(state.fullQsoData.qsos)===before);
+ d.querySelector('.integrity-qso[data-index="2"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
+ check('correct source context',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log A, QSO 3') && d.getElementById('viewContainer').textContent.includes('±15 minutes'));
+
+ d.getElementById('multiplier-clear-log-focus').click();await wait(ready);await report('Log integrity review');
+ const fullText=d.querySelector('.log-integrity-review').textContent;
+ state.globalBandFilter='10M';state.logSearch='ABSENT';await report('Log integrity review');
+ check('full log analysis ignores display filters',d.querySelector('.log-integrity-review').textContent===fullText);
+ state.globalBandFilter='';state.logSearch='';
+ const count=d.querySelector('input[name="compareCount"][value="4"]');count.checked=true;count.dispatchEvent(new w.Event('change',{bubbles:true}));await wait(()=>d.getElementById('fileInputD'));
+ for(const id of ['B','C','D']) await upload(content,id);await report('Log integrity review');
+ check('four independent slot reports',d.querySelectorAll('.log-integrity-review').length===4);
+ const {createExportRuntime}=await import('../modules/export/runtime.js');
+ const exporter=createExportRuntime({getState:()=>state,getSlotById:id=>w.SH6.getSlotById(id),getReports:()=>[{id:'cqww_ms_audit',title:'Operating rules audit'}],getActiveCompareSlots:()=>[],withBandContext:(_,fn)=>fn(),withStaticVirtualTableRender:fn=>fn(),renderReport:()=>d.getElementById('viewContainer').innerHTML,escapeHtml:String,escapeAttr:String,escapeCall:String,escapeCountry:String,formatBandLabel:w.SH6.formatBandLabel,formatFrequency:String,formatDateSh6:w.SH6.formatDateSh6,bandClass:w.SH6.bandClass,modeClass:()=>'',continentClass:()=>''});
+
+ const exported=d.createElement('div');exported.innerHTML=exporter.renderReportExport({id:'log_integrity_review'});
+ check('static export expands cases and retains original contact identities',exported.querySelectorAll('.log-integrity-review').length===4 && exported.textContent.includes('DL1AA #3') && [...exported.querySelectorAll('details')].every(el=>el.open) && !exported.querySelector('button,input,select'));
+ d.querySelector('.integrity-qso[data-slot="D"][data-index="2"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
+ check('fourth slot navigation preserves source identity',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log D, QSO 3'));
+ check('no application errors',errors.length===0);
+ document.getElementById('status').textContent='PASS';
+}catch(error){checks.push({name:error.stack,passed:false});document.getElementById('status').textContent='FAIL';}
+document.getElementById('result').textContent=JSON.stringify({checks,errors},null,2);
+</script></html>

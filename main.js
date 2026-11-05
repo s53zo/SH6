@@ -57,6 +57,7 @@
     { id: 'not_in_master', title: 'Not in master' },
     { id: 'possible_errors', title: 'Possible errors' },
     { id: 'cqww_ms_audit', title: 'Operating rules audit' },
+    { id: 'log_integrity_review', title: 'Log integrity review' },
     { id: 'charts_top_10_countries', title: 'Top 10 countries' },
     { id: 'charts_qs_by_band', title: 'Qs by band' },
     { id: 'charts_continents', title: 'Continents' },
@@ -157,6 +158,7 @@
     not_in_master: 'quality_review',
     possible_errors: 'quality_review',
     cqww_ms_audit: 'quality_review',
+    log_integrity_review: 'quality_review',
     comments: 'quality_review',
 
     charts_top_10_countries: 'maps_charts',
@@ -180,7 +182,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.47';
+  const APP_VERSION = 'v6.3.48';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -282,40 +284,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.47';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.47';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.47';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.47';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.47';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.47';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.47';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.47';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.47';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.47';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.47';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.47';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.47';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.47';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.47';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.47';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.47';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.47';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.47';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.47';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.47';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.47';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.47';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.47';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.47';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.47';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.47';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.47';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.47';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.47';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.47';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.47';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.47';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.47';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.48';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.48';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.48';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.48';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.48';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.48';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.48';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.48';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.48';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.48';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.48';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.48';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.48';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.48';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.48';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.48';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.48';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.48';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.48';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.48';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.48';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.48';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.48';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.48';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.48';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.48';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.48';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.48';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.48';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.48';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.48';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.48';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.48';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.48';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1992,8 +1994,8 @@
 
   async function loadMultiplierOverviewModule() {
     const [model, view] = await Promise.all([
-      import('./modules/multipliers/overview-model.js?v=6.3.47'),
-      import('./modules/multipliers/overview-view.js?v=6.3.47')
+      import('./modules/multipliers/overview-model.js?v=6.3.48'),
+      import('./modules/multipliers/overview-view.js?v=6.3.48')
     ]);
     multiplierOverviewRuntime = { ...model, ...view };
   }
@@ -5106,8 +5108,8 @@
       let hasSectionHeaders = false;
       const headerRows = [];
       for (const row of rows) {
-        const hasTh = row.querySelector('th') != null;
-        const hasTd = row.querySelector('td') != null;
+        const hasTh = Array.from(row.cells).some(cell=>cell.tagName==='TH');
+        const hasTd = Array.from(row.cells).some(cell=>cell.tagName==='TD');
         if (hasTh && !dataRowSeen) {
           headerRows.push(row);
         } else if (hasTd && !hasTh) {
@@ -5226,8 +5228,8 @@
     const rows = Array.from(table.rows || []);
     const headerRows = [];
     for (const row of rows) {
-      const hasTh = row.querySelector('th') != null;
-      const hasTd = row.querySelector('td') != null;
+      const hasTh = Array.from(row.cells).some(cell=>cell.tagName==='TH');
+      const hasTd = Array.from(row.cells).some(cell=>cell.tagName==='TD');
       const isHeaderLike = row.classList.contains('thc') || (hasTh && !hasTd);
       if (!headerRows.length) {
         if (!isHeaderLike) continue;
@@ -20822,6 +20824,113 @@ function syncEngineCompareLogForSlot(slot) {
     return window.SH6ReportCleanup(renderReportContent(report));
   }
 
+  let integrityModules=null, integrityLoading=null, integrityLoadError=null;
+  const integrityModels=new Map();
+  async function calculateIntegrityImpacts(id) {
+    const slot=getSlotById(id),model=integrityModels.get(id);
+    if(!slot || !model || model.calculating) return;
+    const data=slot.fullQsoData || slot.qsoData,derived=slot.fullDerived || slot.derived;
+    const version=slot.logVersion,generation=model.generation || 0,resources=structuredClone(buildAnalysisResourcesPayload());
+    const context={logFile:slot.logFile,sourcePath:slot.logFile?.path || '',analysisMode:state.analysisMode,scoringRuleOverride:slot.scoringRuleOverride || ''};
+    model.calculating=true;model.status='Calculating hypothetical scores…';renderActiveReport();
+    try {
+      const deriveSnapshot=async copy=>{
+        try {const result=await runEngineTask('deriveSlots',{analysis:resources,slots:[{slotId:'',qsoData:copy,context}]});return result.slots[0];}
+        catch(error) {return getAnalysisCore().deriveLog(copy,context,resources);}
+      };
+      const baseline=(await deriveSnapshot(structuredClone(data))).derived.scoring;
+      for(const candidate of model.cases) {
+        if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)) return;
+        const impact=await integrityModules.calculateImpact({data,indexes:candidate.indexes,baselineScoring:baseline,
+          derive:deriveSnapshot,
+          scoreEmpty:qtcs=>getAnalysisCore().computeContestScoringSummary(qtcs,derived.contestMeta,context,resources)});
+        if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)) return;
+        model.impacts[candidate.id]=impact;
+        await new Promise(resolve=>setTimeout(resolve,0));
+      }
+      if(generation!==(model.generation || 0)) return;
+      model.status='Full-log review; hypothetical calculations complete.';
+    } catch(error) {if(generation===(model.generation || 0)) model.status='Score calculation unavailable: '+error.message;}
+    finally {model.calculating=false;if(getSlotById(id)?.logVersion===version && reports[state.activeIndex]?.id==='log_integrity_review') renderActiveReport();}
+  }
+
+  async function loadIntegrityEvidence(id) {
+    const slot=getSlotById(id),model=integrityModels.get(id);
+    if(!slot || !model || !integrityModules || model.loading) return;
+    const version=slot.logVersion,generation=model.generation || 0,meta=(slot.fullDerived || slot.derived)?.contestMeta || {};
+    const qsos=(slot.fullQsoData || slot.qsoData)?.qsos || [];
+    const years=[...new Set(qsos.filter(q=>Number.isFinite(q.ts)).map(q=>new Date(q.ts).getUTCFullYear()))];
+    const modes=[...new Set(qsos.map(q=>normalizeArchiveModeToken(q.mode)).filter(Boolean))];
+    const entryMode=normalizeArchiveModeToken(meta.categoryMode)==='MIXED'?'MIXED':modes.length===1?modes[0]:'';
+    if(years.length!==1 || !entryMode) {model.status='Exact contest year and declared entry mode required for archive evidence.';renderActiveReport();return;}
+    model.loading=true;model.status='Loading counterpart evidence…';renderActiveReport();
+    try {
+      const client=await loadArchiveClientModule();
+      const canonicalContest=value=>normalizeArchiveContestToken(value).replace(/(?:CW|SSB|PHONE)$/,'');
+      const queue=integrityModules.createEvidenceQueue({
+        lookup:async call=>{const result=await client.queryRowsByCallsign(call,{withCoverage:true});return {...result,rows:result.rows.map(r=>({...r,contest:canonicalContest(r.contest),mode:normalizeArchiveModeToken(r.mode)}))};},
+        fetchText:path=>client.fetchArchiveLogText(path),
+        parse:(text,path)=>getAnalysisCore().parseLogFile(text,path),
+        validate:(data,request,row)=>{
+          const list=data?.qsos || [];
+          if(!list.length) return 'Counterpart source contains no parsed contacts.';
+          const header=list[0]?.raw || {};
+          if(normalizeCall(header.STATION_CALLSIGN).replace(/_/g,'/')!==normalizeCall(request.callsign).replace(/_/g,'/')) return 'Counterpart callsign does not match requested station.';
+          if(canonicalContest(header.CONTEST)!==request.contest) return 'Counterpart contest declaration differs.';
+          if(list.some(q=>!Number.isFinite(q.ts) || new Date(q.ts).getUTCFullYear()!==request.year || q.ts<request.earliestTs || q.ts>request.latestTs || !(request.mode==='MIXED'?['CW','PH'].includes(normalizeArchiveModeToken(q.mode)):normalizeArchiveModeToken(q.mode)===request.mode))) return 'Counterpart dates or modes do not establish the exact edition.';
+          return null;
+        }
+      });
+      const timed=qsos.filter(q=>Number.isFinite(q.ts)).map(q=>q.ts);
+      const earliestTs=Math.min(...timed)-3*86400000,latestTs=Math.max(...timed)+3*86400000;
+      const calls=[...new Set(model.cases.map(c=>c.call))];let cursor=0;
+      await Promise.all(Array.from({length:2},async()=>{
+        while(cursor<calls.length) {
+          const call=calls[cursor++];
+          if(['ready'].includes(model.evidence[call]?.status)) continue;
+          if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)) return;
+          const result=await queue.load({callsign:call,entrant:meta.stationCallsign,contest:canonicalContest(meta.contestId),year:years[0],mode:entryMode,earliestTs,latestTs});
+          if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)) return;
+          if(result.records) result.summary=integrityModules.summarizeCounterpart(result.records,meta.stationCallsign,result.sourceKind);
+          model.evidence[call]=result;
+          if(result.records) for(const candidate of model.cases.filter(c=>c.call===call)) {
+            candidate.reciprocal=integrityModules.compareReciprocal(candidate,qsos,result.records,meta.stationCallsign,result.sourceKind);
+            candidate.label=candidate.reciprocal.discrepancies.length?'Conflicting log records':result.summary.independentlyReported<3 && result.summary.withEntrant>=3?'Rapid multiband sequence · limited independent activity':'Rapid multiband sequence';
+          }
+          if(reports[state.activeIndex]?.id==='log_integrity_review') renderActiveReport();
+        }
+      }));
+      if(generation!==(model.generation || 0)) return;
+      model.status='Evidence lookup finished; indexed archive coverage may be partial.';
+    } catch(error) {if(generation===(model.generation || 0)) model.status='Evidence error: '+error.message;}
+    finally {model.loading=false;if(getSlotById(id)?.logVersion===version && reports[state.activeIndex]?.id==='log_integrity_review') renderActiveReport();}
+  }
+
+  function renderIntegrityReview() {
+    if(!integrityModules) {
+      if(integrityLoadError) return `<p class="state-warning">Log integrity review unavailable: ${escapeHtml(integrityLoadError)}. Reload to retry.</p>`;
+      if(!integrityLoading) integrityLoading=Promise.all([
+        import('./modules/integrity/model.js?v=6.3.48'),
+        import('./modules/integrity/view.js?v=6.3.48'),
+        import('./modules/integrity/evidence.js?v=6.3.48'),
+        import('./modules/integrity/impact.js?v=6.3.48')
+      ]).then(([model,view,evidence,impact])=>{integrityModules={...model,...view,...evidence,...impact};renderActiveReport();})
+        .catch(error=>{integrityLoading=null;integrityLoadError=error.message;renderActiveReport();});
+      return '<p>Loading log integrity review…</p>';
+    }
+    const entries=getActiveCompareSlots();
+    const blocks=entries.map(({slot,id})=>{
+      const qsos=(slot?.fullQsoData || slot?.qsoData)?.qsos || [];
+      let model=integrityModels.get(id);
+      if(!model || model.version!==slot?.logVersion) {
+        model={version:slot?.logVersion,windowMinutes:5,minBands:3,evidence:{},impacts:{},status:'Full-log review'};
+        model.cases=integrityModules.detectSequences(qsos,model);integrityModels.set(id,model);
+      }
+      return integrityModules.renderIntegrity(model,qsos,id);
+    });
+    return state.compareEnabled?renderComparePanels(entries.map(e=>({...e,snapshot:buildSlotSnapshot(e.slot)})),blocks,'log_integrity_review'):blocks[0] || '<p>Load a log first.</p>';
+  }
+
   function renderCqwwMsAudit() {
     if (!window.SH6CqwwMsAudit) return '<p class="state-warning">Operating audit module is unavailable. Reload to retry; no audit has been performed.</p>';
     const entries = getActiveCompareSlots();
@@ -20837,6 +20946,7 @@ function syncEngineCompareLogForSlot(slot) {
 
   function renderReportContent(report) {
     if (report.id === 'cqww_ms_audit') return renderCqwwMsAudit();
+    if (report.id === 'log_integrity_review') return renderIntegrityReview();
     if (report.id === 'log' && state.multiplierLogFocus) {
       const focus = state.multiplierLogFocus;
       const slot = getSlotById(focus.slotId);
@@ -20881,16 +20991,20 @@ function syncEngineCompareLogForSlot(slot) {
         if (!keyboardActivation) target.querySelector('summary')?.focus({ preventScroll: true });
       });
     });
-    dom.viewContainer.querySelectorAll('.cqww-ms-qso').forEach(button => button.addEventListener('click', () => {
-      const slot = getSlotById(button.dataset.slot);
-      const qso = (slot?.fullQsoData || slot?.qsoData)?.qsos?.[Number(button.dataset.index)];
-      const hasTime = window.SH6OperatingAuditEvidence?.minuteOf(qso) != null;
-      applySessionFilters({});
-      state.multiplierLogFocus = { slotId: button.dataset.slot, index: Number(button.dataset.index), logVersion: slot.logVersion, sourceLabel: 'Operating rules audit', contextMinutes: hasTime ? 15 : undefined };
-      state.logPage = 0;
-      invalidateCompareLogData();
-      const index = reports.findIndex(report => report.id === 'log');
-      if (index >= 0) setActiveReport(index);
+    dom.viewContainer.querySelectorAll('[data-integrity-impact]').forEach(button=>button.addEventListener('click',()=>calculateIntegrityImpacts(button.dataset.integrityImpact)));
+    dom.viewContainer.querySelectorAll('[data-integrity-load]').forEach(button=>button.addEventListener('click',()=>loadIntegrityEvidence(button.dataset.integrityLoad)));
+    dom.viewContainer.querySelectorAll('[data-integrity-setting], [data-integrity-filter]').forEach(input=>input.addEventListener('change',()=>{
+      const model=integrityModels.get(input.dataset.slot),slot=getSlotById(input.dataset.slot);
+      if(!model || !slot) return;
+      if(input.hasAttribute('data-integrity-filter')) model.filter=input.value;
+      else {
+        const key=input.dataset.integritySetting;
+        model[key]=Math.max(key==='minBands'?2:1,Math.min(key==='minBands'?6:60,Number(input.value) || (key==='minBands'?3:5)));
+        model.cases=integrityModules.detectSequences((slot.fullQsoData || slot.qsoData)?.qsos || [],model);
+        model.impacts={};model.generation=(model.generation || 0)+1;model.status='Thresholds changed; review refreshed candidates.';
+        for(const candidate of model.cases) {const e=model.evidence[candidate.call];if(e?.records) candidate.reciprocal=integrityModules.compareReciprocal(candidate,(slot.fullQsoData || slot.qsoData)?.qsos || [],e.records,(slot.fullDerived || slot.derived)?.contestMeta?.stationCallsign,e.sourceKind);}
+      }
+      renderActiveReport();
     }));
     dom.viewContainer.querySelector('#multiplier-clear-log-focus')?.addEventListener('click', () => {
       state.multiplierLogFocus = null;
@@ -20901,6 +21015,19 @@ function syncEngineCompareLogForSlot(slot) {
     invokeOptionalRuntime('rbn compare runtime', () => getRbnCompareRuntime().teardownIfInactive(reportId));
     wrapWideTables(dom.viewContainer, reportId);
     makeTablesSortable(dom.viewContainer);
+    dom.viewContainer.querySelectorAll('.cqww-ms-qso, .integrity-qso').forEach(button => button.addEventListener('click', () => {
+      const slot = getSlotById(button.dataset.slot);
+      const qso = (slot?.fullQsoData || slot?.qsoData)?.qsos?.[Number(button.dataset.index)];
+      if (!slot || !qso) return;
+      const hasTime = window.SH6OperatingAuditEvidence?.minuteOf(qso) != null;
+      applySessionFilters({});
+      state.multiplierLogFocus = { slotId: button.dataset.slot, index: Number(button.dataset.index), logVersion: slot.logVersion, sourceLabel: button.classList.contains('integrity-qso') ? 'Log integrity review' : 'Operating rules audit', contextMinutes: hasTime ? 15 : undefined };
+      state.logPage = 0;
+      invalidateCompareLogData();
+      const index = reports.findIndex(report => report.id === 'log');
+      if (index >= 0) setActiveReport(index);
+    }));
+
     invokeOptionalRuntime('compare controller runtime', () => getCompareControllerRuntime().bindWorkspaceInteractions(reportId));
     attachLongReportJumpBar(dom.viewContainer, reportId);
     bindVirtualTable(reportId);

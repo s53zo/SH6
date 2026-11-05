@@ -7132,3 +7132,18 @@ body.ui-theme-nt .bar-value {
   .multiplier-overview-controls label { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
   .radio-summary-table, .radio-breakdown-table, .radio-timeline-table { font-size: 12px; }
 }
+
+.log-integrity-review { min-width: 0; }
+.log-integrity-review .table-wrap { max-width: 100%; overflow-x: auto; }
+.log-integrity-review td { vertical-align: top; overflow-wrap: anywhere; }
+.log-integrity-review input[type="number"] { width: 4rem; }
+.log-integrity-review details { margin-block: .4rem; }
+@media print {
+  .log-integrity-review table { width: 100% !important; table-layout: fixed; white-space: normal !important; }
+  .log-integrity-review th, .log-integrity-review td { white-space: normal !important; overflow-wrap: anywhere; }
+  .log-integrity-review .table-wrap { overflow: visible !important; }
+}
+.log-integrity-review { white-space: normal; }
+.log-integrity-review > .no-print { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
+.log-integrity-review > p { white-space:normal; }
+.log-integrity-review td, .log-integrity-review th { white-space:normal; }

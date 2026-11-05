@@ -8,6 +8,12 @@ const wait=async fn=>{const end=Date.now()+30000;while(Date.now()<end){if(fn())r
 try {
  const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
  const win=frame.contentWindow,doc=frame.contentDocument;
+ // Exercise export creation without saving test files to the user's Downloads.
+ const testDownloads=[],nativeAnchorClick=win.HTMLAnchorElement.prototype.click;
+ win.HTMLAnchorElement.prototype.click=function(){
+  if(this.hasAttribute('download')){testDownloads.push(this.download);return;}
+  return nativeAnchorClick.call(this);
+ };
  await wait(()=>win.SH6 && doc.querySelector('#navList [data-index]') && doc.getElementById('viewTitle').textContent.trim()==='Start');
  const lines=['START-OF-LOG: 3.0','CALLSIGN: TEST1','CONTEST: CQ-WW-CW','CATEGORY-OPERATOR: SINGLE-OP','CATEGORY-TRANSMITTER: ONE','CATEGORY-MODE: CW'];
  for(let m=0;m<8;m++)for(const band of [14020,7020])lines.push(`QSO: ${band} CW 2025-11-29 00${String(m).padStart(2,'0')} TEST1 599 15 K${m}${band===14020?'AA':'BB'} 599 05 ${band===14020?0:1}`);
@@ -77,6 +83,7 @@ try {
  check('four-log report and export retain classifications without sessions or audit',compareExport.querySelectorAll('.operating-time-summary').length===4 && compareExport.querySelectorAll('.operating-style-band-classifications').length===4 && !compareExport.querySelector('.operating-style-qso-log') && !doc.querySelector('.operating-style-qso-log') && !compareExport.textContent.includes('dual RUN sessions'));
  if(new URLSearchParams(location.search).get('print')==='compare') printableHtml=exports.renderReportExport({id:'run_sp_inband'});
  await report('Break time');check('four compact break time summaries',doc.querySelectorAll('.operating-time-summary').length===4);check('one activity slider distinct from break slider',doc.querySelectorAll('.operating-time-gap').length===1 && doc.querySelectorAll('.break-threshold').length===1);
+ check('test downloads intercepted without saving files',testDownloads.some(name=>name.endsWith('.json')));
 } catch(e){checks.push({name:e.stack,passed:false});}
 const passed=checks.every(c=>c.passed);document.getElementById('status').textContent=passed?'PASS':'FAIL';document.getElementById('result').textContent=JSON.stringify({passed,checks},null,2);
 if(passed && new URLSearchParams(location.search).has('print')) {

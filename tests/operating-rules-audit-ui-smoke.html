@@ -7,6 +7,12 @@ const wait=async fn=>{const end=Date.now()+40000;while(Date.now()<end){if(fn())r
 try {
  const frame=document.getElementById('app');await new Promise(r=>frame.addEventListener('load',r,{once:true}));
  const w=frame.contentWindow,d=frame.contentDocument;w.addEventListener('error',e=>errors.push(e.message));
+ // Exercise export creation without saving test files to the user's Downloads.
+ const testDownloads=[],nativeAnchorClick=w.HTMLAnchorElement.prototype.click;
+ w.HTMLAnchorElement.prototype.click=function(){
+  if(this.hasAttribute('download')){testDownloads.push(this.download);return;}
+  return nativeAnchorClick.call(this);
+ };
  await wait(()=>w.SH6 && d.querySelector('#navList [data-index]') && d.getElementById('viewTitle').textContent==='Start' && d.getElementById('viewContainer').getAttribute('aria-busy')!=='true');
  const state=w.SH6.getSlotById('A'),ready=()=>d.getElementById('viewContainer').getAttribute('aria-busy')!=='true';
  const nav=title=>[...d.querySelectorAll('#navList [data-index]')].find(el=>el.textContent.trim()===title);
@@ -163,6 +169,7 @@ try {
  check('ARRL finding opens correct fourth comparison source',view().textContent.includes('Operating rules audit: Log D, QSO 8') && view().textContent.includes('±15 minutes') && view().textContent.includes('DL7AA'));
  check('new audit models preserve source contacts',auditImmutable);
  check('no uncaught application errors',errors.length===0);
+ check('test downloads intercepted without saving files',testDownloads.some(name=>name.endsWith('.json')));
  document.getElementById('status').textContent='PASS';
 }catch(error){const f=document.getElementById('app'),s=f.contentWindow.SH6?.getSlotById('A');checks.push({name:error.stack,passed:false,diagnostic:{title:f.contentDocument.getElementById('viewTitle')?.textContent,qsos:s?.qsoData?.qsos?.length,version:s?.logVersion,text:f.contentDocument.getElementById('viewContainer')?.textContent?.slice(0,500)}});document.getElementById('status').textContent='FAIL';}
 document.getElementById('result').textContent=JSON.stringify({checks,errors},null,2);

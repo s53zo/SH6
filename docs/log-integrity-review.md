@@ -95,3 +95,9 @@ Off-RUN spot rows default to ascending QSO UTC time. They show observed spot fre
 ## Counterpart analysis links
 
 Candidate-table callsigns link to a single-log SH6 analysis in a new tab when an exact archive entry is known. Submitted sources are preferred over reconstructed sources using the existing contest/year/mode/edition selector. Link-only metadata discovery also covers candidate stations outside the eligible off-RUN multiplier set; it does not add availability checks, fetch counterpart log contents, or alter the current analysis. Ambiguous or missing sources remain plain text. Links use the shared v3 positional/compressed codec and canonical SH6 URL, without inheriting the current page's comparison slots or filters.
+
+## Missing recent spot corroboration
+
+A separate note lists credited SEARCH/INBAND multiplier contacts without a matching Cluster or RBN observation in the selected preceding window (default ten minutes). It appears only after both source types have loaded completely and the current spot analysis is valid. Uncertain same-minute observations are not absence; failed/missing/truncated sources, unknown operating styles and on-RUN contacts cannot generate this note. The matched-spots table still omits unmatched rows; the separate note preserves UTC order, logged frequency and original-slot QSO jumps.
+
+This does not establish that the counterpart was not calling CQ, identify its RUN frequency at another time, or raise a fraud probability/score. RBN recognizability depends on keywords/callsign repetitions and repeated-spot suppression, among other reception/decoding limitations; cluster spots need not document CQing. See the [RBN team's detection guidance](https://beta.reversebeacon.net/pages/How%2Bto%2Bget%2Bspotted%2Bby%2Bthe%2BRBN%2B44). Older observations remain available in daily history but do not satisfy the selected recent window.

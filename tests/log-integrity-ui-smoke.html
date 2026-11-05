@@ -136,7 +136,8 @@ try {
  await wait(()=>[...d.querySelectorAll('.integrity-spot-review')].some(el=>el.textContent.includes('Spot timing calculated')));
  const spotPanel=d.querySelector('.integrity-spot-review');
  check('multiplier spot timing loads cluster and RBN before calculation',spotPanel.textContent.includes('Multiplier worked after a spot') && spotPanel.textContent.includes('K2RBN') && spotPanel.textContent.includes('Cluster'));
- check('unmatched multiplier rows are hidden',![...spotPanel.querySelectorAll('tbody tr')].some(row=>row.textContent.includes('ZZ1AA')));
+ check('unmatched contacts stay out of matched-spots table',![...spotPanel.querySelectorAll('.integrity-spot-matches tbody tr')].some(row=>row.textContent.includes('ZZ1AA')));
+ check('unspotted off-RUN multiplier gets a separate neutral review note',spotPanel.querySelector('.integrity-unspotted-review')?.textContent.includes('ZZ1AA') && spotPanel.querySelector('.integrity-unspotted-review').textContent.includes('not proof'));
  check('counterpart check covers standalone multiplier stations',d.querySelector('.integrity-counterpart-activity').textContent.includes('K4SPOT'));
  check('spot timing covers multiplier contacts outside rapid sequences',spotPanel.textContent.includes('K4SPOT'));
  const focus=spotPanel.querySelector('.integrity-qso[data-slot="A"]');focus.click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());

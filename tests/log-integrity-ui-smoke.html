@@ -77,6 +77,10 @@ try {
 
  await wait(()=>d.querySelector('.log-integrity-review')?.textContent.includes('Evidence lookup finished'));
  check('counterpart check runs automatically after spot loading',counterpartDownloads===0 && !!d.querySelector('.integrity-counterpart-activity'));
+ const counterpartLink=d.querySelector('.integrity-counterpart-link');
+ check('sequence counterpart opens an exact archive permalink in a safe new tab',!!counterpartLink && counterpartLink.target==='_blank' && counterpartLink.rel.includes('noopener') && new URL(counterpartLink.href).searchParams.has('state'));
+ const {decodeV3State}=await import('../modules/session/permalink-v3.js');
+ check('counterpart permalink restores selected edition as one log',decodeV3State(new URL(counterpartLink.href).searchParams.get('state')).s[0].p==='CQWW/cw/2025/integrity-dl1aa.log');
  check('matching shard entry passes counterpart availability',d.querySelector('.integrity-counterpart-activity').textContent.includes('OK — counterpart log indexed'));
  check('counterpart contents are not downloaded',counterpartDownloads===0 && d.querySelector('.integrity-counterpart-activity').textContent.includes('Counterpart logs are not downloaded'));
  const spotHeaders=[...d.querySelectorAll('.integrity-spot-review th')].map(el=>el.textContent);

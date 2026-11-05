@@ -91,3 +91,7 @@ See [RBN batching](rbn-proxy-batch.md) for grouped calls/date requests, per-call
 ## Simplified review presentation
 
 Off-RUN spot rows default to ascending QSO UTC time. They show observed spot frequency without calculating a QSO/spot offset; multiplier-credit details are omitted from this table. Counterpart index checks start automatically once spot coverage is complete, once per log/scoring/threshold context; failures remain retryable by the bottom Recheck counterpart logs button. Static export does not start network requests. The bottom availability table shows counterpart, availability check and source, without a coverage/detail column. Older daily RBN observations do not count as recent-spot matches: the selected timing window still governs correlation, and neither a match nor an absent counterpart proves an assistance violation. Assistance-category eligibility is not assessed.
+
+## Counterpart analysis links
+
+Candidate-table callsigns link to a single-log SH6 analysis in a new tab when an exact archive entry is known. Submitted sources are preferred over reconstructed sources using the existing contest/year/mode/edition selector. Link-only metadata discovery also covers candidate stations outside the eligible off-RUN multiplier set; it does not add availability checks, fetch counterpart log contents, or alter the current analysis. Ambiguous or missing sources remain plain text. Links use the shared v3 positional/compressed codec and canonical SH6 URL, without inheriting the current page's comparison slots or filters.

@@ -20937,9 +20937,10 @@ function syncEngineCompareLogForSlot(slot) {
       const client=await loadArchiveClientModule();
       const canonicalContest=value=>normalizeArchiveContestToken(value).replace(/(?:CW|SSB|PHONE)$/,'');
       const calls=[...new Set(model.multiplierSpots.operatingSelection.targets.map(q=>q.call))];
-      if(!calls.length){model.status='No eligible off-RUN multiplier stations to check.';return;}
+      const linkCalls=[...new Set(model.cases.map(c=>c.call))];
+      if(!calls.length && !linkCalls.length){model.status='No eligible counterpart stations to check.';return;}
       let lastShardRender=0;
-      const batches=await client.queryRowsByCallsigns([...calls,meta.stationCallsign].filter(Boolean),{concurrency:4,signal:model.counterpartController.signal,onProgress:({completed,total})=>{
+      const batches=await client.queryRowsByCallsigns([...new Set([...calls,...linkCalls,meta.stationCallsign].filter(Boolean))],{concurrency:4,signal:model.counterpartController.signal,onProgress:({completed,total})=>{
         if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)){model.counterpartController.abort();return;}
         if(getSlotById(id)?.logVersion===version && integrityModels.get(id)===model){model.status=`Checking counterpart shards: ${completed} / ${total}.`;if(reports[state.activeIndex]?.id==='log_integrity_review' && (completed===total || Date.now()-lastShardRender>200)){lastShardRender=Date.now();renderActiveReport();}}
       }});
@@ -20952,6 +20953,14 @@ function syncEngineCompareLogForSlot(slot) {
         } catch(error) { /* Preserve explicit ambiguity when source metadata is unavailable. */ }
       }
       const mixedEvent=entryMode==='MIXED' || ['EUHFC','EUHF','IARUHF'].includes(canonicalContest(meta.contestId));
+      // Link discovery is separate from off-RUN availability checks. Never fetch log text here.
+      model.analysisSources={};
+      for(const call of linkCalls){
+        const result=batches.get(normalizeCall(call).replace(/_/g,'/'));
+        const rows=(result?.rows || []).map(r=>({...r,contest:canonicalContest(r.contest),mode:normalizeArchiveModeToken(r.mode)}));
+        const selected=integrityModules.selectCounterpart(rows,{contest:canonicalContest(meta.contestId),year:years[0],mode:entryMode,mixedEvent,...eventContext});
+        if(selected.status==='selected')model.analysisSources[call]={path:selected.row.path};
+      }
       const queue=integrityModules.createEvidenceQueue({
         lookup:async call=>{const result=batches.get(normalizeCall(call).replace(/_/g,'/')) || {rows:[],partial:true};return {...result,rows:result.rows.map(r=>({...r,contest:canonicalContest(r.contest),mode:normalizeArchiveModeToken(r.mode)}))};},
         fetchText:path=>client.fetchArchiveLogText(path),

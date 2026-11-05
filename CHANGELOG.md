@@ -2,11 +2,14 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
-## v6.3.54 (2026-11-05)
+## v6.3.55 (2026-11-05)
 
 - Load entrant Spots/RBN before RUN/S&P classification, then multiplier spot history before calculating integrity results. Show a Please wait message; withhold results and dependent actions on loading, cancellation or incomplete coverage, with explicit retry. Add staged-loading, anchor, failure and retry regressions.
-
 - Exclude on-RUN multiplier callers from spot-timing review using operating-style inference informed by loaded entrant Spots/RBN. Check only off-RUN contacts with reliable frequencies and report excluded/uncertain counts. Use the same selection for counterpart shard lookups so RUN-only stations are not checked.
+- Prevent browser regression tests from saving HTML exports and session JSON files in Downloads; normal application downloads are unchanged.
+- Advance application, worker and cache references to v6.3.55.
+
+## v6.3.54 (2026-11-05)
 
 - Batch counterpart callsigns by archive shard, fetch each required shard once (including concurrent requests), and query calls together with bounded SQLite parameter batches. Reuse complete results; preserve portable aliases, cancellation and partial failures.
 - Throttle shard progress rendering and remove per-callsign report rerenders. Show integrity Cluster/RBN loading and coverage in the main data-status area.

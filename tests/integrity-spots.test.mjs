@@ -68,3 +68,11 @@ const credits=[0,6].map(i=>({...credit,callsign:operating[i].call,qsoNumber:i+1,
 const inferred=offRunMultiplierContacts(operating,{multiplierModelSupported:true,multiplierCredits:credits},globalThis.SH6AnalysisCore.classifyHistoricalOperatingStyles);
 assert.equal(inferred.excludedRun,1);assert.equal(inferred.targets.length,1);assert.equal(inferred.targets[0].call,'DL6AA');
 console.log('Real log-only classifier excludes the RUN caller and retains the off-frequency multiplier excursion: PASS');
+
+const sparse=Array.from({length:3},(_,i)=>({...q,call:'W'+i+'AA',freq:14.02+i*.02,ts:ts+i*60000}));
+const sparseBefore=JSON.stringify(sparse),classify=globalThis.SH6AnalysisCore.classifyHistoricalOperatingStyles;
+assert.deepEqual(classify(sparse,Infinity),['SEARCH','SEARCH','SEARCH']);
+assert.deepEqual(classify(sparse,Infinity,{operatingStyleSpotAnchors:[{source:'spots',ts:sparse[0].ts,band:'20M',freqMHz:14.02}]}),['INBAND','INBAND','INBAND']);
+assert.equal(JSON.stringify(sparse),sparseBefore);
+assert.deepEqual(classify(sparse,Infinity),['SEARCH','SEARCH','SEARCH']);
+console.log('Explicit entrant anchors inform integrity classification without mutating contacts or leaking into historical classification: PASS');

@@ -7644,9 +7644,9 @@
     buildQtcAnalysis: (qtcs, qsos, contestMeta, resources = {}) => (
       withAnalysisEnv(resources, () => buildQtcAnalysis(qtcs, qsos, contestMeta))
     ),
-    classifyHistoricalOperatingStyles: (qsos, at) => withAnalysisEnv({}, () => {
-      // Isolated prefix: full-log inferred labels and future spot anchors must
-      // not leak into historical operating assumptions or mutate the log.
+    classifyHistoricalOperatingStyles: (qsos, at, resources = {}) => withAnalysisEnv(resources, () => {
+      // Isolated prefix: ignore stored labels and mutate only clones. Historical
+      // callers omit resources; integrity may explicitly supply entrant spot anchors.
       const prefix = (qsos || []).filter((q) => Number.isFinite(q?.ts) && q.ts <= at).map((q) => ({ ...q, operatingStyleRole: undefined, operatingStyleRunFreq: undefined }));
       buildOperatingStyleSummary(prefix);
       return prefix.map((q) => q.operatingStyleRole || 'UNKNOWN');

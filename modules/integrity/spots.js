@@ -79,9 +79,9 @@ export async function loadMultiplierSpotHistory({targets,clusterBaseUrl,rbnUrl,p
  return {spots:unique,coverage,status:coverage.some(c=>c.status!=='loaded')?'partial':'loaded'};
 }
 
-export function offRunMultiplierContacts(qsos,scoring,classifyLogOnly) {
+export function offRunMultiplierContacts(qsos,scoring,classifyOperatingStyles) {
  const timed=qsos.map((q,index)=>({q,index})).filter(e=>Number.isFinite(e.q.ts));
- const roles=classifyLogOnly(timed.map(e=>e.q),Infinity);
+ const roles=classifyOperatingStyles(timed.map(e=>e.q),Infinity);
  const byIndex=new Map(timed.map((e,i)=>[e.index,roles[i] || 'UNKNOWN']));
  const all=multiplierContacts(qsos,scoring),targets=[];let excludedRun=0,uncertain=0;
  for(const q of all) {

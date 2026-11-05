@@ -6632,7 +6632,7 @@
           if(!data.loading && data.currentCheckValid===false)return 'unavailable';
           if(data.loading && (source==='RBN' || data.phase!=='rbn'))return 'loading';
           const coverage=(data.loading?data.progressCoverage:data.history?.coverage || []).filter(c=>c.source===source);
-          if(!coverage.length)return data.loading?'loading':'unavailable';
+          if(!coverage.length)return data.loading?'loading':data.stationReady?'ok':'unavailable';
           return coverage.every(c=>c.status==='loaded')?'ok':coverage.some(c=>c.status==='loaded')?'partial':'unavailable';
         });
         const status=states.includes('loading')?'loading':states.every(s=>s==='ok')?'ok':states.some(s=>s==='ok' || s==='partial')?'partial':states.every(s=>s==='pending')?'pending':'unavailable';
@@ -20854,7 +20854,7 @@ function syncEngineCompareLogForSlot(slot) {
   const integrityModels=new Map();
   async function calculateIntegrityImpacts(id) {
     const slot=getSlotById(id),model=integrityModels.get(id);
-    if(!slot || !model || model.calculating) return;
+    if(!slot || !model || model.calculating || !model.multiplierSpots?.currentCheckValid) return;
     const data=slot.fullQsoData || slot.qsoData,derived=slot.fullDerived || slot.derived;
     const resources=structuredClone(buildAnalysisResourcesPayload());
     const scoreKey=integrityScoreKey(slot);
@@ -20885,34 +20885,45 @@ function syncEngineCompareLogForSlot(slot) {
 
   const integritySpotTargetsKey=targets=>JSON.stringify(targets.map(q=>[q.call,q.band,q.mode,q.ts,q.index,q.credits.map(c=>[c.group,c.entityKey,c.countingScope,c.scopeKey])]));
   function integrityOffRunTargets(slot) {
-    return integrityModules.offRunMultiplierContacts((slot.fullQsoData || slot.qsoData)?.qsos || [],(slot.fullDerived || slot.derived)?.scoring,getAnalysisCore().classifyHistoricalOperatingStyles);
+    return integrityModules.offRunMultiplierContacts((slot.fullQsoData || slot.qsoData)?.qsos || [],(slot.fullDerived || slot.derived)?.scoring,(qsos,at)=>getAnalysisCore().classifyHistoricalOperatingStyles(qsos,at,{operatingStyleSpotAnchors:collectOperatingStyleSpotAnchors(slot)}));
   }
   async function loadIntegrityMultiplierSpots(id) {
     const slot=getSlotById(id),model=integrityModels.get(id);
     if(!slot || !model || !integrityModules || model.multiplierSpots?.loading) return;
     const data=model.multiplierSpots ||= {windowMinutes:10};
-    const scoreKey=integrityScoreKey(slot),version=slot.logVersion;
-    const selection=integrityOffRunTargets(slot),targets=selection.targets;data.operatingSelection=selection;
-    if(!targets.length){data.rows=[];data.status='No off-RUN multiplier contacts with reliable frequency evidence are available for spot analysis.';renderActiveReport();return;}
-    const key=integritySpotTargetsKey(targets);
-    data.controller?.abort();data.controller=new AbortController();data.loading=true;data.currentCheckValid=false;data.phase='cluster';data.progressCoverage=[];data.status='Loading cluster/RBN history for multiplier stations…';updateDataStatus();renderActiveReport();
-    const current=()=>getSlotById(id)?.logVersion===version && integrityModels.get(id)===model && integrityScoreKey(slot)===scoreKey;
+    const sourceQsos=(slot.fullQsoData || slot.qsoData)?.qsos,sourceText=slot.rawLogText,sourceName=slot.logFile?.name;
+    const current=()=>getSlotById(id)===slot && slot.rawLogText===sourceText && slot.logFile?.name===sourceName && integrityModels.get(id)===model;
+    data.controller?.abort();data.controller=new AbortController();data.loading=true;data.currentCheckValid=false;data.phase='station';data.stationReady=false;data.rows=[];model.stationLoading=true;
+    data.status='Please wait: loading station Spots/RBN before RUN/S&P classification and integrity calculations…';updateDataStatus();renderActiveReport();
     try {
+      await loadSpotsDataRuntimeModule();
+      await Promise.all([loadSpotsForCurrentLog(slot),loadRbnForCurrentLog(slot)]);
+      if(!current() || data.controller.signal.aborted)return;
+      const incomplete=[['Spots',slot.spotsState],['RBN',slot.rbnState]].filter(([,source])=>source?.status!=='ready' || source.errors?.length || source.truncatedOfUs);
+      if(incomplete.length)throw new Error('Station '+incomplete.map(([name,source])=>name+': '+(source?.error || source?.status || 'unavailable')+(source?.errors?.length?' (incomplete coverage)':'')+(source?.truncatedOfUs?' (truncated)':'')).join('; ')+'. Results are withheld; retry when data is available.');
+      data.stationReady=true;model.stationLoading=false;model.version=slot.logVersion;model.scoreKey=integrityScoreKey(slot);data.autoAttempt=model.scoreKey;
+      const selection=integrityOffRunTargets(slot),targets=selection.targets;data.operatingSelection=selection;
+      const key=integritySpotTargetsKey(targets);
+      data.phase='cluster';data.progressCoverage=[];data.status='Please wait: loading multiplier spot history before calculating results…';updateDataStatus();renderActiveReport();
+      if(!targets.length){data.history=null;data.rows=[];data.currentCheckValid=true;model.cases=integrityModules.detectSequences(sourceQsos,model);data.status='No off-RUN multiplier contacts with reliable frequency evidence are available for spot analysis.';return;}
       if(!data.history || data.key!==key || data.history.status!=='loaded') {
         data.history=await integrityModules.loadMultiplierSpotHistory({targets,clusterBaseUrl:SPOTS_BASE_URL,rbnUrl:RBN_PROXY_URL,parseBand:parseBandFromFreq,signal:data.controller.signal,
-          onProgress:progress=>{data.progressCoverage=progress.coverage.slice();if(progress.phase)data.phase=progress.phase;if(!current()){data.controller.abort();return;}data.status=`Loading spot history: ${progress.coverage.length} source queries finished.`;updateDataStatus();if(reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}});
+          onProgress:progress=>{data.progressCoverage=progress.coverage.slice();if(progress.phase)data.phase=progress.phase;if(!current()){data.controller.abort();return;}data.status=`Please wait: loading spot history: ${progress.coverage.length} source queries finished.`;updateDataStatus();if(reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}});
         data.key=key;
       }
       if(!current())return;
+      if(data.controller.signal.aborted)return;
+      if(data.history.status!=='loaded')throw new Error('Multiplier spot coverage is incomplete. Results are withheld; retry loading.');
       data.rows=integrityModules.correlateMultiplierSpots(targets,data.history.spots,data.windowMinutes);data.currentCheckValid=true;
-      data.status=data.history.status==='loaded'?'Spot timing calculated from loaded cluster/RBN data.':'Spot timing calculated with incomplete cluster/RBN coverage; review source failures below.';
+      model.cases=integrityModules.detectSequences(sourceQsos,model);
+      data.status='Spot timing calculated from loaded cluster/RBN data.';
     } catch(error){if(current())data.status=data.controller.signal.aborted?'Spot analysis cancelled; results are not complete.':'Spot analysis unavailable: '+error.message;}
-    finally{data.loading=false;updateDataStatus();if(getSlotById(id)?.logVersion===version && integrityModels.get(id)===model && reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}
+    finally{if(data.controller.signal.aborted)data.status='Spot loading cancelled. Results are withheld; retry loading to calculate.';data.loading=false;model.stationLoading=false;if(current()){model.version=slot.logVersion;model.scoreKey=integrityScoreKey(slot);data.autoAttempt=model.scoreKey;}updateDataStatus();if(current() && reports[state.activeIndex]?.id==='log_integrity_review')renderActiveReport();}
   }
 
   async function loadIntegrityEvidence(id) {
     const slot=getSlotById(id),model=integrityModels.get(id);
-    if(!slot || !model || !integrityModules || model.loading) return;
+    if(!slot || !model || !integrityModules || model.loading || !model.multiplierSpots?.currentCheckValid) return;
     const version=slot.logVersion,generation=model.generation || 0,meta=(slot.fullDerived || slot.derived)?.contestMeta || {};
     const qsos=(slot.fullQsoData || slot.qsoData)?.qsos || [];
     const years=[...new Set(qsos.filter(q=>Number.isFinite(q.ts)).map(q=>new Date(q.ts).getUTCFullYear()))];
@@ -20924,7 +20935,7 @@ function syncEngineCompareLogForSlot(slot) {
     try {
       const client=await loadArchiveClientModule();
       const canonicalContest=value=>normalizeArchiveContestToken(value).replace(/(?:CW|SSB|PHONE)$/,'');
-      const calls=[...new Set(integrityOffRunTargets(slot).targets.map(q=>q.call))];
+      const calls=[...new Set(model.multiplierSpots.operatingSelection.targets.map(q=>q.call))];
       if(!calls.length){model.status='No eligible off-RUN multiplier stations to check.';return;}
       let lastShardRender=0;
       const batches=await client.queryRowsByCallsigns([...calls,meta.stationCallsign].filter(Boolean),{concurrency:4,signal:model.counterpartController.signal,onProgress:({completed,total})=>{
@@ -20992,16 +21003,21 @@ function syncEngineCompareLogForSlot(slot) {
     }
     const entries=getActiveCompareSlots();
     const blocks=entries.map(({slot,id})=>{
-      const qsos=(slot?.fullQsoData || slot?.qsoData)?.qsos || [];
+      const qsos=(slot?.fullQsoData || slot?.qsoData)?.qsos;
+      if(!qsos?.length)return '<p>Load a log to run the integrity review.</p>';
       let model=integrityModels.get(id);
-      if(!model || model.version!==slot?.logVersion) {
+      if(!model || model.sourceText!==slot.rawLogText || model.sourceName!==slot.logFile?.name || model.version!==slot?.logVersion && !model.stationLoading) {
         model?.multiplierSpots?.controller?.abort();model?.counterpartController?.abort();
-        model={version:slot?.logVersion,windowMinutes:5,minBands:3,evidence:{},impacts:{},status:'Full-log review'};
-        model.cases=integrityModules.detectSequences(qsos,model);integrityModels.set(id,model);
+        model={version:slot?.logVersion,sourceText:slot.rawLogText,sourceName:slot.logFile?.name,windowMinutes:5,minBands:3,evidence:{},impacts:{},status:'Full-log review'};
+        model.cases=[];integrityModels.set(id,model);
       }
       const scoreKey=integrityScoreKey(slot);
-      if(model.scoreKey!==scoreKey){if(model.multiplierSpots){model.multiplierSpots.controller?.abort();model.multiplierSpots.rows=[];model.multiplierSpots.currentCheckValid=false;model.multiplierSpots.status='Scoring context changed; run the multiplier spot check again.';}const hadImpacts=Object.keys(model.impacts || {}).length>0;model.impacts={};if(model.scoreKey && (hadImpacts || model.calculating)) model.status='Scoring settings changed; recalculate score impact.';model.scoreKey=scoreKey;}
-      model.counterpartCalls=[...new Set(integrityOffRunTargets(slot).targets.map(q=>q.call))];
+      if(!model.stationLoading && model.scoreKey!==scoreKey){if(model.multiplierSpots){model.multiplierSpots.controller?.abort();model.multiplierSpots.rows=[];model.multiplierSpots.currentCheckValid=false;model.multiplierSpots.status='Scoring context changed; run the multiplier spot check again.';}const hadImpacts=Object.keys(model.impacts || {}).length>0;model.impacts={};if(model.scoreKey && (hadImpacts || model.calculating)) model.status='Scoring settings changed; recalculate score impact.';model.scoreKey=scoreKey;}
+      if(!model.multiplierSpots?.currentCheckValid) {
+        const data=model.multiplierSpots;
+        return `<section class="log-integrity-review integrity-wait" role="status" aria-live="polite"><p>${escapeHtml(data?.status || 'Please wait: loading Spots/RBN before integrity calculations. Results will appear after loading completes.')}</p>${!data?.loading?`<button type="button" data-integrity-spots="${escapeAttr(id)}">Retry loading Spots/RBN</button>`:`<button type="button" data-integrity-spots-cancel="${escapeAttr(id)}">Cancel loading</button>`}</section>`;
+      }
+      model.counterpartCalls=[...new Set(model.multiplierSpots.operatingSelection.targets.map(q=>q.call))];
       model.activityChecks=Object.fromEntries(model.counterpartCalls.map(call=>[call,integrityModules.assessCounterpartActivity(model.evidence[call])]));
       return integrityModules.renderIntegrity(model,qsos,id,{fullTimelines:integrityStaticDepth>0})+integrityModules.renderMultiplierSpotReview(model,id);
     });
@@ -21083,12 +21099,12 @@ function syncEngineCompareLogForSlot(slot) {
       }
     }
     dom.viewContainer.querySelectorAll('[data-integrity-spots]').forEach(button=>button.addEventListener('click',()=>loadIntegrityMultiplierSpots(button.dataset.integritySpots)));
-    dom.viewContainer.querySelectorAll('[data-integrity-spots-cancel]').forEach(button=>button.addEventListener('click',()=>integrityModels.get(button.dataset.integritySpotsCancel)?.multiplierSpots?.controller?.abort()));
+    dom.viewContainer.querySelectorAll('[data-integrity-spots-cancel]').forEach(button=>button.addEventListener('click',()=>{const data=integrityModels.get(button.dataset.integritySpotsCancel)?.multiplierSpots;if(data){data.controller?.abort();data.status='Cancelling spot loading… Results remain withheld.';renderActiveReport();}}));
     dom.viewContainer.querySelectorAll('[data-integrity-spot-window]').forEach(input=>input.addEventListener('change',()=>{
       const model=integrityModels.get(input.dataset.integritySpotWindow),slot=getSlotById(input.dataset.integritySpotWindow);if(!model || !slot)return;
       const data=model.multiplierSpots ||= {};data.windowMinutes=Math.max(1,Math.min(60,Number(input.value) || 10));
       const selection=integrityOffRunTargets(slot),targets=selection.targets;data.operatingSelection=selection;
-      if(data.history && data.key===integritySpotTargetsKey(targets)){data.rows=integrityModules.correlateMultiplierSpots(targets,data.history.spots,data.windowMinutes);data.currentCheckValid=true;}
+      if(!data.loading && data.history?.status==='loaded' && data.key===integritySpotTargetsKey(targets)){data.rows=integrityModules.correlateMultiplierSpots(targets,data.history.spots,data.windowMinutes);data.currentCheckValid=true;}
       else {data.rows=[];data.status='Load cluster/RBN history for the current multiplier contacts before calculating spot timing.';}
       renderActiveReport();
     }));

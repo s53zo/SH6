@@ -23,17 +23,30 @@ try {
  'QSO: 3520 CW 2025-11-29 0002 S53TEST 599 15 DL1AA 599 14',
  'QSO: 14020 CW 2025-11-29 0004 S53TEST 599 15 DL2AA 599 14','END-OF-LOG:'].join('\n');
  const spotFetch=w.fetch;let spotRequests=0,sawClusterLoading=false,sawRbnLoading=false;
+ let releaseStation,releaseMultipliers;
+ const stationGate=new Promise(r=>releaseStation=r),multiplierGate=new Promise(r=>releaseMultipliers=r);
+ const requestedRbnCalls=[];let failStation=false,failMultiplier=false;
  const spotTs=Date.UTC(2025,10,29,0,0)/1000-60;
  w.fetch=async(url,...args)=>{
   const text=String(url);
-  if(text.includes('/spots/')) {spotRequests++;sawClusterLoading ||= !d.getElementById('spotsStatusRow').classList.contains('hidden') && d.getElementById('spotsStatus').textContent.includes('loading');return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x`,{status:200});}
-  if(text.includes('/cors/rbn?')) {spotRequests++;sawRbnLoading ||= !d.getElementById('rbnStatusRow').classList.contains('hidden') && d.getElementById('rbnStatus').textContent.includes('loading');const dx=new URL(text).searchParams.get('call');return new w.Response(JSON.stringify({call:dx,days:new URL(text).searchParams.get('days').split(','),ofUsSpots:['DL1AA','K4SPOT'].includes(dx)?[{dxCall:dx,spotter:'K2RBN',ts:(spotTs+(dx==='K4SPOT'?35*60:0))*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],errors:[],truncatedOfUs:false}),{status:200,headers:{'Content-Type':'application/json'}});}
+  if(text.includes('/spots/')) {await stationGate;spotRequests++;sawClusterLoading ||= !d.getElementById('spotsStatusRow').classList.contains('hidden') && d.getElementById('spotsStatus').textContent.includes('loading');return new w.Response(`14020^DL1AA^${spotTs}^CQ^K1SPOT^x\n14020^S53TEST^${spotTs+60}^CQ^K1SPOT^x`,{status:200});}
+  if(text.includes('/cors/rbn?')) {spotRequests++;sawRbnLoading ||= !d.getElementById('rbnStatusRow').classList.contains('hidden') && d.getElementById('rbnStatus').textContent.includes('loading');const dx=new URL(text).searchParams.get('call');requestedRbnCalls.push(dx);await (dx==='S53TEST'?stationGate:multiplierGate);if(dx==='S53TEST'?failStation:failMultiplier)return new w.Response('unavailable',{status:500});return new w.Response(JSON.stringify({call:dx,days:new URL(text).searchParams.get('days').split(','),ofUsSpots:['DL1AA','K4SPOT'].includes(dx)?[{dxCall:dx,spotter:'K2RBN',ts:(spotTs+(dx==='K4SPOT'?35*60:0))*1000,freqKHz:14020,band:'20m',txMode:'CW'}]:[],errors:[],truncatedOfUs:false}),{status:200,headers:{'Content-Type':'application/json'}});}
   return spotFetch.call(w,url,...args);
  };
  await upload(content);await report('Log integrity review');
+ await wait(()=>requestedRbnCalls.includes('S53TEST'));
+ check('station spots load first with wait remark and no results',d.querySelector('.integrity-wait')?.textContent.includes('Please wait') && !d.querySelector('.log-integrity-review table') && !d.querySelector('[data-integrity-load]') && requestedRbnCalls.every(call=>call==='S53TEST'));
+ releaseStation();
+ await wait(()=>requestedRbnCalls.some(call=>call!=='S53TEST'));
+ check('multiplier loading also withholds all results',!!d.querySelector('.integrity-wait') && !d.querySelector('[data-integrity-load="A"]') && !d.querySelector('.integrity-wait table'));
+ d.querySelector('[data-integrity-spots-cancel="A"]').click();releaseMultipliers();
+ await wait(()=>d.querySelector('.integrity-wait')?.textContent.includes('Spot loading cancelled.'));
+ check('cancelled loading never publishes results',!d.querySelector('[data-integrity-load="A"]'));
+ d.querySelector('[data-integrity-spots="A"]').click();
  await wait(()=>d.querySelector('.log-integrity-review table'));
  await wait(()=>d.querySelector('.integrity-spot-review')?.textContent.includes('Spot timing calculated'));
  check('spot history loads and timing calculates automatically on report entry',d.querySelector('.integrity-spot-review').textContent.includes('Multiplier worked after a spot'));
+ check('entrant anchors load before review and survive log-version refresh',state.logVersion>1 && state.spotsState.raw.ofUsSpots.some(spot=>spot.dxCall==='S53TEST'));
  check('sidebar shows cluster and RBN loading then ready',sawClusterLoading && sawRbnLoading && d.getElementById('spotsStatus').textContent==='OK' && d.getElementById('rbnStatus').textContent==='OK');
  check('shard action is prominent with a purpose explanation',d.querySelector('[data-integrity-load]').classList.contains('utility-primary-btn') && d.querySelector('.integrity-shard-help').textContent.includes('Counterpart logs are not downloaded'));
  const automaticRequests=spotRequests;await report('Log integrity review');
@@ -109,6 +122,21 @@ try {
  check('spot timing covers multiplier contacts outside rapid sequences',spotPanel.textContent.includes('K4SPOT'));
  const focus=spotPanel.querySelector('.integrity-qso[data-slot="A"]');focus.click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
  check('multiplier spot evidence jumps to original contact',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log A, QSO'));
+ // Failures must never reveal cached or partially calculated review results.
+ failStation=true;
+ await upload(content);await report('Log integrity review');
+ await wait(()=>d.querySelector('.integrity-wait')?.textContent.includes('Results are withheld'));
+ check('station fetch failure blocks calculation and counterpart controls',!d.querySelector('[data-integrity-load="A"]') && !d.querySelector('.integrity-wait table'));
+ failStation=false;state.rbnState.lastErrorAt=0;
+ d.querySelector('[data-integrity-spots="A"]').click();
+ await wait(()=>!!d.querySelector('[data-integrity-load="A"]'));
+ check('station loading can be retried successfully',!d.querySelector('.integrity-wait'));
+ failMultiplier=true;await upload(content);await report('Log integrity review');
+ await wait(()=>d.querySelector('.integrity-wait')?.textContent.includes('Multiplier spot coverage is incomplete'));
+ check('partial multiplier coverage withholds all results',!d.querySelector('[data-integrity-load="A"]') && !d.querySelector('.integrity-wait table'));
+ failMultiplier=false;d.querySelector('[data-integrity-spots="A"]').click();
+ await wait(()=>!!d.querySelector('[data-integrity-load="A"]'));
+ check('partial multiplier history retries before publishing results',!d.querySelector('.integrity-wait'));
  w.fetch=spotFetch;
  check('no application errors',errors.length===0);
  document.getElementById('status').textContent='PASS';

@@ -27,11 +27,44 @@ try {
  check('candidate visible',d.getElementById('viewContainer').textContent.includes('DL1AA'));
  check('one grouped case',d.querySelectorAll('.log-integrity-review > .table-wrap > table > tbody > tr').length===1);
  check('source controls present',!!d.querySelector('.integrity-qso[data-slot="A"][data-index="2"]'));
+
+ const oldFetch=w.fetch,oldPost=w.Worker.prototype.postMessage,oldPath=state.logFile.path;state.logFile.path='CQWW/cw/2025/S53TEST.log';
+ w.initSqlJs=async()=>({Database:class {
+  exec(){return [{values:['path','contest','year','mode','season','subcontest','detail'].map(name=>[0,name])}];}
+  prepare(){let requested='',index=-1,rows=[];return {bind(values){requested=values[0];const base={contest:'CQWW',year:2025,mode:'CW',subcontest:'cw',detail:'main'};rows=requested==='S53TEST'?[{...base,path:'CQWW/cw/2025/S53TEST.log',season:'November'}]:[{...base,path:'CQWW/cw/2025/wrong-event.log',season:'Spring'},{...base,path:'CQWW/cw/2025/integrity-dl1aa.log',season:'November'}];},step(){return ++index<rows.length;},getAsObject(){return rows[index];},free(){}};}
+
+ }});
+ w.fetch=(url,...args)=>String(url).includes('.sqlite')?Promise.resolve(new w.Response(new Uint8Array(0))):oldFetch.call(w,url,...args);
+ let counterpart=content.replace('CALLSIGN: S53TEST','CALLSIGN: DL1AA').split('\n').filter(line=>!line.includes('DL2AA')).map(line=>line.startsWith('QSO:')?line.replace('S53TEST 599 15 DL1AA 599 14','DL1AA 599 <b>UNSAFE</b> S53TEST 599 15'):line).join('\n');
+ const extra=Array.from({length:201},(_,i)=>{const minute=i+60;return `QSO: 14020 CW 2025-11-29 ${String(Math.floor(minute/60)).padStart(2,'0')}${String(minute%60).padStart(2,'0')} DL1AA 599 14 K${i}AA 599 15`;}).join('\n');
+ counterpart=counterpart.replace('END-OF-LOG:',extra+'\nEND-OF-LOG:');
+ w.Worker.prototype.postMessage=function(payload,...args){
+  if(payload.type==='archiveText'){queueMicrotask(()=>this.dispatchEvent(new w.MessageEvent('message',{data:{type:'taskResult',key:payload.key,data:{text:counterpart,url:'https://example.org/integrity-counterpart.log'}}})));return;}
+  return oldPost.call(this,payload,...args);
+ };
+ d.querySelector('[data-integrity-load]').click();
+ await wait(()=>d.querySelector('.log-integrity-review')?.textContent.includes('Evidence lookup finished'));
+ check('counterpart evidence loads through archive client and report',d.querySelector('.log-integrity-review').textContent.includes('204 observed contacts'));
+ check('hostile counterpart exchange remains literal text',d.querySelector('.log-integrity-review').textContent.includes('<b>UNSAFE</b>') && ![...d.querySelectorAll('.log-integrity-review b')].some(el=>el.textContent==='UNSAFE'));
+
+ check('large counterpart timeline is bounded on screen',!d.querySelector('.log-integrity-review').textContent.includes('K200AA'));
+ const createUrl=w.URL.createObjectURL;let htmlBlob=null;
+ w.URL.createObjectURL=function(blob){if(blob.type.startsWith('text/html'))htmlBlob=blob;return createUrl.call(this,blob);};
+ await report('EXPORT PDF, HTML, CBR');d.querySelector('[data-export="html"]').click();await wait(()=>d.getElementById('exportDoIt'));
+ d.getElementById('exportSelectNone').click();d.querySelector('[data-report-id="log_integrity_review"]').checked=true;d.getElementById('exportDoIt').click();
+ await wait(()=>htmlBlob);const realExport=await htmlBlob.text();
+ check('production export retains complete counterpart activity and settings',realExport.includes('K200AA') && realExport.includes('minimum bands: 3') && realExport.includes('&lt;b&gt;UNSAFE&lt;/b&gt;'));
+ w.URL.createObjectURL=createUrl;await report('Log integrity review');
+ w.fetch=oldFetch;w.Worker.prototype.postMessage=oldPost;state.logFile.path=oldPath;
  const before=JSON.stringify(state.fullQsoData.qsos);
  d.querySelector('[data-integrity-impact]').click();
  await wait(()=>d.querySelector('.log-integrity-review')?.textContent.includes('complete.') || d.querySelector('.log-integrity-review')?.textContent.includes('Score calculation unavailable:'));
  check('score calculation succeeds',!d.querySelector('.log-integrity-review').textContent.includes('Score calculation unavailable:'));
  check('original contacts unchanged',JSON.stringify(state.fullQsoData.qsos)===before);
+
+ const oldOverride=state.scoringRuleOverride;state.scoringRuleOverride='review-different-context';await report('Log integrity review');
+ check('changing scoring context clears cached impacts',!d.querySelector('.log-integrity-review').textContent.includes('Hypothetical score without these contacts:'));
+ state.scoringRuleOverride=oldOverride;await report('Log integrity review');
  d.querySelector('.integrity-qso[data-index="2"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
  check('correct source context',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log A, QSO 3') && d.getElementById('viewContainer').textContent.includes('±15 minutes'));
 
@@ -50,6 +83,14 @@ try {
  check('static export expands cases and retains original contact identities',exported.querySelectorAll('.log-integrity-review').length===4 && exported.textContent.includes('DL1AA #3') && [...exported.querySelectorAll('details')].every(el=>el.open) && !exported.querySelector('button,input,select'));
  d.querySelector('.integrity-qso[data-slot="D"][data-index="2"]').click();await wait(()=>d.getElementById('viewTitle').textContent==='Log' && ready());
  check('fourth slot navigation preserves source identity',d.getElementById('viewContainer').textContent.includes('Log integrity review: Log D, QSO 3'));
+
+ d.getElementById('multiplier-clear-log-focus').click();await wait(ready);
+ const second=['QSO: 14020 CW 2025-11-29 0030 S53TEST 599 15 ZZ1AA 599 14','QSO: 7020 CW 2025-11-29 0031 S53TEST 599 15 ZZ1AA 599 14','QSO: 3520 CW 2025-11-29 0032 S53TEST 599 15 ZZ1AA 599 14'].join('\n');
+ await upload(content.replace('END-OF-LOG:',second+'\nEND-OF-LOG:'));await report('Log integrity review');
+ const outer=d.querySelector('.log-integrity-review > .table-wrap > table');
+ const sort=[...outer.tHead.querySelectorAll('.sort-link')].find(el=>el.textContent.includes('Counterpart'));
+ sort.click();sort.click();
+ check('findings sort with nested timeline headers',outer.tBodies[0].rows[0].cells[1].textContent==='ZZ1AA');
  check('no application errors',errors.length===0);
  document.getElementById('status').textContent='PASS';
 }catch(error){checks.push({name:error.stack,passed:false});document.getElementById('status').textContent='FAIL';}

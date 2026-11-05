@@ -33,7 +33,7 @@ export function detectSequences(qsos = [], options = {}) {
   return cases.sort((a,b)=>a.start-b.start || a.call.localeCompare(b.call));
 }
 
-export function summarizeCounterpart(records=[], entrant='', sourceKind='reconstructed') {
+export function summarizeCounterpart(records=[], entrant='', sourceKind='reconstructed', entrantReconstructed=false) {
   const canonical=v=>String(v || '').trim().toUpperCase().replace(/_/g,'/');
   const reviewed=canonical(entrant);
   const unique=new Map();
@@ -42,29 +42,62 @@ export function summarizeCounterpart(records=[], entrant='', sourceKind='reconst
     if(!unique.has(key)) unique.set(key,r);
   }
   const rows=[...unique.values()];
-  const independent=rows.filter(r=>r.originCall && canonical(r.originCall)!==reviewed);
-  return {sourceKind,observed:rows.length,stations:new Set(rows.map(r=>canonical(r.call))).size,
+  const independent=entrantReconstructed?[]:rows.filter(r=>r.originCall && canonical(r.originCall)!==reviewed);
+  return {sourceKind,independenceAssessed:!entrantReconstructed && rows.every(r=>!!r.originCall),observed:rows.length,stations:new Set(rows.map(r=>canonical(r.call))).size,
     withEntrant:rows.filter(r=>canonical(r.call)===reviewed).length,
     independentlyReported:independent.length,
-    independenceUnknown:rows.filter(r=>!r.originCall).length,
+    independenceUnknown:entrantReconstructed?rows.length:rows.filter(r=>!r.originCall).length,
     otherStations:new Set(rows.filter(r=>canonical(r.call)!==reviewed).map(r=>canonical(r.call))).size,
     rows:rows.slice().sort((a,b)=>a.ts-b.ts)};
 }
 
-export function compareReciprocal(candidate,qsos,records,entrant,sourceKind) {
+export function isReconstructedSource(path='',text='') {
+  return /^RECONSTRUCTED_LOGS\//i.test(path) || /^CREATED-BY:.*reconstructed-log-builder/im.test(text) || /^SOAPBOX:.*reconstruct/im.test(text);
+}
+export function normalizeExchange(value,contest='') {
+  const text=String(value ?? '').trim().toUpperCase().replace(/\s+/g,' ');
+  const numeric=/^(CQWW|CQWPX|ARRLDX|EUHFC|EUHF)$/.test(String(contest).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/(?:CW|SSB|RTTY|PHONE)$/,''));
+  return numeric?text.split(' ').map(token=>/^\d+$/.test(token)?token.replace(/^0+(?=\d)/,''):token).join(' '):text;
+}
+export function compareReciprocal(candidate,qsos,records,entrant,sourceKind,options={}) {
   const canonical=v=>String(v || '').trim().toUpperCase().replace(/_/g,'/');
+  const empty={matches:[],discrepancies:[],unmatched:[],ambiguous:[]};
+  if(options.entrantReconstructed || sourceKind!=='submitted') return {...empty,label:'Reconstructed source lineage cannot establish independent reciprocal confirmation.'};
   const relevant=records.filter(r=>canonical(r.call)===canonical(entrant));
-  if(sourceKind!=='submitted') return {label:'Reconstructed observations cannot independently confirm the reports that generated them.',matches:[],discrepancies:[]};
-  const matches=[],discrepancies=[];
-  for(const index of candidate.indexes) {
-    const q=qsos[index];
-    const nearby=relevant.filter(r=>Number.isFinite(r.ts) && Math.abs(r.ts-q.ts)<=5*60000);
-    const exact=nearby.find(r=>r.band===q.band && r.mode===q.mode);
-    if(exact) {
-      const sent=String(q.exchSent || '').trim(),received=String(exact.exchRcvd || '').trim();
-      if(sent && received && sent!==received) discrepancies.push({index,kind:'Exchange discrepancy',counterpart:exact});
-      else matches.push({index,counterpart:exact});
-    } else discrepancies.push({index,kind:nearby.length?'Band or mode discrepancy':'No nearby reciprocal record',counterpart:nearby[0] || null});
+  const edges=[];
+  for(const index of candidate.indexes) for(let ri=0;ri<relevant.length;ri++) {
+    const q=qsos[index],r=relevant[ri],delta=Math.abs(r.ts-q.ts);
+    if(!Number.isFinite(delta) || delta>5*60000 || r.band!==q.band || r.mode!==q.mode) continue;
+    const differences=[];
+    for(const [a,b,direction] of [[q.exchSent,r.exchRcvd,'Entrant sent / counterpart received'],[q.exchRcvd,r.exchSent,'Entrant received / counterpart sent']]) {
+      if(String(a ?? '').trim() && String(b ?? '').trim() && normalizeExchange(a,options.contest)!==normalizeExchange(b,options.contest)) differences.push(direction);
+    }
+    edges.push({index,ri,delta,differences,counterpart:r});
   }
-  return {matches,discrepancies,label:discrepancies.length?'Conflicting log records':'Reciprocal contacts matched within five minutes'};
+  const rank=(a,b)=>a.differences.length-b.differences.length || a.delta-b.delta;
+  edges.sort(rank);
+  const assigned=new Set(),used=new Set(),result={...empty};
+  for(const e of edges) {
+    if(assigned.has(e.index) || used.has(e.ri)) continue;
+    const alternatives=edges.filter(x=>!assigned.has(x.index) && !used.has(x.ri) && (x.index===e.index || x.ri===e.ri) && rank(x,e)===0);
+    if(alternatives.length>1) {
+      for(const x of alternatives) if(!assigned.has(x.index)) {assigned.add(x.index);result.ambiguous.push({index:x.index,kind:'Several equally plausible reciprocal pairings'});}
+      continue;
+    }
+    assigned.add(e.index);used.add(e.ri);
+    if(e.differences.length) result.discrepancies.push({...e,kind:'Exchange discrepancy'});
+    else result.matches.push(e);
+  }
+  for(const index of candidate.indexes) if(!assigned.has(index)) result.unmatched.push({index,kind:'No unique reciprocal match within five minutes'});
+  return {...result,label:result.discrepancies.length?'Conflicting log records':result.unmatched.length || result.ambiguous.length?'Unmatched or ambiguous reciprocal records':'Reciprocal contacts matched within five minutes'};
+}
+
+export function compareCases(cases,qsos,records,entrant,sourceKind,options={}) {
+ const all=compareReciprocal({indexes:[...new Set(cases.flatMap(c=>c.indexes))]},qsos,records,entrant,sourceKind,options);
+ for(const c of cases) {
+  const indexes=new Set(c.indexes),part={};
+  for(const key of ['matches','discrepancies','unmatched','ambiguous']) part[key]=all[key].filter(r=>indexes.has(r.index));
+  c.reciprocal={...part,label:options.entrantReconstructed || sourceKind!=='submitted'?all.label:part.discrepancies.length?'Conflicting log records':part.unmatched.length || part.ambiguous.length?'Unmatched or ambiguous reciprocal records':'Reciprocal contacts matched within five minutes'};
+  c.label=part.discrepancies.length?'Conflicting log records':'Rapid multiband sequence';
+ }
 }

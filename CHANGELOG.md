@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.49 (2026-11-05)
+
+- Escape all counterpart-derived discrepancy text and test the full archive-to-report path with hostile exchange content.
+- Match reciprocal records one-to-one across cases, compare both exchange directions, normalize supported numeric exchanges and distinguish ambiguity or missing matches from conflicts. Prevent reconstructed-source circular corroboration and unknown-lineage review escalation.
+- Accept compatible single-mode counterparts in Mixed events and pass source archive event metadata into selection. Canonicalize both scoring inputs and invalidate impacts on scoring-context changes.
+- Fix nested-table sorting; preserve analysis settings in exports; bound on-screen timeline rows while retaining complete static exports. Add full-app coverage for seasonal selection, stale scores, sorting and production HTML export beyond 100 records. Advance application/cache references to v6.3.49.
+
 ## v6.3.48 (2026-11-05)
 
 - Add Quality & Review → Log integrity review for grouped rapid multiband contact sequences, submitted/reconstructed counterpart activity, provenance-aware independent reporting and contact concentration.

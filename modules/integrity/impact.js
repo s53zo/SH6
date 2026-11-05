@@ -1,5 +1,5 @@
 export const creditKey=c=>JSON.stringify([c.group,c.entityKey,c.countingScope,c.scopeKey || 'ALL']);
-export async function calculateImpact({data,indexes,derive,scoreEmpty,baselineScoring}) {
+export function prepareScoringData(data,indexes=[]) {
   const clone=structuredClone(data),removed=new Set(indexes),removedObjects=new Set(clone.qsos.filter((_,i)=>removed.has(i)));
   const key=q=>JSON.stringify([q.lineIndex,q.qsoNumber,q.id,q.ts,q.call,q.band,q.mode,q.exchSent,q.exchRcvd]);
   const removedKeys=new Set([...removedObjects].map(key));
@@ -10,6 +10,10 @@ export async function calculateImpact({data,indexes,derive,scoreEmpty,baselineSc
   const events=(clone.events || []).filter(e=>e.isQtc || e.eventType==='QTC' || !removedKeys.has(key(e))).map(e=>retained.get(key(e)) || e);
   const present=new Set(events.map(key));
   clone.events=[...events,...clone.qsos.filter(q=>!present.has(key(q))),...qtcs.filter(q=>!present.has(key(q)))];
+  return clone;
+}
+export async function calculateImpact({data,indexes,derive,scoreEmpty,baselineScoring}) {
+  const clone=prepareScoringData(data,indexes),qtcs=clone.qtcs?.length?clone.qtcs:clone.events.filter(e=>e.isQtc || e.eventType==='QTC');
   const hypothetical=clone.qsos.length?(await derive(clone))?.derived?.scoring:await scoreEmpty(qtcs);
   const before=baselineScoring,after=hypothetical;
   const beforeCredits=before?.multiplierCredits || [],afterKeys=new Set((after?.multiplierCredits || []).map(creditKey));

@@ -2,7 +2,7 @@ const norm=v=>String(v || '').trim().toUpperCase();
 const call=v=>norm(v).replace(/_/g,'/');
 export function selectCounterpart(rows,request) {
   const matches=rows.filter(r=>norm(r.contest)===norm(request.contest) && Number(r.year)===Number(request.year)
-    && norm(r.mode)===norm(request.mode) && (!request.season || norm(r.season)===norm(request.season))
+    && (norm(r.mode)===norm(request.mode) || request.mixedEvent && ['CW','PH','SSB','MIXED'].includes(norm(r.mode))) && (!request.season || norm(r.season)===norm(request.season))
     && (!request.subcontest || norm(r.subcontest)===norm(request.subcontest))
     && (!request.detail || norm(r.detail)===norm(request.detail)));
   const editions=new Set(matches.map(r=>[norm(r.season),norm(r.subcontest),norm(r.detail)].join('|')));

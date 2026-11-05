@@ -182,7 +182,7 @@
 
   let reports = [];
 
-  const APP_VERSION = 'v6.3.48';
+  const APP_VERSION = 'v6.3.49';
   const EMPTY_ANALYSIS_RESOURCE_LIST = Object.freeze([]);
   const performanceTimeline = {
     events: [],
@@ -284,40 +284,40 @@
   ]);
   const COMPARE_PERSPECTIVE_STORAGE_KEY = 'sh6_compare_perspectives_v1';
   const COMPARE_PERSPECTIVE_LIMIT = 12;
-  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.48';
-  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.48';
-  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.48';
-  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.48';
-  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.48';
-  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.48';
-  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.48';
-  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.48';
-  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.48';
-  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.48';
-  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.48';
-  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.48';
-  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.48';
-  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.48';
-  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.48';
-  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.48';
-  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.48';
-  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.48';
-  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.48';
-  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.48';
-  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.48';
-  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.48';
-  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.48';
-  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.48';
-  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.48';
-  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.48';
-  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.48';
-  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.48';
-  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.48';
-  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.48';
-  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.48';
-  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.48';
-  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.48';
-  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.48';
+  const COMPARE_WORKSPACE_MODULE_URL = './modules/compare/workspace-ui.js?v=6.3.49';
+  const COMPARE_CONTROLLER_RUNTIME_MODULE_URL = './modules/compare/controller-runtime.js?v=6.3.49';
+  const COMPARE_INSIGHTS_MODEL_MODULE_URL = './modules/compare/insights-model.js?v=6.3.49';
+  const COMPARE_INSIGHTS_UI_MODULE_URL = './modules/compare/insights-ui.js?v=6.3.49';
+  const RETAINED_RUNTIME_MODULE_URL = './modules/reports/retained-runtime.js?v=6.3.49';
+  const NAVIGATION_RUNTIME_MODULE_URL = './modules/ui/navigation-runtime.js?v=6.3.49';
+  const STORAGE_RUNTIME_MODULE_URL = './modules/storage/runtime.js?v=6.3.49';
+  const ARCHIVE_CLIENT_MODULE_URL = './modules/archive/client.js?v=6.3.49';
+  const ARCHIVE_SEARCH_RUNTIME_MODULE_URL = './modules/archive/search-runtime.js?v=6.3.49';
+  const LOAD_PANEL_RUNTIME_MODULE_URL = './modules/ui/load-panel-runtime.js?v=6.3.49';
+  const ANALYSIS_CONTROLS_RUNTIME_MODULE_URL = './modules/ui/analysis-controls-runtime.js?v=6.3.49';
+  const COACH_RUNTIME_MODULE_URL = './modules/coach/runtime.js?v=6.3.49';
+  const CANVAS_ZOOM_RUNTIME_MODULE_URL = './modules/ui/canvas-zoom-runtime.js?v=6.3.49';
+  const RBN_SIGNAL_EXPORT_RUNTIME_MODULE_URL = './modules/spots/signal-export-runtime.js?v=6.3.49';
+  const SPOTS_COMPARE_RUNTIME_MODULE_URL = './modules/spots/compare-runtime.js?v=6.3.49';
+  const SPOTS_DRILLDOWN_RUNTIME_MODULE_URL = './modules/spots/drilldown-runtime.js?v=6.3.49';
+  const SPOTS_COACH_SUMMARY_RUNTIME_MODULE_URL = './modules/spots/coach-summary-runtime.js?v=6.3.49';
+  const SPOTS_DIAGNOSTICS_RUNTIME_MODULE_URL = './modules/spots/diagnostics-runtime.js?v=6.3.49';
+  const SPOTS_CHARTS_RUNTIME_MODULE_URL = './modules/spots/charts-runtime.js?v=6.3.49';
+  const SPOTS_DATA_RUNTIME_MODULE_URL = './modules/spots/data-runtime.js?v=6.3.49';
+  const SPOTS_ACTIONS_RUNTIME_MODULE_URL = './modules/spots/actions-runtime.js?v=6.3.49';
+  const RBN_COMPARE_CHART_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-chart-runtime.js?v=6.3.49';
+  const RBN_COMPARE_VIEW_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-view-runtime.js?v=6.3.49';
+  const RBN_COMPARE_MODEL_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-model-runtime.js?v=6.3.49';
+  const RBN_COMPARE_RUNTIME_MODULE_URL = './modules/spots/rbn-compare-runtime.js?v=6.3.49';
+  const INVESTIGATION_ACTIONS_RUNTIME_MODULE_URL = './modules/ui/investigation-actions-runtime.js?v=6.3.49';
+  const INVESTIGATION_WORKSPACE_MODULE_URL = './modules/reports/investigation-workspace.js?v=6.3.49';
+  const SESSION_CODEC_MODULE_URL = './modules/session/codec.js?v=6.3.49';
+  const SESSION_PERSPECTIVES_MODULE_URL = './modules/session/perspectives.js?v=6.3.49';
+  const EXPORT_RUNTIME_MODULE_URL = './modules/export/runtime.js?v=6.3.49';
+  const QTC_RUNTIME_MODULE_URL = './modules/qtc/runtime.js?v=6.3.49';
+  const MULTIPLIER_OPPORTUNITIES_MODEL_MODULE_URL = './modules/multipliers/opportunities-model.js?v=6.3.49';
+  const MULTIPLIER_OPPORTUNITIES_VIEW_MODULE_URL = './modules/multipliers/opportunities-view.js?v=6.3.49';
+  const RADIO_RUNTIME_MODULE_URL = './modules/radio/runtime.js?v=6.3.49';
   const SQLJS_BASE_URLS = [
     'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/',
     'https://unpkg.com/sql.js@1.8.0/dist/'
@@ -1994,8 +1994,8 @@
 
   async function loadMultiplierOverviewModule() {
     const [model, view] = await Promise.all([
-      import('./modules/multipliers/overview-model.js?v=6.3.48'),
-      import('./modules/multipliers/overview-view.js?v=6.3.48')
+      import('./modules/multipliers/overview-model.js?v=6.3.49'),
+      import('./modules/multipliers/overview-view.js?v=6.3.49')
     ]);
     multiplierOverviewRuntime = { ...model, ...view };
   }
@@ -3342,7 +3342,9 @@
   }
 
   function withStaticVirtualTableRender(fn) {
-    return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().withStaticVirtualTableRender(fn), (typeof fn === 'function' ? fn() : undefined));
+    integrityStaticDepth++;
+    try {return invokeOptionalRuntime('retained runtime', () => getRetainedRuntime().withStaticVirtualTableRender(fn), (typeof fn === 'function' ? fn() : undefined));}
+    finally {integrityStaticDepth--;}
   }
 
   function renderRetainedVirtualTable(reportId, options = {}) {
@@ -5142,7 +5144,7 @@
 
       const handleSortClick = (evt) => {
         const btn = evt.target instanceof HTMLElement ? evt.target.closest('.sort-link') : null;
-        if (!btn) return;
+        if (!btn || btn.closest('table')!==table) return;
         const th = btn.closest('th');
         if (!th) return;
         const colIndex = Number(th.dataset.sortCol);
@@ -5157,7 +5159,7 @@
         th.classList.toggle('sorted-asc', order === 'asc');
         th.classList.toggle('sorted-desc', order === 'desc');
 
-        const dataRows = rows.filter((row) => row.querySelector('td') != null && row.querySelector('th') == null);
+        const dataRows = rows.filter(row=>Array.from(row.cells).some(c=>c.tagName==='TD') && !Array.from(row.cells).some(c=>c.tagName==='TH'));
         if (!dataRows.length) return;
         const numeric = detectNumericColumn(dataRows, colIndex);
         dataRows.sort((a, b) => {
@@ -20825,12 +20827,18 @@ function syncEngineCompareLogForSlot(slot) {
   }
 
   let integrityModules=null, integrityLoading=null, integrityLoadError=null;
+  let integrityStaticDepth=0;
+  const integrityScoreKey=slot=>JSON.stringify([slot?.logVersion,slot?.scoringRuleOverride || '',analysisResourcesVersion,state.analysisMode,slot?.logFile?.path || '']);
+  const integrityProvenance=slot=>integrityModules.isReconstructedSource(slot?.logFile?.path || '',slot?.rawLogText || '');
   const integrityModels=new Map();
   async function calculateIntegrityImpacts(id) {
     const slot=getSlotById(id),model=integrityModels.get(id);
     if(!slot || !model || model.calculating) return;
     const data=slot.fullQsoData || slot.qsoData,derived=slot.fullDerived || slot.derived;
-    const version=slot.logVersion,generation=model.generation || 0,resources=structuredClone(buildAnalysisResourcesPayload());
+    const resources=structuredClone(buildAnalysisResourcesPayload());
+    const scoreKey=integrityScoreKey(slot);
+    const version=slot.logVersion,generation=model.generation || 0;
+    model.scoreKey=scoreKey;model.impacts={};
     const context={logFile:slot.logFile,sourcePath:slot.logFile?.path || '',analysisMode:state.analysisMode,scoringRuleOverride:slot.scoringRuleOverride || ''};
     model.calculating=true;model.status='Calculating hypothetical scores…';renderActiveReport();
     try {
@@ -20838,17 +20846,17 @@ function syncEngineCompareLogForSlot(slot) {
         try {const result=await runEngineTask('deriveSlots',{analysis:resources,slots:[{slotId:'',qsoData:copy,context}]});return result.slots[0];}
         catch(error) {return getAnalysisCore().deriveLog(copy,context,resources);}
       };
-      const baseline=(await deriveSnapshot(structuredClone(data))).derived.scoring;
+      const baseline=(await deriveSnapshot(integrityModules.prepareScoringData(data))).derived.scoring;
       for(const candidate of model.cases) {
-        if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)) return;
+        if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0) || integrityScoreKey(getSlotById(id))!==scoreKey) return;
         const impact=await integrityModules.calculateImpact({data,indexes:candidate.indexes,baselineScoring:baseline,
           derive:deriveSnapshot,
           scoreEmpty:qtcs=>getAnalysisCore().computeContestScoringSummary(qtcs,derived.contestMeta,context,resources)});
-        if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)) return;
+        if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0) || integrityScoreKey(getSlotById(id))!==scoreKey) return;
         model.impacts[candidate.id]=impact;
         await new Promise(resolve=>setTimeout(resolve,0));
       }
-      if(generation!==(model.generation || 0)) return;
+      if(generation!==(model.generation || 0) || integrityScoreKey(getSlotById(id))!==scoreKey) return;
       model.status='Full-log review; hypothetical calculations complete.';
     } catch(error) {if(generation===(model.generation || 0)) model.status='Score calculation unavailable: '+error.message;}
     finally {model.calculating=false;if(getSlotById(id)?.logVersion===version && reports[state.activeIndex]?.id==='log_integrity_review') renderActiveReport();}
@@ -20867,6 +20875,15 @@ function syncEngineCompareLogForSlot(slot) {
     try {
       const client=await loadArchiveClientModule();
       const canonicalContest=value=>normalizeArchiveContestToken(value).replace(/(?:CW|SSB|PHONE)$/,'');
+      let eventContext={};
+      if(slot.logFile?.path && meta.stationCallsign) {
+        try {
+          const own=await client.queryRowsByCallsign(meta.stationCallsign,{withCoverage:true});
+          const row=own.rows.find(r=>r.path===slot.logFile.path);
+          if(row) eventContext={season:row.season,subcontest:row.subcontest,detail:row.detail};
+        } catch(error) { /* Preserve explicit ambiguity when source metadata is unavailable. */ }
+      }
+      const mixedEvent=entryMode==='MIXED' || ['EUHFC','EUHF','IARUHF'].includes(canonicalContest(meta.contestId));
       const queue=integrityModules.createEvidenceQueue({
         lookup:async call=>{const result=await client.queryRowsByCallsign(call,{withCoverage:true});return {...result,rows:result.rows.map(r=>({...r,contest:canonicalContest(r.contest),mode:normalizeArchiveModeToken(r.mode)}))};},
         fetchText:path=>client.fetchArchiveLogText(path),
@@ -20877,7 +20894,7 @@ function syncEngineCompareLogForSlot(slot) {
           const header=list[0]?.raw || {};
           if(normalizeCall(header.STATION_CALLSIGN).replace(/_/g,'/')!==normalizeCall(request.callsign).replace(/_/g,'/')) return 'Counterpart callsign does not match requested station.';
           if(canonicalContest(header.CONTEST)!==request.contest) return 'Counterpart contest declaration differs.';
-          if(list.some(q=>!Number.isFinite(q.ts) || new Date(q.ts).getUTCFullYear()!==request.year || q.ts<request.earliestTs || q.ts>request.latestTs || !(request.mode==='MIXED'?['CW','PH'].includes(normalizeArchiveModeToken(q.mode)):normalizeArchiveModeToken(q.mode)===request.mode))) return 'Counterpart dates or modes do not establish the exact edition.';
+          if(list.some(q=>!Number.isFinite(q.ts) || new Date(q.ts).getUTCFullYear()!==request.year || q.ts<request.earliestTs || q.ts>request.latestTs || !((request.mode==='MIXED' || request.mixedEvent && normalizeArchiveModeToken(row.mode)==='MIXED')?['CW','PH'].includes(normalizeArchiveModeToken(q.mode)):normalizeArchiveModeToken(q.mode)===normalizeArchiveModeToken(row.mode)))) return 'Counterpart dates or modes do not establish the exact edition.';
           return null;
         }
       });
@@ -20889,14 +20906,11 @@ function syncEngineCompareLogForSlot(slot) {
           const call=calls[cursor++];
           if(['ready'].includes(model.evidence[call]?.status)) continue;
           if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)) return;
-          const result=await queue.load({callsign:call,entrant:meta.stationCallsign,contest:canonicalContest(meta.contestId),year:years[0],mode:entryMode,earliestTs,latestTs});
+          const result=await queue.load({callsign:call,entrant:meta.stationCallsign,contest:canonicalContest(meta.contestId),year:years[0],mode:entryMode,mixedEvent,...eventContext,earliestTs,latestTs});
           if(getSlotById(id)?.logVersion!==version || integrityModels.get(id)!==model || generation!==(model.generation || 0)) return;
-          if(result.records) result.summary=integrityModules.summarizeCounterpart(result.records,meta.stationCallsign,result.sourceKind);
+          if(result.records) result.summary=integrityModules.summarizeCounterpart(result.records,meta.stationCallsign,result.sourceKind,integrityProvenance(slot));
           model.evidence[call]=result;
-          if(result.records) for(const candidate of model.cases.filter(c=>c.call===call)) {
-            candidate.reciprocal=integrityModules.compareReciprocal(candidate,qsos,result.records,meta.stationCallsign,result.sourceKind);
-            candidate.label=candidate.reciprocal.discrepancies.length?'Conflicting log records':result.summary.independentlyReported<3 && result.summary.withEntrant>=3?'Rapid multiband sequence · limited independent activity':'Rapid multiband sequence';
-          }
+          if(result.records) integrityModules.compareCases(model.cases.filter(c=>c.call===call),qsos,result.records,meta.stationCallsign,result.sourceKind,{contest:meta.contestId,entrantReconstructed:integrityProvenance(slot)});
           if(reports[state.activeIndex]?.id==='log_integrity_review') renderActiveReport();
         }
       }));
@@ -20910,10 +20924,10 @@ function syncEngineCompareLogForSlot(slot) {
     if(!integrityModules) {
       if(integrityLoadError) return `<p class="state-warning">Log integrity review unavailable: ${escapeHtml(integrityLoadError)}. Reload to retry.</p>`;
       if(!integrityLoading) integrityLoading=Promise.all([
-        import('./modules/integrity/model.js?v=6.3.48'),
-        import('./modules/integrity/view.js?v=6.3.48'),
-        import('./modules/integrity/evidence.js?v=6.3.48'),
-        import('./modules/integrity/impact.js?v=6.3.48')
+        import('./modules/integrity/model.js?v=6.3.49'),
+        import('./modules/integrity/view.js?v=6.3.49'),
+        import('./modules/integrity/evidence.js?v=6.3.49'),
+        import('./modules/integrity/impact.js?v=6.3.49')
       ]).then(([model,view,evidence,impact])=>{integrityModules={...model,...view,...evidence,...impact};renderActiveReport();})
         .catch(error=>{integrityLoading=null;integrityLoadError=error.message;renderActiveReport();});
       return '<p>Loading log integrity review…</p>';
@@ -20926,7 +20940,9 @@ function syncEngineCompareLogForSlot(slot) {
         model={version:slot?.logVersion,windowMinutes:5,minBands:3,evidence:{},impacts:{},status:'Full-log review'};
         model.cases=integrityModules.detectSequences(qsos,model);integrityModels.set(id,model);
       }
-      return integrityModules.renderIntegrity(model,qsos,id);
+      const scoreKey=integrityScoreKey(slot);
+      if(model.scoreKey!==scoreKey){const hadImpacts=Object.keys(model.impacts || {}).length>0;model.impacts={};if(model.scoreKey && (hadImpacts || model.calculating)) model.status='Scoring settings changed; recalculate score impact.';model.scoreKey=scoreKey;}
+      return integrityModules.renderIntegrity(model,qsos,id,{fullTimelines:integrityStaticDepth>0});
     });
     return state.compareEnabled?renderComparePanels(entries.map(e=>({...e,snapshot:buildSlotSnapshot(e.slot)})),blocks,'log_integrity_review'):blocks[0] || '<p>Load a log first.</p>';
   }
@@ -20991,6 +21007,7 @@ function syncEngineCompareLogForSlot(slot) {
         if (!keyboardActivation) target.querySelector('summary')?.focus({ preventScroll: true });
       });
     });
+    dom.viewContainer.querySelectorAll('[data-integrity-all]').forEach(button=>button.addEventListener('click',()=>{const model=integrityModels.get(button.dataset.integrityAll);if(model){model.showAllTimelines=true;renderActiveReport();}}));
     dom.viewContainer.querySelectorAll('[data-integrity-impact]').forEach(button=>button.addEventListener('click',()=>calculateIntegrityImpacts(button.dataset.integrityImpact)));
     dom.viewContainer.querySelectorAll('[data-integrity-load]').forEach(button=>button.addEventListener('click',()=>loadIntegrityEvidence(button.dataset.integrityLoad)));
     dom.viewContainer.querySelectorAll('[data-integrity-setting], [data-integrity-filter]').forEach(input=>input.addEventListener('change',()=>{
@@ -21002,7 +21019,8 @@ function syncEngineCompareLogForSlot(slot) {
         model[key]=Math.max(key==='minBands'?2:1,Math.min(key==='minBands'?6:60,Number(input.value) || (key==='minBands'?3:5)));
         model.cases=integrityModules.detectSequences((slot.fullQsoData || slot.qsoData)?.qsos || [],model);
         model.impacts={};model.generation=(model.generation || 0)+1;model.status='Thresholds changed; review refreshed candidates.';
-        for(const candidate of model.cases) {const e=model.evidence[candidate.call];if(e?.records) candidate.reciprocal=integrityModules.compareReciprocal(candidate,(slot.fullQsoData || slot.qsoData)?.qsos || [],e.records,(slot.fullDerived || slot.derived)?.contestMeta?.stationCallsign,e.sourceKind);}
+        for(const call of new Set(model.cases.map(c=>c.call))) {const e=model.evidence[call];if(e?.records) integrityModules.compareCases(model.cases.filter(c=>c.call===call),(slot.fullQsoData || slot.qsoData)?.qsos || [],e.records,(slot.fullDerived || slot.derived)?.contestMeta?.stationCallsign,e.sourceKind,{contest:(slot.fullDerived || slot.derived)?.contestMeta?.contestId,entrantReconstructed:integrityProvenance(slot)});}
+
       }
       renderActiveReport();
     }));

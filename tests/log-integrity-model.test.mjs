@@ -136,3 +136,7 @@ assert.equal(assessCounterpartActivity({status:'unavailable'}).state,'missing');
 assert.equal(assessCounterpartActivity({status:'error'}).state,'unknown');
 assert.equal(assessCounterpartActivity({status:'partial'}).state,'unknown');
 console.log('Counterpart activity: five unique callsigns passes, duplicates do not inflate counts, missing and failed lookup remain distinct: PASS');
+let downloads=0;
+const indexOnly=createEvidenceQueue({lookup:async()=>({rows:[row],partial:false}),fetchText:()=>{downloads++;throw Error('Should not download');},parse:()=>{throw Error('Should not parse');},validate:()=>null});
+const indexed=await indexOnly.load({...request,lookupOnly:true});assert.equal(indexed.status,'indexed');assert.equal(downloads,0);assert.equal(assessCounterpartActivity(indexed).state,'ok');assert.equal(assessCounterpartActivity(indexed).unique,null);
+console.log('Shard-only availability passes without downloading, parsing or claiming unique-call counts: PASS');

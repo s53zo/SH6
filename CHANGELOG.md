@@ -2,6 +2,12 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.53 (2026-11-05)
+
+- Check counterpart availability using shard metadata only. A matching submitted or reconstructed entry passes without downloading or parsing the counterpart log; do not claim verified activity counts from index presence.
+- Preserve exact event/mode matching and distinguish missing entries from failed or ambiguous lookups. Keep independent spot-history downloads and multiplier timing unchanged.
+- Add no-download assertions to model and full-app tests; advance application/cache references to v6.3.53.
+
 ## v6.3.52 (2026-11-05)
 
 - Add a separate counterpart-activity check for all credited multiplier stations, including those outside rapid multiband sequences. Submitted or reconstructed logs with at least five unique worked callsigns pass this check; smaller logs show limited activity and missing matching logs are marked for review.

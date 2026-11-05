@@ -24,7 +24,7 @@ Full-app smoke covers one/four slots, source immutability, hypothetical scoring,
 
 Counterpart source validation checks index contest/year/mode and parsed identity, modes and dates. Ambiguous season/subcontest/detail metadata remains unselected. Parsed contacts outside three days of the entrant's observed date range are rejected; this conservative sanity check does not replace an organizer's event calendar. Mixed entries use the declared Mixed mode and CW/phone contacts, not synthetic reconstruction category declarations. Incomplete archive coverage cannot prove absence. Reciprocal time tolerance and review observation counts are transparent review aids, not statistical probabilities or adjudication.
 
-Local release is v6.3.52. No push is authorized by this goal.
+Local release is v6.3.53. No push is authorized by this goal.
 
 
 ## v6.3.49 review corrections
@@ -59,3 +59,8 @@ Automatic loading starts only for the interactive integrity report, not static e
 ## Counterpart-activity threshold — v6.3.52
 
 Load counterpart evidence checks the union of rapid-sequence counterparts and all credited multiplier stations. A matching submitted or reconstructed log with at least five unique worked callsigns shows OK for this check. The reviewed entrant counts as one if present. Repeated contacts do not inflate the count; portable slash/underscore spellings normalize consistently. Fewer than five shows Limited activity. An exhaustive lookup with no matching log shows Review — counterpart log not found. Failures, partial lookup without a source and ambiguous event matches remain Not checked. This threshold does not certify other checks or prove a missing log represents misconduct.
+
+
+## Shard-only counterpart availability — v6.3.53
+
+The follow-up instruction supersedes the five-unique-callsign download policy: a matching submitted or reconstructed log entry in the shards is sufficient for OK — counterpart log indexed. The interactive integrity check does not download or parse counterpart files and does not claim it verified a unique-callsign count, QSO count or reciprocal exchanges from that entry. Missing matching entries remain marked for review; failures, ambiguity and incomplete negative lookup remain unassessed. Exact contest/year/mode and available event metadata still apply. Cluster/RBN spot downloads remain automatic and independent of this index-only availability check.

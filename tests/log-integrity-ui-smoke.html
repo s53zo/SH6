@@ -47,26 +47,18 @@ try {
 
  }});
  w.fetch=(url,...args)=>String(url).includes('.sqlite')?Promise.resolve(new w.Response(new Uint8Array(0))):oldFetch.call(w,url,...args);
- let counterpart=content.replace('CALLSIGN: S53TEST','CALLSIGN: DL1AA').split('\n').filter(line=>!line.includes('DL2AA')).map(line=>line.startsWith('QSO:')?line.replace('S53TEST 599 15 DL1AA 599 14','DL1AA 599 <b>UNSAFE</b> S53TEST 599 15'):line).join('\n');
- const extra=Array.from({length:201},(_,i)=>{const minute=i+60;return `QSO: 14020 CW 2025-11-29 ${String(Math.floor(minute/60)).padStart(2,'0')}${String(minute%60).padStart(2,'0')} DL1AA 599 14 K${i}AA 599 15`;}).join('\n');
- counterpart=counterpart.replace('END-OF-LOG:',extra+'\nEND-OF-LOG:');
- w.Worker.prototype.postMessage=function(payload,...args){
-  if(payload.type==='archiveText'){queueMicrotask(()=>this.dispatchEvent(new w.MessageEvent('message',{data:{type:'taskResult',key:payload.key,data:{text:counterpart,url:'https://example.org/integrity-counterpart.log'}}})));return;}
-  return oldPost.call(this,payload,...args);
- };
+ let counterpartDownloads=0;
+ w.Worker.prototype.postMessage=function(payload,...args){if(payload.type==='archiveText')counterpartDownloads++;return oldPost.call(this,payload,...args);};
  d.querySelector('[data-integrity-load]').click();
  await wait(()=>d.querySelector('.log-integrity-review')?.textContent.includes('Evidence lookup finished'));
- check('counterpart evidence loads through archive client and report',d.querySelector('.log-integrity-review').textContent.includes('204 observed contacts'));
- check('counterpart activity passes the five-callsign threshold',d.querySelector('.integrity-counterpart-activity').textContent.includes('OK — 202 unique callsigns'));
- check('hostile counterpart exchange remains literal text',d.querySelector('.log-integrity-review').textContent.includes('<b>UNSAFE</b>') && ![...d.querySelectorAll('.log-integrity-review b')].some(el=>el.textContent==='UNSAFE'));
-
- check('large counterpart timeline is bounded on screen',!d.querySelector('.log-integrity-review').textContent.includes('K200AA'));
+ check('matching shard entry passes counterpart availability',d.querySelector('.integrity-counterpart-activity').textContent.includes('OK — counterpart log indexed'));
+ check('counterpart contents are not downloaded',counterpartDownloads===0 && d.querySelector('.integrity-counterpart-activity').textContent.includes('Log content not downloaded'));
  const createUrl=w.URL.createObjectURL;let htmlBlob=null;
  w.URL.createObjectURL=function(blob){if(blob.type.startsWith('text/html'))htmlBlob=blob;return createUrl.call(this,blob);};
  await report('EXPORT PDF, HTML, CBR');d.querySelector('[data-export="html"]').click();await wait(()=>d.getElementById('exportDoIt'));
  d.getElementById('exportSelectNone').click();d.querySelector('[data-report-id="log_integrity_review"]').checked=true;d.getElementById('exportDoIt').click();
  await wait(()=>htmlBlob);const realExport=await htmlBlob.text();
- check('production export retains complete counterpart activity and settings',realExport.includes('K200AA') && realExport.includes('minimum bands: 3') && realExport.includes('&lt;b&gt;UNSAFE&lt;/b&gt;'));
+ check('production export retains shard availability and settings',realExport.includes('OK — counterpart log indexed') && realExport.includes('minimum bands: 3') && realExport.includes('Log content not downloaded'));
  w.URL.createObjectURL=createUrl;await report('Log integrity review');
  w.fetch=oldFetch;w.Worker.prototype.postMessage=oldPost;state.logFile.path=oldPath;
  const before=JSON.stringify(state.fullQsoData.qsos);

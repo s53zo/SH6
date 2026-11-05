@@ -38,6 +38,13 @@ export function createEvidenceQueue({lookup,fetchText,parse,validate,concurrency
         const rows=Array.isArray(result)?result:result.rows;
         const selected=selectCounterpart(rows,request);
         if(selected.status!=='selected') {if(result.partial) {cache.delete(key);resolve({...selected,status:'partial',reason:'Partial shard lookup; counterpart availability is unknown.'});} else resolve(selected);return;}
+        if(request.lookupOnly) {
+          resolve({status:'indexed',indexed:true,path:selected.row.path,
+            sourceKind:/^RECONSTRUCTED_LOGS\//i.test(selected.row.path)?'reconstructed':'submitted',
+            coverage:result.partial?'Matching shard entry found; alias coverage partial':'Matching shard entry found',
+            reason:`Indexed path: ${selected.row.path}. Log content not downloaded.`});
+          return;
+        }
         const downloaded=await fetchText(selected.row.path);
         if(!downloaded || typeof downloaded.text!=='string') throw Error('Counterpart source could not be downloaded.');
         const parsed=parse(downloaded.text,selected.row.path);

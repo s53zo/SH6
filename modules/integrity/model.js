@@ -103,10 +103,11 @@ export function compareCases(cases,qsos,records,entrant,sourceKind,options={}) {
 }
 
 export function assessCounterpartActivity(evidence) {
+ if(evidence?.indexed)return {state:'ok',unique:null,label:'OK — counterpart log indexed'};
  if(evidence?.records && evidence.summary) {
   const unique=evidence.summary.stations;
   return {state:unique>=5?'ok':'limited',unique,label:unique>=5?`OK — ${unique} unique callsigns`:`Limited activity — ${unique} unique callsigns`};
  }
  if(evidence?.status==='unavailable')return {state:'missing',unique:null,label:'Review — counterpart log not found'};
- return {state:'unknown',unique:null,label:evidence?.status==='error'?'Not checked — download failed':evidence?.status==='ambiguous'?'Not checked — ambiguous event':evidence?.status==='partial'?'Not checked — incomplete lookup':'Not checked'};
+ return {state:'unknown',unique:null,label:evidence?.status==='error'?'Not checked — lookup failed':evidence?.status==='ambiguous'?'Not checked — ambiguous event':evidence?.status==='partial'?'Not checked — incomplete lookup':'Not checked'};
 }

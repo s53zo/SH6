@@ -1408,6 +1408,10 @@ body.analysis-mode-dxer .load-tip-badge {
 
 .repo-tree button.repo-leaf {
   margin-left: 42px;
+  width: calc(100% - 42px);
+  max-width: calc(100% - 42px);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .repo-list {

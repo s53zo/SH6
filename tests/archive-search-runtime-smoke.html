@@ -123,6 +123,10 @@
         const fetchCalls = [];
         const applyCalls = [];
         const fakeRows = [
+          { path: 'EU_VHF_CONTESTS/legacy/144MHz/S57Q.log', contest: 'EU_VHF_CONTESTS', year: null, subcontest: null },
+          { path: 'EU_VHF_CONTESTS/ZRS_November_2018/144MHz/S57Q.log', contest: 'EU_VHF_CONTESTS', year: 2018, subcontest: 'ZRS_November_2018', detail: '144MHz' },
+          { path: 'MIXED/2020/plain.log', contest: 'MIXED', year: 2020 },
+          { path: 'MIXED/special/2020/nested.log', contest: 'MIXED', year: 2020, subcontest: 'special' },
           { path: 'ARRL/DX/2024/PH/S53M.log', contest: 'ARRL', year: 2024, mode: 'PH', season: '', subcontest: 'DX' },
           { path: 'RECONSTRUCTED_LOGS/ARRL/arrl_10_meter_contest/2025/S53M.log', contest: 'ARRL', year: 2025, mode: '', season: '' },
           { path: '9A_HRS_Contest/Zimski_KV_Kup/2026/9A5M.log', contest: '9A_HRS_Contest', subcontest: 'Zimski_KV_Kup', year: 2026, mode: 'CW', season: '' },
@@ -199,6 +203,16 @@
             && dom.resultsEl.textContent.includes('reconstructed log'),
           dom.resultsEl.textContent.replace(/\s+/g, ' ').trim()
         );
+        const leaves = Array.from(dom.resultsEl.querySelectorAll('button.repo-leaf'));
+        add('Every mixed metadata row renders exactly one named selectable leaf',
+          leaves.length === fakeRows.length && leaves.every((button) => button.dataset.path && button.textContent.trim())
+            && fakeRows.every((row) => leaves.some((button) => button.dataset.path === row.path)),
+          JSON.stringify(leaves.map((button) => button.dataset.path)));
+        add('Missing years do not render a false year zero',
+          !Array.from(dom.resultsEl.querySelectorAll('summary')).some((node) => node.textContent.trim() === '0'));
+        const zrsLeaf = leaves.find((button) => button.dataset.path === 'EU_VHF_CONTESTS/ZRS_November_2018/144MHz/S57Q.log');
+        add('ZRS November 2018 retains the real filename and band leaf',
+          zrsLeaf?.textContent === 'S57Q.log' && zrsLeaf.parentElement.querySelector(':scope > summary')?.textContent.toUpperCase() === '144MHZ');
         add(
           'Weekly archive contests render by round date instead of season',
           dom.resultsEl.textContent.includes('OK1WC_Memorial')
@@ -300,6 +314,13 @@
             && trackEvents.some((entry) => entry.name === 'archive_log_select' && entry.payload.path === 'CQWW/cw/2025/S53M.log'),
           JSON.stringify({ status: dom.statusEl.textContent, title: dom.statusEl.title, trackEvents })
         );
+
+        zrsLeaf.click();
+        await wait(20);
+        add('ZRS November selection loads the correct S57Q archive path',
+          fetchCalls.at(-1) === 'EU_VHF_CONTESTS/ZRS_November_2018/144MHz/S57Q.log'
+            && applyCalls.at(-1)?.[2] === 'S57Q.log'
+            && applyCalls.at(-1)?.[6] === fetchCalls.at(-1));
 
         const failed = checks.filter((entry) => !entry.ok);
         setResult(failed.length === 0, {

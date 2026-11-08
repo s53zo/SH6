@@ -2,6 +2,13 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.57 (2026-11-08)
+
+- Fix blank, unselectable archive results when entries with and without subcontest metadata share an event. Use a consistent tree structure for every row, including legacy and reconstructed entries.
+- Restore the selectable S57Q ZRS November 2018 log and cover mixed metadata groups with leaf-count, filename, path, and band checks.
+- Prevent missing archive years from becoming a false year `0`, omit rows without a usable path, and keep indented archive buttons within their container with wrapping labels.
+- Bump application/cache references to v6.3.57.
+
 ## v6.3.56 (2026-11-05)
 
 - Add JPG and PNG downloads beside each hourly operating-style timeline, including full UTC hours, legend, station/contest details and analysis settings on a white background.

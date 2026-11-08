@@ -160,8 +160,9 @@ export function createArchiveSearchRuntime(deps = {}) {
   }
 
   function getNumericYear(value) {
+    if (value == null || String(value).trim() === '') return -1;
     const year = Number(value);
-    return Number.isFinite(year) ? year : -1;
+    return Number.isInteger(year) && year >= 1900 && year <= 2099 ? year : -1;
   }
 
   function sortResults(rows) {
@@ -195,7 +196,7 @@ export function createArchiveSearchRuntime(deps = {}) {
   }
 
   function buildResultsTreeMarkup(rows) {
-    const archiveRows = sortResults(rows);
+    const archiveRows = sortResults(rows).filter((row) => normalizeLabel(row?.path) && getArchiveLeafName(row.path));
     if (!archiveRows.length) {
       return {
         html: '',
@@ -205,8 +206,8 @@ export function createArchiveSearchRuntime(deps = {}) {
 
     const tree = new Map();
     const makeLeafButton = (row) => {
-      const path = String(row?.path || '');
-      const label = path.split('/').pop();
+      const path = normalizeLabel(row?.path);
+      const label = getArchiveLeafName(path);
       const isReconstructed = path.startsWith('RECONSTRUCTED_LOGS/');
       const suffix = isReconstructed ? ' (reconstructed log)' : '';
       return `<button type="button" class="repo-leaf" data-path="${escapeAttrSafe(path)}">${escapeHtmlSafe((label || '') + suffix)}</button>`;
@@ -216,67 +217,42 @@ export function createArchiveSearchRuntime(deps = {}) {
       const contest = normalizeLabel(row?.contest);
       const year = getNumericYear(row?.year) >= 0 ? String(getNumericYear(row?.year)) : '';
       const subcontest = normalizeArchiveSubcontest(row);
-      const hasSubcontest = Boolean(subcontest);
-      if (hasSubcontest) {
-        if (!tree.has(contest)) tree.set(contest, new Map());
-        const subMap = tree.get(contest);
-        if (!subMap.has(subcontest)) subMap.set(subcontest, new Map());
-        const yearMap = subMap.get(subcontest);
-        if (!yearMap.has(year)) yearMap.set(year, new Map());
-        const detailMap = yearMap.get(year);
-        const detail = formatArchiveSubcontestDetail(row);
-        if (!detailMap.has(detail)) detailMap.set(detail, []);
-        detailMap.get(detail).push(row);
-        return;
-      }
-      const subKey = formatArchiveSubKey(row);
+      // Every event uses the same subcontest -> year -> detail -> rows shape.
+      // The empty subcontest key groups legacy rows without adding a heading.
       if (!tree.has(contest)) tree.set(contest, new Map());
-      const yearMap = tree.get(contest);
+      const subMap = tree.get(contest);
+      if (!subMap.has(subcontest)) subMap.set(subcontest, new Map());
+      const yearMap = subMap.get(subcontest);
       if (!yearMap.has(year)) yearMap.set(year, new Map());
-      const modeMap = yearMap.get(year);
-      if (!modeMap.has(subKey)) modeMap.set(subKey, []);
-      modeMap.get(subKey).push(row);
+      const detailMap = yearMap.get(year);
+      const detail = subcontest ? formatArchiveSubcontestDetail(row) : formatArchiveSubKey(row);
+      if (!detailMap.has(detail)) detailMap.set(detail, []);
+      detailMap.get(detail).push(row);
     });
 
     const chunks = ['<div class="repo-tree">'];
     tree.forEach((yearMap, contest) => {
       const hasContest = Boolean(contest);
       if (hasContest) chunks.push(`<details class="repo-contest"><summary>${escapeHtmlSafe(contest)}</summary>`);
-      const firstValue = yearMap instanceof Map ? yearMap.values().next().value : null;
-      const hasSubcontest = firstValue instanceof Map && Array.from(firstValue.values()).some((value) => value instanceof Map);
-      if (hasSubcontest) {
-        yearMap.forEach((yearModeMap, subcontest) => {
-          chunks.push(`<details class="repo-subcat"><summary>${escapeHtmlSafe(subcontest)}</summary>`);
-          const years = Array.from(yearModeMap.keys()).sort((a, b) => Number(b) - Number(a));
-          years.forEach((year) => {
-            const modeMap = yearModeMap.get(year) || new Map();
-            const hasYear = Boolean(year);
-            if (hasYear) chunks.push(`<details class="repo-year"><summary>${escapeHtmlSafe(year)}</summary>`);
-            const modes = Array.from(modeMap.keys()).sort(compareArchiveModes);
-            modes.forEach((mode) => {
-              const modeRows = modeMap.get(mode) || [];
-              const hasMode = Boolean(mode);
-              if (hasMode) chunks.push(`<details class="repo-subcat"><summary>${escapeHtmlSafe(mode)}</summary>`);
-              modeRows.forEach((row) => chunks.push(makeLeafButton(row)));
-              if (hasMode) chunks.push('</details>');
-            });
-            if (hasYear) chunks.push('</details>');
-          });
-          chunks.push('</details>');
-        });
-      } else {
-        yearMap.forEach((modeMap, year) => {
+      yearMap.forEach((yearModeMap, subcontest) => {
+        if (subcontest) chunks.push(`<details class="repo-subcat"><summary>${escapeHtmlSafe(subcontest)}</summary>`);
+        const years = Array.from(yearModeMap.keys()).sort((a, b) => Number(b) - Number(a));
+        years.forEach((year) => {
+          const modeMap = yearModeMap.get(year) || new Map();
           const hasYear = Boolean(year);
           if (hasYear) chunks.push(`<details class="repo-year"><summary>${escapeHtmlSafe(year)}</summary>`);
-          modeMap.forEach((modeRows, subKey) => {
-            const hasSub = Boolean(subKey);
-            if (hasSub) chunks.push(`<details class="repo-subcat"><summary>${escapeHtmlSafe(subKey)}</summary>`);
+          const modes = Array.from(modeMap.keys()).sort(compareArchiveModes);
+          modes.forEach((mode) => {
+            const modeRows = modeMap.get(mode) || [];
+            const hasMode = Boolean(mode);
+            if (hasMode) chunks.push(`<details class="repo-subcat"><summary>${escapeHtmlSafe(mode)}</summary>`);
             modeRows.forEach((row) => chunks.push(makeLeafButton(row)));
-            if (hasSub) chunks.push('</details>');
+            if (hasMode) chunks.push('</details>');
           });
           if (hasYear) chunks.push('</details>');
         });
-      }
+        if (subcontest) chunks.push('</details>');
+      });
       if (hasContest) chunks.push('</details>');
     });
     chunks.push('</div>');

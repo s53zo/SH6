@@ -2,6 +2,11 @@
 
 Milestone-style history for SH6, based on reviewing diffs between version bump commits.
 
+## v6.3.58 (2026-11-10)
+
+- Show hourly QSO totals on operating-style timeline buttons, such as “150 QSO”, using the existing Qs by hour data. Keep hourly log navigation and widen the buttons and aligned ruler spacing.
+- Bump application/cache references to v6.3.58.
+
 ## v6.3.57 (2026-11-08)
 
 - Fix blank, unselectable archive results when entries with and without subcontest metadata share an event. Use a consistent tree structure for every row, including legacy and reconstructed entries.

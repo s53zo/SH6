@@ -1,4 +1,4 @@
-import './modules/compare/compare-core.js?v=6.3.57';
+import './modules/compare/compare-core.js?v=6.3.58';
 
 function getCompareCore() {
   const core = globalThis.SH6CompareCore;

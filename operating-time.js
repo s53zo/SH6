@@ -191,7 +191,7 @@
       <p>Each station minute belongs to one category. “+” means styles assigned within the same minute, not necessarily simultaneous transmission. S&amp;P only includes INBAND, off-band or both without RUN assigned in that minute. Unknown evidence makes a minute uncertain. Rates count all contacts in the corresponding category’s minutes, including duplicates; these are not total per-style QSO counts. QTCs are unclassified and interrupt station inactivity. Records without time excluded: ${model.missingTime}.</p>
       ${model.operatorKind==='single'?'<p>2BSIQ: one operator synchronizes exchanges on two RUN bands, transmitting one signal at a time. <a href="https://www.qsl.net/ct1boh/2bsiq/" target="_blank" rel="noopener">CT1BOH explanation</a>.</p>':'<p>Dual RUN indicates concurrent RUN activity on different bands, not a single-operator technique.</p>'}`}`;
   }
-  function render(model,{compact=false,slot='A',showNotes=true}={}) {
+  function render(model,{compact=false,slot='A',showNotes=true,hourSeries=[]}={}) {
     if(!model.available) return `<p>${esc(model.reason || 'No timed activity available for time analysis.')}</p>`;
     const withSubset=(rows,subset)=>rows.flatMap(r=>r.role==='RUN'?[r,subset]:[r]);
     const summary=table(['Estimated elapsed-time category','Minutes','Time %',...(compact?[]:['QSOs in these minutes','QSOs/hour'])],withSubset(model.rows,model.dualRow).map(r=>[esc(r.subset?'↳ '+r.label:r.label),num(r.minutes),num(r.pct)+'%',...(compact?[]:[num(r.qsos),r.rate==null?'—':num(r.rate)])]));
@@ -200,13 +200,15 @@
     if(compact) return `<section class="operating-time-summary"><h3>Operating-style time</h3><p>Each station minute is counted once; “+” means styles assigned within that minute.</p>${summary}${missingNotice}${note}</section>`;
     const chartLabels={RUN:'RUN only (other)',DUAL:model.dualRow.label,...Object.fromEntries(Object.entries(LABELS).filter(([k])=>k!=='RUN'))};
     const blockLabels={RUN:'RUN only',DUAL:model.operatorKind==='single'?'2BSIQ':'Dual RUN',RUN_INBAND:'RUN + INBAND',RUN_SEARCH:'RUN + off-band',RUN_BOTH:'RUN + both S&P',SP:'S&P only',UNKNOWN:'Uncertain',BREAK:'Inactive'};
+    const hourlyQsos=new Map(hourSeries.map(h=>[h.hour,h.qsos]));
     const bars=model.hours.map(h=>{
+      const qsoCount=hourlyQsos.get(h.minute/60) || 0;
       const ranges=h.timeline.map(r=>{
         const from=utc((h.minute+r.offset)*MINUTE),to=utc((h.minute+r.offset+r.minutes)*MINUTE);
         const label=`${chartLabels[r.role]}: ${from} to ${to} (exclusive), ${r.minutes} min`;
         return `<span class="operating-time-block operating-time-${r.role.toLowerCase()}" style="left:${r.offset/60*100}%;width:${r.minutes/60*100}%" title="${esc(label)}"><span class="operating-time-block-label">${esc(blockLabels[r.role])}</span></span>`;
       }).join('');
-      return `<div class="operating-time-hour"><span>${esc(utc(h.minute*MINUTE))}</span><div class="operating-time-stack" role="img" aria-label="${esc(utc(h.minute*MINUTE)+': '+h.timeline.map(r=>`${chartLabels[r.role]} minute ${r.offset}–${r.offset+r.minutes}`).join(', '))}">${ranges}<span class="operating-time-minute-grid" aria-hidden="true"></span></div><button type="button" class="operating-time-drill no-print" data-slot="${esc(slot)}" data-start="${h.minute*MINUTE}" data-end="${(h.minute+60)*MINUTE}" aria-label="Show QSOs for ${esc(utc(h.minute*MINUTE))}">QSOs</button></div>`;
+      return `<div class="operating-time-hour"><span>${esc(utc(h.minute*MINUTE))}</span><div class="operating-time-stack" role="img" aria-label="${esc(utc(h.minute*MINUTE)+': '+h.timeline.map(r=>`${chartLabels[r.role]} minute ${r.offset}–${r.offset+r.minutes}`).join(', '))}">${ranges}<span class="operating-time-minute-grid" aria-hidden="true"></span></div><button type="button" class="operating-time-drill no-print" data-slot="${esc(slot)}" data-start="${h.minute*MINUTE}" data-end="${(h.minute+60)*MINUTE}" aria-label="Show ${qsoCount} QSOs for ${esc(utc(h.minute*MINUTE))}">${qsoCount} QSO</button></div>`;
     }).join('');
     const bandRows=model.bands.flatMap(b=>withSubset(b.rows,b.dualRow).filter(r=>r.minutes).map(r=>[esc(b.band),esc(r.subset?'↳ '+r.label:r.label),num(r.minutes),num(r.pct)+'%',num(r.qsos),r.rate==null?'—':num(r.rate)]));
     return `<section class="operating-time-summary"><h3>Operating-style time</h3><p>Each station minute is counted once. “+” means activity within the same minute, not necessarily simultaneous transmission. QSO columns count contacts in these minutes, not total contacts by style.</p>${summary}${missingNotice}

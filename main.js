@@ -17113,7 +17113,7 @@ function syncEngineCompareLogForSlot(slot) {
       ${options.showControls === false ? '' : window.SH6OperatingTime.controls(state.operatingTimeGap)}
       <p class="no-print"><button type="button" class="operating-time-csv" data-slot="${escapeAttr(options.slot || 'A')}">Export time and dual RUN CSV</button></p>
       <section class="operating-style-band-classifications"><h3>QSO classifications by band (inferred)</h3>${renderOperatingStyleTable(operatingStyle)}</section>
-      ${window.SH6OperatingTime.render(timeModel, { slot: options.slot || 'A', showNotes: false })}
+      ${window.SH6OperatingTime.render(timeModel, { slot: options.slot || 'A', showNotes: false, hourSeries: derived.hourSeries || [] })}
       <details class="operating-analysis-details"><summary>Analysis details</summary>
       <div class="export-actions export-note"><b>Heuristic</b>: ${escapeHtml(heuristicText)}</div>
       <div class="export-actions export-note"><b>Anchors</b>: ${escapeHtml(anchorText)}</div>
